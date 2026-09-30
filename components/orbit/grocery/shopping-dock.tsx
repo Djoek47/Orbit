@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text, AppTextInput } from '@/components/orbit/app-text';
 import { typography } from '@/constants/orbit-theme';
@@ -25,8 +26,27 @@ export function ShoppingDock({
   onChangeText,
   onAdd,
 }: Props) {
+  // The dock floats, so it has to ride the keyboard itself.
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, (event) => {
+      setKeyboard(event.endCoordinates?.height ?? 0);
+    });
+    const onHide = Keyboard.addListener(hideEvent, () => setKeyboard(0));
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+  }, []);
+
+  const lift = keyboard > 0 ? keyboard - bottomInset + 10 : 0;
+
   return (
-    <View style={[styles.wrap, { bottom: Math.max(bottomInset, 12) + 8 }]} pointerEvents="box-none">
+    <View
+      style={[styles.wrap, { bottom: Math.max(bottomInset, 12) + 8 + Math.max(0, lift) }]}
+      pointerEvents="box-none">
       {guessLabel ? (
         <View
           style={[
@@ -53,6 +73,7 @@ export function ShoppingDock({
           placeholder="Add an item"
           placeholderTextColor={palette.inkFaint}
           returnKeyType="done"
+          blurOnSubmit={false}
           onSubmitEditing={onAdd}
           editable={!busy}
           style={[styles.input, { color: palette.ink }]}

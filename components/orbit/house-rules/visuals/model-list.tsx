@@ -1,22 +1,38 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import type { VisualWidgetProps } from '@/components/orbit/house-rules/visuals/types';
 
-/** Five rows from constants.rewardModels; household active model highlighted. Sidekick: empty. */
-export function ModelList({ constants, palette, voice, activeRewardModel }: VisualWidgetProps) {
+/**
+ * Five rows from constants.rewardModels, the household's own highlighted. An admin taps a
+ * row to switch — it's the rule and the control in one. Sidekick: empty.
+ */
+export function ModelList({
+  constants,
+  palette,
+  voice,
+  activeRewardModel,
+  onSelectRewardModel,
+}: VisualWidgetProps) {
   if (voice === 'sidekick') return null;
+  const canPick = Boolean(onSelectRewardModel);
   return (
-    <View style={styles.wrap} accessible={false} importantForAccessibility="no-hide-descendants">
+    <View style={styles.wrap} accessible={canPick} importantForAccessibility={canPick ? 'yes' : 'no-hide-descendants'}>
       {constants.rewardModels.map((model) => {
         const on = model.key === activeRewardModel;
         return (
-          <View
+          <Pressable
             key={model.key}
-            style={[
+            disabled={!canPick}
+            onPress={() => onSelectRewardModel?.(model.key)}
+            accessibilityRole={canPick ? 'radio' : undefined}
+            accessibilityState={canPick ? { selected: on } : undefined}
+            accessibilityLabel={canPick ? `${model.label}${on ? ', current' : ''}` : undefined}
+            style={({ pressed }) => [
               styles.row,
               {
                 backgroundColor: on ? palette.warn : palette.deep,
+                opacity: pressed ? 0.8 : 1,
               },
             ]}>
             <Text
@@ -26,7 +42,7 @@ export function ModelList({ constants, palette, voice, activeRewardModel }: Visu
               ]}>
               {model.label}
             </Text>
-          </View>
+          </Pressable>
         );
       })}
     </View>

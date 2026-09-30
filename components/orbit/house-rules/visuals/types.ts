@@ -12,4 +12,6 @@ export type VisualWidgetProps = {
   activeRewardModel?: string;
   dailyDeadline?: string;
   use24h?: boolean;
+  /** Admins can change the reward model straight from the rule (ModelList). */
+  onSelectRewardModel?: (key: string) => void;
 };

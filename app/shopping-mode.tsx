@@ -26,6 +26,7 @@ import {
   type ShoppingListItem,
 } from '@/lib/grocery/shopping-palette';
 import {
+  shoppingBannerAvailable,
   startShoppingBanner,
   stopShoppingBanner,
   updateShoppingBanner,
@@ -176,19 +177,23 @@ export default function ShoppingModeScreen() {
     }
   }, [addMissingGrocery, canAddGroceryWishlist, draft, reduceMotion]);
 
-  // The Lock Screen / Dynamic Island banner follows the run, and ends with it.
+  // The Lock Screen / Dynamic Island banner: the same list, in the same order, that stays
+  // put when you leave the app so it's there at the store. It ends when the run does, or
+  // when you tap End run.
   const nextAisle = aisles.find((aisle) => aisle.items.some((item) => !item.done))?.categoryName;
-  const bannerRun = useMemo(
-    () => ({ done: progress.done, total: progress.total, nextAisle, runLabel }),
-    [progress.done, progress.total, nextAisle, runLabel]
+  const remaining = useMemo(
+    () => aisles.flatMap((aisle) => aisle.items.filter((item) => !item.done).map((item) => item.name)),
+    [aisles]
   );
-  const bannerRef = useRef(bannerRun);
+  const bannerRun = useMemo(
+    () => ({ done: progress.done, total: progress.total, nextAisle, runLabel, remaining }),
+    [progress.done, progress.total, nextAisle, runLabel, remaining]
+  );
   const started = useRef(false);
 
   useEffect(() => {
-    bannerRef.current = bannerRun;
+    if (bannerRun.total === 0) return;
     if (!started.current) {
-      if (bannerRun.total === 0) return;
       started.current = true;
       startShoppingBanner(bannerRun, palette.accent);
       return;
@@ -196,12 +201,19 @@ export default function ShoppingModeScreen() {
     updateShoppingBanner(bannerRun);
   }, [bannerRun, palette.accent]);
 
-  useEffect(
-    () => () => {
-      stopShoppingBanner(bannerRef.current);
-    },
-    []
-  );
+  // Everything picked up: the banner has done its job.
+  useEffect(() => {
+    if (started.current && progress.total > 0 && progress.done >= progress.total) {
+      stopShoppingBanner(bannerRun);
+      started.current = false;
+    }
+  }, [bannerRun, progress.done, progress.total]);
+
+  const endRun = useCallback(() => {
+    stopShoppingBanner(bannerRun);
+    started.current = false;
+    router.back();
+  }, [bannerRun]);
 
   const dockBottom = Math.max(insets.bottom, 12) + 8;
   const toastBottom = dockBottom + 72;
@@ -244,6 +256,8 @@ export default function ShoppingModeScreen() {
           total={progress.total}
           ratio={progress.ratio}
           onBack={() => router.back()}
+          onEndRun={endRun}
+          bannerOn={shoppingBannerAvailable() && progress.total > 0}
         />
 
         <ScrollView

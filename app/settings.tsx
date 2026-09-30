@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack, useFocusEffect } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Image, Linking, Modal, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -116,6 +116,19 @@ import {
 } from '@/lib/ai/credits';
 import { personalActTokens, summarizeActUsage } from '@/lib/ai/act-events';
 
+const SECTIONS = [
+  'main',
+  'you',
+  'members',
+  'house',
+  'rewards',
+  'sidekick-perms',
+  'notifications',
+  'places',
+  'poppins',
+  'premium',
+] as const;
+
 type Section =
   | 'main'
   | 'you'
@@ -189,7 +202,19 @@ export default function SettingsScreen() {
     [household.hygieneRewarded, household.hygieneXp, household.rewardMode]
   );
 
-  const [section, setSection] = useState<Section>('main');
+  // House rules (and anything else) can open a section directly: /settings?section=rewards
+  const params = useLocalSearchParams<{ section?: string }>();
+  const requestedSection = SECTIONS.includes(params.section as Section)
+    ? (params.section as Section)
+    : null;
+  const [section, setSection] = useState<Section>(requestedSection ?? 'main');
+  const lastRequested = useRef<string | null>(requestedSection);
+
+  useEffect(() => {
+    if (!requestedSection || requestedSection === lastRequested.current) return;
+    lastRequested.current = requestedSection;
+    setSection(requestedSection);
+  }, [requestedSection]);
   const groceryMergedRef = useRef(false);
 
   useEffect(() => {

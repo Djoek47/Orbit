@@ -9,6 +9,7 @@ import {
   DEFAULT_REWARD_MODEL,
   type RewardModel,
 } from '@/lib/rewards/reward-model';
+import { REWARD_MODE_COPY } from '@/lib/rewards/reward-mode';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -174,10 +175,10 @@ export function RewardsXpPanel({
               ]}>
               <BarSketch mode={mode} accent={accent} />
               <Text style={[styles.scoreTitle, { color: c.text }]}>
-                {mode === 'weighted' ? 'By effort' : 'The same'}
+                {REWARD_MODE_COPY[mode].label}
               </Text>
               <Text style={[styles.scoreSub, { color: c.textMuted }]}>
-                {mode === 'weighted' ? 'The bins beat a made bed' : 'Every chore is one'}
+                {REWARD_MODE_COPY[mode].blurb}
               </Text>
             </Pressable>
           );

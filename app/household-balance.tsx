@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +11,7 @@ import {
 } from '@/lib/home-health-metrics';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
+import { CompletionBreakdown } from '@/components/orbit/completion/completion-breakdown';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -18,6 +19,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 export default function HouseholdBalanceScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, household, metrics, currentMember, permissions, orbitPalette } = useOrbit();
+  const [view, setView] = useState<'completion' | 'house'>('completion');
   const sorted = useMemo(
     () => [...household.members].sort((a, b) => b.loadShare - a.loadShare),
     [household.members],
@@ -98,6 +100,40 @@ export default function HouseholdBalanceScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* Tabs: the same breakdown as Completed tasks, then the house's own numbers. */}
+      <View style={[styles.tabs, { backgroundColor: `${accentTheme.primary}14` }]}>
+        {(
+          [
+            { id: 'completion' as const, label: 'Completion' },
+            { id: 'house' as const, label: sharedKidMode ? 'Me' : 'The house' },
+          ] as const
+        ).map((tab) => {
+          const on = view === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => setView(tab.id)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              style={[
+                styles.tab,
+                on && { backgroundColor: `${accentTheme.primary}2E` },
+              ]}>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: on ? accentTheme.primary : orbitPalette.textMuted },
+                ]}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {view === 'completion' ? (
+        <CompletionBreakdown bottomInset={insets.bottom} />
+      ) : (
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}>
@@ -158,12 +194,23 @@ export default function HouseholdBalanceScreen() {
           </>
         ) : null}
       </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  tabs: {
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 4,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 4,
+  },
+  tab: { alignItems: 'center', borderRadius: 999, flex: 1, paddingVertical: 9 },
+  tabLabel: { fontSize: 14, fontWeight: '700' },
   handle: {
     alignSelf: 'center',
     width: 40,

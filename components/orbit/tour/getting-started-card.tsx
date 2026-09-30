@@ -85,12 +85,6 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
         onPress: () => router.push('/assign-task' as never),
       },
       {
-        id: 'assign_homework',
-        label: 'Assign homework',
-        done: homeworkDone,
-        onPress: () => router.push('/assign-homework' as never),
-      },
-      {
         id: 'add_grocery',
         label: 'Add a grocery',
         done: groceryDone,
@@ -125,6 +119,13 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
         label: 'Add a Sidekick',
         done: hasChildBeyondOwner,
         onPress: () => router.push('/settings' as never),
+      },
+      // Homework is a Sidekick's, so it only makes sense once there is one to give it to.
+      {
+        id: 'assign_homework',
+        label: 'Assign homework',
+        done: homeworkDone,
+        onPress: () => router.push('/assign-homework' as never),
       },
       {
         id: 'setup_device',

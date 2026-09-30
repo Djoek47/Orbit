@@ -1,7 +1,11 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -16,6 +20,9 @@ import {
   REWARD_PRESETS,
   type RewardFrequency,
 } from '@/lib/rewards/reward-presets';
+import { MemberGlyph } from '@/components/orbit/member-glyph';
+import { Moji } from '@/components/orbit/moji/moji';
+import { rewardLook } from '@/lib/rewards/reward-look';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -187,6 +194,9 @@ export default function CreateRewardScreen() {
     ]);
   };
 
+  const look = rewardLook({ presetId, title });
+  const assignedName = assignableMembers.find((m) => m.id === assignMemberId)?.name;
+
   const frequencies = (Object.keys(REWARD_FREQUENCY_LABELS) as RewardFrequency[]).map((key) => ({
     key,
     label: REWARD_FREQUENCY_LABELS[key],
@@ -204,36 +214,78 @@ export default function CreateRewardScreen() {
         <Text style={[typography.title1, { color: c.text }]}>
           {isEditing ? 'Edit reward' : 'Mint a reward'}
         </Text>
-        <Text style={[typography.body, { color: c.textSoft }]}>
-          {isEditing
-            ? 'Update this catalogue reward, or remove it.'
-            : 'Add a catalogue reward with a frequency. Rewards are granted for finishing chores.'}
-        </Text>
       </View>
+
+      {/* The reward as it will look on the shelf — it fills in as you choose. */}
+      <Animated.View entering={FadeInDown.springify().damping(18)}>
+        <LinearGradient
+          colors={[`${look.color}3D`, `${look.color}0F`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.preview, { borderColor: `${look.color}55` }]}>
+          <View style={[styles.previewMoji, { backgroundColor: `${look.color}26` }]}>
+            <Moji name={look.moji} size={40} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={[styles.previewTitle, { color: c.text }]} numberOfLines={2}>
+              {title.trim() || 'Your reward'}
+            </Text>
+            <Text style={[styles.previewMeta, { color: look.color }]}>
+              {REWARD_FREQUENCY_LABELS[frequency]}
+              {quantity ? ` · ${quantity}` : ''}
+              {assignedName ? ` · ${assignedName}` : ' · Everyone'}
+            </Text>
+            {notes.trim() ? (
+              <Text style={[styles.previewNote, { color: c.textMuted }]} numberOfLines={2}>
+                {notes.trim()}
+              </Text>
+            ) : null}
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
       <GlassCard style={styles.card}>
         {!isEditing ? (
           <>
-            <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Presets</Text>
-            <View style={styles.chipRow}>
-              {REWARD_PRESETS.map((preset) => {
+            <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Start from one of these</Text>
+            <View style={styles.tiles}>
+              {REWARD_PRESETS.map((preset, index) => {
                 const active = presetId === preset.id;
+                const tone = rewardLook({ presetId: preset.id, title: preset.title });
                 return (
-                  <Pressable
+                  <Animated.View
                     key={preset.id}
-                    onPress={() => selectPreset(preset.id)}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? `${accentTheme.primary}33` : glass(0.06),
-                        borderColor: active ? `${accentTheme.primary}88` : glassBorder(0.12),
-                      },
-                    ]}>
-                    <Text
-                      style={[styles.chipText, { color: active ? accentTheme.primary : c.textSoft }]}>
-                      {preset.title}
-                    </Text>
-                  </Pressable>
+                    entering={FadeInDown.delay(40 + index * 30).springify().damping(18)}
+                    style={styles.tileWrap}>
+                    <Pressable
+                      onPress={() => selectPreset(preset.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`${preset.title}, ${REWARD_FREQUENCY_LABELS[preset.defaultFrequency]}`}
+                      style={({ pressed }) => [
+                        styles.tile,
+                        {
+                          backgroundColor: active ? `${tone.color}2E` : glass(0.05),
+                          borderColor: active ? `${tone.color}99` : glassBorder(0.1),
+                          transform: [{ scale: pressed ? 0.97 : 1 }],
+                        },
+                      ]}>
+                      <View style={[styles.tileMoji, { backgroundColor: `${tone.color}22` }]}>
+                        <Moji name={tone.moji} size={26} />
+                      </View>
+                      <Text style={[styles.tileTitle, { color: c.text }]} numberOfLines={2}>
+                        {preset.title}
+                      </Text>
+                      <Text style={[styles.tileMeta, { color: tone.color }]}>
+                        {REWARD_FREQUENCY_LABELS[preset.defaultFrequency]}
+                      </Text>
+                      {active ? (
+                        <View style={[styles.tileTick, { backgroundColor: tone.color }]}>
+                          <MaterialIcons name="check" size={13} color="#041018" />
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  </Animated.View>
                 );
               })}
             </View>
@@ -250,7 +302,7 @@ export default function CreateRewardScreen() {
           placeholder="Additional screen time"
         />
 
-        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>Frequency</Text>
+        <Text style={[styles.fieldLabel, { color: c.textMuted }]}>How often it can be claimed</Text>
         <View style={styles.chipRow}>
           {frequencies.map((item) => {
             const active = frequency === item.key;
@@ -258,15 +310,21 @@ export default function CreateRewardScreen() {
               <Pressable
                 key={item.key}
                 onPress={() => setFrequency(item.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 style={[
-                  styles.chip,
+                  styles.bigChip,
                   {
-                    backgroundColor: active ? `${accentTheme.primary}33` : glass(0.06),
-                    borderColor: active ? `${accentTheme.primary}88` : glassBorder(0.12),
+                    backgroundColor: active ? `${look.color}2E` : glass(0.05),
+                    borderColor: active ? `${look.color}88` : glassBorder(0.1),
                   },
                 ]}>
-                <Text
-                  style={[styles.chipText, { color: active ? accentTheme.primary : c.textSoft }]}>
+                <MaterialIcons
+                  name={item.key === 'daily' ? 'wb-sunny' : item.key === 'weekly' ? 'date-range' : 'event'}
+                  size={16}
+                  color={active ? look.color : c.textMuted}
+                />
+                <Text style={[styles.bigChipText, { color: active ? look.color : c.textSoft }]}>
                   {item.label}
                 </Text>
               </Pressable>
@@ -317,18 +375,17 @@ export default function CreateRewardScreen() {
         <View style={styles.chipRow}>
           <Pressable
             onPress={() => setAssignMemberId(null)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !assignMemberId }}
             style={[
-              styles.chip,
+              styles.bigChip,
               {
-                backgroundColor: !assignMemberId ? `${accentTheme.primary}33` : glass(0.06),
-                borderColor: !assignMemberId ? `${accentTheme.primary}88` : glassBorder(0.12),
+                backgroundColor: !assignMemberId ? `${look.color}2E` : glass(0.05),
+                borderColor: !assignMemberId ? `${look.color}88` : glassBorder(0.1),
               },
             ]}>
-            <Text
-              style={[
-                styles.chipText,
-                { color: !assignMemberId ? accentTheme.primary : c.textSoft },
-              ]}>
+            <Moji name="home" size={17} />
+            <Text style={[styles.bigChipText, { color: !assignMemberId ? look.color : c.textSoft }]}>
               Everyone
             </Text>
           </Pressable>
@@ -338,18 +395,17 @@ export default function CreateRewardScreen() {
               <Pressable
                 key={member.id}
                 onPress={() => setAssignMemberId(member.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 style={[
-                  styles.chip,
+                  styles.bigChip,
                   {
-                    backgroundColor: active ? `${accentTheme.primary}33` : glass(0.06),
-                    borderColor: active ? `${accentTheme.primary}88` : glassBorder(0.12),
+                    backgroundColor: active ? `${look.color}2E` : glass(0.05),
+                    borderColor: active ? `${look.color}88` : glassBorder(0.1),
                   },
                 ]}>
-                <Text
-                  style={[
-                    styles.chipText,
-                    { color: active ? accentTheme.primary : c.textSoft },
-                  ]}>
+                <MemberGlyph member={member} size={18} />
+                <Text style={[styles.bigChipText, { color: active ? look.color : c.textSoft }]}>
                   {member.name}
                 </Text>
               </Pressable>
@@ -381,6 +437,51 @@ export default function CreateRewardScreen() {
 
 const styles = StyleSheet.create({
   card: { gap: space.md },
+  preview: {
+    alignItems: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: space.md,
+    padding: 16,
+  },
+  previewMoji: { width: 66, height: 66, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  previewTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
+  previewMeta: { fontSize: 13, fontWeight: '800' },
+  previewNote: { fontSize: 12.5, lineHeight: 17 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  tileWrap: { width: '48%' },
+  tile: {
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 6,
+    minHeight: 116,
+    padding: 12,
+  },
+  tileMoji: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  tileTitle: { fontSize: 14.5, fontWeight: '700', letterSpacing: -0.2 },
+  tileMeta: { fontSize: 11.5, fontWeight: '800' },
+  tileTick: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bigChip: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 46,
+    paddingHorizontal: 14,
+  },
+  bigChipText: { fontSize: 14, fontWeight: '700' },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',

@@ -27,18 +27,20 @@ import { formatHouseRulesTime, interpolateHouseRulesCopy } from '@/lib/rules/int
 import type { ChapterKey } from '@/lib/rules/types';
 import { visibleRules } from '@/lib/rules/visible-rules';
 import { hasAllowanceModel, normalizeRewardModel } from '@/lib/rules/visibility';
+import type { RewardModel } from '@/lib/rewards/reward-model';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
+/** Where Change goes. Settings links carry the section so it opens on the right panel. */
 const SETTING_ROUTES: Partial<Record<string, string>> = {
   recess: '/recess',
-  rewardModel: '/settings',
-  rewardFrequency: '/(tabs)/rewards',
-  rewardApproval: '/(tabs)/rewards',
+  rewardModel: '/settings?section=rewards',
+  rewardFrequency: '/settings?section=rewards',
+  rewardApproval: '/settings?section=rewards',
   allowanceSchedule: '/create-allowance',
-  choreProof: '/settings',
+  choreProof: '/settings?section=sidekick-perms',
   homeworkProofPerSidekick: '/household-members',
   taskFrequency: '/assign-task',
   invites: '/household-members',
@@ -48,8 +50,14 @@ export default function HouseRulesScreen() {
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   const accent = c.primary;
   const params = useLocalSearchParams<{ chapter?: string; voice?: string }>();
-  const { household, currentMember, permissions, queueDailyDeadline, setAllowanceRequestsEnabled } =
-    useOrbit();
+  const {
+    household,
+    currentMember,
+    permissions,
+    queueDailyDeadline,
+    setAllowanceRequestsEnabled,
+    updateHouseholdRewardModel,
+  } = useOrbit();
   const live = usePoppinsLive();
   const majordomoName = useMajordomoName();
   const doc = useMemo(() => getHouseRulesDoc(), []);
@@ -131,6 +139,9 @@ export default function HouseRulesScreen() {
       activeRewardModel: model,
       dailyDeadline: deadlineHm,
       use24h: view.use24h,
+      onSelectRewardModel: canEdit
+        ? (key: string) => updateHouseholdRewardModel(key as RewardModel)
+        : undefined,
     };
 
     return (

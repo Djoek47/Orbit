@@ -13,12 +13,13 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { radius, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { Reward } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
+import { Moji } from '@/components/orbit/moji/moji';
+import { rewardLook } from '@/lib/rewards/reward-look';
 
 const HOLD_MS = 900;
 
@@ -53,7 +54,8 @@ export function RewardVaultCard({
   onArchive,
 }: RewardVaultCardProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
-  const color = reward.color ?? accent;
+  const look = rewardLook({ presetId: reward.presetId, title: reward.title });
+  const color = reward.color ?? look.color ?? accent;
   const mode = reward.approvalRequired ? 'request' : 'instant';
   const [holding, setHolding] = useState(false);
   const firedRef = useRef(false);
@@ -177,8 +179,8 @@ export function RewardVaultCard({
           ]}
         />
 
-        <View style={[styles.iconWrap, { backgroundColor: `${color}22` }]}>
-          <MaterialIcons name="card-giftcard" size={22} color={color} />
+        <View style={[styles.iconWrap, { backgroundColor: `${look.color}22` }]}>
+          <Moji name={look.moji} size={26} />
         </View>
         <Text style={[typography.headline, styles.title, { color: c.text }]} numberOfLines={2}>
           {reward.title}

@@ -34,13 +34,23 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-/** The coming weekday — said on that very day it means today, same as parseWhen. */
-export function nextDateForWeekday(name: string, now = new Date()): string {
+/**
+ * The weekday someone said, read the same way parseWhen reads it:
+ * "thursday" is the coming one (today, if today is Thursday), "next thursday" is the
+ * Thursday of next week.
+ */
+export function nextDateForWeekday(name: string, opts?: { next?: boolean; now?: Date }): string {
+  const now = opts?.now ?? new Date();
   const target = WEEKDAYS.indexOf(name as (typeof WEEKDAYS)[number]);
   const d = new Date(now);
   const diff = (target + 7 - d.getDay()) % 7;
-  d.setDate(d.getDate() + diff);
+  d.setDate(d.getDate() + diff + (opts?.next ? 7 : 0));
   return formatLocalDate(d);
+}
+
+/** True when the sentence says "next <weekday>". */
+function saysNextWeekday(lower: string, weekday: string): boolean {
+  return new RegExp(`\\bnext\\s+${weekday}\\b`).test(lower);
 }
 
 function escapeRegExp(value: string) {
@@ -66,7 +76,7 @@ export function matchSpokenTokens(
   const weekday = WEEKDAYS.find((day) => lower.includes(day));
   if (weekday) {
     patch.due = capitalize(weekday);
-    patch.date = nextDateForWeekday(weekday);
+    patch.date = nextDateForWeekday(weekday, { next: saysNextWeekday(lower, weekday) });
     const d = new Date(patch.date);
     patch.dayNumber = d.getDate();
     patch.monthLabel = d.toLocaleString('en', { month: 'long' });
@@ -187,7 +197,7 @@ export function interpretStageSpeech(
   const weekday = WEEKDAYS.find((day) => lower.includes(day));
   if (weekday && (/\bnot\b/.test(lower) || ctx.live) && !due) {
     patch.due = capitalize(weekday);
-    patch.date = nextDateForWeekday(weekday);
+    patch.date = nextDateForWeekday(weekday, { next: saysNextWeekday(lower, weekday) });
   }
 
   if (ctx.live && /\b(this is the task|that one|this one|that task)\b/.test(lower)) {

@@ -13,6 +13,10 @@ type Props = {
   total: number;
   ratio: number;
   onBack: () => void;
+  /** Ends the run and takes the banner off the Lock Screen. */
+  onEndRun?: () => void;
+  /** True while the banner is showing, so End run is worth offering. */
+  bannerOn?: boolean;
 };
 
 export function ShoppingRunHeader({
@@ -23,6 +27,8 @@ export function ShoppingRunHeader({
   total,
   ratio,
   onBack,
+  onEndRun,
+  bannerOn,
 }: Props) {
   return (
     <View style={styles.head}>
@@ -31,6 +37,18 @@ export function ShoppingRunHeader({
           <MaterialIcons name="chevron-left" size={28} color={palette.ink} />
         </Pressable>
         <Text style={[typography.eyebrow, { color: palette.inkFaint }]}>{runLabel}</Text>
+        {bannerOn && onEndRun ? (
+          <Pressable
+            onPress={onEndRun}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="End the run and clear the Lock Screen"
+            style={[styles.endRun, { borderColor: palette.glassEdge }]}>
+            <Text style={[typography.footnote, { color: palette.inkMuted, fontWeight: '700' }]}>
+              End run
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.titleRow}>
@@ -75,6 +93,13 @@ export function ShoppingRunHeader({
 
 const styles = StyleSheet.create({
   head: { paddingHorizontal: 22, paddingTop: 6 },
+  endRun: {
+    marginLeft: 'auto',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
   eyebrow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
   back: { marginLeft: -8, paddingVertical: 4, paddingRight: 4 },
   titleRow: {

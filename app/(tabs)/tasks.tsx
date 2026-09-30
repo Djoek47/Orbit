@@ -2,17 +2,18 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
+import { CompleteBurst, CompleteRipple } from '@/components/orbit/tasks/complete-burst';
 import { needsProofOnComplete } from '@/lib/tasks/homework-proof';
 import { HomeworkBoard } from '@/components/orbit/homework/homework-board';
 import { CompletedBreakdownCard } from '@/components/orbit/completed-breakdown-card';
@@ -37,7 +38,7 @@ import { Moji } from '@/components/orbit/moji/moji';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
-import { motion, motionDuration } from '@/constants/motion-tokens';
+import { motion } from '@/constants/motion-tokens';
 import { isTasksStatus } from '@/lib/navigation/open-tasks-tab';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
@@ -231,34 +232,45 @@ function TaskItem({
     task.verification === 'unreviewed' || task.proofStatus === 'submitted';
   const checkScale = useSharedValue(done ? 1 : 0.001);
   const pillScale = useSharedValue(1);
-  const wash = useSharedValue(done && !justCompleted ? 0.4 : 0);
+  const [rowWidth, setRowWidth] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
-    checkScale.value = withSpring(done ? 1 : 0.001, motion.snappy);
+    let alive = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((on) => {
+      if (alive) setReduceMotion(on);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    // A little overshoot on the way in; a plain settle on the way out.
+    checkScale.value = done
+      ? withSequence(
+          withTiming(1.25, { duration: 130, easing: Easing.out(Easing.quad) }),
+          withSpring(1, motion.snappy)
+        )
+      : withSpring(0.001, motion.snappy);
   }, [checkScale, done]);
 
   useEffect(() => {
-    if (!justCompleted) {
-      wash.value = withTiming(done ? 0.35 : 0, { duration: motionDuration.snappy });
-      return;
-    }
-    wash.value = 0;
-    wash.value = withTiming(1, {
-      duration: motionDuration.smooth,
-      easing: Easing.out(Easing.cubic),
-    });
-    pillScale.value = 0.97;
-    pillScale.value = withSpring(1, motion.smooth);
-  }, [done, justCompleted, pillScale, wash]);
+    if (!justCompleted) return;
+    // The row gives once, like a key, then comes back.
+    pillScale.value = withSequence(
+      withTiming(0.975, { duration: 110, easing: Easing.out(Easing.quad) }),
+      withSpring(1, motion.smooth)
+    );
+  }, [justCompleted, pillScale]);
 
   const checkAnim = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
   }));
   const pillAnim = useAnimatedStyle(() => ({
     transform: [{ scale: pillScale.value }],
-  }));
-  const washAnim = useAnimatedStyle(() => ({
-    opacity: interpolate(wash.value, [0, 1], [0, 0.32]),
   }));
   const shareXp =
     member && isSplitTask(task)
@@ -286,6 +298,7 @@ function TaskItem({
 
   const row = (
       <Animated.View
+        onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}
         style={[
           styles.taskItem,
           done && !justCompleted && !showRequestProof && !photoNeeded && styles.taskItemDone,
@@ -297,13 +310,11 @@ function TaskItem({
           },
           pillAnim,
         ]}>
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: '#34D399', borderRadius: 16 },
-            washAnim,
-          ]}
+        <CompleteBurst
+          play={justCompleted}
+          width={rowWidth}
+          radius={16}
+          reduceMotion={reduceMotion}
         />
         {interactive && canFinish && !homeworkOpen && !isExpiredStatus(task.status) ? (
         <Pressable
@@ -315,6 +326,7 @@ function TaskItem({
               backgroundColor: done ? accent : 'transparent',
             },
           ]}>
+          <CompleteRipple play={justCompleted} color={accent} />
           <Animated.View style={checkAnim}>
             {done ? <MaterialIcons name="check" size={12} color={c.ink} /> : null}
           </Animated.View>

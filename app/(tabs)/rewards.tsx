@@ -260,6 +260,22 @@ export default function RewardsScreen() {
     }
   }, [showAllowance, showRanks, showRewards, surface]);
 
+  // What this household actually has decides the page's name.
+  const allowanceOnly = showAllowance && !showRewards && !showRanks;
+  const isChild = currentMember?.role === 'child';
+  const pageEyebrow = allowanceOnly
+    ? 'Allowance'
+    : showRewards || showRanks
+      ? 'Rewards & Rankings'
+      : 'Rewards';
+  const pageTitle = allowanceOnly
+    ? isChild
+      ? 'My allowance'
+      : 'Allowance'
+    : isChild
+      ? 'My Rewards'
+      : 'Rewards Center';
+
   const selectSurface = (next: Surface) => {
     if (next === 'allowance' && !showAllowance) return;
     if (next === 'rewards' && !showRewards) return;
@@ -619,15 +635,18 @@ export default function RewardsScreen() {
       showsVerticalScrollIndicator
       persistentScrollbar>
       <View style={[orbitScreen.header, styles.header]}>
-        <PageEyebrow>Rewards & Rankings</PageEyebrow>
-        <Text style={[typography.title1, { color: orbitPalette.text }]}>
-          {currentMember?.role === 'child' ? 'My Rewards' : 'Rewards Center'}
-        </Text>
+        <PageEyebrow>{pageEyebrow}</PageEyebrow>
+        <Text style={[typography.title1, { color: orbitPalette.text }]}>{pageTitle}</Text>
       </View>
 
-      {/* Segmented surfaces */}
+      {/* Segmented surfaces — a single surface needs no switcher. */}
       <TourTarget id="rewards.segment">
-          <View style={[styles.segment, { backgroundColor: glass(0.06) }]}>
+          <View
+            style={[
+              styles.segment,
+              { backgroundColor: glass(0.06) },
+              surfaceTabs.length < 2 && styles.segmentHidden,
+            ]}>
         {surfaceTabs.map((tab) => {
           const active = surface === tab.id;
           const chip = (
@@ -670,7 +689,7 @@ export default function RewardsScreen() {
           </TourTarget>
 
       {/* ── REWARDS ── */}
-      {surface === 'rewards' ? (
+      {surface === 'rewards' && showRewards ? (
         <Animated.View entering={FadeInDown.duration(220)} style={styles.stack}>
           {isAdmin
             ? (household.rewardProposals ?? [])
@@ -918,7 +937,8 @@ export default function RewardsScreen() {
                 ]}>
                 <Text style={[typography.headline, { color: c.text }]}>This week</Text>
                 <Text style={[typography.footnote, { color: c.textMuted }]}>
-                  ChoreMaxx keeps the record. You hand over the money however you normally do.
+                  ChoreMaxx counts what each Sidekick has earned. You pay it however you
+                  normally do — no money moves through the app.
                 </Text>
                 <View style={styles.allowanceSummaryRow}>
                   <View style={styles.summaryStat}>
@@ -1108,7 +1128,8 @@ export default function RewardsScreen() {
             <GlassCard style={styles.stack}>
               <Text style={[typography.headline, { color: c.text }]}>Your allowance</Text>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
-                Allowance is recorded here. An admin uses Approve now — ChoreMaxx moves no money.
+                Finish your tasks and what you&apos;ve earned adds up here. A grown-up pays you
+                for real — the app just keeps count.
               </Text>
               {requestsOn ? (
               <Pressable
@@ -1137,7 +1158,7 @@ export default function RewardsScreen() {
       ) : null}
 
       {/* ── RANKINGS ── */}
-      {surface === 'ranks' ? (
+      {surface === 'ranks' && showRanks ? (
         <Animated.View entering={FadeInDown.duration(220)} style={styles.stack}>
           <ScrollView
             horizontal
@@ -1449,6 +1470,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: space.md,
   },
+  segmentHidden: { display: 'none' },
   segmentChip: {
     flex: 1,
     paddingVertical: 10,

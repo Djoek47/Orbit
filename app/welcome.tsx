@@ -66,7 +66,7 @@ import {
   draftRewardsFromPackage,
   type RewardPackageId,
 } from '@/lib/rewards/reward-packages';
-import { type RewardMode, REWARD_MODE_COPY, REWARD_MODE_EXAMPLES, STREAK_FOOTNOTE } from '@/lib/rewards/reward-mode';
+import { type RewardMode, REWARD_MODE_COPY, REWARD_MODE_EXAMPLES } from '@/lib/rewards/reward-mode';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
 import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
 import {
@@ -1217,9 +1217,6 @@ export default function WelcomeOnboardingScreen() {
                   );
                 })}
               </View>
-              <Text style={[typography.footnote, styles.rewardSettingsHint, { color: orbitPalette.textSubtle }]}>
-                {STREAK_FOOTNOTE}
-              </Text>
               <OrbitButton onPress={() => void handleRewardSystemContinue()}>Continue</OrbitButton>
             </KeyboardScreen>
           ) : null}
