@@ -13,6 +13,59 @@ begin
 end;
 $$;
 
+-- Core tables first — helper functions below reference household_members.
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  display_name text,
+  avatar_url text,
+  phone text,
+  apple_sub text unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.households (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  household_type text not null default 'family',
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  timezone text not null default 'America/Montreal',
+  country text,
+  reward_mode text not null default 'weighted' check (reward_mode in ('weighted', 'flat')),
+  reward_model text not null default 'full'
+    check (reward_model in ('xp_only', 'allowance', 'xp_rewards', 'xp_allowance', 'full')),
+  hygiene_rewarded boolean not null default false,
+  hygiene_xp integer not null default 5 check (hygiene_xp in (5, 10)),
+  member_capabilities jsonb not null default '{}'::jsonb,
+  daily_deadline text,
+  daily_deadline_pending text,
+  daily_deadline_applies_on date,
+  allowance_requests_enabled boolean not null default true,
+  sidekick_grocery_add boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.household_members (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete set null,
+  display_name text,
+  role text not null check (role in ('owner', 'admin', 'adult', 'child', 'guest', 'shared-device')),
+  shared_with_member_ids uuid[] default null,
+  status text not null default 'active' check (status in ('invited', 'pending', 'active', 'removed')),
+  avatar_symbol text,
+  xp integer not null default 0,
+  week_xp integer not null default 0,
+  streak integer not null default 0,
+  load_share integer not null default 0 check (load_share >= 0 and load_share <= 100),
+  last_seen_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (household_id, user_id)
+);
+
 create or replace function public.is_household_member(target_household uuid)
 returns boolean
 language sql
@@ -54,45 +107,6 @@ as $$
   select public.household_role(target_household) in ('owner', 'admin');
 $$;
 
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  display_name text,
-  avatar_url text,
-  phone text,
-  apple_sub text unique,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists public.households (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  household_type text not null default 'family',
-  owner_id uuid not null references public.profiles(id) on delete cascade,
-  timezone text not null default 'America/Montreal',
-  country text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists public.household_members (
-  id uuid primary key default gen_random_uuid(),
-  household_id uuid not null references public.households(id) on delete cascade,
-  user_id uuid references public.profiles(id) on delete set null,
-  display_name text,
-  role text not null check (role in ('owner', 'admin', 'adult', 'child', 'guest')),
-  status text not null default 'active' check (status in ('invited', 'pending', 'active', 'removed')),
-  avatar_symbol text,
-  xp integer not null default 0,
-  week_xp integer not null default 0,
-  streak integer not null default 0,
-  load_share integer not null default 0 check (load_share >= 0 and load_share <= 100),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (household_id, user_id)
-);
-
 create table if not exists public.household_invites (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
@@ -121,7 +135,7 @@ create table if not exists public.tasks (
   mental_load_value integer not null default 1,
   proof_required boolean not null default false,
   repeat_rule text not null default 'none' check (repeat_rule in ('none', 'daily', 'weekly', 'weekdays')),
-  status text not null default 'pending' check (status in ('pending', 'in_progress', 'completed', 'overdue')),
+  status text not null default 'pending' check (status in ('pending', 'in_progress', 'completed', 'overdue', 'cancelled', 'expired', 'missed')),
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -169,6 +183,7 @@ create table if not exists public.grocery_items (
   quantity text not null default '1 item',
   location text not null default 'pantry' check (location in ('fridge', 'freezer', 'pantry', 'bathroom', 'cleaning')),
   status text not null default 'missing' check (status in ('available', 'low', 'missing', 'purchased')),
+  requested_by text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -305,8 +320,35 @@ create table if not exists public.rewards (
   title text not null,
   cost integer not null default 0,
   approval_required boolean not null default true,
+  assigned_member_id uuid references public.household_members(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.member_invite_tokens (
+  id uuid primary key default gen_random_uuid(),
+  token text not null unique,
+  household_id uuid not null references public.households(id) on delete cascade,
+  member_id uuid not null references public.household_members(id) on delete cascade,
+  role text not null check (role in ('admin', 'sidekick')),
+  status text not null default 'active' check (status in ('active', 'redeemed', 'revoked', 'expired')),
+  created_by uuid references public.profiles(id) on delete set null,
+  expires_at timestamptz not null,
+  redeemed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.reward_proposals (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  member_id uuid not null references public.household_members(id) on delete cascade,
+  title text not null,
+  note text,
+  status text not null default 'open' check (status in ('open', 'approved', 'declined')),
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  decided_by uuid references public.profiles(id) on delete set null
 );
 
 create table if not exists public.reward_redemptions (
@@ -436,11 +478,17 @@ create table if not exists public.smart_home_scenes (
 
 create table if not exists public.push_tokens (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  token text not null unique,
+  user_id uuid references public.profiles(id) on delete cascade,
+  member_id uuid references public.household_members(id) on delete cascade,
+  token text not null,
   platform text not null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint push_tokens_owner_check check (
+    (user_id is not null and member_id is null)
+    or (user_id is null and member_id is not null)
+  ),
+  constraint push_tokens_token_member_unique unique nulls not distinct (token, member_id)
 );
 
 -- Legacy alias view for older app code that referenced nova_briefings
@@ -459,7 +507,7 @@ create index if not exists calendar_events_household_id_idx on public.calendar_e
 create index if not exists notifications_user_id_idx on public.notifications(user_id, is_read);
 create index if not exists reward_redemptions_household_id_idx on public.reward_redemptions(household_id, status);
 create index if not exists ai_briefings_household_id_idx on public.ai_briefings(household_id, created_at desc);
-create index if not exists analytics_events_household_id_idx on public.analytics_events(household_id, created_at desc);
+create index if not exists push_tokens_member_id_idx on public.push_tokens(member_id);
 
 create trigger profiles_set_updated_at before update on public.profiles
   for each row execute function public.set_updated_at();
@@ -504,6 +552,8 @@ begin
   values (
     new.id,
     coalesce(new.email, ''),
+    -- Email local-part fallback can be an Apple private-relay token; the app
+    -- treats those as incomplete via isProfileNameComplete and forces a name step.
     coalesce(new.raw_user_meta_data->>'display_name', split_part(coalesce(new.email, 'orbit'), '@', 1)),
     new.raw_user_meta_data->>'avatar_url'
   )
@@ -626,7 +676,9 @@ create policy mental_load_scores_all on public.mental_load_scores for all using 
   with check (public.is_household_member(household_id));
 create policy notifications_select on public.notifications for select
   using (user_id = auth.uid() or public.is_household_member(household_id));
-create policy notifications_update on public.notifications for update using (user_id = auth.uid());
+create policy notifications_update on public.notifications for update
+  using (user_id = auth.uid() or public.is_household_member(household_id))
+  with check (user_id = auth.uid() or public.is_household_member(household_id));
 create policy notifications_insert on public.notifications for insert
   with check (public.is_household_member(household_id));
 create policy notification_rules_all on public.notification_rules for all using (public.is_household_admin(household_id))
@@ -661,6 +713,44 @@ create policy push_tokens_all on public.push_tokens for all using (user_id = aut
   with check (user_id = auth.uid());
 
 -- Realtime publication helpers (ignore errors if already added)
+create table if not exists public.household_saved_places (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  client_key text not null,
+  name text not null,
+  kind text not null
+    check (kind in (
+      'home', 'work', 'school', 'shop', 'practice', 'family',
+      'cafe', 'pickup', 'clothing', 'custom'
+    )),
+  address text not null default '',
+  place_query text,
+  lat double precision,
+  lng double precision,
+  emoji text,
+  is_favorite boolean not null default false,
+  pickup_item_names text[] not null default '{}',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (household_id, client_key)
+);
+
+create index if not exists household_saved_places_household_id_idx
+  on public.household_saved_places (household_id, sort_order);
+
+alter table public.household_saved_places enable row level security;
+
+drop policy if exists household_saved_places_all on public.household_saved_places;
+create policy household_saved_places_all on public.household_saved_places
+  for all using (public.is_household_member(household_id))
+  with check (public.is_household_member(household_id));
+
+drop trigger if exists household_saved_places_set_updated_at on public.household_saved_places;
+create trigger household_saved_places_set_updated_at
+  before update on public.household_saved_places
+  for each row execute function public.set_updated_at();
+
 do $$
 begin
   begin
@@ -687,4 +777,104 @@ begin
     alter publication supabase_realtime add table public.notifications;
   exception when others then null;
   end;
+  begin
+    alter publication supabase_realtime add table public.household_saved_places;
+  exception when others then null;
+  end;
+  begin
+    alter publication supabase_realtime add table public.household_members;
+  exception when others then null;
+  end;
 end $$;
+
+create table if not exists public.ai_usage_events (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  client_key text not null,
+  member_id text not null,
+  member_name text not null default '',
+  kind text not null check (kind in ('chat', 'voice', 'briefing', 'monitor', 'notify', 'realtime')),
+  model text not null default '',
+  input_tokens integer not null default 0,
+  output_tokens integer not null default 0,
+  cached_input_tokens integer not null default 0,
+  audio_input_seconds numeric not null default 0,
+  audio_output_seconds numeric not null default 0,
+  surface text,
+  mode text,
+  session_id text,
+  turn_index integer,
+  duration_ms integer,
+  usd numeric(10, 4) not null,
+  occurred_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (client_key)
+);
+
+create index if not exists ai_usage_events_household_occurred_idx
+  on public.ai_usage_events (household_id, occurred_at);
+
+create index if not exists ai_usage_events_household_kind_occurred_idx
+  on public.ai_usage_events (household_id, kind, occurred_at);
+
+alter table public.ai_usage_events enable row level security;
+
+drop policy if exists ai_usage_events_select on public.ai_usage_events;
+create policy ai_usage_events_select on public.ai_usage_events for select
+  using (public.is_household_member(household_id));
+
+drop policy if exists ai_usage_events_insert on public.ai_usage_events;
+create policy ai_usage_events_insert on public.ai_usage_events for insert
+  with check (public.is_household_member(household_id));
+
+create table if not exists public.act_events (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  client_key text not null,
+  member_id text not null,
+  member_name text not null default '',
+  act_kind text not null
+    check (act_kind in (
+      'task', 'grocery', 'event', 'homework',
+      'itinerary_stop', 'place_save', 'complete', 'reward'
+    )),
+  voice text not null default 'quiet' check (voice in ('quiet', 'spoken')),
+  control text not null default 'guided' check (control in ('guided', 'direct')),
+  tokens integer not null default 0,
+  outcome text not null default 'committed'
+    check (outcome in ('committed', 'undone', 'vetoed', 'abandoned', 'failed')),
+  utterance_chars integer not null default 0,
+  turns integer not null default 0,
+  beats_played integer not null default 0,
+  slots_from_speech integer not null default 0,
+  slots_from_touch integer not null default 0,
+  slots_inherited integer not null default 0,
+  latency_ms integer not null default 0,
+  beat_id text,
+  session_id text,
+  session_seconds numeric,
+  audio_in_seconds numeric,
+  audio_out_seconds numeric,
+  occurred_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (client_key)
+);
+
+create index if not exists act_events_household_occurred_idx
+  on public.act_events (household_id, occurred_at);
+
+alter table public.act_events enable row level security;
+
+drop policy if exists act_events_select on public.act_events;
+create policy act_events_select on public.act_events for select
+  using (public.is_household_member(household_id));
+
+drop policy if exists act_events_insert on public.act_events;
+create policy act_events_insert on public.act_events for insert
+  with check (public.is_household_member(household_id));
+
+-- Revision G RPCs (promote_member_to_admin, generate_member_invite,
+-- redeem_member_invite, submit_reward_proposal, decide_reward_proposal,
+-- enforce_admin_cap) live in
+-- supabase/migrations/20260820200000_revision_g_sidekick.sql
+

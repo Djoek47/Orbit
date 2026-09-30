@@ -1,0 +1,56 @@
+# App Store Connect — IAP setup
+
+## Products (locked in code)
+
+| Plan | Product ID | Price | Trial | Status |
+|------|------------|-------|-------|--------|
+| Monthly | `app.choremaxx.household.premium.monthly` | **$6.99** | 7-day free | Confirm/edit ASC price point |
+| Yearly | `app.choremaxx.household.premium.yearly` | **$49.99** | 7-day free | Lead CTA · 40% off vs monthly |
+
+Source of truth: `constants/billing.ts`. Existing ASC tiers cannot silently change — create or edit price points before shipping strings that show $6.99 / $49.99.
+
+Allowance copy: **300 Poppins actions a month, 30 a day.**
+
+## Consumable top-ups (Part E)
+
+| Pack | Product ID | Tokens | Price |
+|------|------------|--------|-------|
+| Small | `app.choremaxx.household.premium.tokens.small` | 200 | $1.99 |
+| Medium | `app.choremaxx.household.premium.tokens.medium` | 600 | $4.99 |
+| Large | `app.choremaxx.household.premium.tokens.large` | 1500 | $9.99 |
+
+Confirm tiers in ASC before creating — harder to change than to choose. Migration: `20260917040000_token_grants.sql` (user applies). Edge: `grant-token-pack`. Purchase order: **validate → grant → finish**.
+
+Consumption: monthly allowance first, then top-ups oldest-first. Top-ups never expire. Expo Go uses a clearly marked mock grant only.
+
+## App paywall
+
+- **Route:** `/premium` — annual-led sheet after email confirm (soft gate).
+- **Onboarding:** Start Free Trial (yearly) · monthly alt · Restore · Not now.
+- **Settings:** Open Premium + usage panel when subscribed.
+- **Facade:** `lib/billing/iap.ts`
+  - Expo Go → mock trial
+  - Native TestFlight/production → StoreKit via `expo-iap`
+
+## ASC steps
+
+1. App Store Connect → **Choremaxx** (`6796850110`) → **Subscriptions**
+2. Subscription group **Premium**
+3. Monthly + yearly product ids above with 7-day introductory offer at the new price points
+4. Localization: English — “Choremaxx Premium”
+5. Attach products to the next binary for review
+
+## Native build required for StoreKit
+
+`expo-iap` is a native module. After merging paywall code:
+
+```bash
+npm run build:ios:testflight
+```
+
+OTA alone updates JS UI; StoreKit purchases need a binary that includes `expo-iap`.
+
+## Still later
+
+- App Store Server API receipt verification (full server validate)
+- Web parity for annual $49.99

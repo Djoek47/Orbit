@@ -1,42 +1,70 @@
-# Orbit App Store launch checklist
+# Orbit App Store / TestFlight checklist
 
-**Current status:** day-to-day development is **Expo Go + mock data**. Use this checklist only when graduating to EAS / TestFlight / App Store.
+**Day-to-day dev:** Expo Go + mock (`EXPO_PUBLIC_DATA_MODE=mock`).  
+**TestFlight / App Store:** EAS native builds + Supabase — see **`docs/testflight-setup.md`**.
 
 ## Preconditions
 
-- [ ] Supabase **staging** and **production** projects created
-- [ ] `supabase/schema.sql` (or migrations) applied with RLS
-- [ ] Edge functions deployed: `nova-briefing`, `nova-chat`, `join-household`
-- [ ] `OPENAI_API_KEY` set as a Supabase secret
-- [ ] Apple Developer Program membership active
-- [ ] Privacy Policy + Terms hosted (`docs/legal/*` copies)
-- [ ] EAS project created; replace `extra.eas.projectId` in `app.json`
-- [ ] ASC App ID / Apple Team ID filled in `eas.json`
+- [x] Apple Developer Program membership active
+- [x] Expo account + `eas login` + `eas init` (writes `extra.eas.projectId` in `app.json`)
+- [x] App Store Connect app created for `app.choremaxx.household` (ASC App ID `6796850110`)
+- [x] `ascAppId` set in `eas.json`
+- [x] Supabase staging edge functions deployed (`send-auth-email`, Poppins suite)
+- [x] `OPENAI_API_KEY` in Supabase secrets (Poppins) — rotate after B7 if exposed in terminal history
+- [x] Resend secrets on staging — rotate after B7 if exposed in terminal history
+- [x] EAS project env: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- [x] EAS env: `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_TERMS_URL` (still on choremaxx.vercel.app until site cutover)
+- [ ] ASC IAP products created — see `docs/asc-iap-setup.md`
+- [x] Privacy + Terms source in `docs/legal/*` (re-host on Vercel after Nova→Poppins edit)
+- [x] `npm run testflight:preflight` passes
+
+## ASC listing draft (A8 — do not submit until B7)
+
+| Field | Draft |
+|-------|--------|
+| **Name** | Choremaxx |
+| **Subtitle** | Family chores, rewards & Poppins |
+| **Promotional text** | Calm household OS for families — tasks, Plan, groceries, rewards, and Poppins your co-manager. |
+| **Description** | Choremaxx is an AI household operating system for families. Assign chores, track Plan and itineraries, run groceries and Smart Shopping, mint rewards and allowances (Mark as paid — never transfers money), and ask Poppins for calm, household-aware help. Parents stay in control; kids get clear tasks and rewards under guardian rules. |
+| **Keywords** | family,chores,tasks,rewards,allowance,grocery,calendar,kids,household,AI |
+| **Support URL** | mailto:support@choremaxx.app (or https://choremaxx.vercel.app when /support exists) |
+| **Marketing URL** | https://choremaxx.vercel.app/ |
+| **Privacy Policy URL** | https://choremaxx.vercel.app/privacy |
+| **Category** | Lifestyle (secondary: Productivity) |
+| **Age rating** | 4+ / family utility; child role under guardian |
+| **Pricing** | Auto-renewable: 7-day free trial · $4.99/mo · $48/yr (product IDs in `constants/billing.ts`) |
+
+## App Review notes (suggested)
+
+- **Demo credentials (required):** `review@choremaxx.app` / `ReviewDemo2026!` — enter in TestFlight → Test Information → Beta App Review Information (Sign-in required).
+- Demo opens The Rivera Home (admin) with Child + Adult personas, tasks, groceries, Plan, rewards.
+- Explain Child role is parental-gated
+- Ship a binary that includes Review Demo (`lib/auth/review-demo.ts`) — TF 1.3.0 (69) was refused because reviewers could not sign in after mock was removed from store builds.
+- Settings → Delete account / Export data
+- Microphone (Poppins voice) and location (optional groceries) rationale
+- Sign in with Apple enabled on native builds
+- Allowance is tracker-only (**Mark as paid**); no money movement
+
+## Age rating / kids
+
+- Family utility with optional child users under guardian accounts
+- No unrestricted public social chat or UGC feeds
 
 ## Build / submit
 
 ```bash
-npm i -g eas-cli
-eas login
-eas build:configure   # if needed
-eas build --platform ios --profile production
-eas submit --platform ios --profile production
+npm run testflight:preflight
+npm run build:ios:testflight
+npm run submit:ios:testflight
+# or: eas build --platform ios --profile testflight --auto-submit
 ```
-
-## App Review notes (suggested)
-
-- Demo account email/password for a staged household with Child + Adult roles
-- Explain Child role is parental-gated
-- Point reviewers to Settings → Delete account / Export data
-- Note microphone and location permission rationale
-
-## Age rating / kids
-
-- Answer questionnaire for family utility with optional child users under guardian accounts
-- Do not include unrestricted social chat or public UGC feeds
 
 ## Post-submit
 
-- TestFlight internal + external groups
-- Monitor crash/push delivery
-- Enable production Cursor Automation for Figma sync (`docs/figma-sync-automation.md`)
+- TestFlight internal group (your Apple ID) — instant
+- External testers — Beta App Review + demo account
+- Monitor crashes (EAS / ASC) and push delivery on device builds
+
+## CI
+
+- GitHub: `.github/workflows/ios-testflight.yml` (manual) — requires `EXPO_TOKEN` secret
