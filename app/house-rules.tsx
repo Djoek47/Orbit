@@ -103,6 +103,13 @@ export default function HouseRulesScreen() {
       return;
     }
     const route = SETTING_ROUTES[settingKey ?? ''] ?? '/settings';
+    // House rules is itself a sheet. Pushing Settings on top stacks a second sheet over it
+    // (and Settings can open House rules again, which is how you ended up with two).
+    // Swapping the sheet keeps exactly one on screen; Back inside Settings goes to its root.
+    if (route.startsWith('/settings')) {
+      router.replace(route as never);
+      return;
+    }
     router.push(route as never);
   };
 
@@ -267,7 +274,7 @@ export default function HouseRulesScreen() {
           {facts.map((fact, i) => (
             <Animated.View
               key={fact.label}
-              entering={FadeInDown.delay(i * 70).springify().damping(18)}
+              entering={FadeInDown.delay(i * 50).duration(260)}
               style={[styles.fact, { backgroundColor: `${fact.color}1C`, borderColor: `${fact.color}44` }]}>
               <Moji name={fact.moji} size={22} />
               <Text style={[styles.factValue, { color: c.text }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -286,7 +293,7 @@ export default function HouseRulesScreen() {
             return (
               <Animated.View
                 key={id}
-                entering={FadeInDown.delay(180 + index * 60).springify().damping(18)}
+                entering={FadeInDown.delay(140 + index * 40).duration(280)}
                 style={styles.tileWrap}>
                 <Pressable
                   onPress={() => router.push(`/house-rules?chapter=${id}` as never)}

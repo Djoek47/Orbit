@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,6 +15,8 @@ import { trackAnalytics } from '@/lib/analytics';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
+
+const PROOF_SEEN_KEY = 'choremaxx.proofWalkthroughSeen.v1';
 
 type Item = {
   id: ChecklistItemId;
@@ -39,6 +42,20 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
   const [tick, setTick] = useState(0);
 
   const [poppinsDone, setPoppinsDone] = useState(false);
+  // Seen-once, kept on the device: the walkthrough creates nothing, so there's nothing
+  // in the household to read it back from.
+  const [proofSeen, setProofSeen] = useState(false);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(PROOF_SEEN_KEY).then((value) => {
+      if (value === '1') setProofSeen(true);
+    });
+  }, []);
+
+  const markProofWalkthroughSeen = () => {
+    setProofSeen(true);
+    void AsyncStorage.setItem(PROOF_SEEN_KEY, '1').catch(() => undefined);
+  };
 
   useEffect(() => {
     const offs = [
@@ -121,11 +138,22 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
         onPress: () => router.push('/settings' as never),
       },
       // Homework is a Sidekick's, so it only makes sense once there is one to give it to.
+      // Without one, this row invites you to add a Sidekick instead of leading to a dead end.
       {
         id: 'assign_homework',
-        label: 'Assign homework',
+        label: hasChildBeyondOwner ? 'Assign homework' : 'Add a Sidekick to assign homework',
         done: homeworkDone,
-        onPress: () => router.push('/assign-homework' as never),
+        onPress: () =>
+          router.push((hasChildBeyondOwner ? '/assign-homework' : '/settings?section=members') as never),
+      },
+      {
+        id: 'see_proof',
+        label: 'See how photo proof works',
+        done: proofSeen,
+        onPress: () => {
+          markProofWalkthroughSeen();
+          router.push('/tour/proof-walkthrough?kind=chore' as never);
+        },
       },
       {
         id: 'setup_device',
@@ -136,7 +164,7 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
     );
 
     return list;
-  }, [household, majordomoName, tick, poppinsDone]);
+  }, [household, majordomoName, tick, poppinsDone, proofSeen]);
 
   const doneCount = items.filter((i) => i.done).length;
   const allDone = doneCount === items.length && items.length > 0;

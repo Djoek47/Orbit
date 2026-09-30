@@ -98,7 +98,7 @@ export type TourStep = {
   /** Override primary button label (default Next / Done). */
   primaryLabel?: string;
   /** Special primary action instead of advancing. */
-  primaryAction?: 'open_settings';
+  primaryAction?: 'open_settings' | 'open_proof_walkthrough' | 'open_homework_walkthrough';
 };
 
 export type TourChapter = {
@@ -142,6 +142,7 @@ export type TourRect = {
 export type ChecklistItemId =
   | 'assign_chore'
   | 'assign_homework'
+  | 'see_proof'
   | 'add_grocery'
   | 'calendar_event'
   | 'create_reward'

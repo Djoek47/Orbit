@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { radius, space, typography } from '@/constants/orbit-theme';
@@ -73,7 +73,11 @@ export function PlanAddSheet({ visible, onDismiss }: Props) {
   };
 
   return (
-    <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.52} accentColor={accentTheme.primary}>
+    <BottomSheet
+      visible={visible}
+      onDismiss={onDismiss}
+      heightRatio={Math.min(0.86, 0.36 + options.length * 0.11)}
+      accentColor={accentTheme.primary}>
       <View style={styles.sheet}>
         <Text style={[typography.title2, styles.heading, { color: c.text }]}>Add to Plan</Text>
         <Text style={[styles.lead, { color: c.textMuted }]}>
@@ -81,7 +85,12 @@ export function PlanAddSheet({ visible, onDismiss }: Props) {
             ? 'Homework goes on your calendar right away.'
             : 'Homework is instant. School and activities may need a parent to approve.'}
         </Text>
-        <View style={styles.list}>
+        {/* The list scrolls — a household with every option on ran off the bottom. */}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator
+          bounces={false}>
           {options.map((option) => (
             <PlanAddRow
               key={option.id + option.route}
@@ -90,7 +99,7 @@ export function PlanAddSheet({ visible, onDismiss }: Props) {
               onPress={() => handleSelect(option)}
             />
           ))}
-        </View>
+        </ScrollView>
       </View>
     </BottomSheet>
   );
@@ -98,9 +107,11 @@ export function PlanAddSheet({ visible, onDismiss }: Props) {
 
 const styles = StyleSheet.create({
   sheet: {
+    flex: 1,
     gap: space.sm,
     paddingBottom: space.lg,
   },
+  scroll: { flex: 1 },
   heading: {
     fontWeight: '700',
     letterSpacing: -0.3,
@@ -112,6 +123,7 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: space.sm,
+    paddingBottom: space.md,
   },
   row: {
     alignItems: 'center',

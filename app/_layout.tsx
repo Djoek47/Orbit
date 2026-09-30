@@ -137,6 +137,14 @@ export default function RootLayout() {
                   />
                   <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
                   <Stack.Screen
+                    name="tour/proof-walkthrough"
+                    options={{ presentation: 'modal', headerShown: false, title: 'How proof works' }}
+                  />
+                  <Stack.Screen
+                    name="create-allowance"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Allowance' }}
+                  />
+                  <Stack.Screen
                     name="house-rules"
                     options={{ presentation: 'modal', headerShown: false, title: 'House Rules' }}
                   />

@@ -16,6 +16,7 @@ import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { HouseholdSwitchSheet } from '@/components/orbit/household-switch-sheet';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
+import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
@@ -619,7 +620,7 @@ export default function SettingsScreen() {
                       iconColor="#FAC775"
                       label={VOCAB.houseRules}
                       subtitle="Six chapters"
-                      onPress={() => router.push('/house-rules' as never)}
+                      onPress={() => router.replace('/house-rules' as never)}
                     />
                   </TourTarget>
                   <SettingsNavRow
@@ -658,7 +659,7 @@ export default function SettingsScreen() {
                   iconColor="#FAC775"
                   label={VOCAB.houseRules}
                   last
-                  onPress={() => router.push('/house-rules' as never)}
+                  onPress={() => router.replace('/house-rules' as never)}
                 />
               )}
             </SettingsGroup>
@@ -872,6 +873,36 @@ export default function SettingsScreen() {
 
         {section === 'you' ? (
           <>
+            {/* Your picture lives with your colour — this is where you make yourself. */}
+            <SectionCard title="Your picture">
+              <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 10 }]}>
+                Draw a character with Apple Image Playground, pick a photo, or choose an emoji.
+              </Text>
+              <Pressable
+                onPress={() => setPersonalizeMemberId(currentMember?.id ?? null)}
+                disabled={!currentMember}
+                accessibilityRole="button"
+                accessibilityLabel="Change your picture"
+                style={({ pressed }) => [styles.avatarRow, { opacity: pressed ? 0.85 : 1 }]}>
+                <View
+                  style={[
+                    styles.avatarRing,
+                    { borderColor: `${accentTheme.primary}66`, backgroundColor: `${accentTheme.primary}14` },
+                  ]}>
+                  <MemberGlyph member={currentMember ?? { name: currentUser?.name ?? 'You' }} size={54} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.nameText, { color: orbitPalette.text }]}>
+                    {currentMember?.avatar ? 'Change your picture' : 'Make your character'}
+                  </Text>
+                  <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
+                    Playground · Photos · Emoji
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
+              </Pressable>
+            </SectionCard>
+
             <SectionCard title="Your name">
               <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
                 Shown on Home and in your household — not your Apple email code.
@@ -1643,6 +1674,15 @@ const styles = StyleSheet.create({
   },
   rowBetween: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   nameText: { flex: 1, fontSize: 16, fontWeight: '600' },
+  avatarRow: { alignItems: 'center', flexDirection: 'row', gap: 14 },
+  avatarRing: {
+    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 72,
+    justifyContent: 'center',
+    width: 72,
+  },
   nameInput: {
     borderBottomColor: 'rgba(56,189,248,0.4)',
     borderBottomWidth: 1,

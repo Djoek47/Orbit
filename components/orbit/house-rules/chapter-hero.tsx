@@ -28,15 +28,16 @@ export function ChapterHero({ color, moji, stat }: { color: string; moji: MojiNa
   useEffect(() => {
     bob.set(withRepeat(
       withSequence(
-        withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0, { duration: 1400, easing: Easing.inOut(Easing.sin) })
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.sin) })
       ),
       -1
     ));
   }, [bob]);
 
   const bobStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -6 * bob.value }, { rotate: `${(bob.value - 0.5) * 8}deg` }],
+    // A slow breath, not a bounce.
+    transform: [{ translateY: -2.5 * bob.value }, { rotate: `${(bob.value - 0.5) * 3}deg` }],
   }));
 
   const long = stat.value.length > 7;

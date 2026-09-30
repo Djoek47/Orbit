@@ -18,7 +18,11 @@ export type ProofRound = {
   requestedByMemberId?: string;
 };
 
-export const PROOF_ROUND_CAP = 3;
+/**
+ * A safety stop, not the rule. The real limit is the 7-day window: inside it an admin can
+ * keep saying "not done yet, show me again" for as long as it takes.
+ */
+export const PROOF_ROUND_CAP = 12;
 export const UNREVIEWED_AUTO_CONFIRM_HOURS = 72;
 export const REVERSAL_WINDOW_DAYS = 7;
 
@@ -30,12 +34,16 @@ export function canRequestAnotherProof(
   verification: TaskVerification,
   rounds: ProofRound[]
 ): boolean {
-  if (verification === 'rejected' || verification === 'confirmed') return false;
-  // Revision C §1: allow first on-demand request from `not_required` completed chores.
+  // Confirmed is the end of the loop — the admin said it's done.
+  if (verification === 'confirmed') return false;
+  // Rejected is not the end: "that photo doesn't show it done" is exactly when you ask
+  // again. The loop closes when the admin confirms, or when the 7-day window runs out
+  // (checked by the caller, which knows when the chore was finished).
   if (
     verification !== 'not_required' &&
     verification !== 'unreviewed' &&
-    verification !== 'proof_requested'
+    verification !== 'proof_requested' &&
+    verification !== 'rejected'
   ) {
     return false;
   }

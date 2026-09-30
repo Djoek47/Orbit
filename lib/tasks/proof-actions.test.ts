@@ -10,6 +10,7 @@ import {
   resubmitProofPhoto,
   submitProofReply,
 } from '@/lib/tasks/proof-actions';
+import { PROOF_ROUND_CAP } from '@/lib/tasks/verification';
 import type { HouseholdTask } from '@/types/orbit';
 
 function assert(condition: boolean, message: string) {
@@ -52,20 +53,34 @@ assert(onDemand.ok && onDemand.task.verification === 'proof_requested', 'on-dema
 assert(onDemand.ok && onDemand.task.proofRequired === true, 'on-demand sets proofRequired');
 assert((onDemand.ok && onDemand.task.proofRounds?.length) === 1, 'on-demand one round');
 
+// WO18: the loop is bounded by the 7-day window, not by a round count. An admin can keep
+// saying "not done yet" — including after rejecting a photo, which used to end it.
 let task = ask1.ok ? ask1.task : base();
-for (let i = 0; i < 3; i++) {
+for (let i = 0; i < 5; i++) {
   const next = requestAnotherProofOnTask(
-    { ...task, verification: 'unreviewed' },
+    { ...task, verification: i % 2 === 0 ? 'rejected' : 'unreviewed' },
     'admin-1',
     `round ${i + 2}`
   );
+  assert(next.ok, `round ${i + 2} allowed`);
   if (next.ok) task = next.task;
 }
-const capped = requestAnotherProofOnTask(
-  { ...task, verification: 'unreviewed', proofRounds: task.proofRounds },
+assert((task.proofRounds?.length ?? 0) === 6, 'six rounds recorded');
+
+// Confirmed is the one state that closes it.
+const afterConfirm = requestAnotherProofOnTask(
+  { ...task, verification: 'confirmed' },
   'admin-1'
 );
-assert(!capped.ok, 'cap at 3 rounds');
+assert(!afterConfirm.ok, 'confirmed ends the loop');
+
+// The far-out safety stop still exists so a row cannot grow without limit.
+const many = Array.from({ length: PROOF_ROUND_CAP }, () => ({ requestedAt: new Date().toISOString() }));
+const stopped = requestAnotherProofOnTask(
+  { ...task, verification: 'unreviewed', proofRounds: many },
+  'admin-1'
+);
+assert(!stopped.ok, 'safety stop at the cap');
 
 const reversed = markTaskNotDone(base({ awardedXp: 15 }));
 assert(reversed.ok && reversed.reversedXp === 15, 'reverse xp');

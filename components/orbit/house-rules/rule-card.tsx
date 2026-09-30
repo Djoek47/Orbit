@@ -58,12 +58,12 @@ export function RuleCard({ index, color, moji, headline, body, visual, visualPro
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(120 + index * 70).springify().damping(18)}
+      entering={FadeInDown.delay(90 + index * 45).duration(280)}
       layout={LinearTransition.springify().damping(20)}>
       <Pressable
         onPress={() => setOpen((v) => !v)}
-        onPressIn={() => press.set(withSpring(0.98, { damping: 20 }))}
-        onPressOut={() => press.set(withSpring(1, { damping: 14 }))}
+        onPressIn={() => press.set(withSpring(0.985, { damping: 26, stiffness: 320 }))}
+        onPressOut={() => press.set(withSpring(1, { damping: 22, stiffness: 260 }))}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`${headline}. ${open ? body : 'Tap for details.'}`}>

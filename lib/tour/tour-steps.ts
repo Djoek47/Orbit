@@ -83,6 +83,29 @@ const ADMIN_TASKS: TourChapter = {
       route: '/(tabs)/tasks',
       ensureVisible: true,
     }),
+    // Nothing to hand out to yet — point at the one thing that unlocks the rest.
+    step({
+      id: 'tasks.needSidekick',
+      targetId: 'tabbar.tasks',
+      title: 'Add a Sidekick',
+      body: 'Chores and homework need someone to give them to. Add a kid in Settings.',
+      route: '/(tabs)/tasks',
+      when: 'noSidekick',
+      centered: true,
+      primaryLabel: 'Open Settings',
+      primaryAction: 'open_settings',
+    }),
+    step({
+      id: 'tasks.proofLoop',
+      targetId: 'tasks.firstRow',
+      title: 'Asking for a photo',
+      body: 'See it once. They finish, you ask for a photo, and you can ask again.',
+      route: '/(tabs)/tasks',
+      when: 'hasSidekick',
+      centered: true,
+      primaryLabel: 'Show me',
+      primaryAction: 'open_proof_walkthrough',
+    }),
   ],
 };
 
@@ -107,6 +130,17 @@ const ADMIN_HOMEWORK: TourChapter = {
       route: '/(tabs)/tasks',
       when: 'homeworkEnabled',
       onEnter: 'tasks.homework',
+    }),
+    step({
+      id: 'homework.proofLoop',
+      targetId: 'tasks.domainSegment',
+      title: 'Homework proof',
+      body: 'Same loop as chores. Half a page is not done, so ask again.',
+      route: '/(tabs)/tasks',
+      when: 'homeworkEnabled',
+      centered: true,
+      primaryLabel: 'Show me',
+      primaryAction: 'open_homework_walkthrough',
     }),
   ],
 };

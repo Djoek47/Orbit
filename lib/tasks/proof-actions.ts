@@ -56,7 +56,7 @@ export function requestAnotherProofOnTask(
       ok: false,
       reason:
         rounds.length >= PROOF_ROUND_CAP
-          ? 'Proof round limit reached. Confirm or mark not done.'
+          ? 'That is a lot of rounds. Confirm it, or mark it not done.'
           : 'Cannot request more proof.',
     };
   }

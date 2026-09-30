@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
+import { canRequestAnotherProof } from '@/lib/tasks/verification';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
 
 const sidekick: HouseholdMember = {
@@ -62,3 +63,19 @@ const stale = {
 assert.equal(canAdminRequestTaskProof(stale, sidekick), false);
 
 console.log('proof-eligibility: ok');
+
+// ── The proof loop (WO18) ────────────────────────────────────────────────────
+// "That photo doesn't show it done" must be able to happen more than once.
+{
+  const round = { requestedAt: new Date().toISOString() };
+
+  // A rejected proof is where the loop turns, not where it stops.
+  assert.equal(canRequestAnotherProof('rejected', [round]), true, 'ask again after a rejection');
+  assert.equal(canRequestAnotherProof('rejected', [round, round, round]), true, 'and again');
+  // Confirmed ends it.
+  assert.equal(canRequestAnotherProof('confirmed', [round]), false, 'confirmed is the end');
+  // A first request on a chore that never needed a photo still works.
+  assert.equal(canRequestAnotherProof('not_required', []), true);
+  // Waiting on one is not a reason to refuse another nudge.
+  assert.equal(canRequestAnotherProof('proof_requested', [round]), true);
+}

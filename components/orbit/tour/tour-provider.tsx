@@ -663,9 +663,23 @@ export function TourProvider({ children }: PropsWithChildren) {
 
   const registerTarget = useCallback((id: TourTargetId, rect: TourRect) => {
     targetsRef.current.set(id, rect);
-    if (pointerRef.current?.step.targetId === id) {
-      setTargetRect(rect);
-    }
+    if (pointerRef.current?.step.targetId !== id) return;
+    // This runs every frame while a step is pointing at something. Only publish a real
+    // move: a fresh object each frame re-rendered the screen, and a screen that sets
+    // navigation options while rendering then looped until React gave up
+    // ("Maximum update depth exceeded").
+    setTargetRect((current) => {
+      if (
+        current &&
+        Math.abs(current.x - rect.x) < 0.5 &&
+        Math.abs(current.y - rect.y) < 0.5 &&
+        Math.abs(current.width - rect.width) < 0.5 &&
+        Math.abs(current.height - rect.height) < 0.5
+      ) {
+        return current;
+      }
+      return rect;
+    });
   }, []);
 
   const unregisterTarget = useCallback((id: TourTargetId) => {
@@ -856,6 +870,24 @@ export function TourProvider({ children }: PropsWithChildren) {
     }
     if (!tourState) return;
     const ptr = pointerRef.current;
+    // The proof playlet runs on its own screen; the tour steps aside and picks up after.
+    if (
+      ptr?.step.primaryAction === 'open_proof_walkthrough' ||
+      ptr?.step.primaryAction === 'open_homework_walkthrough'
+    ) {
+      const kind = ptr.step.primaryAction === 'open_homework_walkthrough' ? 'homework' : 'chore';
+      const next = advanceAfterStep(tourState, conditionCtx);
+      void persist(next);
+      if (next.status === 'completed') setSessionActive(false);
+      try {
+        if (navRef.isReady()) {
+          router.push(`/tour/proof-walkthrough?kind=${kind}` as never);
+        }
+      } catch (error) {
+        console.warn('tour.open_proof_walkthrough', error);
+      }
+      return;
+    }
     if (ptr?.step.primaryAction === 'open_settings') {
       void persist(completeTourState(tourState));
       setSessionActive(false);

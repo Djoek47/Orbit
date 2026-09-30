@@ -42,6 +42,13 @@ export function showRanks(household: HouseholdSnapshot): boolean {
   return capabilitiesFor(household.rewardModel as RewardModel | null | undefined).xpEnabled;
 }
 
+/** A household with at least one active Sidekick to give work to. */
+export function hasSidekick(household: HouseholdSnapshot): boolean {
+  return (household.members ?? []).some(
+    (member) => isSidekickRole(member.role) && member.status !== 'inactive'
+  );
+}
+
 export function isPadDevice(): boolean {
   try {
     // Lazy require so node tests can import this module without RN.
@@ -98,7 +105,12 @@ export function evaluateTourWhen(when: string | undefined, ctx: TourConditionCon
     case 'sharedTablet':
       return isSharedTabletHost(ctx.hostKind);
     case 'homeworkEnabled':
-      return ctx.household.homeworkEnabled !== false;
+      // Homework is a Sidekick's: without one there is nothing to show.
+      return ctx.household.homeworkEnabled !== false && hasSidekick(ctx.household);
+    case 'hasSidekick':
+      return hasSidekick(ctx.household);
+    case 'noSidekick':
+      return !hasSidekick(ctx.household);
     default:
       return true;
   }

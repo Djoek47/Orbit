@@ -4,7 +4,7 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -379,7 +379,6 @@ export default function AssignTaskScreen() {
   return (
     <TourTarget id="assign.form" style={{ flex: 1 }}>
     <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: c.background }]}>
-      <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.header}>
         <Pressable
