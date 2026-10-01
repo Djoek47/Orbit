@@ -83,10 +83,29 @@ export async function sidekickCompleteTask(input: {
   });
 
   if (error) {
-    throw new Error(error.message || 'sidekickCompleteTask failed');
+    const detail = await edgeErrorMessage(error, 'sidekickCompleteTask failed');
+    // Older edge builds returned 409 already_completed — treat as success locally.
+    if (/already_completed|already completed|409/i.test(detail)) {
+      return mapSidekickTaskRow(
+        {
+          id: input.taskId,
+          status: 'completed',
+          awarded_xp: input.awardedXp,
+          completed_at: input.completedAt,
+          completed_late: input.completedLate,
+          verification: input.verification ?? 'not_required',
+        },
+        input.task
+      );
+    }
+    throw new Error(detail);
   }
 
-  const payload = data as { error?: string; task?: Record<string, unknown> };
+  const payload = data as {
+    error?: string;
+    task?: Record<string, unknown>;
+    alreadyCompleted?: boolean;
+  };
   if (payload?.error || !payload?.task) {
     throw new Error(payload?.error ?? 'sidekickCompleteTask empty response');
   }

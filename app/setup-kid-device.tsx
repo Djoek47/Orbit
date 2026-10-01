@@ -437,7 +437,7 @@ export default function SetupKidDeviceScreen() {
                   onChangeText={setCode}
                   autoCapitalize="characters"
                   autoCorrect={false}
-                  placeholder="CMX-MAYA"
+                  placeholder="CMX-EM7K4Q"
                   placeholderTextColor={c.textSubtle}
                   style={[
                     styles.input,

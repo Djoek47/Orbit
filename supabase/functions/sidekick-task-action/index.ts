@@ -241,8 +241,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'unknown_action' }, 400);
     }
 
+    // Idempotent: a double-tap after success must not surface as a hard failure.
     if (task.status === 'completed') {
-      return jsonResponse({ error: 'already_completed' }, 409);
+      return jsonResponse({ task, memberXpAwarded: 0, alreadyCompleted: true });
     }
 
     const completedAt = String(body.completedAt ?? new Date().toISOString());
@@ -273,89 +274,98 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: updateError.message }, 500);
     }
 
-    if (awardedXp > 0) {
-      const { data: memberRow } = await admin
-        .from('household_members')
-        .select('id, xp, week_xp')
-        .eq('id', member.id)
-        .maybeSingle();
+    // XP / notify must never undo a successful completion for the client.
+    try {
+      if (awardedXp > 0) {
+        const { data: memberRow } = await admin
+          .from('household_members')
+          .select('id, xp, week_xp')
+          .eq('id', member.id)
+          .maybeSingle();
 
-      if (memberRow) {
-        await admin
+        if (memberRow) {
+          const { error: xpError } = await admin
+            .from('household_members')
+            .update({
+              xp: (memberRow.xp ?? 0) + awardedXp,
+              week_xp: (memberRow.week_xp ?? 0) + awardedXp,
+            })
+            .eq('id', member.id);
+          if (xpError) console.warn('sidekick-complete member xp', xpError.message);
+
+          const { error: txError } = await admin.from('xp_transactions').insert({
+            household_id: member.household_id,
+            user_id: null,
+            member_id: member.id,
+            amount: awardedXp,
+            reason: completedLate
+              ? `Completed task (late): ${task.title}`
+              : `Completed task: ${task.title}`,
+            related_task_id: taskId,
+          });
+          if (txError) console.warn('sidekick-complete xp_transactions', txError.message);
+        }
+      }
+
+      const bonusAwards = Array.isArray(body.bonusAwards)
+        ? body.bonusAwards.filter(
+            (row: unknown) =>
+              row &&
+              typeof row === 'object' &&
+              typeof (row as { memberId?: string }).memberId === 'string' &&
+              Number((row as { amount?: number }).amount) > 0
+          )
+        : [];
+
+      for (const bonus of bonusAwards as { memberId: string; amount: number; reason?: string }[]) {
+        const { data: bonusMember } = await admin
+          .from('household_members')
+          .select('id, xp, week_xp')
+          .eq('id', bonus.memberId)
+          .eq('household_id', member.household_id)
+          .maybeSingle();
+        if (!bonusMember) continue;
+        const { error: bonusXpError } = await admin
           .from('household_members')
           .update({
-            xp: (memberRow.xp ?? 0) + awardedXp,
-            week_xp: (memberRow.week_xp ?? 0) + awardedXp,
+            xp: (bonusMember.xp ?? 0) + bonus.amount,
+            week_xp: (bonusMember.week_xp ?? 0) + bonus.amount,
           })
-          .eq('id', member.id);
-
-        await admin.from('xp_transactions').insert({
+          .eq('id', bonusMember.id);
+        if (bonusXpError) console.warn('sidekick-complete bonus xp', bonusXpError.message);
+        const { error: bonusTxError } = await admin.from('xp_transactions').insert({
           household_id: member.household_id,
           user_id: null,
-          member_id: member.id,
-          amount: awardedXp,
-          reason: completedLate
-            ? `Completed task (late): ${task.title}`
-            : `Completed task: ${task.title}`,
+          member_id: bonusMember.id,
+          amount: bonus.amount,
+          reason: bonus.reason ?? `Split bonus: ${task.title}`,
           related_task_id: taskId,
         });
+        if (bonusTxError) console.warn('sidekick-complete bonus tx', bonusTxError.message);
       }
-    }
 
-    const bonusAwards = Array.isArray(body.bonusAwards)
-      ? body.bonusAwards.filter(
-          (row: unknown) =>
-            row &&
-            typeof row === 'object' &&
-            typeof (row as { memberId?: string }).memberId === 'string' &&
-            Number((row as { amount?: number }).amount) > 0
-        )
-      : [];
+      await touchMemberSeen(admin, member.id);
 
-    for (const bonus of bonusAwards as { memberId: string; amount: number; reason?: string }[]) {
-      const { data: bonusMember } = await admin
-        .from('household_members')
-        .select('id, xp, week_xp')
-        .eq('id', bonus.memberId)
-        .eq('household_id', member.household_id)
-        .maybeSingle();
-      if (!bonusMember) continue;
-      await admin
-        .from('household_members')
-        .update({
-          xp: (bonusMember.xp ?? 0) + bonus.amount,
-          week_xp: (bonusMember.week_xp ?? 0) + bonus.amount,
-        })
-        .eq('id', bonusMember.id);
-      await admin.from('xp_transactions').insert({
-        household_id: member.household_id,
-        user_id: null,
-        member_id: bonusMember.id,
-        amount: bonus.amount,
-        reason: bonus.reason ?? `Split bonus: ${task.title}`,
-        related_task_id: taskId,
-      });
-    }
-
-    await touchMemberSeen(admin, member.id);
-
-    if (safeStatus === 'completed') {
-      await notifyAdminsAndPush(admin, {
-        householdId: member.household_id,
-        title: 'Task completed',
-        body: `${member.display_name} completed "${task.title}". +${awardedXp} XP.`,
-        category: 'ai',
-        priority: completedLate ? 'high' : 'medium',
-        data: {
-          notificationId: 'N18',
-          kind: 'task_completed',
-          taskId,
-          name: member.display_name,
-          memberName: member.display_name,
-          task: task.title,
-          xp: awardedXp,
-        },
-      });
+      if (safeStatus === 'completed') {
+        await notifyAdminsAndPush(admin, {
+          householdId: member.household_id,
+          title: 'Task completed',
+          body: `${member.display_name} completed "${task.title}". +${awardedXp} XP.`,
+          category: 'ai',
+          priority: completedLate ? 'high' : 'medium',
+          data: {
+            notificationId: 'N18',
+            kind: 'task_completed',
+            taskId,
+            name: member.display_name,
+            memberName: member.display_name,
+            task: task.title,
+            xp: awardedXp,
+          },
+        });
+      }
+    } catch (postError) {
+      console.warn('sidekick-complete post-update', postError);
     }
 
     return jsonResponse({ task: updated, memberXpAwarded: awardedXp });

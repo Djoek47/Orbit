@@ -3485,32 +3485,37 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return nextHouseholdSnapshot;
     });
 
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    if (!profileAuth) {
-      await poppinsNotifications.taskCompleted(pushNotification, prefs, {
-        title: currentTask.title,
-        assignee: currentTask.assignee,
-        awardedXp: awarded,
-        penalty,
-        late,
-        taskId,
-        audienceMemberIds: adminMemberIds(household.members),
+    // Task row is already saved — follow-up hooks must not turn success into an error alert.
+    try {
+      const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      if (!profileAuth) {
+        await poppinsNotifications.taskCompleted(pushNotification, prefs, {
+          title: currentTask.title,
+          assignee: currentTask.assignee,
+          awardedXp: awarded,
+          penalty,
+          late,
+          taskId,
+          audienceMemberIds: adminMemberIds(household.members),
+        });
+      }
+      if (nextHouseholdSnapshot) {
+        await finishTrophyAndStreakHooks(currentTask.assignee, awarded, nextHouseholdSnapshot);
+      }
+      const nextMetrics = calculateMetrics({
+        ...household,
+        tasks: household.tasks.map((item) => (item.id === taskId ? completedTask : item)),
       });
+      await persistHouseholdScore(household.id, nextMetrics);
+      await trackAnalytics(
+        'task.completed',
+        { taskId, awarded, late, needsProof },
+        analyticsContext
+      );
+      emitTourEvent('task_completed', { taskId });
+    } catch (postCompleteError) {
+      console.warn('completeTask.postHooks', postCompleteError);
     }
-    if (nextHouseholdSnapshot) {
-      await finishTrophyAndStreakHooks(currentTask.assignee, awarded, nextHouseholdSnapshot);
-    }
-    const nextMetrics = calculateMetrics({
-      ...household,
-      tasks: household.tasks.map((item) => (item.id === taskId ? completedTask : item)),
-    });
-    await persistHouseholdScore(household.id, nextMetrics);
-    await trackAnalytics(
-      'task.completed',
-      { taskId, awarded, late, needsProof },
-      analyticsContext
-    );
-    emitTourEvent('task_completed', { taskId });
     return { awarded, penalty, late, needsProof };
   };
 

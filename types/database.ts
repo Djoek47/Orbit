@@ -54,7 +54,7 @@ export type HouseholdMemberRow = {
   load_share: number;
   /** Member ids who use this shared phone/tablet profile. */
   shared_with_member_ids?: string[] | null;
-  /** Kid / shared-device invite, e.g. CMX-EMMA. */
+  /** Kid / shared-device invite, e.g. CMX-EM7K4Q (legacy CMX-EMMA still valid). */
   profile_invite_code?: string | null;
   planned_task_library_ids?: string[] | null;
   /** Frequency overrides keyed by library task id. */

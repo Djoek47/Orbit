@@ -1020,7 +1020,8 @@ export const householdRepository = {
 
     const taken = new Set<string>();
     let lastError: { code?: string; message?: string } | null = null;
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    // Strong random codes collide rarely; keep plenty of retries for the unique index.
+    for (let attempt = 0; attempt < 24; attempt += 1) {
       if (role === 'child') {
         member.profileInviteCode = allocateChildInviteCode(trimmed, taken);
       }
@@ -1264,7 +1265,7 @@ export const householdRepository = {
 
     const supabase = getConfiguredSupabase('householdRepository.ensureMemberProfileInviteCode');
     let lastError: { code?: string; message?: string } | null = null;
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    for (let attempt = 0; attempt < 24; attempt += 1) {
       const code = allocateChildInviteCode(member.name, takenSet);
       let query = supabase
         .from('household_members')
