@@ -49,7 +49,25 @@ test('looksLikeCoordinates rejects addresses and catches lat/lng', () => {
 
 test('stopPlaceLine never shows coordinates or repeats the name', () => {
   assert.equal(
-    stopPlaceLine(stop({ id: 'a', label: 'Metro', address: '45.5740, -73.6850' })),
+    stopPlaceLine(
+      stop({
+        id: 'a',
+        label: 'Metro',
+        address: '45.5740, -73.6850',
+        placeQuery: 'Metro 45.5740, -73.6850',
+      }),
+    ),
+    null,
+  );
+  assert.equal(
+    stopPlaceLine(
+      stop({
+        id: 'b',
+        label: 'Marché Legendre',
+        address: '',
+        placeQuery: 'Marché Legendre 45.5505, -73.6438',
+      }),
+    ),
     null,
   );
   assert.equal(

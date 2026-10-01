@@ -1,10 +1,10 @@
 /**
- * Base listening — the iPhone's own speech recognizer, streaming.
+ * Base listening — the iPhone's own speech recognizer, streaming (Apple first).
  *
  * Base is Max without the voice: it hears you, writes down what it heard, and drives the
- * stage. Nothing is uploaded and nothing talks back, so there is no server to be
- * unreachable and no per-minute cost. On a phone that supports it, recognition runs fully
- * on device.
+ * stage. Prefer on-device English recognition. When Apple is silent, unavailable, or
+ * mishears into another language, the controller escalates to cloud STT (`poppins-voice`
+ * transcriptOnly) — listening only; understanding stays in local parsers.
  *
  * One session lasts until the person taps to close (or goes quiet for a while). Inside it,
  * the endpointer cuts the running transcript into sentences; each sentence is handed to
@@ -131,12 +131,16 @@ export function failureFromNativeError(code: string): BaseListenFailure | 'ignor
   }
 }
 
-/** The recognizer's language: the phone's, when it is one we speak. */
+/**
+ * The recognizer's language. ChoreMaxx is English-only, so this is English whatever the phone is
+ * set to. A French phone used to put the recognizer into French: it then heard English as French,
+ * and Poppins wrote back nonsense like "Une TâChe Pour Moi". An English variant of the phone's
+ * region is kept, since that only affects accent and spelling.
+ */
 export function listenLocale(deviceLocale?: string): string {
   const raw = (deviceLocale ?? Intl.DateTimeFormat().resolvedOptions().locale ?? 'en-US').replace('_', '-');
-  if (/^fr/i.test(raw)) return /-/.test(raw) ? raw : 'fr-CA';
-  if (/^en/i.test(raw)) return /-/.test(raw) ? raw : 'en-US';
-  return 'en-US';
+  const match = /^en-([A-Za-z]{2})/i.exec(raw);
+  return match ? `en-${match[1]!.toUpperCase()}` : 'en-US';
 }
 
 /** De-duplicated, short, capped: the recognizer only takes so much. */
@@ -248,10 +252,12 @@ export class BaseListener {
       }
     })();
     native.start({
+      // Always English for ChoreMaxx — never the phone's UI language (see listenLocale).
       lang: this.opts.locale ?? listenLocale(),
       interimResults: true,
       continuous: true,
       maxAlternatives: 1,
+      // Prefer on-device when available, but never without an explicit English locale above.
       requiresOnDeviceRecognition: onDevice,
       addsPunctuation: false,
       contextualStrings: this.opts.vocabulary ?? [],

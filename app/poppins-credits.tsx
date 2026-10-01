@@ -1,8 +1,13 @@
 /**
- * Poppins → Actions & credits.
+ * Poppins → Credits.
  *
- * Two halves. Above: where the month's actions went, day by day, in the same dashboard shape
- * as completed tasks. Below (admins only): buying more.
+ * Credits are not the monthly allowance, and this screen exists so the two stop looking alike:
+ *
+ *   the allowance  300 actions, back on the 1st, gone if unused
+ *   credits        bought, banked, and never expiring — they carry month to month and are only
+ *                  drawn on once the allowance is spent
+ *
+ * Where the month went is its own screen (poppins-actions).
  *
  * Buying is mocked on purpose. No payment system is connected yet, so a purchase mints a
  * transaction, grants the tokens through the real grant path, and writes a receipt you can
@@ -20,9 +25,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
-import { CreditBreakdownView } from '@/components/orbit/poppins/credit-breakdown-view';
 import { typography } from '@/constants/orbit-theme';
-import { grantTokenPack, loadTokenGrants, topUpBalanceFromGrants } from '@/lib/billing/token-grants';
+import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
+import {
+  formatResetDate,
+  spendsFrom,
+  summarizeCredits,
+  type CreditSummary,
+} from '@/lib/billing/credit-ledger';
+import { grantTokenPack, loadTokenGrants } from '@/lib/billing/token-grants';
+import { summarizeActUsage } from '@/lib/ai/act-events';
 import {
   buildTopUpReceipt,
   fileReceipt,
@@ -44,10 +57,12 @@ const TOPUP_TONE = '#FF9F1C';
 function PoppinsCreditsScreenInner() {
   const insets = useSafeAreaInsets();
   const { c, glassBorder, isDark } = useOrbitColors();
-  const { household, currentMember, permissions, actEvents } = useOrbit();
+  const { household, permissions, actEvents } = useOrbit();
   const isAdmin = permissions.canManageHousehold;
 
-  const [topUpBalance, setTopUpBalance] = useState(0);
+  const monthUsed = useMemo(() => summarizeActUsage(actEvents).tokensUsedThisPeriod, [actEvents]);
+  const [credits, setCredits] = useState<CreditSummary>(() => summarizeCredits([], monthUsed));
+  const topUpBalance = credits.balance;
   const [receipts, setReceipts] = useState<TopUpReceipt[]>(() => receiptInbox());
   const [buying, setBuying] = useState<string | null>(null);
   const [openReceipt, setOpenReceipt] = useState<TopUpReceipt | null>(null);
@@ -73,22 +88,22 @@ function PoppinsCreditsScreenInner() {
     };
   }, []);
 
-  // Reads the grants ledger; the caller decides what to do with the number.
+  // Reads the grants ledger; the caller decides what to do with it.
   const readBalance = useCallback(async () => {
     try {
       const grants = await loadTokenGrants(household.id);
-      return topUpBalanceFromGrants(grants);
+      return summarizeCredits(grants, monthUsed);
     } catch (error) {
       console.warn('poppins-credits balance', error);
       return null;
     }
-  }, [household.id]);
+  }, [household.id, monthUsed]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const balance = await readBalance();
-      if (balance != null && !cancelled) setTopUpBalance(balance);
+      const next = await readBalance();
+      if (next && !cancelled) setCredits(next);
     })();
     return () => {
       cancelled = true;
@@ -99,7 +114,7 @@ function PoppinsCreditsScreenInner() {
 
   const buy = useCallback(
     (pack: TopUpPack) => {
-      Alert.alert(
+      orbitAlert(
         `${pack.label} · ${formatPrice(pack.priceUsd)}`,
         'This is a test purchase. No card is charged and no money moves — the actions and the receipt are real so the whole flow can be checked.',
         [
@@ -124,12 +139,12 @@ function PoppinsCreditsScreenInner() {
                   });
                   fileReceipt(receipt);
                   setReceipts(receiptInbox());
-                  const balance = await readBalance();
-                  if (balance != null) setTopUpBalance(balance);
+                  const next = await readBalance();
+                  if (next) setCredits(next);
                   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   setOpenReceipt(receipt);
                 } catch (error) {
-                  Alert.alert("That didn't go through", String(error));
+                  orbitAlert("That didn't go through", String(error));
                 } finally {
                   setBuying(null);
                 }
@@ -153,19 +168,14 @@ function PoppinsCreditsScreenInner() {
           accessibilityLabel="Back">
           <MaterialIcons name="chevron-left" size={28} color={c.text} />
         </Pressable>
-        <Text style={[typography.headline, { color: c.text }]}>Actions</Text>
+        <Text style={[typography.headline, { color: c.text }]}>Credits</Text>
         <View style={{ width: 28 }} />
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 48 }]}
         showsVerticalScrollIndicator={false}>
-        <CreditBreakdownView
-          events={actEvents}
-          onlyMemberName={isAdmin ? null : currentMember?.name ?? null}
-          topUpBalance={topUpBalance}
-          isAdmin={isAdmin}
-        />
+        <CreditSummaryCard summary={credits} />
 
         {isAdmin ? (
           <>
@@ -285,6 +295,96 @@ function PoppinsCreditsScreenInner() {
   );
 }
 
+
+/**
+ * The two pots, side by side, so nobody mistakes one for the other: an allowance that empties
+ * every month, and credits that simply sit there until they're used.
+ */
+function CreditSummaryCard({ summary }: { summary: CreditSummary }) {
+  const { c, glassBorder, isDark } = useOrbitColors();
+  const paying = spendsFrom(summary);
+
+  return (
+    <Animated.View entering={FadeInDown.duration(280)} style={{ gap: 10 }}>
+      <LinearGradient
+        colors={[`${TOPUP_TONE}2E`, `${TOPUP_TONE}0A`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.bank, { borderColor: `${TOPUP_TONE}55` }]}>
+        <Text style={[styles.bankLabel, { color: TOPUP_TONE }]}>CREDIT BALANCE</Text>
+        <Text style={[styles.bankValue, { color: c.text }]}>{summary.balance}</Text>
+        <Text style={[styles.bankCaption, { color: c.textSoft }]}>
+          Bought and unspent. These never expire — they carry over every month.
+        </Text>
+      </LinearGradient>
+
+      <View style={styles.potRow}>
+        <View
+          style={[
+            styles.pot,
+            { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
+          ]}>
+          <Text style={[styles.potValue, { color: c.text }]}>{summary.monthlyLeft}</Text>
+          <Text style={[styles.potLabel, { color: c.textMuted }]}>
+            of {TOKENS_PER_MONTH} this month
+          </Text>
+          <Text style={[styles.potNote, { color: c.textSubtle }]}>
+            Back on {formatResetDate()}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.pot,
+            { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
+          ]}>
+          <Text style={[styles.potValue, { color: c.text }]}>{summary.totalAvailable}</Text>
+          <Text style={[styles.potLabel, { color: c.textMuted }]}>can be spent now</Text>
+          <Text style={[styles.potNote, { color: c.textSubtle }]}>
+            {paying === 'credits'
+              ? 'Spending credits'
+              : paying === 'allowance'
+                ? 'Spending the month first'
+                : 'Nothing left — top up'}
+          </Text>
+        </View>
+      </View>
+
+      {summary.rows.length > 0 ? (
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
+          ]}>
+          {summary.rows.map((row, index) => (
+            <View
+              key={row.id}
+              style={[
+                styles.ledgerRow,
+                index > 0 && {
+                  borderTopColor: glassBorder(0.08),
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                },
+              ]}>
+              <Moji name="gem" size={16} />
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={[styles.ledgerTitle, { color: c.text }]} numberOfLines={1}>
+                  {row.pack}
+                </Text>
+                <Text style={[styles.ledgerSub, { color: c.textSubtle }]}>
+                  {new Date(row.at).toLocaleDateString()} · {row.spent} used
+                </Text>
+              </View>
+              <Text style={[styles.ledgerLeft, { color: row.left > 0 ? TOPUP_TONE : c.textSubtle }]}>
+                {row.left} left
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </Animated.View>
+  );
+}
+
 function PackCard({
   pack,
   busy,
@@ -334,6 +434,37 @@ function PackCard({
 }
 
 const styles = StyleSheet.create({
+  bank: {
+    borderCurve: 'continuous',
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 2,
+    padding: 18,
+  },
+  bankLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  bankValue: { fontSize: 44, fontWeight: '900', letterSpacing: -1.5, lineHeight: 48 },
+  bankCaption: { fontSize: 13, lineHeight: 18, marginTop: 4 },
+  potRow: { flexDirection: 'row', gap: 10 },
+  pot: {
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    borderWidth: 1,
+    flex: 1,
+    gap: 2,
+    padding: 14,
+  },
+  potValue: { fontSize: 24, fontWeight: '900', letterSpacing: -0.6 },
+  potLabel: { fontSize: 12.5, lineHeight: 16 },
+  potNote: { fontSize: 11, marginTop: 2 },
+  ledgerRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 12,
+  },
+  ledgerTitle: { fontSize: 14.5, fontWeight: '700' },
+  ledgerSub: { fontSize: 11.5 },
+  ledgerLeft: { fontSize: 13, fontWeight: '800' },
   root: { flex: 1 },
   header: {
     alignItems: 'center',

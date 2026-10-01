@@ -9,7 +9,11 @@
  * Data is OpenStreetMap via Overpass — the same source the nearby-store watcher uses.
  */
 import { haversineMeters } from '@/lib/places/geo-distance';
-import type { SavedPlaceKind } from '@/types/orbit';
+import {
+  loadCachedNearbySuggestions,
+  saveCachedNearbySuggestions,
+} from '@/lib/places/nearby-cache';
+import type { PreferredStore, SavedPlaceKind } from '@/types/orbit';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const RADIUS_M = 3000;
@@ -98,7 +102,8 @@ export function suggestionsFromElements(
     out.push({
       id: `osm-${el.type}-${el.id}`,
       name,
-      address: street || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+      // Prefer a real street; never fall back to raw coords (trip UI hides those).
+      address: street,
       kind: rule.kind,
       emoji: rule.emoji,
       lat,
@@ -165,21 +170,69 @@ async function askOverpass(url: string, query: string): Promise<OverpassElement[
 }
 
 /**
- * Ask Overpass, trying each mirror in turn. Always settles: on failure it returns [], so
- * the caller can say "nothing nearby" instead of spinning for ever.
+ * Ask Overpass, trying each mirror in turn. Cached after the first successful hit so
+ * Places doesn't re-fetch every open. Pass forceRefresh to bypass (refresh button).
  */
-export async function findNearbySuggestions(origin: {
-  lat: number;
-  lng: number;
-}): Promise<NearbySuggestion[]> {
+export async function findNearbySuggestions(
+  origin: {
+    lat: number;
+    lng: number;
+  },
+  options?: { forceRefresh?: boolean }
+): Promise<NearbySuggestion[]> {
+  if (!options?.forceRefresh) {
+    const cached = await loadCachedNearbySuggestions(origin.lat, origin.lng);
+    if (cached?.length) return cached;
+  }
   const query = nearbyQuery(origin.lat, origin.lng);
   for (const url of OVERPASS_MIRRORS) {
     try {
       const elements = await askOverpass(url, query);
-      if (elements.length) return suggestionsFromElements(elements, origin);
+      if (elements.length) {
+        const found = suggestionsFromElements(elements, origin);
+        if (found.length) {
+          await saveCachedNearbySuggestions(origin.lat, origin.lng, found);
+          return found;
+        }
+      }
     } catch (error) {
       console.warn('findNearbySuggestions', url, error);
     }
   }
-  return [];
+  const cached = await loadCachedNearbySuggestions(origin.lat, origin.lng);
+  return cached ?? [];
+}
+
+/**
+ * The same shops New trip lists, as suggestion cards.
+ *
+ * New trip and Add place asked two different services. New trip's answered; this one's often
+ * didn't, so Places sat on "Couldn't find places near home" while the trip screen listed eight
+ * stores from the same spot. When the richer search comes back empty, these fill in — and being
+ * ordinary suggestions, they save as places like any other.
+ */
+export function suggestionsFromStores(
+  stores: PreferredStore[],
+  origin: { lat: number; lng: number }
+): NearbySuggestion[] {
+  const out: NearbySuggestion[] = [];
+  for (const store of stores) {
+    const name = store.name?.trim();
+    if (!name || store.lat == null || store.lng == null) continue;
+    const distanceMeters =
+      store.distanceMeters ?? haversineMeters(origin.lat, origin.lng, store.lat, store.lng);
+    const kind: SavedPlaceKind = store.shopKind === 'clothing' ? 'clothing' : 'shop';
+    out.push({
+      id: store.id,
+      name,
+      address: store.address?.trim() || name,
+      kind,
+      emoji: store.shopKind === 'clothing' ? '👕' : '🛒',
+      lat: store.lat,
+      lng: store.lng,
+      distanceMeters,
+      detail: `${store.shopKind === 'clothing' ? 'Clothing' : 'Store'} · ${metersLabel(distanceMeters)}`,
+    });
+  }
+  return out.sort((a, b) => a.distanceMeters - b.distanceMeters);
 }

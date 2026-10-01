@@ -22,6 +22,7 @@ import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { pickProofPhoto } from '@/lib/tasks/pick-proof';
+import { useKeyboardVisible } from '@/lib/ui/use-keyboard-visible';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type RequestProps = {
@@ -125,6 +126,7 @@ export function TaskProofReplySheet({
   onSubmit,
 }: ReplyProps) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const keyboardUp = useKeyboardVisible();
   const [note, setNote] = useState('');
   const [uri, setUri] = useState<string | null>(null);
   const [picking, setPicking] = useState<'camera' | 'library' | null>(null);
@@ -147,19 +149,31 @@ export function TaskProofReplySheet({
     }
   };
 
+  const send = () => {
+    const photo = uri?.trim();
+    if (!photo) return;
+    Keyboard.dismiss();
+    void onSubmit({
+      proofUri: photo,
+      note: note.trim() || undefined,
+    });
+  };
+
   return (
     <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.78} scrollable>
-      <View style={styles.hero}>
-        <View style={[styles.iconBubble, { backgroundColor: `${c.primary}22` }]}>
-          <MaterialIcons name="photo-camera" size={28} color={c.primary} />
+      {keyboardUp ? null : (
+        <View style={styles.hero}>
+          <View style={[styles.iconBubble, { backgroundColor: `${c.primary}22` }]}>
+            <MaterialIcons name="photo-camera" size={28} color={c.primary} />
+          </View>
+          <Text style={[typography.title2, { color: c.text, textAlign: 'center' }]}>Add a photo</Text>
+          <Text style={[typography.subheadline, styles.lead, { color: c.textSoft }]}>
+            Show that “{taskTitle}” is done. A picture is what gets sent.
+          </Text>
         </View>
-        <Text style={[typography.title2, { color: c.text, textAlign: 'center' }]}>Add a photo</Text>
-        <Text style={[typography.subheadline, styles.lead, { color: c.textSoft }]}>
-          Show that “{taskTitle}” is done. A picture is what gets sent.
-        </Text>
-      </View>
+      )}
 
-      {adminNote ? (
+      {adminNote && !keyboardUp ? (
         <View
           style={[
             styles.coachCard,
@@ -170,50 +184,58 @@ export function TaskProofReplySheet({
         </View>
       ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Take a photo"
-        disabled={busy || picking !== null}
-        onPress={() => void pick('camera')}
-        style={({ pressed }) => [
-          styles.cameraCard,
-          {
-            backgroundColor: `${c.primary}18`,
-            borderColor: `${c.primary}55`,
-            opacity: pressed ? 0.88 : 1,
-          },
-        ]}>
-        {picking === 'camera' ? (
-          <ActivityIndicator color={c.primary} />
-        ) : (
-          <MaterialIcons name="photo-camera" size={28} color={c.primary} />
-        )}
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[typography.headline, { color: c.text }]}>Take a photo</Text>
-          <Text style={[typography.caption1, { color: c.textMuted }]}>Open the camera</Text>
-        </View>
-        <MaterialIcons name="arrow-forward-ios" size={14} color={c.textMuted} />
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Choose from library"
-        disabled={busy || picking !== null}
-        onPress={() => void pick('library')}
-        style={({ pressed }) => [styles.libraryRow, { opacity: pressed ? 0.7 : 1 }]}>
-        {picking === 'library' ? (
-          <ActivityIndicator color={c.primary} size="small" />
-        ) : (
-          <MaterialIcons name="photo-library" size={18} color={c.primary} />
-        )}
-        <Text style={[typography.subheadline, { color: c.primary, fontWeight: '700' }]}>
-          Choose from library
-        </Text>
-      </Pressable>
+      {keyboardUp ? null : (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Take a photo"
+            disabled={busy || picking !== null}
+            onPress={() => void pick('camera')}
+            style={({ pressed }) => [
+              styles.cameraCard,
+              {
+                backgroundColor: `${c.primary}18`,
+                borderColor: `${c.primary}55`,
+                opacity: pressed ? 0.88 : 1,
+              },
+            ]}>
+            {picking === 'camera' ? (
+              <ActivityIndicator color={c.primary} />
+            ) : (
+              <MaterialIcons name="photo-camera" size={28} color={c.primary} />
+            )}
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[typography.headline, { color: c.text }]}>Take a photo</Text>
+              <Text style={[typography.caption1, { color: c.textMuted }]}>Open the camera</Text>
+            </View>
+            <MaterialIcons name="arrow-forward-ios" size={14} color={c.textMuted} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Choose from library"
+            disabled={busy || picking !== null}
+            onPress={() => void pick('library')}
+            style={({ pressed }) => [styles.libraryRow, { opacity: pressed ? 0.7 : 1 }]}>
+            {picking === 'library' ? (
+              <ActivityIndicator color={c.primary} size="small" />
+            ) : (
+              <MaterialIcons name="photo-library" size={18} color={c.primary} />
+            )}
+            <Text style={[typography.subheadline, { color: c.primary, fontWeight: '700' }]}>
+              Choose from library
+            </Text>
+          </Pressable>
+        </>
+      )}
 
       {uri ? (
         <Image
           source={{ uri }}
-          style={[styles.preview, { backgroundColor: glass(0.06) }]}
+          style={[
+            styles.preview,
+            keyboardUp && styles.previewCompact,
+            { backgroundColor: glass(0.06) },
+          ]}
           resizeMode="cover"
         />
       ) : null}
@@ -240,16 +262,7 @@ export function TaskProofReplySheet({
       />
 
       <View style={styles.ctaStack}>
-        <OrbitButton
-          loading={busy}
-          disabled={busy || !uri}
-          onPress={() => {
-            Keyboard.dismiss();
-            void onSubmit({
-              proofUri: uri ?? undefined,
-              note: note.trim() || undefined,
-            });
-          }}>
+        <OrbitButton loading={busy} disabled={busy || !uri} onPress={send}>
           Send photo
         </OrbitButton>
         <OrbitButton
@@ -327,6 +340,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     height: 160,
     width: '100%',
+  },
+  previewCompact: {
+    height: 72,
   },
   coachCard: {
     alignItems: 'flex-start',

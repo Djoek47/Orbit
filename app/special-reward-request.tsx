@@ -12,6 +12,7 @@ import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 /**
  * Q1 = B — Admin may allow members to ask for something not yet minted.
@@ -35,7 +36,7 @@ export default function SpecialRewardRequestScreen() {
       await requestSpecialReward(title.trim(), note.trim() || undefined, 0);
       router.back();
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Couldn’t send',
         error instanceof Error ? error.message : 'Try again in a moment.'
       );

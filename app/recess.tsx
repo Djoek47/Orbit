@@ -12,6 +12,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { VOCAB } from '@/constants/vocabulary';
 import { space, typography } from '@/constants/orbit-theme';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   createRecessForEveryone,
   createRecessPeriod,
@@ -59,7 +60,7 @@ export default function RecessScreen() {
         existing: periods,
       });
       if ('error' in result) {
-        Alert.alert(VOCAB.recess, result.error.message);
+        orbitAlert(VOCAB.recess, result.error.message);
         return;
       }
       setPeriods(result.periods);
@@ -82,7 +83,7 @@ export default function RecessScreen() {
       existing: periods.filter((p) => p.endDate != null && p.endDate < today),
     });
     if ('error' in result) {
-      Alert.alert(VOCAB.recess, result.error.message);
+      orbitAlert(VOCAB.recess, result.error.message);
       return;
     }
     setPeriods(result.periods);

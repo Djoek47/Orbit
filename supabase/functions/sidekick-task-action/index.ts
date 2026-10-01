@@ -91,39 +91,108 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'not_assignee' }, 403);
     }
 
+    if (action === 'prepare_proof_upload') {
+      const proofExt =
+        String(body.proofExt ?? 'jpg').trim().replace(/[^a-z0-9]/gi, '') || 'jpg';
+      const path = `${member.household_id}/${taskId}/${Date.now()}.${proofExt}`;
+      const { data: signed, error: signError } = await admin.storage
+        .from('task-proofs')
+        .createSignedUploadUrl(path);
+      if (signError || !signed?.signedUrl || !signed?.token) {
+        return jsonResponse(
+          { error: signError?.message || 'proof_upload_url_failed' },
+          500
+        );
+      }
+      const { data: pub } = admin.storage.from('task-proofs').getPublicUrl(path);
+      return jsonResponse({
+        path,
+        token: signed.token,
+        signedUrl: signed.signedUrl,
+        publicUrl: pub?.publicUrl ?? null,
+      });
+    }
+
     if (action === 'submit_proof') {
       let proofUri = String(body.proofUri ?? '').trim();
       const proofBase64 = String(body.proofBase64 ?? '').trim();
       const proofMime = String(body.proofMime ?? 'image/jpeg').trim() || 'image/jpeg';
       const proofExt = String(body.proofExt ?? 'jpg').trim().replace(/[^a-z0-9]/gi, '') || 'jpg';
+      let storagePath: string | null = null;
+      const isLocalProofUri = (uri: string) =>
+        !uri ||
+        /^(file:|content:|ph:|assets-library:|data:)/i.test(uri) ||
+        uri.startsWith('/');
 
-      // Prefer bytes from the Sidekick device — local file:// URIs are useless on admin devices.
-      if (proofBase64) {
+      // Prefer durable https from a prior signed PUT. Otherwise accept bytes and upload.
+      const alreadyRemote = /^https?:\/\//i.test(proofUri);
+      // If the client sent a local URI *and* bytes, ignore the local URI and upload bytes.
+      if ((!alreadyRemote || isLocalProofUri(proofUri)) && proofBase64) {
         const path = `${member.household_id}/${taskId}/${Date.now()}.${proofExt}`;
-        const binary = atob(proofBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        try {
+          const binary = atob(proofBase64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          if (bytes.byteLength < 32) {
+            return jsonResponse({ error: 'proof_bytes_empty' }, 400);
+          }
 
-        const { error: uploadError } = await admin.storage.from('task-proofs').upload(path, bytes, {
-          contentType: proofMime,
-          upsert: true,
-        });
-        if (uploadError) {
-          return jsonResponse({ error: uploadError.message || 'proof_upload_failed' }, 500);
+          const { error: uploadError } = await admin.storage.from('task-proofs').upload(path, bytes, {
+            contentType: proofMime,
+            upsert: true,
+          });
+          if (uploadError) {
+            console.warn('submit_proof upload', uploadError.message);
+            return jsonResponse(
+              {
+                error:
+                  uploadError.message?.includes('Bucket not found') ||
+                  uploadError.message?.includes('not found')
+                    ? 'proof_bucket_missing'
+                    : uploadError.message || 'proof_upload_failed',
+              },
+              500
+            );
+          }
+
+          const { data: pub } = admin.storage.from('task-proofs').getPublicUrl(path);
+          proofUri = pub?.publicUrl ?? '';
+          storagePath = path;
+        } catch (decodeError) {
+          return jsonResponse(
+            { error: `proof_decode_failed: ${String(decodeError)}` },
+            400
+          );
         }
-
-        const { data: pub } = admin.storage.from('task-proofs').getPublicUrl(path);
-        proofUri = pub?.publicUrl ?? proofUri;
-
-        await admin.from('task_proofs').insert({
-          task_id: taskId,
-          household_id: member.household_id,
-          storage_path: path,
-        });
+      } else if (alreadyRemote) {
+        // Extract storage path when URL is our public bucket URL.
+        const marker = '/object/public/task-proofs/';
+        const idx = proofUri.indexOf(marker);
+        if (idx >= 0) storagePath = decodeURIComponent(proofUri.slice(idx + marker.length));
       }
 
-      if (!proofUri) {
-        return jsonResponse({ error: 'proof_uri_required' }, 400);
+      if (!proofUri || isLocalProofUri(proofUri) || !/^https?:\/\//i.test(proofUri)) {
+        return jsonResponse(
+          {
+            error: proofBase64
+              ? 'proof_upload_failed'
+              : 'Could not read the photo on this device. Take it again and send.',
+          },
+          400
+        );
+      }
+
+      if (storagePath) {
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const { error: mirrorError } = await admin.from('task_proofs').insert({
+          task_id: taskId,
+          household_id: member.household_id,
+          storage_path: storagePath,
+          expires_at: expiresAt,
+        });
+        if (mirrorError) {
+          console.warn('task_proofs mirror insert failed', mirrorError.message);
+        }
       }
 
       const nextStatus =
@@ -181,8 +250,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'unknown_action' }, 400);
     }
 
+    // Idempotent: a double-tap after success must not surface as a hard failure.
     if (task.status === 'completed') {
-      return jsonResponse({ error: 'already_completed' }, 409);
+      return jsonResponse({ task, memberXpAwarded: 0, alreadyCompleted: true });
     }
 
     const completedAt = String(body.completedAt ?? new Date().toISOString());
@@ -213,89 +283,98 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: updateError.message }, 500);
     }
 
-    if (awardedXp > 0) {
-      const { data: memberRow } = await admin
-        .from('household_members')
-        .select('id, xp, week_xp')
-        .eq('id', member.id)
-        .maybeSingle();
+    // XP / notify must never undo a successful completion for the client.
+    try {
+      if (awardedXp > 0) {
+        const { data: memberRow } = await admin
+          .from('household_members')
+          .select('id, xp, week_xp')
+          .eq('id', member.id)
+          .maybeSingle();
 
-      if (memberRow) {
-        await admin
+        if (memberRow) {
+          const { error: xpError } = await admin
+            .from('household_members')
+            .update({
+              xp: (memberRow.xp ?? 0) + awardedXp,
+              week_xp: (memberRow.week_xp ?? 0) + awardedXp,
+            })
+            .eq('id', member.id);
+          if (xpError) console.warn('sidekick-complete member xp', xpError.message);
+
+          const { error: txError } = await admin.from('xp_transactions').insert({
+            household_id: member.household_id,
+            user_id: null,
+            member_id: member.id,
+            amount: awardedXp,
+            reason: completedLate
+              ? `Completed task (late): ${task.title}`
+              : `Completed task: ${task.title}`,
+            related_task_id: taskId,
+          });
+          if (txError) console.warn('sidekick-complete xp_transactions', txError.message);
+        }
+      }
+
+      const bonusAwards = Array.isArray(body.bonusAwards)
+        ? body.bonusAwards.filter(
+            (row: unknown) =>
+              row &&
+              typeof row === 'object' &&
+              typeof (row as { memberId?: string }).memberId === 'string' &&
+              Number((row as { amount?: number }).amount) > 0
+          )
+        : [];
+
+      for (const bonus of bonusAwards as { memberId: string; amount: number; reason?: string }[]) {
+        const { data: bonusMember } = await admin
+          .from('household_members')
+          .select('id, xp, week_xp')
+          .eq('id', bonus.memberId)
+          .eq('household_id', member.household_id)
+          .maybeSingle();
+        if (!bonusMember) continue;
+        const { error: bonusXpError } = await admin
           .from('household_members')
           .update({
-            xp: (memberRow.xp ?? 0) + awardedXp,
-            week_xp: (memberRow.week_xp ?? 0) + awardedXp,
+            xp: (bonusMember.xp ?? 0) + bonus.amount,
+            week_xp: (bonusMember.week_xp ?? 0) + bonus.amount,
           })
-          .eq('id', member.id);
-
-        await admin.from('xp_transactions').insert({
+          .eq('id', bonusMember.id);
+        if (bonusXpError) console.warn('sidekick-complete bonus xp', bonusXpError.message);
+        const { error: bonusTxError } = await admin.from('xp_transactions').insert({
           household_id: member.household_id,
           user_id: null,
-          member_id: member.id,
-          amount: awardedXp,
-          reason: completedLate
-            ? `Completed task (late): ${task.title}`
-            : `Completed task: ${task.title}`,
+          member_id: bonusMember.id,
+          amount: bonus.amount,
+          reason: bonus.reason ?? `Split bonus: ${task.title}`,
           related_task_id: taskId,
         });
+        if (bonusTxError) console.warn('sidekick-complete bonus tx', bonusTxError.message);
       }
-    }
 
-    const bonusAwards = Array.isArray(body.bonusAwards)
-      ? body.bonusAwards.filter(
-          (row: unknown) =>
-            row &&
-            typeof row === 'object' &&
-            typeof (row as { memberId?: string }).memberId === 'string' &&
-            Number((row as { amount?: number }).amount) > 0
-        )
-      : [];
+      await touchMemberSeen(admin, member.id);
 
-    for (const bonus of bonusAwards as { memberId: string; amount: number; reason?: string }[]) {
-      const { data: bonusMember } = await admin
-        .from('household_members')
-        .select('id, xp, week_xp')
-        .eq('id', bonus.memberId)
-        .eq('household_id', member.household_id)
-        .maybeSingle();
-      if (!bonusMember) continue;
-      await admin
-        .from('household_members')
-        .update({
-          xp: (bonusMember.xp ?? 0) + bonus.amount,
-          week_xp: (bonusMember.week_xp ?? 0) + bonus.amount,
-        })
-        .eq('id', bonusMember.id);
-      await admin.from('xp_transactions').insert({
-        household_id: member.household_id,
-        user_id: null,
-        member_id: bonusMember.id,
-        amount: bonus.amount,
-        reason: bonus.reason ?? `Split bonus: ${task.title}`,
-        related_task_id: taskId,
-      });
-    }
-
-    await touchMemberSeen(admin, member.id);
-
-    if (safeStatus === 'completed') {
-      await notifyAdminsAndPush(admin, {
-        householdId: member.household_id,
-        title: 'Task completed',
-        body: `${member.display_name} completed "${task.title}". +${awardedXp} XP.`,
-        category: 'ai',
-        priority: completedLate ? 'high' : 'medium',
-        data: {
-          notificationId: 'N18',
-          kind: 'task_completed',
-          taskId,
-          name: member.display_name,
-          memberName: member.display_name,
-          task: task.title,
-          xp: awardedXp,
-        },
-      });
+      if (safeStatus === 'completed') {
+        await notifyAdminsAndPush(admin, {
+          householdId: member.household_id,
+          title: 'Task completed',
+          body: `${member.display_name} completed "${task.title}". +${awardedXp} XP.`,
+          category: 'ai',
+          priority: completedLate ? 'high' : 'medium',
+          data: {
+            notificationId: 'N18',
+            kind: 'task_completed',
+            taskId,
+            name: member.display_name,
+            memberName: member.display_name,
+            task: task.title,
+            xp: awardedXp,
+          },
+        });
+      }
+    } catch (postError) {
+      console.warn('sidekick-complete post-update', postError);
     }
 
     return jsonResponse({ task: updated, memberXpAwarded: awardedXp });

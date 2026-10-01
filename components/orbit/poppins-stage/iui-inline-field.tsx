@@ -11,9 +11,9 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, type StyleProp, type TextStyle } from 'react-native';
+import { Pressable, StyleSheet, type StyleProp, type TextStyle } from 'react-native';
 
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { stageFaint } from '@/constants/iui-stage';
 import { poppinsUiOrchestrator } from '@/lib/poppins/ui-orchestrator';
 import type { IuiPayload } from '@/lib/poppins/ui-scenes';

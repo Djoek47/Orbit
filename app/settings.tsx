@@ -3,9 +3,10 @@ import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
+import {  AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
@@ -32,10 +33,8 @@ import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import {
-  clearLastAppError,
-  loadLastAppError,
-  type LastAppError,
-} from '@/lib/errors/last-error';
+  loadErrorLog,
+} from '@/lib/errors/error-log';
 import { VOCAB } from '@/constants/vocabulary';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
@@ -92,6 +91,7 @@ import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
+import { usesMemberSettings } from '@/lib/settings/member-settings-model';
 import { HouseholdMembersRoster } from '@/components/orbit/members/household-members-roster';
 import { RewardsXpPanel } from '@/components/orbit/settings/rewards-xp-panel';
 import { SidekickPermissionsPanel } from '@/components/orbit/settings/sidekick-permissions-panel';
@@ -193,12 +193,18 @@ export default function SettingsScreen() {
   );
 
   // House rules (and anything else) can open a section directly: /settings?section=rewards
-  const params = useLocalSearchParams<{ section?: string }>();
+  // Getting started can land on exactly what it names: ?add=1 opens Add someone, and
+  // ?invite=<memberId> opens that Sidekick's QR straight away (?invite=pick just shows the
+  // roster). Before, every one of those rows dropped you on the Settings root.
+  const params = useLocalSearchParams<{ section?: string; add?: string; invite?: string }>();
   const requestedSection = SECTIONS.includes(params.section as Section)
     ? (params.section as Section)
     : null;
   const [section, setSection] = useState<Section>(requestedSection ?? 'main');
+  /** Voice-wheel drag — lock the sheet scroll so the dial owns the gesture. */
+  const [wheelDragging, setWheelDragging] = useState(false);
   const lastRequested = useRef<string | null>(requestedSection);
+  const handledIntent = useRef<string | null>(null);
 
   useEffect(() => {
     if (!requestedSection || requestedSection === lastRequested.current) return;
@@ -285,7 +291,7 @@ export default function SettingsScreen() {
   const [poppinsPrefs, setPoppinsPrefs] = useState<PoppinsInteractionPrefs>(
     DEFAULT_POPPINS_INTERACTION_PREFS
   );
-  const [lastAppError, setLastAppError] = useState<LastAppError | null>(null);
+  const [errorCount, setErrorCount] = useState(0);
   const poppinsPrefsReadOnly = !permissions.canManageHousehold;
 
   useEffect(() => {
@@ -337,8 +343,14 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     if (section !== 'main') return;
-    void loadLastAppError().then(setLastAppError);
+    void loadErrorLog().then((entries) => setErrorCount(entries.length));
   }, [section]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadErrorLog().then((entries) => setErrorCount(entries.length));
+    }, [])
+  );
 
   useEffect(() => {
     if (section !== 'notifications') return;
@@ -356,7 +368,7 @@ export default function SettingsScreen() {
   const openAppleNotificationSettings = useCallback(async () => {
     const opened = await openSystemNotificationSettings();
     if (!opened) {
-      Alert.alert(
+      orbitAlert(
         'Could not open Settings',
         'Open Settings → Notifications → ChoreMaxx to change banners and alerts.'
       );
@@ -384,7 +396,7 @@ export default function SettingsScreen() {
         profileInviteCode: sidekickSession?.profileInviteCode,
       });
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Notifications',
         error instanceof Error ? error.message : 'Could not update notification settings.'
       );
@@ -435,6 +447,22 @@ export default function SettingsScreen() {
     setInviteTarget({ kind: 'token', memberId: member.id });
   };
 
+  // Act on ?add / ?invite once the roster is in hand.
+  const intentKey = `${params.add ?? ''}:${params.invite ?? ''}`;
+  useEffect(() => {
+    if (intentKey === ':' || handledIntent.current === intentKey) return;
+    if (!household.members.length) return;
+    handledIntent.current = intentKey;
+    if (params.add === '1') {
+      setAddMemberOpen(true);
+      return;
+    }
+    const wanted = params.invite;
+    if (!wanted || wanted === 'pick') return;
+    const member = household.members.find((m) => m.id === wanted);
+    if (member) openMemberInvite(member);
+  }, [intentKey, household.members, params.add, params.invite]);
+
   const inviteMember = useMemo(
     () =>
       inviteTarget?.memberId != null
@@ -453,20 +481,29 @@ export default function SettingsScreen() {
     [household.members, personalizeMemberId]
   );
 
-  if (isSidekickRole(currentMember?.role)) {
+  // Sidekicks and the shared iPad share one simpler screen — the iPad used to fall through
+  // to the full household admin settings.
+  if (usesMemberSettings(currentMember?.role)) {
     return <SidekickSettingsScreen />;
   }
 
   return (
     <>
     <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          // Poppins voice wheel: horizontal drags must not dismiss the sheet or pop back.
+          gestureEnabled: section !== 'poppins' && !wheelDragging,
+          fullScreenGestureEnabled: section !== 'poppins' && !wheelDragging,
+        }}
+      />
 
-      <View style={styles.handleRow}>
+      <View style={styles.handleRow} pointerEvents={wheelDragging ? 'none' : 'auto'}>
         <View style={[styles.handle, { backgroundColor: glassBorder(0.2) }]} />
       </View>
 
-      <View style={styles.header}>
+      <View style={styles.header} pointerEvents={wheelDragging ? 'none' : 'auto'}>
         {section !== 'main' ? (
           <Pressable style={styles.backRow} onPress={() => setSection('main')}>
             <Text style={[styles.backChevron, { color: accentTheme.primary }]}>‹</Text>
@@ -500,7 +537,8 @@ export default function SettingsScreen() {
       <KeyboardScreen
         offset={12}
         style={styles.scroll}
-        contentContainerStyle={styles.content}>
+        contentContainerStyle={styles.content}
+        scrollEnabled={!wheelDragging}>
         {section === 'main' ? (
           <>
             {isHouseholdDeletionPending(household) && household.deletionScheduledFor ? (
@@ -726,7 +764,7 @@ export default function SettingsScreen() {
                     currentMember,
                   });
                   const chapters = chaptersForTour(tid);
-                  Alert.alert(
+                  orbitAlert(
                     'Replay a part',
                     'Pick a chapter to replay.',
                     [
@@ -749,48 +787,18 @@ export default function SettingsScreen() {
                 </>
               ) : null}
               <SettingsNavRow
-                icon="bug-report"
-                iconColor="#F87171"
-                label="Last error"
+                icon="support-agent"
+                iconColor="#FF8A3D"
+                label="Support"
                 subtitle={
-                  lastAppError
-                    ? `${lastAppError.at.slice(0, 19)} · ${lastAppError.message.slice(0, 72)}`
-                    : 'None saved'
+                  errorCount > 0
+                    ? `${errorCount} saved error${errorCount === 1 ? '' : 's'} · feedback`
+                    : 'Feedback, errors, and help'
                 }
                 last
-                onPress={() => {
-                  if (!lastAppError) {
-                    Alert.alert('Last error', 'No crash details saved yet.');
-                    return;
-                  }
-                  const body = [
-                    lastAppError.message,
-                    `At: ${lastAppError.at}`,
-                    lastAppError.stack ?? '',
-                    lastAppError.componentStack ?? '',
-                  ]
-                    .filter(Boolean)
-                    .join('\n\n');
-                  Alert.alert('Last error', lastAppError.message.slice(0, 280), [
-                    {
-                      text: 'Copy',
-                      onPress: () => {
-                        void Clipboard.setStringAsync(body);
-                      },
-                    },
-                    {
-                      text: 'Clear',
-                      style: 'destructive',
-                      onPress: () => {
-                        void clearLastAppError().then(() => setLastAppError(null));
-                      },
-                    },
-                    { text: 'OK', style: 'cancel' },
-                  ]);
-                }}
+                onPress={() => router.push('/support' as never)}
               />
             </SettingsGroup>
-
 <SettingsGroup header="Choremaxx">
               <SettingsNavRow
                 icon="workspace-premium"
@@ -805,7 +813,7 @@ export default function SettingsScreen() {
                 label="Privacy & legal"
                 last
                 onPress={() =>
-                  Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
+                  orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
                     {
                       text: 'Privacy Policy',
                       onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
@@ -999,7 +1007,7 @@ export default function SettingsScreen() {
             onRewardMode={(mode) => updateHouseholdRewardSettings({ rewardMode: mode })}
             onHygiene={(rewarded) => {
               if (rewarded) {
-                Alert.alert(
+                orbitAlert(
                   'Reward hygiene tasks?',
                   'Brushing teeth and similar tasks will start earning XP. Streaks keep working either way.',
                   [
@@ -1124,6 +1132,7 @@ export default function SettingsScreen() {
               if (poppinsPrefsReadOnly) return;
               void updatePoppinsPrefs(next);
             }}
+            onVoiceWheelInteraction={setWheelDragging}
           />
         ) : null}
 
@@ -1156,7 +1165,7 @@ export default function SettingsScreen() {
                   void restorePurchases()
                     .then((next) => {
                       setEntitlement(next);
-                      Alert.alert('Restore', premiumCopy(next));
+                      orbitAlert('Restore', premiumCopy(next));
                     })
                     .finally(() => setBillingBusy(false));
                 }}>

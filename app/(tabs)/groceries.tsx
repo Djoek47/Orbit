@@ -1,18 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View, type ScrollView, type TextInput as RNTextInput } from 'react-native';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Moji } from '@/components/orbit/moji/moji';
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { GroceryCategoryGrid } from '@/components/orbit/grocery-category-grid';
 import { GroceryItemSheet } from '@/components/orbit/grocery/grocery-item-sheet';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { useTourScroll } from '@/components/orbit/tour/use-tour-scroll';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
 import { SearchBar } from '@/components/orbit/search-bar';
@@ -21,6 +22,7 @@ import { typography } from '@/constants/orbit-theme';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
 import { getCatalogProduct, iconForGroceryName } from '@/lib/grocery/catalog';
 import { searchCatalog } from '@/lib/grocery/search-index';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   listBuyAgainProducts,
   listComplementSuggestions,
@@ -34,6 +36,9 @@ import type { GroceryItem } from '@/types/orbit';
  * Canada-first grocery planner — shared chrome (PageEyebrow, SearchBar, GlassCard, EmptyState).
  */
 export default function GroceriesScreen() {
+  // The tour scrolls this screen so what it points at lands centred.
+  const tourScrollRef = useRef<ScrollView>(null);
+  const tourScroll = useTourScroll('/(tabs)/groceries', tourScrollRef);
   const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
   const {
@@ -60,7 +65,7 @@ export default function GroceriesScreen() {
   const [showBrowse, setShowBrowse] = useState(false);
   const [chip, setChip] = useState<'favorites' | 'buyAgain' | 'suggest' | null>(null);
   const [editing, setEditing] = useState<GroceryItem | null>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<RNTextInput>(null);
 
   useEffect(() => {
     markGroceriesOpened();
@@ -123,7 +128,7 @@ export default function GroceriesScreen() {
       setDraft('');
       inputRef.current?.focus();
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Could not add item',
         error instanceof Error ? error.message : 'Try again.'
       );
@@ -162,19 +167,19 @@ export default function GroceriesScreen() {
 
   const openMenu = () => {
     if (!isAdmin) {
-      Alert.alert('Admins only', 'Only a grown-up can clear the list.');
+      orbitAlert('Admins only', 'Only a grown-up can clear the list.');
       return;
     }
-    Alert.alert('Groceries', undefined, [
+    orbitAlert('Groceries', undefined, [
       {
         text: 'Clear checked',
         onPress: () => {
           const purchased = household.groceries.filter((g) => g.status === 'Purchased');
           if (!purchased.length) {
-            Alert.alert('Nothing checked', 'Check items off first.');
+            orbitAlert('Nothing checked', 'Check items off first.');
             return;
           }
-          Alert.alert('Clear checked?', `Remove ${purchased.length} checked item(s).`, [
+          orbitAlert('Clear checked?', `Remove ${purchased.length} checked item(s).`, [
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Clear',
@@ -188,7 +193,7 @@ export default function GroceriesScreen() {
         text: 'Clear list',
         style: 'destructive',
         onPress: () => {
-          Alert.alert('Clear entire list?', 'This removes every item on the list.', [
+          orbitAlert('Clear entire list?', 'This removes every item on the list.', [
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Clear list',
@@ -204,6 +209,9 @@ export default function GroceriesScreen() {
 
   return (
     <PersistentScrollView
+      ref={tourScrollRef}
+      onScroll={tourScroll.onScroll}
+      scrollEventThrottle={16}
       style={{ flex: 1, backgroundColor: c.background }}
       contentContainerStyle={{
         gap: 12,

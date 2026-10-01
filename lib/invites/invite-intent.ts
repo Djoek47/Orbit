@@ -12,7 +12,7 @@ export type InviteDestination = 'invite-unsupported' | 'join-household' | 'join-
 
 /**
  * Household invites are CMX-#### (digits) — legacy; product uses per-person invites only.
- * Sidekick profile invites are CMX-NAME (letters), e.g. CMX-EMMA.
+ * Sidekick profile invites are CMX- + letters/digits (e.g. CMX-EM7K4Q). Legacy CMX-EMMA still classifies as profile.
  */
 export function classifyInviteCode(raw: string): InviteKind | null {
   const code = parseInvitePayload(raw) ?? (raw.trim() ? normalizeInviteCode(raw) : null);
@@ -60,5 +60,5 @@ export const LEGACY_HOUSEHOLD_INVITE_MESSAGE =
   'This is an older household-wide invite. Ask your admin for a personal invite from Manage Members.';
 
 export function householdInviteWrongForKidMessage(code: string): string {
-  return `${code} is not a Sidekick invite. Ask your admin for your personal code (like CMX-EMMA).`;
+  return `${code} is not a Sidekick invite. Ask your admin for your personal code (like CMX-EM7K4Q).`;
 }

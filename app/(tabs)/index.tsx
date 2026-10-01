@@ -28,6 +28,7 @@ import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   buildHomeHealthMetrics,
   resolveHomeHealthRole,
@@ -75,7 +76,8 @@ export default function HomeScreen() {
   const majordomoName = useMajordomoName();
   const { c, glass } = useOrbitColors();
   const scrollRef = useRef<ScrollView>(null);
-  useTourScroll(scrollRef);
+  // The offset is already tracked for the header; the tour reads it from there.
+  useTourScroll('/(tabs)', scrollRef, { getOffset: () => scrollY.value });
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -324,7 +326,7 @@ export default function HomeScreen() {
                 ]}>
                 {sharedDevice.avatar ? <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar}</Text> : <Moji name="phone" size={16} />}
                 <Text style={[typography.caption1, { color: accentTheme.primary }]}>
-                  Switch who&apos;s on · {firstName}
+                  Switch · {firstName}
                 </Text>
                 <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
               </Pressable>
@@ -448,7 +450,7 @@ export default function HomeScreen() {
                         error instanceof Error && error.message
                           ? error.message
                           : 'Try again in a moment.';
-                      Alert.alert('Couldn’t undo', detail);
+                      orbitAlert('Couldn’t undo', detail);
                     });
                   }}
                   style={[styles.approvalBtn, { backgroundColor: 'rgba(248,113,113,0.12)' }]}>
@@ -697,12 +699,12 @@ export default function HomeScreen() {
           try {
             await requestAnotherProof(proofRequestTask.id, note);
             setProofTaskId(null);
-            Alert.alert(
+            orbitAlert(
               'Photo requested',
               'They’ll get a notification, and the task will ask for a picture.'
             );
           } catch (error) {
-            Alert.alert(
+            orbitAlert(
               'Couldn’t request a photo',
               error instanceof Error ? error.message : 'Try again in a moment.'
             );

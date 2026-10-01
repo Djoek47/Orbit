@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import {
   Dimensions,
   Keyboard,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -121,82 +122,100 @@ export function BottomSheet({
     opacity: backdropOpacity.value,
   }));
 
-  if (!visible) return null;
-
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
-        <BlurView
-          intensity={Platform.OS === 'ios' ? material.liquidGlass.intensity : material.liquidGlass.androidIntensity}
-          tint={resolveBlurTint(isDark)}
-          experimentalBlurMethod={androidBlurMethod}
-          style={StyleSheet.absoluteFill}
-        />
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: isDark ? 'rgba(7,13,28,0.55)' : 'rgba(15,28,42,0.28)' },
-          ]}
-        />
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={() => {
-            Keyboard.dismiss();
-            onDismiss();
-          }}
-          accessibilityLabel="Dismiss"
-        />
-      </Animated.View>
-      <Animated.View
-        style={[
-          styles.sheet,
-          lifted > 0
-            ? { bottom: lifted, height: liftedHeight, paddingBottom: 0 }
-            : { height: restingHeight, paddingBottom: insets.bottom },
-          sheetStyle,
-          style,
-        ]}>
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={() => {
+        Keyboard.dismiss();
+        onDismiss();
+      }}
+      statusBarTranslucent>
+      <View style={styles.modalRoot} pointerEvents="box-none">
+        <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
           <BlurView
-            intensity={Platform.OS === 'ios' ? 72 : 90}
+            intensity={
+              Platform.OS === 'ios'
+                ? material.liquidGlass.intensity
+                : material.liquidGlass.androidIntensity
+            }
             tint={resolveBlurTint(isDark)}
             experimentalBlurMethod={androidBlurMethod}
             style={StyleSheet.absoluteFill}
           />
-          <LinearGradient
-            colors={[
-              `${accent}${isDark ? '66' : '55'}`,
-              `${accent}00`,
-              isDark ? 'rgba(7,13,28,0.55)' : 'rgba(255,255,255,0.35)',
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: isDark ? 'rgba(7,13,28,0.55)' : 'rgba(15,28,42,0.28)' },
             ]}
-            locations={[0, 0.45, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
           />
-        </View>
-        <View {...panResponder.panHandlers} style={styles.handleHit}>
-          <View style={styles.handle} />
-        </View>
-        {scrollable ? (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            showsVerticalScrollIndicator={false}
-            bounces>
-            {children}
-          </ScrollView>
-        ) : (
-          <View style={styles.content}>{children}</View>
-        )}
-      </Animated.View>
-    </View>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              Keyboard.dismiss();
+              onDismiss();
+            }}
+            accessibilityLabel="Dismiss"
+          />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.sheet,
+            lifted > 0
+              ? { bottom: lifted, height: liftedHeight, paddingBottom: 0 }
+              : { height: restingHeight, paddingBottom: insets.bottom },
+            sheetStyle,
+            style,
+          ]}>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <BlurView
+              intensity={Platform.OS === 'ios' ? 72 : 90}
+              tint={resolveBlurTint(isDark)}
+              experimentalBlurMethod={androidBlurMethod}
+              style={StyleSheet.absoluteFill}
+            />
+            <LinearGradient
+              colors={[
+                `${accent}${isDark ? '66' : '55'}`,
+                `${accent}00`,
+                isDark ? 'rgba(7,13,28,0.55)' : 'rgba(255,255,255,0.35)',
+              ]}
+              locations={[0, 0.45, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+          <View {...panResponder.panHandlers} style={styles.handleHit}>
+            <View style={styles.handle} />
+          </View>
+          {scrollable ? (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              // Sheet already rides above the keyboard — iOS must not also inset/scroll the content.
+              automaticallyAdjustKeyboardInsets={false}
+              contentInsetAdjustmentBehavior="never"
+              showsVerticalScrollIndicator={false}
+              bounces={!keyboard.visible}>
+              {children}
+            </ScrollView>
+          ) : (
+            <View style={styles.content}>{children}</View>
+          )}
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+  },
   sheet: {
     borderTopLeftRadius: radius.cardLarge,
     borderTopRightRadius: radius.cardLarge,

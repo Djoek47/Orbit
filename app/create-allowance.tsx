@@ -12,6 +12,7 @@ import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/a
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   type AllowanceFrequency,
   type AllowanceRule,
@@ -45,17 +46,17 @@ export default function CreateAllowanceScreen() {
 
   const create = async () => {
     if (!permissions.canManageHousehold) {
-      Alert.alert('Admins only', 'Only an admin can create an allowance.');
+      orbitAlert('Admins only', 'Only an admin can create an allowance.');
       return;
     }
     const parsed = Number.parseFloat(amount);
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      Alert.alert('Amount needed', 'Enter a positive amount.');
+      orbitAlert('Amount needed', 'Enter a positive amount.');
       return;
     }
     const member = members.find((m) => m.id === memberId);
     if (!member || !household.id) {
-      Alert.alert('Assign to', 'Pick who earns this allowance.');
+      orbitAlert('Assign to', 'Pick who earns this allowance.');
       return;
     }
     setBusy(true);
@@ -72,7 +73,7 @@ export default function CreateAllowanceScreen() {
         createdAt: new Date().toISOString(),
       };
       await upsertAllowanceRule(household.id, rule);
-      Alert.alert(
+      orbitAlert(
         'Allowance created',
         'ChoreMaxx keeps the record — you hand over the money yourself.',
         [{ text: 'OK', onPress: () => router.back() }]

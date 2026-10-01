@@ -38,6 +38,8 @@ type Props = {
   usage: { used: number; remaining: number; topUp: number; resetsAt: string; paused: boolean };
   isAdmin: boolean;
   onPrefs: (next: PoppinsInteractionPrefs) => void;
+  /** True while the voice wheel is being dragged — Settings locks scroll / sheet gestures. */
+  onVoiceWheelInteraction?: (active: boolean) => void;
 };
 
 export function PoppinsSettingsPanel({
@@ -47,6 +49,7 @@ export function PoppinsSettingsPanel({
   usage,
   isAdmin,
   onPrefs,
+  onVoiceWheelInteraction,
 }: Props) {
   const { c, glassBorder, isDark } = useOrbitColors();
   const voiceId = useMemo(
@@ -114,6 +117,7 @@ export function PoppinsSettingsPanel({
             voiceId={voiceId}
             disabled={readOnly}
             onSelect={(next) => onPrefs({ ...prefs, voiceId: next })}
+            onInteractionChange={onVoiceWheelInteraction}
           />
         </View>
       </Group>
@@ -129,18 +133,25 @@ export function PoppinsSettingsPanel({
             onPress={() => router.push('/poppins-how-it-works' as never)}
             divider={false}
           />
+          {/* Two different things, two rows: a month's allowance, and a balance that keeps. */}
           <NavRow
             moji="receipt"
             tone="#FF9F1C"
-            label="Actions & credits"
-            sub={
-              isAdmin
-                ? 'Where your actions went, day by day — and how to buy more'
-                : 'Where your actions went, day by day'
-            }
-            onPress={() => router.push('/poppins-credits' as never)}
+            label="Actions"
+            sub="Where this month's actions went, day by day"
+            onPress={() => router.push('/poppins-actions' as never)}
             divider
           />
+          {isAdmin ? (
+            <NavRow
+              moji="gem"
+              tone="#FFD166"
+              label="Credits"
+              sub="Buy actions that never expire"
+              onPress={() => router.push('/poppins-credits' as never)}
+              divider
+            />
+          ) : null}
           <NavRow
             moji="tools"
             tone="#8E7CFF"

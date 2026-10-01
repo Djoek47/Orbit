@@ -263,7 +263,8 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24 }: Props) {
                   <View style={styles.familyTop}>
                     <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>{meta.label}</Text>
                     <Text style={[typography.footnote, { color: c.textMuted }]}>
-                      {row.tasks} · {formatMinutes(row.minutesSaved)} saved
+                      {row.tasks} · {formatMinutes(row.effortMinutes)}
+                      {row.minutesSaved > 0 ? ` · ${formatMinutes(row.minutesSaved)} saved` : ''}
                     </Text>
                   </View>
                   <View style={[styles.familyBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.08)' }]}>
@@ -279,9 +280,10 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24 }: Props) {
         </GlassCard>
 
         <Text style={[styles.footnote, { color: c.textSubtle }]}>
-          Time saved counts chores finished by Sidekicks, at a typical time for each kind of chore
-          (unloading the dishwasher ≈ 10 min, mowing ≈ 45 min). Homework and a child&apos;s own
-          routine aren&apos;t counted as time saved.
+          Each row shows the time that work takes, from the chore&apos;s own name where we know it
+          (unloading the dishwasher ≈ 10 min, mowing ≈ 45 min) and its category otherwise.
+          &ldquo;Saved&rdquo; is the part a Sidekick did instead of a grown-up — homework and a
+          child&apos;s own routine still show their time, but aren&apos;t counted as saved.
         </Text>
     </ScrollView>
   );

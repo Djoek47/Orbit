@@ -1,19 +1,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInput as RNTextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { EventPreviewCard, type PreviewChip } from '@/components/orbit/event/event-preview-card';
 import { EventDatePicker } from '@/components/orbit/event-date-picker';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
@@ -34,6 +25,7 @@ import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent, HouseholdMember, SavedPlace } from '@/types/orbit';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appointment', 'Family'];
 const TIME_CHIPS = ['08:00', '09:00', '12:00', '15:30', '16:00', '17:30', '18:00'];
@@ -66,7 +58,7 @@ function matchSavedPlace(places: SavedPlace[], text: string): SavedPlace | null 
 
 export default function CreateEventScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ kind?: string }>();
+  const params = useLocalSearchParams<{ kind?: string; date?: string }>();
   const kind = Array.isArray(params.kind) ? params.kind[0] : params.kind;
   const { createEvent, household, currentMember, orbitPalette, permissions } = useOrbit();
   const { c, isDark } = useOrbitColors();
@@ -83,7 +75,12 @@ export default function CreateEventScreen() {
 
   const [sentence, setSentence] = useState('');
   const [title, setTitle] = useState('');
-  const [dateKey, setDateKey] = useState(todayKey());
+  // The + on the calendar carries the day you were looking at; without one, today.
+  const [dateKey, setDateKey] = useState(
+    typeof params.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date)
+      ? params.date
+      : todayKey()
+  );
   const [time, setTime] = useState('17:30');
   const [allDay, setAllDay] = useState(false);
   const [duration, setDuration] = useState(60);
@@ -99,7 +96,7 @@ export default function CreateEventScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showClock, setShowClock] = useState(false);
   const [manual, setManual] = useState<Partial<Record<ManualField, true>>>({});
-  const placeRef = useRef<TextInput>(null);
+  const placeRef = useRef<RNTextInput>(null);
 
   const accentText = isDark ? STAGE.domain.plan : STAGE.domainLight.plan;
   const fill = STAGE.domain.plan;
@@ -278,7 +275,7 @@ export default function CreateEventScreen() {
         remindMe: !simplified && remindMe,
       });
       if (created?.approvalStatus === 'pending') {
-        Alert.alert(
+        orbitAlert(
           'Sent for approval',
           'A parent will review this before it shows for everyone.',
           [{ text: 'OK', onPress: () => router.back() }]
@@ -287,7 +284,7 @@ export default function CreateEventScreen() {
       }
       router.back();
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Could not add event',
         error instanceof Error ? error.message : 'Try again.'
       );

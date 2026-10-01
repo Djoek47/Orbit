@@ -50,13 +50,13 @@ assert.equal(demo?.step.id, 'tasks.assignDemo');
 assert.equal(demo?.step.primaryAction, 'open_mock_assign');
 assert.equal(resolveActivePointer(advanceAfterStep(afterAssign, ctx), ctx)?.step.id, 'tasks.hold');
 
-// Poppins try step (after tab, mode, demo and silence)
-state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 4 };
-assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
+// Poppins try step (silence, after tab, mode and demo)
+state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 3 };
+assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.silence');
 
 const backOne = retreatBeforeStep(state, ctx);
 assert.equal(backOne.chapterId, 'poppins');
-assert.equal(backOne.stepIndex, 3);
+assert.equal(backOne.stepIndex, 2);
 assert.equal(tourCanRetreat(state, ctx), true);
 const first = startTourState('admin');
 assert.equal(tourCanRetreat(first, ctx), false);
@@ -80,7 +80,7 @@ assert.equal(tourRouteMatches('/tasks', '/(tabs)/tasks'), true);
 assert.equal(tourRouteMatches('/(tabs)', '/(tabs)/tasks'), false);
 
 let paused = true;
-state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 4 };
+state = { ...startTourState('admin'), chapterId: 'poppins', stepIndex: 3 };
 const unsub = bindTourStepAdvance({
   state,
   ctx,
@@ -89,9 +89,9 @@ const unsub = bindTourStepAdvance({
   },
 });
 
-// try is a plain next step now: a spoken turn must not skip past it.
+// A plain look step: a spoken turn must not skip past it.
 emitTourEvent('poppins_spoke');
-assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.try');
+assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.silence');
 state = advanceAfterStep(state, ctx);
 assert.equal(resolveActivePointer(state, ctx)?.step.id, 'poppins.meter');
 unsub();

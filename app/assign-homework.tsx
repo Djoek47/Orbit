@@ -24,6 +24,7 @@ import { homeworkDomain, type LibraryTask } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 const DUE_OPTIONS = [
   { id: 'Today', label: 'Today', offset: 0 },
@@ -99,7 +100,7 @@ export default function AssignHomeworkScreen() {
       }
       router.back();
     } catch (error) {
-      Alert.alert('Could not assign', assignErrorMessage(error));
+      orbitAlert('Could not assign', assignErrorMessage(error));
     } finally {
       setBusy(false);
     }

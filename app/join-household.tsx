@@ -11,6 +11,7 @@ import { typography } from '@/constants/orbit-theme';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
 import { hrefForLoggedOutInvite } from '@/lib/invites/join-session';
+import { parseSharedDeviceInvitePayload } from '@/lib/household/shared-device-invite';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -107,6 +108,14 @@ export default function JoinHouseholdScreen() {
         visible={scannerOpen}
         onClose={() => setScannerOpen(false)}
         onScanned={(code) => {
+          const shared = parseSharedDeviceInvitePayload(code);
+          if (shared) {
+            setScannerOpen(false);
+            router.replace(
+              `/join-shared-device?payload=${encodeURIComponent(code.trim())}` as never
+            );
+            return;
+          }
           setInviteCode(code);
           void handleJoinHousehold(code);
         }}

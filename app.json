@@ -8,7 +8,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
-    "ios": {
+      "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.choremaxx.household",
       "buildNumber": "1",
@@ -100,6 +100,7 @@
         }
       ],
       "expo-live-activity",
+      "./plugins/with-shopping-live-activity.js",
       [
         "expo-location",
         {

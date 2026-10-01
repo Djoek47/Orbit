@@ -149,6 +149,16 @@ describe('placeTourCard', () => {
   assert.equal(settings.side, 'left', 'the way out never hides behind the button it points at');
   assert.equal(settings.top, 55);
 
+  // The real header: bell then Settings, hard against the right edge (from the device).
+  for (const chip of [
+    { x: 343, y: 82, width: 112, height: 44 }, // Settings, 471pt screenshot scaled
+    { x: 268, y: 60, width: 104, height: 36 }, // Settings on a 390pt phone
+    { x: 214, y: 60, width: 44, height: 36 }, // the bell
+  ]) {
+    const placed = placeExitPill({ target: chip, screen, insets });
+    assert.equal(placed.side, 'left', `header chip at x=${chip.x} moves the pill left`);
+  }
+
   // Something top-LEFT (a greeting, a back chevron) leaves the right corner free.
   const topLeft = placeExitPill({
     target: { x: 12, y: 44, width: 70, height: 34 },

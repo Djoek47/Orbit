@@ -20,6 +20,7 @@ import { iconForGroceryName } from '@/lib/grocery/catalog';
 import { listGroceryCategories } from '@/lib/grocery/classify';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { GroceryItem } from '@/types/orbit';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 type Props = {
   item: GroceryItem | null;
@@ -52,7 +53,7 @@ function Editor({ item, accent, canEdit, onClose, onSave, onCategory, onRemove }
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      Alert.alert('Name it first', 'An item needs a name.');
+      orbitAlert('Name it first', 'An item needs a name.');
       return;
     }
     await onSave({ name: trimmed, quantity: quantity.trim() || '1' });
@@ -60,7 +61,7 @@ function Editor({ item, accent, canEdit, onClose, onSave, onCategory, onRemove }
   };
 
   const remove = () => {
-    Alert.alert('Remove item?', `"${item.name}" comes off the list.`, [
+    orbitAlert('Remove item?', `"${item.name}" comes off the list.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -125,7 +126,11 @@ function Editor({ item, accent, canEdit, onClose, onSave, onCategory, onRemove }
         ) : null}
 
         <Text style={[typography.eyebrow, { color: c.textSubtle }]}>Aisle</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cats}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cats}
+          style={styles.catsScroll}>
           {categories.map((cat) => {
             const on = cat.id === item.categoryId || cat.name === item.category;
             return (
@@ -205,7 +210,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     textAlign: 'center',
   },
-  cats: { gap: 8, paddingVertical: 2 },
+  catsScroll: { marginHorizontal: -4 },
+  cats: { gap: 8, paddingVertical: 2, paddingHorizontal: 4, paddingRight: 28 },
   cat: { borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 9 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 2 },
   primary: { flex: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center', minHeight: 50 },

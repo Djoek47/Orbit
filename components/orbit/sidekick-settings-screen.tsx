@@ -17,16 +17,23 @@ import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { VOCAB } from '@/constants/vocabulary';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
-import { findSharedDeviceForMember } from '@/lib/household/shared-device';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
+import { memberSettingsModel } from '@/lib/settings/member-settings-model';
 import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 /**
- * Sidekick-safe Settings — profile, look, house rules, notifications.
- * Full household admin settings stay on adult profiles.
+ * Settings for everyone who isn't an admin — one screen, three shapes.
+ *
+ *   a Sidekick's own phone      · their look, their house rules, their way out
+ *   a person on a shared iPad   · the same, plus the device it lives on and who else is on it
+ *   the shared iPad itself      · before anyone taps a face
+ *
+ * What differs between them is decided in lib/settings/member-settings-model (tested), so the
+ * three never drift apart. Full household admin settings stay on adult profiles.
  */
 export function SidekickSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -45,12 +52,12 @@ export function SidekickSettingsScreen() {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const [personalizeOpen, setPersonalizeOpen] = useState(false);
 
-  const sharedDevice = useMemo(
-    () => findSharedDeviceForMember(currentMember?.id, household.members),
-    [currentMember?.id, household.members]
+  const model = useMemo(
+    () => memberSettingsModel({ member: currentMember, members: household.members }),
+    [currentMember, household.members]
   );
 
-  if (!currentMember) return null;
+  if (!currentMember || !model) return null;
 
   return (
     <>
@@ -92,14 +99,38 @@ export function SidekickSettingsScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.identityName, { color: c.text }]}>{currentMember.name}</Text>
               <Text style={[styles.caption, { color: c.textMuted }]}>
-                {currentMember.xp} XP · {currentMember.streak ?? 0}-day streak
+                {model.kind === 'shared-device'
+                  ? model.sharedWith.length
+                    ? `Shared by ${model.sharedWith.join(', ')}`
+                    : 'Nobody is set up on this device yet'
+                  : `${currentMember.xp} XP · ${currentMember.streak ?? 0}-day streak`}
               </Text>
               <Text style={[styles.caption, { color: accentTheme.primary, fontWeight: '600' }]}>
-                Tap to change your look
+                {model.kind === 'shared-device' ? 'Tap to change the look' : 'Tap to change your look'}
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
           </Pressable>
+
+          {/* Handing the device on is the thing people reach for most, so it leads. */}
+          {model.canSwitchProfiles ? (
+            <SettingsGroup header={model.deviceName ?? 'This device'}>
+              <SettingsNavRow
+                icon="switch-account"
+                iconColor="#A78BFA"
+                label="Switch who's on"
+                subtitle={
+                  model.sharedWith.length
+                    ? `Hand it to ${model.sharedWith.join(', ')}`
+                    : 'Pick a face to carry on'
+                }
+                last
+                onPress={() => {
+                  void markNeedsProfilePick().then(() => router.replace('/select-profile' as never));
+                }}
+              />
+            </SettingsGroup>
+          ) : null}
 
           <SettingsGroup header="Your space">
             <SettingsNavRow
@@ -114,31 +145,9 @@ export function SidekickSettingsScreen() {
               iconColor="#38BDF8"
               label="Inbox"
               subtitle="Household alerts and Poppins activity"
+              last
               onPress={() => router.push('/notifications' as never)}
             />
-            {sharedDevice ? (
-              <SettingsNavRow
-                icon="switch-account"
-                iconColor="#A78BFA"
-                label="Switch who's on"
-                subtitle={`On ${sharedDevice.name}`}
-                last
-                onPress={() => {
-                  void markNeedsProfilePick().then(() => router.push('/select-profile' as never));
-                }}
-              />
-            ) : (
-              <SettingsNavRow
-                icon="lock"
-                iconColor="#F59E0B"
-                label="Lock app"
-                subtitle="Splash screen before you jump back in"
-                last
-                onPress={() => {
-                  void markNeedsProfilePick().then(() => router.replace('/select-profile' as never));
-                }}
-              />
-            )}
           </SettingsGroup>
 
           <View
@@ -151,7 +160,7 @@ export function SidekickSettingsScreen() {
             ]}>
             <Text style={[styles.sectionTitle, { color: c.textMuted }]}>YOUR LOOK</Text>
             <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
-              Colors follow you on this device — Day and Night included.
+              {model.lookNote}
             </Text>
             <PaletteWheel value={paletteId} onChange={updatePalette} label="Palette" />
             <View style={{ marginTop: 14 }}>
@@ -175,7 +184,7 @@ export function SidekickSettingsScreen() {
               label="Privacy & legal"
               last
               onPress={() =>
-                Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
+                orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
                   {
                     text: 'Privacy Policy',
                     onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
@@ -195,15 +204,17 @@ export function SidekickSettingsScreen() {
           </SettingsGroup>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={model.signOut.label}
             style={[styles.signOutBtn, { backgroundColor: glass(0.06) }]}
             onPress={() => {
-              Alert.alert(
-                'Sign out?',
-                'You will show as disconnected on the household roster. Tap Continue as you on the welcome screen to come back — your streak and tasks stay saved.',
+              orbitAlert(
+                model.signOut.title,
+                model.signOut.body,
                 [
                   { text: 'Cancel', style: 'cancel' },
                   {
-                    text: 'Sign out',
+                    text: model.signOut.confirm,
                     style: 'destructive',
                     onPress: () => {
                       void (async () => {
@@ -220,7 +231,9 @@ export function SidekickSettingsScreen() {
                 ]
               );
             }}>
-            <Text style={[styles.signOutText, { color: orbitPalette.text }]}>Sign Out</Text>
+            <Text style={[styles.signOutText, { color: orbitPalette.text }]}>
+              {model.signOut.label}
+            </Text>
           </Pressable>
 
           <Text style={[styles.caption, { color: c.textSubtle, textAlign: 'center', marginBottom: 8 }]}>

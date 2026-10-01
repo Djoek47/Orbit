@@ -10,7 +10,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Line, Rect } from 'react-native-svg';
+import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -37,6 +37,8 @@ import {
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 const CHART_HEIGHT = 200;
+/** Drawing height under the top line. */
+const PLOT_H = CHART_HEIGHT - 8;
 const AXIS_W = 40;
 
 type Props = {
@@ -132,7 +134,7 @@ export function CreditBreakdownView({ events, onlyMemberName, topUpBalance, isAd
 
       {/* The three numbers worth knowing. */}
       <View style={styles.kpis}>
-        <Kpi label="Actions" value={String(breakdown.totals.actions)} color={c.primary} />
+        <Kpi label="Requests" value={String(breakdown.totals.actions)} color={c.primary} />
         <Kpi
           label="Spent talking"
           value={`${Math.round(
@@ -265,7 +267,7 @@ function CreditChart({
         {width > 0 ? (
           <Svg width={width} height={h}>
             {ticks.map((tick) => {
-              const y = h - (tick / top) * (h - 8) - 0.5;
+              const y = h - (tick / top) * PLOT_H - 0.5;
               return (
                 <Line
                   key={tick}
@@ -279,23 +281,47 @@ function CreditChart({
                 />
               );
             })}
+            {/* Values down the right edge — the column was reserved but never drawn. */}
+            {ticks.map((tick) =>
+              tick === 0 ? null : (
+                <SvgText
+                  key={`t${tick}`}
+                  x={width - 2}
+                  y={h - (tick / top) * PLOT_H + 4}
+                  fontSize={10}
+                  fontWeight="600"
+                  fill={text}
+                  textAnchor="end">
+                  {formatCredits(tick)}
+                </SvgText>
+              )
+            )}
             {buckets.map((bucket, index) => {
               const x = index * slot + (slot - barW) / 2;
-              let y = h;
               const dim = selected != null && selected !== index;
-              // Stacked by what spent them, bottom-up in the same order every time.
-              return SPEND_ORDER.filter((group) => bucket.byGroup[group]).map((group) => {
-                const credits = bucket.byGroup[group]!.credits;
-                const height = Math.max(1.5, (credits / top) * (h - 8));
-                y -= height;
+              // The whole bar is sized first and never passes the top line; the parts share it.
+              // (Each part used to get its own minimum height, so a bar could poke over the top
+              // and a crumb of a group drew as a stray sliver.)
+              const total = Math.min(bucket.credits, top);
+              const barH = total > 0 ? Math.max(2, (total / top) * PLOT_H) : 0;
+              const parts = SPEND_ORDER.filter(
+                (group) => (bucket.byGroup[group]?.credits ?? 0) > 0
+              );
+              const sum = parts.reduce((acc, g) => acc + bucket.byGroup[g]!.credits, 0) || 1;
+              let y = h;
+              return parts.map((group, partIndex) => {
+                const partH = (bucket.byGroup[group]!.credits / sum) * barH;
+                y -= partH;
+                const isTop = partIndex === parts.length - 1;
                 return (
                   <Rect
                     key={`${index}-${group}`}
                     x={x}
                     y={y}
                     width={barW}
-                    height={height}
-                    rx={Math.min(3, barW / 2)}
+                    // A hairline between parts, and only the top part is rounded.
+                    height={Math.max(0.5, partH - (isTop ? 0 : 1))}
+                    rx={isTop ? Math.min(4, barW / 2) : 0}
                     fill={SPEND_META[group].color}
                     opacity={dim ? 0.3 : 1}
                   />

@@ -75,7 +75,11 @@ const DOMAIN_FAMILY: Record<string, TaskFamily> = {
   homework_education: 'homework',
 };
 
-/** Typical minutes by kind of chore — an estimate, labelled as one on screen. */
+/**
+ * Typical minutes by kind of chore — an estimate, labelled as one on screen. Every category in
+ * the task library has a value, so a chore someone typed themselves still scores its category's
+ * time rather than nothing.
+ */
 const DOMAIN_MINUTES: Record<string, number> = {
   kitchen_dining: 15,
   meals_groceries: 30,
@@ -89,12 +93,28 @@ const DOMAIN_MINUTES: Record<string, number> = {
   yard_outdoors: 30,
   car: 30,
   pets: 10,
-  personal_hygiene: 0,
-  daily_routine: 0,
-  homework_education: 0,
+  personal_hygiene: 5,
+  daily_routine: 5,
+  homework_education: 30,
 };
 
-/** Specific chores whose time is well known — checked before the category default. */
+/** Fallback by family, for a category the library doesn't know. */
+const FAMILY_MINUTES: Record<TaskFamily, number> = {
+  kitchen: 15,
+  cleaning: 20,
+  laundry: 20,
+  trash: 5,
+  outdoors: 30,
+  pets: 10,
+  routine: 5,
+  homework: 30,
+  other: 15,
+};
+
+/**
+ * Specific chores whose time is well known — checked before the category default, so "Mow the
+ * lawn" doesn't score the same as "Water the plants".
+ */
 const KEYWORD_MINUTES: [RegExp, number][] = [
   [/\b(mow|mowing)\b/i, 45],
   [/\b(shovel|snow)\b/i, 30],
@@ -114,21 +134,126 @@ const KEYWORD_MINUTES: [RegExp, number][] = [
   [/\bmake (the |your |my |his |her )?bed\b/i, 5],
   [/\bset (the )?table\b/i, 5],
   [/\bclear (the )?table\b/i, 5],
+  // Kitchen
+  [/\b(wipe|clean) (the )?(counters?|countertops?|stove|microwave)\b/i, 10],
+  [/\b(clean|tidy) (the )?(fridge|freezer|pantry|cupboards?)\b/i, 25],
+  [/\b(put away|unpack) (the )?(groceries|shopping)\b/i, 15],
+  [/\b(pack|make) (a )?(lunch|lunches|snack)\b/i, 10],
+  [/\b(meal ?prep|batch cook)\b/i, 60],
+  // Cleaning
+  [/\b(clean|scrub) (the )?(bathroom|shower|tub|toilet)\b/i, 25],
+  [/\b(dust|polish)\b/i, 15],
+  [/\b(wash|clean) (the )?windows?\b/i, 30],
+  [/\b(tidy|pick ?up|declutter) (the |your |my )?(room|bedroom|playroom|lounge|living room)\b/i, 15],
+  [/\bchange (the )?(sheets|bedding|bed linen)\b/i, 10],
+  [/\b(sweep|swiffer)\b/i, 10],
+  [/\b(spring|deep) clean\b/i, 90],
+  // Laundry
+  [/\b(hang|dry) (the )?(washing|laundry|clothes)\b/i, 10],
+  [/\biron(ing)?\b/i, 25],
+  [/\bsort (the )?(washing|laundry|clothes)\b/i, 10],
+  // Trash & recycling
+  [/\b(bins?|wheelie bin)\b/i, 5],
+  [/\bsort (the )?recycling\b/i, 10],
+  [/\bcompost\b/i, 5],
+  // Outdoors & car
+  [/\b(weed|weeding|prune|trim (the )?hedge)\b/i, 30],
+  [/\b(sweep|clear) (the )?(drive|driveway|patio|porch|path)\b/i, 20],
+  [/\b(vacuum|hoover) (the )?car\b/i, 20],
+  [/\b(fill|fuel|petrol|gas) (up )?(the )?car\b/i, 10],
+  [/\b(water|weed) (the )?(garden|plants|flowers|beds)\b/i, 10],
+  // Pets
+  [/\b(clean|change) (the )?(litter|cage|tank|hutch)\b/i, 15],
+  [/\b(brush|groom|bath) (the )?(dog|cat|pet)\b/i, 20],
+  [/\bpoop|scoop\b/i, 10],
+  // Maintenance
+  [/\b(change|replace) (the )?(bulb|battery|filter|lightbulb)\b/i, 10],
+  [/\b(fix|repair|assemble|install|mount)\b/i, 45],
+  [/\b(paint|painting)\b/i, 90],
+  // Routine & homework
+  [/\b(brush (your |my )?teeth|shower|bath|get dressed|pack (your |my )?bag)\b/i, 5],
+  [/\b(read|reading)\b/i, 20],
+  [/\b(revise|revision|study|studying|practice (piano|violin|guitar))\b/i, 30],
+  [/\b(essay|project|assignment)\b/i, 60],
 ];
 
+/**
+ * Categories as people type them. A task made by hand often carries the label ("Trash",
+ * "Kitchen") rather than the library's id, and those used to fall through to Other at 15 minutes.
+ */
+const LABEL_DOMAIN: Record<string, string> = {
+  kitchen: 'kitchen_dining',
+  dining: 'kitchen_dining',
+  dishes: 'kitchen_dining',
+  groceries: 'meals_groceries',
+  meals: 'meals_groceries',
+  cooking: 'meals_groceries',
+  bathroom: 'bathroom',
+  bedroom: 'bedroom',
+  'shared spaces': 'living_shared',
+  living: 'living_shared',
+  'living room': 'living_shared',
+  floors: 'floors_deep_cleaning',
+  cleaning: 'floors_deep_cleaning',
+  maintenance: 'home_maintenance',
+  laundry: 'laundry',
+  washing: 'laundry',
+  trash: 'trash_recycling',
+  bins: 'trash_recycling',
+  rubbish: 'trash_recycling',
+  garbage: 'trash_recycling',
+  recycling: 'trash_recycling',
+  outdoors: 'yard_outdoors',
+  yard: 'yard_outdoors',
+  garden: 'yard_outdoors',
+  car: 'car',
+  pets: 'pets',
+  pet: 'pets',
+  hygiene: 'personal_hygiene',
+  routine: 'daily_routine',
+  homework: 'homework_education',
+  school: 'homework_education',
+};
+
+/** The library id this category means, however it was written. */
+export function domainIdFor(category: string | null | undefined): string | undefined {
+  const raw = (category ?? '').trim();
+  if (!raw) return undefined;
+  if (DOMAIN_FAMILY[raw]) return raw;
+  const key = raw.toLowerCase().replace(/[\s-]+/g, ' ');
+  if (LABEL_DOMAIN[key]) return LABEL_DOMAIN[key];
+  const underscored = key.replace(/ /g, '_');
+  return DOMAIN_FAMILY[underscored] ? underscored : undefined;
+}
+
 export function familyOf(task: Pick<HouseholdTask, 'category' | 'title'>): TaskFamily {
-  const byDomain = DOMAIN_FAMILY[task.category];
-  if (byDomain) return byDomain;
+  const domain = domainIdFor(task.category);
+  if (domain && DOMAIN_FAMILY[domain]) return DOMAIN_FAMILY[domain];
   if (/homework/i.test(`${task.category} ${task.title}`)) return 'homework';
   return 'other';
 }
 
-/** Typical minutes a chore takes. Homework and a child's own routine are 0 on purpose. */
+/**
+ * How long this task typically takes — every task gets a number, whoever did it. The chore's own
+ * name wins, then its category, then its family. Nothing lands on zero, which is what made Trash
+ * read "0m" on the breakdown.
+ */
 export function minutesForTask(task: Pick<HouseholdTask, 'category' | 'title'>): number {
+  for (const [re, minutes] of KEYWORD_MINUTES) if (re.test(task.title ?? '')) return minutes;
+  const domain = domainIdFor(task.category);
+  if (domain && DOMAIN_MINUTES[domain] != null) return DOMAIN_MINUTES[domain]!;
+  return FAMILY_MINUTES[familyOf(task)];
+}
+
+/**
+ * Minutes that count as *saved* for the grown-ups: a chore a Sidekick did instead of them.
+ * Homework and a child's own routine are their own work, not an adult's, so they are 0 here
+ * while still carrying an honest effort time above.
+ */
+export function savedMinutesForTask(task: Pick<HouseholdTask, 'category' | 'title'>): number {
   const family = familyOf(task);
   if (family === 'homework' || family === 'routine') return 0;
-  for (const [re, minutes] of KEYWORD_MINUTES) if (re.test(task.title)) return minutes;
-  return DOMAIN_MINUTES[task.category] ?? 15;
+  return minutesForTask(task);
 }
 
 export type CompletionEvent = {
@@ -136,6 +261,8 @@ export type CompletionEvent = {
   family: TaskFamily;
   /** Minutes an adult didn't spend (0 unless a Sidekick did it). */
   minutesSaved: number;
+  /** How long the task takes, whoever finished it — never 0. */
+  effortMinutes: number;
   by: string;
 };
 
@@ -152,15 +279,24 @@ export function completionEvents(
   const events: CompletionEvent[] = [];
   for (const task of tasks) {
     const family = familyOf(task);
-    const minutes = minutesForTask(task);
+    const minutes = savedMinutesForTask(task);
+    const effort = minutesForTask(task);
     const shares = task.shares?.filter((share) => share.status === 'Completed') ?? [];
     if (shares.length) {
       const at = task.completedAt ? new Date(task.completedAt) : null;
       if (!at || Number.isNaN(at.getTime())) continue;
       // Split work: the chore's time is shared between the people who did it.
-      const each = Math.round(minutes / Math.max(1, task.shares?.length ?? 1));
+      const split = Math.max(1, task.shares?.length ?? 1);
+      const each = Math.round(minutes / split);
+      const eachEffort = Math.round(effort / split);
       for (const share of shares) {
-        events.push({ at, family, by: share.name, minutesSaved: isSidekick(roleOf(share.name)) ? each : 0 });
+        events.push({
+          at,
+          family,
+          by: share.name,
+          minutesSaved: isSidekick(roleOf(share.name)) ? each : 0,
+          effortMinutes: eachEffort,
+        });
       }
       continue;
     }
@@ -168,7 +304,13 @@ export function completionEvents(
     const at = new Date(task.completedAt);
     if (Number.isNaN(at.getTime())) continue;
     const by = task.assignee ?? '';
-    events.push({ at, family, by, minutesSaved: isSidekick(roleOf(by)) ? minutes : 0 });
+    events.push({
+      at,
+      family,
+      by,
+      minutesSaved: isSidekick(roleOf(by)) ? minutes : 0,
+      effortMinutes: effort,
+    });
   }
   return events;
 }
@@ -182,7 +324,9 @@ export type Bucket = {
   title: string;
   tasks: number;
   minutesSaved: number;
-  byFamily: Partial<Record<TaskFamily, { tasks: number; minutesSaved: number }>>;
+  /** Time the work took, whoever did it. */
+  effortMinutes: number;
+  byFamily: Partial<Record<TaskFamily, { tasks: number; minutesSaved: number; effortMinutes: number }>>;
 };
 
 function startOfDay(d: Date): Date {
@@ -220,6 +364,7 @@ export function bucketsFor(range: BreakdownRange, now: Date): Bucket[] {
     title,
     tasks: 0,
     minutesSaved: 0,
+    effortMinutes: 0,
     byFamily: {},
   });
   const today = startOfDay(now);
@@ -264,10 +409,10 @@ export type Breakdown = {
   buckets: Bucket[];
   /** "Sep 19 – 25, 2026" / "Today" … */
   span: string;
-  totals: { tasks: number; minutesSaved: number; bySidekicks: number };
+  totals: { tasks: number; minutesSaved: number; effortMinutes: number; bySidekicks: number };
   /** Per day for W/M/6M/Y; for D this is the total. */
   headline: { kind: 'average' | 'total'; tasks: number; minutesSaved: number };
-  byFamily: { family: TaskFamily; tasks: number; minutesSaved: number }[];
+  byFamily: { family: TaskFamily; tasks: number; minutesSaved: number; effortMinutes: number }[];
   /** Earliest start of the range — fetch history from here. */
   since: Date;
 };
@@ -296,9 +441,10 @@ export function computeBreakdown(
   const buckets = bucketsFor(range, now);
   const since = buckets[0]!.start;
   const until = buckets[buckets.length - 1]!.end;
-  const family = new Map<TaskFamily, { tasks: number; minutesSaved: number }>();
+  const family = new Map<TaskFamily, { tasks: number; minutesSaved: number; effortMinutes: number }>();
   let tasks = 0;
   let minutesSaved = 0;
+  let effortMinutes = 0;
   let bySidekicks = 0;
 
   for (const event of events) {
@@ -307,18 +453,22 @@ export function computeBreakdown(
     if (!bucket) continue;
     bucket.tasks += 1;
     bucket.minutesSaved += event.minutesSaved;
-    const slot = bucket.byFamily[event.family] ?? { tasks: 0, minutesSaved: 0 };
+    bucket.effortMinutes += event.effortMinutes;
+    const slot = bucket.byFamily[event.family] ?? { tasks: 0, minutesSaved: 0, effortMinutes: 0 };
     slot.tasks += 1;
     slot.minutesSaved += event.minutesSaved;
+    slot.effortMinutes += event.effortMinutes;
     bucket.byFamily[event.family] = slot;
 
-    const total = family.get(event.family) ?? { tasks: 0, minutesSaved: 0 };
+    const total = family.get(event.family) ?? { tasks: 0, minutesSaved: 0, effortMinutes: 0 };
     total.tasks += 1;
     total.minutesSaved += event.minutesSaved;
+    total.effortMinutes += event.effortMinutes;
     family.set(event.family, total);
 
     tasks += 1;
     minutesSaved += event.minutesSaved;
+    effortMinutes += event.effortMinutes;
     if (event.minutesSaved > 0) bySidekicks += 1;
   }
 
@@ -333,7 +483,7 @@ export function computeBreakdown(
     range,
     buckets,
     span: spanOf(range, buckets, now),
-    totals: { tasks, minutesSaved, bySidekicks },
+    totals: { tasks, minutesSaved, effortMinutes, bySidekicks },
     headline,
     byFamily: FAMILY_ORDER.filter((f) => family.has(f))
       .map((f) => ({ family: f, ...family.get(f)! }))

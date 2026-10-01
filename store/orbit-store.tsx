@@ -532,6 +532,7 @@ type OrbitContextValue = {
     eventIds?: string[];
   }) => Promise<Itinerary | null>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<void>;
+  reopenItineraryStop: (itineraryId: string, stopId: string) => Promise<void>;
   openStopInMaps: (itineraryId: string, stopId: string) => Promise<void>;
   reorderItineraryStops: (itineraryId: string, stopIds: string[]) => Promise<void>;
   signIn: (input: SignInInput) => Promise<void>;
@@ -1606,6 +1607,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const signIn = async (input: SignInInput) => {
     const session = await authRepository.signIn(input);
+    // An account signed in here owns the device now: the old Sidekick's "Continue as" card goes,
+    // and so does any leftover shared-tablet binding. Otherwise signing in as an admin after a
+    // Sidekick signed out walked straight into the shared-device setup wizard.
+    try {
+      const [{ clearSidekickSession, clearSidekickSignedOut }, { clearDeviceSession }] =
+        await Promise.all([
+          import('@/lib/sidekick/session'),
+          import('@/lib/device/device-session'),
+        ]);
+      await Promise.all([
+        clearSidekickSession(),
+        clearSidekickSignedOut(),
+        clearDeviceSession(),
+      ]);
+    } catch (error) {
+      console.warn('signIn.clearDeviceBinding', error);
+    }
     await hydrateFromSession(session);
     await trackAnalytics('auth.sign_in', { email: input.email }, { userId: session.user.id });
   };
@@ -2303,7 +2321,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
 
-  const clearSignedInState = (options?: { skipProfilePick?: boolean; sidekickSigningOut?: boolean }) => {
+  const clearSignedInState = (options?: { sidekickSigningOut?: boolean }) => {
     setCurrentUser(null);
     setHousehold(
       options?.sidekickSigningOut
@@ -2321,11 +2339,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setNotifications([]);
     setInviteLinks(null);
     setActiveMemberId(null);
-    if (!options?.skipProfilePick) {
-      void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-        markNeedsProfilePick()
-      );
-    }
+    // Signing out unbinds the device. It used to keep the binding on a Sidekick sign-out, so
+    // the phone still called itself a shared tablet — and the next person to sign in, as an
+    // admin, was dropped into "Add a device · 1 of 4" instead of their household.
+    void import('@/lib/device/device-session').then(({ clearDeviceSession }) =>
+      clearDeviceSession()
+    );
   };
 
   const signOut = async () => {
@@ -2352,7 +2371,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     } else {
       await clearMockHouseholdSnapshot();
     }
-    clearSignedInState({ skipProfilePick: sidekickSigningOut, sidekickSigningOut });
+    clearSignedInState({ sidekickSigningOut });
   };
 
   const createTask = async (
@@ -3368,26 +3387,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         return nextHouseholdSnapshot;
       });
 
-      const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-      if (!profileAuth) {
-        await poppinsNotifications.taskCompleted(pushNotification, prefs, {
-          title: currentTask.title,
-          assignee: forAssignee,
-          awardedXp: totalAwarded,
-          penalty: latePenalty,
-          late,
-          taskId,
-          audienceMemberIds: adminMemberIds(household.members),
-        });
+      try {
+        const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+        if (!profileAuth) {
+          await poppinsNotifications.taskCompleted(pushNotification, prefs, {
+            title: currentTask.title,
+            assignee: forAssignee,
+            awardedXp: totalAwarded,
+            penalty: latePenalty,
+            late,
+            taskId,
+            audienceMemberIds: adminMemberIds(household.members),
+          });
+        }
+        if (nextHouseholdSnapshot) {
+          await finishTrophyAndStreakHooks(forAssignee, totalAwarded, nextHouseholdSnapshot);
+        }
+        await trackAnalytics(
+          'task.share_completed',
+          { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof },
+          analyticsContext
+        );
+      } catch (postShareError) {
+        console.warn('completeTask.sharePostHooks', postShareError);
       }
-      if (nextHouseholdSnapshot) {
-        await finishTrophyAndStreakHooks(forAssignee, totalAwarded, nextHouseholdSnapshot);
-      }
-      await trackAnalytics(
-        'task.share_completed',
-        { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof },
-        analyticsContext
-      );
       return {
         awarded,
         penalty: latePenalty,
@@ -3467,32 +3490,37 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return nextHouseholdSnapshot;
     });
 
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-    if (!profileAuth) {
-      await poppinsNotifications.taskCompleted(pushNotification, prefs, {
-        title: currentTask.title,
-        assignee: currentTask.assignee,
-        awardedXp: awarded,
-        penalty,
-        late,
-        taskId,
-        audienceMemberIds: adminMemberIds(household.members),
+    // Task row is already saved — follow-up hooks must not turn success into an error alert.
+    try {
+      const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      if (!profileAuth) {
+        await poppinsNotifications.taskCompleted(pushNotification, prefs, {
+          title: currentTask.title,
+          assignee: currentTask.assignee,
+          awardedXp: awarded,
+          penalty,
+          late,
+          taskId,
+          audienceMemberIds: adminMemberIds(household.members),
+        });
+      }
+      if (nextHouseholdSnapshot) {
+        await finishTrophyAndStreakHooks(currentTask.assignee, awarded, nextHouseholdSnapshot);
+      }
+      const nextMetrics = calculateMetrics({
+        ...household,
+        tasks: household.tasks.map((item) => (item.id === taskId ? completedTask : item)),
       });
+      await persistHouseholdScore(household.id, nextMetrics);
+      await trackAnalytics(
+        'task.completed',
+        { taskId, awarded, late, needsProof },
+        analyticsContext
+      );
+      emitTourEvent('task_completed', { taskId });
+    } catch (postCompleteError) {
+      console.warn('completeTask.postHooks', postCompleteError);
     }
-    if (nextHouseholdSnapshot) {
-      await finishTrophyAndStreakHooks(currentTask.assignee, awarded, nextHouseholdSnapshot);
-    }
-    const nextMetrics = calculateMetrics({
-      ...household,
-      tasks: household.tasks.map((item) => (item.id === taskId ? completedTask : item)),
-    });
-    await persistHouseholdScore(household.id, nextMetrics);
-    await trackAnalytics(
-      'task.completed',
-      { taskId, awarded, late, needsProof },
-      analyticsContext
-    );
-    emitTourEvent('task_completed', { taskId });
     return { awarded, penalty, late, needsProof };
   };
 
@@ -4395,6 +4423,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('itinerary.stop_advanced', { itineraryId, stopId }, analyticsContext);
   };
 
+  const reopenItineraryStop = async (itineraryId: string, stopId: string) => {
+    const updated = await itineraryRepository.reopenStop(itineraryId, stopId);
+    if (!updated) return;
+    setHousehold((current) => ({
+      ...current,
+      itineraries: (current.itineraries ?? []).map((item) => (item.id === itineraryId ? updated : item)),
+    }));
+    await trackAnalytics('itinerary.stop_reopened', { itineraryId, stopId }, analyticsContext);
+  };
+
   const openStopInMaps = async (itineraryId: string, stopId: string) => {
     const itinerary = household.itineraries?.find((item) => item.id === itineraryId);
     if (!itinerary) {
@@ -5216,17 +5254,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const appendPoppinsTurn = (question: string, answer: string) => {
+    const q = question.trim();
+    const a = answer.trim();
+    if (!q) return;
     setPoppinsAskCount((count) => count + 1);
-    setPoppinsConversation((current) => [
-      ...current,
-      { role: 'user', content: question },
-      { role: 'assistant', content: answer },
-    ]);
+    setPoppinsConversation((current) => {
+      const next = [...current, { role: 'user' as const, content: q }];
+      // Empty assistant shells drew as hollow purple ovals in typing mode — skip them.
+      if (a) next.push({ role: 'assistant' as const, content: a });
+      return next;
+    });
     void poppinsRepository.appendConversationTurn(
       household.id,
       currentUser?.id ?? null,
-      question,
-      answer
+      q,
+      a || '(no reply)'
     );
   };
 
@@ -6742,6 +6784,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createItinerary,
       suggestPoppinsItinerary,
       advanceItineraryStop,
+      reopenItineraryStop,
       openStopInMaps,
       reorderItineraryStops,
       signIn,

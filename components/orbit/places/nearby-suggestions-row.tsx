@@ -19,10 +19,15 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
 import { typography } from '@/constants/orbit-theme';
-import { coordsForAddress, getCurrentCoords } from '@/lib/places/nearby-stores';
+import {
+  coordsForAddress,
+  findNearbyStores,
+  getCurrentCoords,
+} from '@/lib/places/nearby-stores';
 import {
   findNearbySuggestions,
   pickSuggestions,
+  suggestionsFromStores,
   type NearbySuggestion,
 } from '@/lib/places/nearby-suggestions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -37,29 +42,40 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  /** Location is off, rather than "nothing around" — the two need different words. */
+  const [noLocation, setNoLocation] = useState(false);
 
   const homeLat = home?.lat;
   const homeLng = home?.lng;
   const homeAddress = home?.address?.trim();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (askForLocation = false) => {
     setBusy(true);
     setFailed(false);
+    setNoLocation(false);
     try {
-      // Home first; then this phone; then Home's address, which is all we have when the
-      // pin was typed rather than dropped.
+      // Home first; then this phone; then Home's address, which is all we have when the pin was
+      // typed rather than dropped. Asking for location only happens on a tap, never on open.
       let origin =
         homeLat != null && homeLng != null ? { lat: homeLat, lng: homeLng } : null;
-      if (!origin) origin = await getCurrentCoords({ requestIfNeeded: false });
+      if (!origin) origin = await getCurrentCoords({ requestIfNeeded: askForLocation });
       if (!origin && homeAddress) origin = await coordsForAddress(homeAddress);
       if (!origin) {
         setAll([]);
         setFailed(true);
+        setNoLocation(true);
         return;
       }
-      const found = await findNearbySuggestions(origin);
-      setAll(found);
-      setFailed(found.length === 0);
+      // Refresh button forces a new Overpass hit; otherwise use the week-long cache.
+      const found = await findNearbySuggestions(origin, { forceRefresh: askForLocation });
+      if (found.length) {
+        setAll(found);
+        return;
+      }
+      const stores = await findNearbyStores(origin, { forceRefresh: askForLocation });
+      const fromStores = suggestionsFromStores(stores.stores, origin);
+      setAll(fromStores);
+      setFailed(fromStores.length === 0);
     } catch (error) {
       console.warn('nearby suggestions', error);
       setAll([]);
@@ -92,7 +108,9 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
         name: suggestion.name,
         kind: suggestion.kind,
         address: suggestion.address,
-        placeQuery: `${suggestion.name} ${suggestion.address}`,
+        placeQuery: suggestion.address
+          ? `${suggestion.name} ${suggestion.address}`
+          : suggestion.name,
         lat: suggestion.lat,
         lng: suggestion.lng,
         emoji: suggestion.emoji,
@@ -108,22 +126,38 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
         <Text style={[typography.eyebrow, { color: c.textSubtle }]}>
           {home ? 'Near home' : 'Near you'}
         </Text>
-        <Pressable onPress={() => void load()} hitSlop={8} accessibilityLabel="Look again">
+        <Pressable onPress={() => void load(true)} hitSlop={8} accessibilityLabel="Look again">
           <MaterialIcons name="refresh" size={16} color={c.textSubtle} />
         </Pressable>
       </View>
 
       {!busy && !shown.length && failed ? (
         <Pressable
-          onPress={() => void load()}
-          style={[styles.retry, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}
+          onPress={() => void load(true)}
+          style={[
+            styles.retry,
+            {
+              backgroundColor: noLocation ? `${accent}14` : glass(0.05),
+              borderColor: noLocation ? `${accent}44` : glassBorder(0.1),
+            },
+          ]}
           accessibilityRole="button"
-          accessibilityLabel="Look for places near home again">
-          <MaterialIcons name="refresh" size={16} color={c.textMuted} />
-          <Text style={[typography.footnote, { color: c.textMuted, flex: 1 }]}>
-            {home
-              ? "Couldn't find places near home just now. Tap to try again."
-              : 'Allow location, or add Home, to see places nearby.'}
+          accessibilityLabel={
+            noLocation ? 'Use my location to find places nearby' : 'Look for places nearby again'
+          }>
+          <MaterialIcons
+            name={noLocation ? 'my-location' : 'refresh'}
+            size={16}
+            color={noLocation ? accent : c.textMuted}
+          />
+          <Text
+            style={[
+              typography.footnote,
+              { color: noLocation ? accent : c.textMuted, flex: 1, fontWeight: noLocation ? '700' : '400' },
+            ]}>
+            {noLocation
+              ? 'Use my location to find shops and parks near you'
+              : "Nothing came back just now. Tap to look again."}
           </Text>
         </Pressable>
       ) : busy && !shown.length ? (

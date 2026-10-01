@@ -18,6 +18,8 @@ import { AppText as Text } from '@/components/orbit/app-text';
 type Props = {
   visible: boolean;
   onDismiss: () => void;
+  /** The day the calendar is showing (yyyy-MM-dd) — what the new thing starts on. */
+  dateKey?: string | null;
 };
 
 function PlanAddRow({
@@ -59,7 +61,7 @@ function PlanAddRow({
 }
 
 /** Plan tab add menu — homework is instant; events respect Sidekick approval settings. */
-export function PlanAddSheet({ visible, onDismiss }: Props) {
+export function PlanAddSheet({ visible, onDismiss, dateKey }: Props) {
   const { accentTheme, currentMember, household, permissions } = useOrbit();
   const { c } = useOrbitColors();
   const caps = resolveMemberCapabilities(household);
@@ -69,7 +71,7 @@ export function PlanAddSheet({ visible, onDismiss }: Props) {
 
   const handleSelect = (option: PlanAddOption) => {
     onDismiss();
-    router.push(planAddHref(option) as never);
+    router.push(planAddHref(option, dateKey) as never);
   };
 
   return (

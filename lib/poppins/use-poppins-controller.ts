@@ -22,7 +22,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { AppState, Linking } from 'react-native';
+import { AppState, Keyboard, Linking } from 'react-native';
 import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import {
   isCorrectionUtterance,
@@ -107,6 +107,7 @@ import { useOrbit } from '@/store/orbit-store';
 import {
   baseTroubleForFailure,
   isEndOfSessionUtterance,
+  misheardTrouble,
   reframeUtterance,
   SILENT_START_TROUBLE,
   unknownSentenceTrouble,
@@ -114,6 +115,11 @@ import {
   type BaseTroubleAction,
   type ReframeFamily,
 } from '@/lib/poppins/base-session';
+import {
+  appleEndedPrefersCloud,
+  resolveAppleFailure,
+  resolveAppleUtterance,
+} from '@/lib/voice/base-listen-hybrid';
 
 export type PoppinsVisualState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'success';
 export type CaptureMode = 'hold' | 'tap';
@@ -201,6 +207,13 @@ export function usePoppinsController() {
   const [nothingHeard, setNothingHeard] = useState<NothingHeard>(null);
   // Base listening session (see file header).
   const baseRef = useRef<BaseListener | null>(null);
+  /**
+   * After Apple mishears (French / silence / language), Base prefers cloud STT for this
+   * session. Cleared when the person closes listening.
+   */
+  const preferCloudListenRef = useRef(false);
+  /** Bound after Quiet capture helpers exist — Apple hybrid escalates through this. */
+  const cloudListenRef = useRef<(notice?: string) => void>(() => undefined);
   /** Max fell back to Base listening this session: results say the talking part is offline. */
   const modelDownRef = useRef(false);
   const baseQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -982,7 +995,15 @@ export function usePoppinsController() {
 
       setVoiceState('speaking');
       setLiveCaption(applyLiveCaptionTurn(null, 'poppins', resolved.answer, true));
-      appendPoppinsTurn(trimmed, resolved.answer);
+      const maxReply =
+        (resolved.answer ?? '').trim() ||
+        (resolved.localConfirm ?? '').trim() ||
+        (resolved.modelAnswer ?? '').trim() ||
+        (poppinsUiOrchestrator.getState().live
+          ? 'On the card above — tap Add now when it looks right.'
+          : `${majordomo.displayName} needs a clearer ask.`);
+      appendPoppinsTurn(trimmed, maxReply);
+      if (poppinsUiOrchestrator.getState().live) Keyboard.dismiss();
 
       if (resolved.kind === 'model') {
         if (resolved.actions?.length) flashToolSuccess(resolved.actions[0]!.label);
@@ -994,7 +1015,10 @@ export function usePoppinsController() {
         }
       }
     } catch {
-      appendPoppinsTurn(trimmed, '');
+      appendPoppinsTurn(
+        trimmed,
+        `${majordomo.displayName} could not answer right now. Try again in a moment.`
+      );
       setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
     } finally {
       setAsking(false);
@@ -1062,7 +1086,17 @@ export function usePoppinsController() {
         ask: askPoppins,
         askWhenStaged: false,
       });
-      appendPoppinsTurn(trimmed, resolved.localConfirm ?? '');
+      const staged = () => poppinsUiOrchestrator.getState().live;
+      // Always put a real reply in the thread — empty shells drew as hollow purple ovals.
+      const replyForThread = (() => {
+        const confirm = (resolved.localConfirm ?? '').trim();
+        if (confirm) return confirm;
+        const answer = (resolved.answer ?? resolved.modelAnswer ?? '').trim();
+        if (answer) return answer;
+        if (staged()) return 'On the card above — tap Add now when it looks right.';
+        return `I couldn't place that. Try something clear like "add milk to groceries".`;
+      })();
+      appendPoppinsTurn(trimmed, replyForThread);
 
       if (resolved.kind === 'coach' && currentMember) {
         void recordActEvent(
@@ -1077,7 +1111,10 @@ export function usePoppinsController() {
         );
       }
 
-      const staged = () => poppinsUiOrchestrator.getState().live;
+      if (staged()) {
+        // Card is up — free the keyboard so Add now / HOLD aren't buried under it.
+        Keyboard.dismiss();
+      }
       if (modelDownRef.current && staged()) poppinsUiOrchestrator.flagModelOffline();
       if (resolved.kind === 'model') {
         if (resolved.ui_actions?.length) applyUiActions(resolved.ui_actions as Record<string, unknown>[], true);
@@ -1132,6 +1169,11 @@ export function usePoppinsController() {
       setStatusNotice(POPPINS_PAUSED_COPY);
       return;
     }
+    // Sticky cloud preference after Apple misheard — listening only, English pinned server-side.
+    if (preferCloudListenRef.current && quietCaptureAvailable()) {
+      cloudListenRef.current('Listening more carefully…');
+      return;
+    }
     if (liveConnected || voiceRef.current?.isConnected) await endNativeVoice();
     const { emitTourEvent } = await import('@/lib/tour/tour-events');
     emitTourEvent('poppins_spoke', { phase: 'press' });
@@ -1159,14 +1201,60 @@ export function usePoppinsController() {
         },
         onUtterance: (text) => {
           setBaseLive('');
+          const decision = resolveAppleUtterance(text, preferCloudListenRef.current);
+          if (decision.action === 'cloud') {
+            preferCloudListenRef.current = true;
+            if (decision.reason === 'non_english') {
+              setBaseTrouble(misheardTrouble(text));
+            }
+            if (baseRef.current === listener) baseRef.current = null;
+            listener.abort();
+            setBaseOn(false);
+            setListening(false);
+            setVoiceState('idle');
+            setWaveLevelDb(null);
+            if (quietCaptureAvailable()) {
+              cloudListenRef.current(
+                decision.reason === 'non_english'
+                  ? 'Listening more carefully in English — speak again…'
+                  : 'Listening more carefully…'
+              );
+            } else if (decision.reason === 'non_english') {
+              setBaseTrouble(misheardTrouble(text));
+            } else {
+              setBaseTrouble(SILENT_START_TROUBLE);
+            }
+            return;
+          }
+          const heard = decision.action === 'use_text' ? decision.text : text.trim();
           baseQueueRef.current = baseQueueRef.current
-            .then(() => runBaseTurn(text, 'dictated'))
+            .then(() => runBaseTurn(heard, 'dictated'))
             .catch(() => undefined);
         },
         onLevel: (level) => setWaveLevelDb(level > 0.02 ? -60 + level * 60 : null),
         onFailure: (reason: BaseListenFailure, detail) => {
+          const decision = resolveAppleFailure(reason, quietCaptureAvailable());
+          if (decision.action === 'cloud') {
+            preferCloudListenRef.current = true;
+            if (baseRef.current === listener) baseRef.current = null;
+            setBaseOn(false);
+            setListening(false);
+            setVoiceState('idle');
+            setWaveLevelDb(null);
+            cloudListenRef.current('Listening more carefully…');
+            void logAssistantError({
+              householdId: householdRef.current.id ?? '',
+              memberId: currentMember?.id,
+              tier: 'base',
+              stage: `listen:${reason}:cloud`,
+              message: detail,
+            });
+            return;
+          }
           setBaseTrouble(baseTroubleForFailure(reason));
-          if (reason === 'permission' || reason === 'unavailable' || reason === 'language') setThreadOpen(true);
+          if (reason === 'permission' || reason === 'unavailable' || reason === 'language') {
+            setThreadOpen(true);
+          }
           void logAssistantError({
             householdId: householdRef.current.id ?? '',
             memberId: currentMember?.id,
@@ -1182,7 +1270,12 @@ export function usePoppinsController() {
           setBaseLive('');
           setWaveLevelDb(null);
           setVoiceState('idle');
-          if (why === 'silent_start') setBaseTrouble(SILENT_START_TROUBLE);
+          if (why === 'silent_start' && appleEndedPrefersCloud(why) && quietCaptureAvailable()) {
+            preferCloudListenRef.current = true;
+            cloudListenRef.current("I didn't catch that — speak again, listening more carefully…");
+          } else if (why === 'silent_start') {
+            setBaseTrouble(SILENT_START_TROUBLE);
+          }
           if (why === 'idle') setBaseAfter(null);
           void import('@/lib/tour/tour-events').then(({ emitTourEvent: emit }) =>
             emit('poppins_spoke', { phase: 'done' })
@@ -1204,11 +1297,17 @@ export function usePoppinsController() {
       setBaseOn(false);
       setListening(false);
       setVoiceState('idle');
+      // Module present but recogniser refused — cloud when we can.
+      if (preferCloudListenRef.current === false && quietCaptureAvailable() && baseListeningAvailable() === false) {
+        preferCloudListenRef.current = true;
+        cloudListenRef.current('Listening more carefully…');
+      }
     }
   };
 
   /** Tap to close: stop listening and reset the stage. Half a sentence is dropped. */
   const endBaseSession = () => {
+    preferCloudListenRef.current = false;
     const listener = baseRef.current;
     baseRef.current = null;
     listener?.abort();
@@ -1248,6 +1347,12 @@ export function usePoppinsController() {
       return;
     }
     setBaseTrouble(null);
+    // "Again" after a listen miss → cloud English STT when available (Apple-first hybrid).
+    if (quietCaptureAvailable()) {
+      preferCloudListenRef.current = true;
+      cloudListenRef.current('Listening more carefully…');
+      return;
+    }
     void startBaseSession();
   };
 
@@ -1317,6 +1422,14 @@ export function usePoppinsController() {
     }
   };
 
+  cloudListenRef.current = (notice?: string) => {
+    if (quietRef.current?.active || quietStoppingRef.current || asking || connecting || voiceSettling) {
+      return;
+    }
+    setStatusNotice(notice ?? 'Listening more carefully…');
+    void startQuietCapture('tap');
+  };
+
   const stopQuietCapture = async () => {
     const capture = quietRef.current;
     if (!capture || quietStoppingRef.current) return;
@@ -1364,6 +1477,7 @@ export function usePoppinsController() {
       }
       setNothingHeard(null);
       setHoldTip(null);
+      setStatusNotice(null);
       setLiveCaption(applyLiveCaptionTurn(null, 'you', result.transcript, true));
       await submitUtterance(result.transcript, 'dictated');
     } catch {
@@ -1475,6 +1589,11 @@ export function usePoppinsController() {
 
   const retryAfterNothingHeard = () => {
     setNothingHeard(null);
+    if (quietCaptureAvailable()) {
+      preferCloudListenRef.current = true;
+      cloudListenRef.current('Listening more carefully…');
+      return;
+    }
     if (baseListenerInstalled()) {
       void startBaseSession();
       return;

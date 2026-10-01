@@ -15,7 +15,7 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, Keyboard } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { HomeworkComposeSteps } from '@/components/orbit/poppins-stage/homework-compose-steps';
@@ -489,8 +489,14 @@ export function PoppinsStage({
           {...holdState}
           queued={queuedRows}
           countLabel={groupKicker}
-          onAddNow={() => void poppinsUiOrchestrator.confirm({ fromTap: true })}
-          onNotThat={() => poppinsUiOrchestrator.veto()}
+          onAddNow={() => {
+            Keyboard.dismiss();
+            void poppinsUiOrchestrator.confirm({ fromTap: true });
+          }}
+          onNotThat={() => {
+            Keyboard.dismiss();
+            poppinsUiOrchestrator.veto();
+          }}
           onDropQueued={(id) => poppinsUiOrchestrator.dropQueuedBeat(id)}
         />
       ) : (
@@ -792,14 +798,20 @@ function CommitAffordance({
     return (
       <View style={styles.confirmRow}>
         <Pressable
-          onPress={() => poppinsUiOrchestrator.veto()}
+          onPress={() => {
+            Keyboard.dismiss();
+            poppinsUiOrchestrator.veto();
+          }}
           accessibilityRole="button"
           accessibilityLabel="Skip"
           style={[styles.quietBtn, { borderColor: glassBorder(0.12) }]}>
           <Text style={{ color: c.text }}>Skip</Text>
         </Pressable>
         <Pressable
-          onPress={() => void poppinsUiOrchestrator.confirm({ fromTap: true })}
+          onPress={() => {
+            Keyboard.dismiss();
+            void poppinsUiOrchestrator.confirm({ fromTap: true });
+          }}
           accessibilityRole="button"
           accessibilityLabel="Try again"
           style={[styles.quietBtn, { borderColor: `${accentBorder}66` }]}>
@@ -813,14 +825,20 @@ function CommitAffordance({
     return (
       <View style={styles.confirmRow}>
         <Pressable
-          onPress={() => poppinsUiOrchestrator.veto()}
+          onPress={() => {
+            Keyboard.dismiss();
+            poppinsUiOrchestrator.veto();
+          }}
           accessibilityRole="button"
           accessibilityLabel="No"
           style={[styles.quietBtn, { borderColor: glassBorder(0.12) }]}>
           <Text style={{ color: c.text }}>No</Text>
         </Pressable>
         <Pressable
-          onPress={() => void poppinsUiOrchestrator.confirm({ fromTap: true })}
+          onPress={() => {
+            Keyboard.dismiss();
+            void poppinsUiOrchestrator.confirm({ fromTap: true });
+          }}
           accessibilityRole="button"
           accessibilityLabel="Yes"
           style={[styles.quietBtn, { borderColor: `${accentBorder}66` }]}>
@@ -837,7 +855,10 @@ function CommitAffordance({
   ) {
     return (
       <Pressable
-        onPress={() => void poppinsUiOrchestrator.confirm({ fromTap: true })}
+        onPress={() => {
+          Keyboard.dismiss();
+          void poppinsUiOrchestrator.confirm({ fromTap: true });
+        }}
         hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel={drive.frozen ? 'Tap to confirm' : 'Confirm now'}

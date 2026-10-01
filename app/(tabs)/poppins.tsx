@@ -13,8 +13,8 @@
  * with faces) grew past the body and drew under the dock, which sat on top of it and ate
  * every tap. It now scrolls inside the body and can never reach the dock.
  */
-import { Redirect, router } from 'expo-router';
-import type { ComponentType } from 'react';
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, type ComponentType } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -38,7 +38,8 @@ import { STAGE, stageFaint } from '@/constants/iui-stage';
 import { space } from '@/constants/orbit-theme';
 import { usePoppinsController } from '@/lib/poppins/use-poppins-controller';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { useKeyboardState } from '@/lib/ui/use-keyboard-visible';
+import { setPoppinsTypingMode } from '@/lib/ui/typing-mode';
+import { useKeyboardVisible } from '@/lib/ui/use-keyboard-visible';
 import { useOrbit } from '@/store/orbit-store';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 
@@ -61,6 +62,13 @@ function PoppinsRemoteAudio({ streamURL }: { streamURL: string | null }) {
   return <RTCView streamURL={streamURL} style={styles.remoteAudio} />;
 }
 
+/** What "Ask Poppins" means, per place it was tapped. */
+const POPPINS_ASK_OPENERS: Record<string, string> = {
+  trips: 'Plan a run for today — group my errands into one trip.',
+  plan: 'What does the house need today?',
+  groceries: 'What should I add to the shopping list?',
+};
+
 function PoppinsScreenInner() {
   const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
@@ -68,9 +76,30 @@ function PoppinsScreenInner() {
   const { orbitPalette } = useOrbit();
   const tour = useTourControls();
   const p = usePoppinsController();
-  // Typing needs the room the mic and the tier pills were taking.
-  const keyboard = useKeyboardState();
-  const typing = p.threadOpen && keyboard.visible;
+  // "Ask Poppins" elsewhere in the app lands here with a topic, so the tab opens ready to talk
+  // about that thing instead of a blank stage. Nothing is sent — the words are theirs to send.
+  const askParams = useLocalSearchParams<{ ask?: string }>();
+  const askedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const topic = typeof askParams.ask === 'string' ? askParams.ask : null;
+    if (!topic || askedRef.current === topic) return;
+    askedRef.current = topic;
+    const opener = POPPINS_ASK_OPENERS[topic];
+    if (!opener) return;
+    p.setThreadOpen(true);
+    p.setDraft(opener);
+  }, [askParams.ask, p]);
+  // Typing mode is the chat being open — not just the keyboard being up. With the keyboard down
+  // the old layout came straight back (mic, pills, full tab bar) and the thread was a sliver.
+  // It gets its own layout: thread tall, orb and dock folded, tab bar down to its icons.
+  const typing = p.threadOpen;
+  const softKeyboard = useKeyboardVisible();
+  useFocusEffect(
+    useCallback(() => {
+      setPoppinsTypingMode(typing);
+      return () => setPoppinsTypingMode(false);
+    }, [typing])
+  );
 
   if (!p.poppinsAllowed) {
     return <Redirect href={'/(tabs)' as never} />;
@@ -229,9 +258,10 @@ function PoppinsScreenInner() {
 
           {live ? (
             <ScrollView
-              style={styles.stageScroll}
+              style={[styles.stageScroll, typing && styles.stageScrollTyping]}
               contentContainerStyle={styles.stageScrollContent}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}>
               {p.heard ? (
                 <Text
@@ -262,7 +292,9 @@ function PoppinsScreenInner() {
           )}
         </View>
 
-        {p.threadOpen ? <PoppinsThreadPanel p={p} keyboardUp={typing} /> : null}
+        {p.threadOpen ? (
+          <PoppinsThreadPanel p={p} keyboardUp={softKeyboard} stageLive={Boolean(live)} />
+        ) : null}
       </View>
 
       {/* Dock */}
@@ -351,6 +383,8 @@ const styles = StyleSheet.create({
   orbSlotLive: { flexGrow: 0, flexShrink: 0, paddingBottom: 10, paddingTop: 4 },
   orbSlotTyping: { height: 0, opacity: 0, overflow: 'hidden', paddingBottom: 0, paddingTop: 0 },
   stageScroll: { flex: 1, minHeight: 0, width: '100%' },
+  /** Typing + a live card: the stage keeps the room; the composer is a strip under it. */
+  stageScrollTyping: { flexGrow: 1, flexShrink: 1, minHeight: 220 },
   stageScrollContent: {
     flexGrow: 1,
     paddingBottom: space.lg,

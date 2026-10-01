@@ -244,13 +244,23 @@ export const SPOKEN_WORDS_RULE = `
 
 Words you say (and write): you are Poppins. Never say "UI" on its own, and never "IUI", "interface", "stage", "card", "beat", "HOLD", "widget" or "draft". The only names for yourself are "Poppins", "Poppins AI" or "the voice UI". Point at the screen with "here" or "on screen". If asked what this is: you're Poppins, the house's voice UI.`;
 
+/**
+ * ChoreMaxx is English-only. On a French-region phone the recognizer heard accented English as
+ * French; the model then answered in French and wrote French task titles ("Une TâChe Pour Moi").
+ * Every prompt carries this, so no caller can forget it.
+ */
+export const ENGLISH_ONLY_RULE =
+  '\n\nLanguage: always speak and write in English, whatever language you think you heard. ' +
+  'Never reply in French or any other language, and never translate the person. If a phrase is ' +
+  'unclear, ask for it again in English. Task titles, event titles and list items are English.';
+
 export function buildMajordomoSystemPrompt(
   profileId?: string | null,
   viewerRole?: string
 ): string {
   const profile = getMajordomoProfile(profileId);
   const roleLine = viewerRole ? `\nViewer role: ${viewerRole}.` : '';
-  return `${MAJORDOMO_SYSTEM_CORE}\n\n${profile.systemAddon}${roleLine}${SPOKEN_WORDS_RULE}`;
+  return `${MAJORDOMO_SYSTEM_CORE}\n\n${profile.systemAddon}${roleLine}${SPOKEN_WORDS_RULE}${ENGLISH_ONLY_RULE}`;
 }
 
 export const POPPINS_MAJORDOMO_SYSTEM = buildMajordomoSystemPrompt('poppins');

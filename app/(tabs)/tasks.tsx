@@ -1,8 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, Alert, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { AccessibilityInfo, Pressable, RefreshControl, StyleSheet, View, type ScrollView } from 'react-native';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import Animated, {
   Easing,
   FadeInDown,
@@ -39,6 +40,7 @@ import { StreakMarker } from '@/components/orbit/streak-marker';
 import { Moji } from '@/components/orbit/moji/moji';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { useTourScroll } from '@/components/orbit/tour/use-tour-scroll';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { motion } from '@/constants/motion-tokens';
 import { isTasksStatus } from '@/lib/navigation/open-tasks-tab';
@@ -606,7 +608,7 @@ function TaskItem({
                 icon: 'delete-outline' as const,
                 destructive: true,
                 onPress: () => {
-                  Alert.alert('Delete task', `Remove “${task.title}”?`, [
+                  orbitAlert('Delete task', `Remove “${task.title}”?`, [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Delete', style: 'destructive', onPress: onDelete },
                   ]);
@@ -799,6 +801,9 @@ function TaskSection({
 }
 
 export default function TasksScreen() {
+  // The tour scrolls this screen so what it points at lands centred.
+  const tourScrollRef = useRef<ScrollView>(null);
+  const tourScroll = useTourScroll('/(tabs)/tasks', tourScrollRef);
   const chromePad = useTabChromePaddingTop();
   const params = useLocalSearchParams<{ member?: string | string[]; status?: string | string[] }>();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -1059,7 +1064,7 @@ export default function TasksScreen() {
       return;
     }
     if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) {
-      Alert.alert(
+      orbitAlert(
         'Only they can finish it',
         `${task.assignee} marks “${task.title}” done from their own profile.`
       );
@@ -1077,7 +1082,7 @@ export default function TasksScreen() {
         if (result?.needsProof) {
           router.push({ pathname: '/task/[id]', params: { id: task.id, proof: '1' } } as never);
         } else if (!result) {
-          Alert.alert('Could not complete', 'Try again or open the task for details.');
+          orbitAlert('Could not complete', 'Try again or open the task for details.');
         }
         return;
       }
@@ -1089,12 +1094,12 @@ export default function TasksScreen() {
       if (result?.needsProof) {
         router.push({ pathname: '/task/[id]', params: { id: task.id, proof: '1' } } as never);
       } else if (!result) {
-        Alert.alert('Could not complete', 'Try again or open the task for details.');
+        orbitAlert('Could not complete', 'Try again or open the task for details.');
       }
     } catch (error) {
       setJustCompletedId(null);
       console.warn('handleToggle', error);
-      Alert.alert(
+      orbitAlert(
         'Could not complete',
         error instanceof Error ? error.message : 'Something went wrong. Pull to refresh and try again.'
       );
@@ -1108,6 +1113,9 @@ export default function TasksScreen() {
   return (
     <>
     <PersistentScrollView
+      ref={tourScrollRef}
+      onScroll={tourScroll.onScroll}
+      scrollEventThrottle={16}
       style={orbitScreen.container}
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"
@@ -1496,12 +1504,12 @@ export default function TasksScreen() {
         try {
           await requestAnotherProof(proofRequestTask.id, note);
           setProofRequestId(null);
-          Alert.alert(
+          orbitAlert(
             'Photo requested',
             `${proofRequestAssignee?.name ?? 'Your Sidekick'} will get a notification to add a picture.`
           );
         } catch (error) {
-          Alert.alert(
+          orbitAlert(
             'Couldn’t request a photo',
             error instanceof Error ? error.message : 'Try again in a moment.'
           );
@@ -1522,9 +1530,9 @@ export default function TasksScreen() {
         try {
           await submitProofReply(proofReplyTask.id, input);
           setProofReplyId(null);
-          Alert.alert('Photo sent', 'A grown-up was notified to look at it.');
+          orbitAlert('Photo sent', 'A grown-up was notified to look at it.');
         } catch (error) {
-          Alert.alert(
+          orbitAlert(
             'Couldn’t send the photo',
             error instanceof Error ? error.message : 'Try again.'
           );

@@ -12,6 +12,7 @@ import { BrandOpening } from '@/components/orbit/brand-opening';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
+import { parseSharedDeviceInvitePayload } from '@/lib/household/shared-device-invite';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OnboardingProgress } from '@/components/orbit/onboarding-progress';
 import { OnboardingPlaces } from '@/components/orbit/onboarding-places';
@@ -1533,6 +1534,13 @@ export default function WelcomeOnboardingScreen() {
         onScanned={(code) => {
           setScannerOpen(false);
           setError('');
+          const shared = parseSharedDeviceInvitePayload(code);
+          if (shared) {
+            router.replace(
+              `/join-shared-device?payload=${encodeURIComponent(code.trim())}` as never
+            );
+            return;
+          }
           const kind = classifyInviteCode(code);
           if (kind === 'profile') {
             router.replace(`/join-profile?code=${encodeURIComponent(code)}` as never);

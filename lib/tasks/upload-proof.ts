@@ -5,9 +5,14 @@
  */
 import { dataMode } from '@/config/data-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
-import { isLocalProofUri, isShareableProofUri } from '@/lib/tasks/proof-uri';
+import {
+  isLocalProofUri,
+  isShareableProofUri,
+  needsProofUpload,
+  proofBytesFromBase64,
+} from '@/lib/tasks/proof-uri';
 
-export { isLocalProofUri, isShareableProofUri };
+export { isLocalProofUri, isShareableProofUri, needsProofUpload, proofBytesFromBase64 };
 export const PROOF_BUCKET = 'task-proofs';
 
 function guessExt(uri: string, mime?: string): string {
@@ -40,15 +45,21 @@ function bytesToBase64(bytes: ArrayBuffer): string {
 }
 
 async function readLocalBytes(uri: string): Promise<{ bytes: ArrayBuffer; mime: string; ext: string }> {
+  const { stabilizeLocalProofUri } = await import('@/lib/tasks/stabilize-proof-uri');
+  const stableUri = await stabilizeLocalProofUri(uri);
+
   // expo-file-system/legacy — read as base64 then decode (works for camera + library URIs).
   const FileSystem = await import('expo-file-system/legacy');
-  const base64 = await FileSystem.readAsStringAsync(uri, {
+  const base64 = await FileSystem.readAsStringAsync(stableUri, {
     encoding: FileSystem.EncodingType.Base64,
   });
+  if (!base64 || base64.length < 32) {
+    throw new Error('Could not read the photo. Try taking it again.');
+  }
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  const ext = guessExt(uri);
+  const ext = guessExt(stableUri);
   return { bytes: bytes.buffer, mime: guessMime(ext), ext };
 }
 
@@ -105,12 +116,14 @@ export async function resolveProofUriForSync(input: {
     });
   }
 
-  // Best-effort mirror row for purge / audit.
+  // Best-effort mirror row for purge / audit (~30 day retention).
   try {
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     await supabase.from('task_proofs').insert({
       task_id: input.taskId,
       household_id: input.householdId,
       storage_path: path,
+      expires_at: expiresAt,
     } as never);
   } catch {
     /* non-fatal */
@@ -124,7 +137,13 @@ export async function proofBytesForEdge(localUri: string): Promise<{
   proofBase64: string;
   proofMime: string;
   proofExt: string;
+  byteLength: number;
 }> {
   const { bytes, mime, ext } = await readLocalBytes(localUri);
-  return { proofBase64: bytesToBase64(bytes), proofMime: mime, proofExt: ext };
+  return {
+    proofBase64: bytesToBase64(bytes),
+    proofMime: mime,
+    proofExt: ext,
+    byteLength: bytes.byteLength,
+  };
 }

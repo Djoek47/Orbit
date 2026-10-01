@@ -6,7 +6,10 @@ import {
   jsonResponse,
   requireActiveMember,
 } from '../_shared/poppins-auth.ts';
-import { getOpenAIPoppinsChatModel } from '../_shared/openai-models.ts';
+import {
+  getOpenAIInputTranscribeModel,
+  getOpenAIPoppinsChatModel,
+} from '../_shared/openai-models.ts';
 import { recordAiUsageEvent, usageFromOpenAIPayload } from '../_shared/ai-usage.ts';
 
 const FALLBACK_FOCUS_QUESTION = 'What should our household focus on right now?';
@@ -127,9 +130,12 @@ Deno.serve(async (req) => {
         });
       }
     } else {
+      // Listening only. Always pin English — a French-region phone must never drift the STT.
+      const transcribeModel = getOpenAIInputTranscribeModel();
       const whisperForm = new FormData();
       whisperForm.append('file', audio, 'poppins.m4a');
-      whisperForm.append('model', 'whisper-1');
+      whisperForm.append('model', transcribeModel);
+      whisperForm.append('language', 'en');
 
       const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
@@ -142,6 +148,7 @@ Deno.serve(async (req) => {
         console.error(
           JSON.stringify({
             event: 'poppins_voice.whisper_failed',
+            model: transcribeModel,
             httpStatus: whisperRes.status,
             body: whisperPayload,
           })
@@ -161,6 +168,7 @@ Deno.serve(async (req) => {
         console.error(
           JSON.stringify({
             event: 'poppins_voice.whisper_failed',
+            model: transcribeModel,
             detail: 'empty_text',
             httpStatus: whisperRes.status,
             body: whisperPayload,
@@ -177,20 +185,21 @@ Deno.serve(async (req) => {
     }
 
     if (transcriptOnly) {
+      const transcribeModel = getOpenAIInputTranscribeModel();
       if (householdId) {
         await recordAiUsageEvent({
           householdId,
           clientKey: `voice-whisper-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           memberId: auth.user?.id,
           kind: 'voice',
-          model: 'whisper-1',
+          model: transcribeModel,
           inputTokens: 0,
           outputTokens: 0,
           surface: 'poppins-voice',
           mode: 'whisper',
         });
       }
-      return jsonResponse({ transcript, answer: '', source: 'whisper' });
+      return jsonResponse({ transcript, answer: '', source: 'whisper', model: transcribeModel });
     }
 
     const context = buildCompactHouseholdContext(household);

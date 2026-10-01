@@ -1,6 +1,10 @@
 import * as Location from 'expo-location';
 
 import { haversineMeters } from '@/lib/places/geo-distance';
+import {
+  loadCachedNearbyStores,
+  saveCachedNearbyStores,
+} from '@/lib/places/nearby-cache';
 import { shopKindFromOsmTag } from '@/lib/places/shop-kind';
 import type { PreferredStore } from '@/types/orbit';
 
@@ -65,6 +69,10 @@ type OverpassElement = {
   tags?: Record<string, string>;
 };
 
+function streetAddress(tags?: Record<string, string>): string {
+  return [tags?.['addr:housenumber'], tags?.['addr:street']].filter(Boolean).join(' ').trim();
+}
+
 async function fetchOsmStores(lat: number, lng: number): Promise<PreferredStore[]> {
   const query = `
     [out:json][timeout:12];
@@ -92,14 +100,13 @@ async function fetchOsmStores(lat: number, lng: number): Promise<PreferredStore[
     const kind = shopKindFromOsmTag(el.tags?.shop) ?? 'retail';
     const name =
       el.tags?.name || el.tags?.brand || (kind === 'clothing' ? 'Clothing store' : 'Store');
-    const address =
-      [el.tags?.['addr:housenumber'], el.tags?.['addr:street']].filter(Boolean).join(' ') ||
-      `${elLat.toFixed(4)}, ${elLng.toFixed(4)}`;
+    // Never stuff raw lat/lng into address — maps use lat/lng fields; UI hides coords.
+    const address = streetAddress(el.tags);
     stores.push({
       id: `osm-${el.type}-${el.id}`,
       name,
       address,
-      placeQuery: `${name} ${address}`,
+      placeQuery: address ? `${name} ${address}` : name,
       lat: elLat,
       lng: elLng,
       distanceMeters: Math.round(haversineMeters(lat, lng, elLat, elLng)),
@@ -112,35 +119,48 @@ async function fetchOsmStores(lat: number, lng: number): Promise<PreferredStore[
 
 export async function findNearbyStoresAt(
   lat: number,
-  lng: number
-): Promise<{ stores: PreferredStore[]; source: 'osm' | 'none' }> {
+  lng: number,
+  options?: { forceRefresh?: boolean }
+): Promise<{ stores: PreferredStore[]; source: 'osm' | 'cache' | 'none' }> {
+  if (!options?.forceRefresh) {
+    const cached = await loadCachedNearbyStores(lat, lng);
+    if (cached?.length) return { stores: cached, source: 'cache' };
+  }
   try {
     const osm = await fetchOsmStores(lat, lng);
-    if (osm.length > 0) return { stores: osm, source: 'osm' };
+    if (osm.length > 0) {
+      await saveCachedNearbyStores(lat, lng, osm);
+      return { stores: osm, source: 'osm' };
+    }
   } catch (error) {
     console.warn('findNearbyStoresAt OSM failed', error);
+    const cached = await loadCachedNearbyStores(lat, lng);
+    if (cached?.length) return { stores: cached, source: 'cache' };
   }
   return { stores: [], source: 'none' };
 }
 
 /**
- * Nearby grocery + clothing/retail via OSM Overpass. No curated fallback.
- * Pass home coords after Home is saved so we don't wait on GPS twice.
+ * Nearby grocery + clothing/retail via OSM Overpass. Cached after the first hit
+ * so Places / New trip don't wait on Overpass every open.
  */
-export async function findNearbyStores(origin?: {
-  lat: number;
-  lng: number;
-} | null): Promise<{
+export async function findNearbyStores(
+  origin?: {
+    lat: number;
+    lng: number;
+  } | null,
+  options?: { forceRefresh?: boolean }
+): Promise<{
   stores: PreferredStore[];
   coords: { lat: number; lng: number } | null;
-  source: 'osm' | 'none' | 'denied';
+  source: 'osm' | 'cache' | 'none' | 'denied';
 }> {
   const coords = origin ?? (await getCurrentCoords());
   if (!coords) {
     return { stores: [], coords: null, source: 'denied' };
   }
 
-  const { stores, source } = await findNearbyStoresAt(coords.lat, coords.lng);
+  const { stores, source } = await findNearbyStoresAt(coords.lat, coords.lng, options);
   return { stores, coords, source };
 }
 

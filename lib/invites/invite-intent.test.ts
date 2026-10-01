@@ -56,6 +56,7 @@ function pass(name: string) {
   assert.equal(inviteHref('invite-unsupported', 'CMX-3486'), '/invite-unsupported?code=CMX-3486');
   assert.equal(inviteHref('join-profile', 'CMX-EMMA'), '/join-profile?code=CMX-EMMA');
   assert.match(householdInviteWrongForKidMessage('CMX-3486'), /Sidekick invite/);
+  assert.match(householdInviteWrongForKidMessage('CMX-3486'), /CMX-EM7K4Q/);
   pass('hrefs + kid-field copy');
 }
 

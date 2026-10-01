@@ -15,9 +15,9 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { IuiCard } from '@/components/orbit/poppins-stage/iui-card';
 import { IuiEditableTitle } from '@/components/orbit/poppins-stage/iui-editable-title';
 import { STAGE, stageBorder, stageMuted } from '@/constants/iui-stage';

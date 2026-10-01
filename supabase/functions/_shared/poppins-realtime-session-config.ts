@@ -84,6 +84,9 @@ export function buildPoppinsRealtimeSessionConfig(input: BuildRealtimeSessionInp
         noise_reduction: { type: 'near_field' },
         transcription: {
           model: getOpenAIInputTranscribeModel(),
+          // English only. Left to guess, it heard accented English as French and the model
+          // answered in French.
+          language: 'en',
         },
         turn_detection: {
           type: 'semantic_vad',

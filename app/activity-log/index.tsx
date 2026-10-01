@@ -1,7 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -152,7 +160,11 @@ export default function ActivityLogScreen() {
   );
 }
 
-const STEPS: { key: keyof NotificationActivitySummary; icon: MaterialIconName; label: string }[] = [
+const STEPS: {
+  key: 'sent' | 'received' | 'opened' | 'read';
+  icon: MaterialIconName;
+  label: string;
+}[] = [
   { key: 'sent', icon: 'send', label: 'Sent' },
   { key: 'received', icon: 'phone-iphone', label: 'Received' },
   { key: 'opened', icon: 'touch-app', label: 'Opened' },
@@ -188,6 +200,14 @@ function NotificationSummaryRow({ summary }: { summary: NotificationActivitySumm
           <Text style={[typography.footnote, { color: c.textSoft }]} numberOfLines={2}>
             {summary.body}
           </Text>
+        ) : null}
+        {summary.proofUri ? (
+          <Image
+            source={{ uri: summary.proofUri }}
+            style={styles.proofThumb}
+            resizeMode="cover"
+            accessibilityLabel="Proof photo"
+          />
         ) : null}
         <View style={styles.steps}>
           {STEPS.map((step) => {
@@ -262,6 +282,13 @@ const styles = StyleSheet.create({
   cardHead: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   pillText: { fontSize: 11, fontWeight: '700' },
+  proofThumb: {
+    alignSelf: 'flex-start',
+    borderCurve: 'continuous',
+    borderRadius: 10,
+    height: 72,
+    width: 96,
+  },
   steps: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   step: {
     alignItems: 'center',

@@ -7,8 +7,10 @@ import 'react-native-reanimated';
 
 import { AppErrorBoundary } from '@/components/orbit/app-error-boundary';
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
+import { OrbitAlertProvider } from '@/components/orbit/orbit-alert';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
+import { KeyboardDoneAccessory } from '@/components/orbit/keyboard-done-accessory';
 import { TourProvider } from '@/components/orbit/tour/tour-provider';
 import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
 import { useSessionEpoch } from '@/lib/navigation/session-epoch';
@@ -40,6 +42,7 @@ export default function RootLayout() {
   return (
     <AppErrorBoundary>
       <OrbitProvider>
+        <OrbitAlertProvider>
         <PoppinsLiveProvider>
           <TourProvider>
             <OrbitNavTheme>
@@ -63,6 +66,10 @@ export default function RootLayout() {
                   <Stack.Screen
                     name="join-profile"
                     options={{ headerShown: false, title: 'Join profile' }}
+                  />
+                  <Stack.Screen
+                    name="join-shared-device"
+                    options={{ headerShown: false, title: 'Join shared device' }}
                   />
                   <Stack.Screen
                     name="invite-unsupported"
@@ -136,6 +143,16 @@ export default function RootLayout() {
                     options={{ presentation: 'modal', headerShown: false, title: 'Shared device setup' }}
                   />
                   <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
+                  <Stack.Screen
+                    name="support"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Support' }}
+                  />
+                  {/* The Poppins pages draw their own header. Without these, iOS put a grey bar on
+                      top reading the raw route name ("poppins-how-it-works"). */}
+                  <Stack.Screen name="poppins-how-it-works" options={{ headerShown: false, title: 'How it works' }} />
+                  <Stack.Screen name="poppins-actions" options={{ headerShown: false, title: 'Actions' }} />
+                  <Stack.Screen name="poppins-credits" options={{ headerShown: false, title: 'Credits' }} />
+                  <Stack.Screen name="poppins-advanced" options={{ headerShown: false, title: 'Advanced' }} />
                   <Stack.Screen
                     name="tour/proof-walkthrough"
                     options={{ presentation: 'modal', headerShown: false, title: 'How proof works' }}
@@ -246,10 +263,13 @@ export default function RootLayout() {
                     options={{ presentation: 'modal', headerShown: false, title: 'Notification history' }}
                   />
                 </Stack>
+                {/* One Done bar for every multi-line field in the app. */}
+                <KeyboardDoneAccessory />
               </LayoutAnimationConfig>
             </OrbitNavTheme>
           </TourProvider>
         </PoppinsLiveProvider>
+        </OrbitAlertProvider>
       </OrbitProvider>
     </AppErrorBoundary>
   );

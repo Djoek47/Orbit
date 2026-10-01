@@ -39,15 +39,15 @@ export function baseTroubleForFailure(reason: BaseListenFailure): BaseTrouble {
     case 'language':
       return {
         kind: 'listen',
-        title: "This language isn't available for listening",
-        reason: 'Poppins listens in English and French. You can type below.',
-        action: 'type',
+        title: 'Listening needs a clearer pass',
+        reason: 'Poppins listens in English only. Tap again and we’ll use the clearer cloud listen.',
+        action: 'again',
       };
     case 'network':
       return {
         kind: 'listen',
         title: 'Listening needs a connection on this iPhone',
-        reason: 'Older iPhones send speech to Apple to write it down. Reconnect, or type below.',
+        reason: 'Reconnect, or tap again — we’ll try the clearer cloud listen when you’re online.',
         action: 'again',
       };
     case 'audio':
@@ -70,9 +70,21 @@ export function baseTroubleForFailure(reason: BaseListenFailure): BaseTrouble {
 export const SILENT_START_TROUBLE: BaseTrouble = {
   kind: 'silent',
   title: "I didn't hear words",
-  reason: "Tap the mic and talk — I'll write down what I hear.",
+  reason: "Tap again and speak — I'll listen more carefully.",
   action: 'again',
 };
+
+/** Apple heard French / gibberish; next pass uses cloud STT. */
+export function misheardTrouble(heard: string): BaseTrouble {
+  const clipped = heard.length > 80 ? `${heard.slice(0, 77)}…` : heard;
+  return {
+    kind: 'listen',
+    title: 'I may have misheard that',
+    reason: `I wrote "${clipped}". Tap again for a clearer English listen.`,
+    action: 'again',
+    heard,
+  };
+}
 
 export function unknownSentenceTrouble(heard: string): BaseTrouble {
   return {

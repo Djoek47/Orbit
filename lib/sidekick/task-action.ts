@@ -3,10 +3,13 @@
  */
 
 import { mapTaskRow, mapEventRow, mapGroceryRow } from '@/lib/mappers/orbit-mappers';
+import { buildSidekickProofSubmitBody } from '@/lib/sidekick/proof-submit-body';
 import { isSidekickLocalUserId, loadSidekickSession } from '@/lib/sidekick/session';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { dataMode } from '@/config/data-mode';
 import type { CreateEventInput, CreateGroceryInput, CreateTaskInput, GroceryItem, HouseholdEvent, HouseholdTask } from '@/types/orbit';
+
+export { buildSidekickProofSubmitBody } from '@/lib/sidekick/proof-submit-body';
 
 /**
  * Profile-code auth for Sidekick devices only.
@@ -83,10 +86,29 @@ export async function sidekickCompleteTask(input: {
   });
 
   if (error) {
-    throw new Error(error.message || 'sidekickCompleteTask failed');
+    const detail = await edgeErrorMessage(error, 'sidekickCompleteTask failed');
+    // Older edge builds returned 409 already_completed — treat as success locally.
+    if (/already_completed|already completed|409/i.test(detail)) {
+      return mapSidekickTaskRow(
+        {
+          id: input.taskId,
+          status: 'completed',
+          awarded_xp: input.awardedXp,
+          completed_at: input.completedAt,
+          completed_late: input.completedLate,
+          verification: input.verification ?? 'not_required',
+        },
+        input.task
+      );
+    }
+    throw new Error(detail);
   }
 
-  const payload = data as { error?: string; task?: Record<string, unknown> };
+  const payload = data as {
+    error?: string;
+    task?: Record<string, unknown>;
+    alreadyCompleted?: boolean;
+  };
   if (payload?.error || !payload?.task) {
     throw new Error(payload?.error ?? 'sidekickCompleteTask empty response');
   }
@@ -108,54 +130,140 @@ export async function edgeErrorMessage(error: unknown, fallback: string): Promis
   return (error as { message?: string } | null)?.message || fallback;
 }
 
+async function invokeSidekickTaskAction(
+  body: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error('Supabase client unavailable');
+  }
+  const { data, error } = await supabase.functions.invoke('sidekick-task-action', { body });
+  if (error) {
+    throw new Error(await edgeErrorMessage(error, 'sidekick-task-action failed'));
+  }
+  const payload = (data ?? {}) as Record<string, unknown>;
+  if (typeof payload.error === 'string' && payload.error) {
+    throw new Error(payload.error);
+  }
+  return payload;
+}
+
+/**
+ * Prepare Sidekick proof bytes for the edge function.
+ * Always attach base64 when it fits — signed PUT is a best-effort shortcut only.
+ * (RN fetch + ArrayBuffer PUT often fails silently; service-role upload is reliable.)
+ */
+async function uploadSidekickProofBytes(input: {
+  code: string;
+  taskId: string;
+  localUri: string;
+}): Promise<{ proofUri?: string; proofBase64?: string; proofMime?: string; proofExt?: string }> {
+  const {
+    needsProofUpload,
+    proofBytesForEdge,
+    proofBytesFromBase64,
+  } = await import('@/lib/tasks/upload-proof');
+
+  if (!needsProofUpload(input.localUri)) {
+    return { proofUri: input.localUri.trim() };
+  }
+
+  const bytes = await proofBytesForEdge(input.localUri);
+  if (!bytes.proofBase64 || bytes.byteLength < 32) {
+    throw new Error('Could not read the photo. Try taking it again.');
+  }
+
+  let remoteUri: string | undefined;
+  try {
+    const prep = await invokeSidekickTaskAction({
+      action: 'prepare_proof_upload',
+      code: input.code,
+      taskId: input.taskId,
+      proofExt: bytes.proofExt,
+      proofMime: bytes.proofMime,
+    });
+    const signedUrl = typeof prep.signedUrl === 'string' ? prep.signedUrl : '';
+    const token = typeof prep.token === 'string' ? prep.token : '';
+    const path = typeof prep.path === 'string' ? prep.path : '';
+    const publicUrl = typeof prep.publicUrl === 'string' ? prep.publicUrl : '';
+    if (signedUrl && publicUrl) {
+      const raw = proofBytesFromBase64(bytes.proofBase64);
+      // Prefer Blob — ArrayBuffer bodies fail on some RN / TestFlight builds.
+      const copy = new Uint8Array(raw.byteLength);
+      copy.set(raw);
+      const putBody: BodyInit =
+        typeof Blob !== 'undefined'
+          ? new Blob([copy], { type: bytes.proofMime })
+          : copy.buffer;
+      const put = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': bytes.proofMime,
+          'x-upsert': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: putBody,
+      });
+      if (put.ok) {
+        remoteUri = publicUrl;
+      } else {
+        console.warn('sidekickProof.signedPut', put.status, path);
+      }
+    }
+  } catch (error) {
+    console.warn('sidekickProof.signedPut', error);
+  }
+
+  return {
+    proofUri: remoteUri,
+    proofBase64: bytes.proofBase64,
+    proofMime: bytes.proofMime,
+    proofExt: bytes.proofExt,
+  };
+}
+
 export async function sidekickSubmitTaskProof(input: {
   code: string;
   taskId: string;
   task: HouseholdTask;
   proofUri: string;
 }): Promise<HouseholdTask> {
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    throw new Error('Supabase client unavailable');
+  if (!input.proofUri?.trim()) {
+    throw new Error('Add a photo before sending.');
   }
 
-  const { isLocalProofUri, proofBytesForEdge } = await import('@/lib/tasks/upload-proof');
-  const body: Record<string, unknown> = {
-    action: 'submit_proof',
+  const uploaded = await uploadSidekickProofBytes({
     code: input.code,
     taskId: input.taskId,
-  };
-
-  // Sidekick devices have no Storage JWT — send bytes so the edge function
-  // can upload a durable https URL every household member can load.
-  if (isLocalProofUri(input.proofUri)) {
-    const bytes = await proofBytesForEdge(input.proofUri);
-    body.proofBase64 = bytes.proofBase64;
-    body.proofMime = bytes.proofMime;
-    body.proofExt = bytes.proofExt;
-  } else {
-    body.proofUri = input.proofUri;
-  }
-
-  const { data, error } = await supabase.functions.invoke('sidekick-task-action', {
-    body,
+    localUri: input.proofUri,
   });
 
-  if (error) {
-    throw new Error(await edgeErrorMessage(error, 'sidekickSubmitTaskProof failed'));
-  }
+  const body = buildSidekickProofSubmitBody({
+    code: input.code,
+    taskId: input.taskId,
+    remoteUri: uploaded.proofUri,
+    proofBase64: uploaded.proofBase64,
+    proofMime: uploaded.proofMime,
+    proofExt: uploaded.proofExt,
+  });
 
-  const payload = data as { error?: string; task?: Record<string, unknown> };
-  if (payload?.error || !payload?.task) {
-    throw new Error(payload?.error ?? 'sidekickSubmitTaskProof empty response');
+  const payload = await invokeSidekickTaskAction(body);
+  const taskRow = payload.task as Record<string, unknown> | undefined;
+  if (!taskRow) {
+    throw new Error(typeof payload.error === 'string' ? payload.error : 'Could not send the photo.');
   }
 
   const remoteUri =
-    typeof payload.task.proof_uri === 'string' && payload.task.proof_uri.trim()
-      ? payload.task.proof_uri.trim()
-      : input.proofUri;
+    typeof taskRow.proof_uri === 'string' && taskRow.proof_uri.trim()
+      ? taskRow.proof_uri.trim()
+      : uploaded.proofUri ?? '';
 
-  return mapSidekickTaskRow(payload.task, {
+  // Never persist a file:// / ph:// URI as "submitted" — admins on other devices see a blank box.
+  if (!remoteUri || !/^https?:\/\//i.test(remoteUri)) {
+    throw new Error('Photo did not reach the household. Take it again and send.');
+  }
+
+  return mapSidekickTaskRow(taskRow, {
     ...input.task,
     proofUri: remoteUri,
     proofStatus: 'submitted',

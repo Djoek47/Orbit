@@ -84,7 +84,8 @@ export function resolveShoppingPalette(
     guessBg: `${c.accent}28`,
     guessBorder: `${c.accent}55`,
     guessText: c.accent,
-    ambientA: `${c.accent}40`,
+    // Warm gold rather than the theme's green: green behind orange read as a clash.
+    ambientA: '#F2B84B38',
     ambientB: `${c.primary}28`,
     isDark,
   };

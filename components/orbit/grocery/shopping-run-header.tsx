@@ -17,6 +17,8 @@ type Props = {
   onEndRun?: () => void;
   /** True while the banner is showing, so End run is worth offering. */
   bannerOn?: boolean;
+  /** The Lock Screen switch. Omitted where this iPhone or build can't show one. */
+  lockScreen?: { on: boolean; onToggle: () => void };
 };
 
 export function ShoppingRunHeader({
@@ -29,6 +31,7 @@ export function ShoppingRunHeader({
   onBack,
   onEndRun,
   bannerOn,
+  lockScreen,
 }: Props) {
   return (
     <View style={styles.head}>
@@ -37,6 +40,35 @@ export function ShoppingRunHeader({
           <MaterialIcons name="chevron-left" size={28} color={palette.ink} />
         </Pressable>
         <Text style={[typography.eyebrow, { color: palette.inkFaint }]}>{runLabel}</Text>
+        <View style={styles.spacer} />
+        {lockScreen ? (
+          <Pressable
+            onPress={lockScreen.onToggle}
+            hitSlop={8}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: lockScreen.on }}
+            accessibilityLabel="Show this run on the Lock Screen"
+            style={[
+              styles.lockPill,
+              {
+                borderColor: lockScreen.on ? palette.accent : palette.glassEdge,
+                backgroundColor: lockScreen.on ? `${palette.accent}22` : 'transparent',
+              },
+            ]}>
+            <MaterialIcons
+              name={lockScreen.on ? 'lock' : 'lock-open'}
+              size={13}
+              color={lockScreen.on ? palette.accent : palette.inkFaint}
+            />
+            <Text
+              style={[
+                typography.caption1,
+                { color: lockScreen.on ? palette.accent : palette.inkMuted, fontWeight: '700' },
+              ]}>
+              {lockScreen.on ? 'Lock Screen' : 'Lock Screen off'}
+            </Text>
+          </Pressable>
+        ) : null}
         {bannerOn && onEndRun ? (
           <Pressable
             onPress={onEndRun}
@@ -93,8 +125,18 @@ export function ShoppingRunHeader({
 
 const styles = StyleSheet.create({
   head: { paddingHorizontal: 22, paddingTop: 6 },
+  spacer: { flex: 1 },
+  lockPill: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   endRun: {
-    marginLeft: 'auto',
+    marginLeft: 6,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,

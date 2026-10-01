@@ -14,7 +14,6 @@ import { SmartTripsIntro } from '@/components/orbit/trips/smart-trips-intro';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
-import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { Itinerary, ItineraryStop, ItineraryStopKind } from '@/types/orbit';
@@ -174,9 +173,12 @@ function TripCard({
             <MaterialIcons name="route" size={18} color={color} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.tripTitle, { color: c.text }]}>{trip.title}</Text>
+            <Text style={[styles.tripTitle, { color: '#F7F2EC' }]}>{trip.title}</Text>
             <Text style={[styles.tripDayLabel, { color }]}>{formatDayLabel(trip.date)}</Text>
           </View>
+          {trip.favorite ? (
+            <MaterialIcons name="star" size={16} color="#FBBF24" style={{ marginRight: 4 }} />
+          ) : null}
           <MaterialIcons
             name="chevron-right"
             size={16}
@@ -281,13 +283,11 @@ export function PlanTripsPanel({
 }) {
   const {
     accentTheme,
-    askPoppins,
     household,
     openFullItineraryInMaps,
     rerunItinerary,
     suggestPoppinsItinerary,
   } = useOrbit();
-  const poppinsLive = usePoppinsLive();
   const majordomoName = useMajordomoName();
   const { c, glass, glassBorder } = useOrbitColors();
   const [sectionLocal, setSectionLocal] = useState<TripsSection>('trips');
@@ -329,44 +329,15 @@ export function PlanTripsPanel({
     }
   };
 
-  /** Live AI: propose_plan → Activity / create-itinerary draft. Mock: heuristic itinerary. */
-  const runAskPoppins = async () => {
-    setBusy(true);
-    setAskHint('');
-    poppinsLive?.markThinking();
-    try {
-      const { useLivePoppinsAi } = await import('@/config/poppins-ai-mode');
-      if (useLivePoppinsAi) {
-        const dayLabel = selectedDateKey || 'this weekend';
-        const answer = await askPoppins(
-          `Propose a household plan for ${dayLabel}. Use propose_plan with a clear title, detail, and dayLabel — do not create the itinerary yourself.`
-        );
-        const planAction = answer.actions?.find((a) => a.kind === 'plan');
-        const draft = planAction?.data as
-          | { planTitle?: string; planDetail?: string; dayLabel?: string; title?: string; detail?: string }
-          | undefined;
-        if (planAction && draft) {
-          router.push({
-            pathname: '/create-itinerary',
-            params: {
-              title: String(draft.planTitle ?? draft.title ?? planAction.label ?? ''),
-              detail: String(draft.planDetail ?? draft.detail ?? planAction.detail ?? ''),
-              dayLabel: String(draft.dayLabel ?? dayLabel),
-            },
-          } as never);
-          return;
-        }
-        setAskHint(answer.answer || 'Poppins proposed ideas — check Activity for a Plan draft.');
-        return;
-      }
-      await runSuggest();
-    } catch {
-      setAskHint('Poppins could not propose a plan. Try Calendar bundle instead.');
-    } finally {
-      setBusy(false);
-      poppinsLive?.markIdle();
-    }
+  /**
+   * Ask Poppins about trips. It opens the Poppins tab — in whichever mode the household is on —
+   * with a trip question ready to send, rather than running a hidden request from this screen
+   * and leaving people on a page that looks unchanged.
+   */
+  const askPoppinsAboutTrips = () => {
+    router.push('/(tabs)/poppins?ask=trips' as never);
   };
+
 
   const handleStartTrip = async (trip: Itinerary) => {
     await openFullItineraryInMaps(trip.id);
@@ -457,7 +428,7 @@ export function PlanTripsPanel({
             <SmartTripsIntro
               majordomoName={majordomoName}
               busy={busy}
-              onAsk={() => void runAskPoppins()}
+              onAsk={askPoppinsAboutTrips}
               onCalendar={() => void runSuggest({ date: selectedDateKey })}
               onNew={() => router.push('/create-itinerary' as never)}
             />
@@ -504,25 +475,25 @@ export function PlanTripsPanel({
                 <ComposeChip
                   icon="auto-awesome"
                   label={`Ask ${majordomoName}`}
-                  accent={accentTheme.primary}
+                  accent="#38BDF8"
+                  fill="#38BDF8"
                   busy={busy}
-                  onPress={() => void runAskPoppins()}
+                  onPress={askPoppinsAboutTrips}
                 />
                 <ComposeChip
                   icon="event"
                   label="From calendar"
-                  accent={accentTheme.primary}
+                  accent="#F59E0B"
                   onPress={() => void runSuggest({ date: selectedDateKey })}
                 />
                 <ComposeChip
                   icon="add"
                   label="New"
-                  accent={accentTheme.primary}
+                  accent="#2DD4BF"
                   onPress={() => router.push('/create-itinerary' as never)}
                 />
               </View>
               </TourTarget>
-
               {/* How the stops get ordered */}
               <View style={styles.modeRow}>
                 <Text style={[styles.modeHint, { color: c.textSubtle }]}>Order stops</Text>
@@ -651,15 +622,18 @@ function ComposeChip({
   label,
   onPress,
   accent,
+  fill,
   busy,
 }: {
   icon: keyof typeof MaterialIcons.glyphMap;
   label: string;
   onPress: () => void;
   accent: string;
+  /** Solid fill (Poppins path) vs tinted outline (DIY). */
+  fill?: string;
   busy?: boolean;
 }) {
-  const { glass } = useOrbitColors();
+  const ink = fill ? '#041018' : accent;
   return (
     <Pressable
       onPress={onPress}
@@ -667,17 +641,17 @@ function ComposeChip({
       style={({ pressed }) => [
         styles.composeChip,
         {
-          backgroundColor: glass(0.04),
-          borderColor: `${accent}44`,
+          backgroundColor: fill ?? `${accent}24`,
+          borderColor: fill ?? `${accent}88`,
         },
         pressed && { opacity: 0.85 },
       ]}>
       {busy ? (
-        <ActivityIndicator size="small" color={accent} />
+        <ActivityIndicator size="small" color={ink} />
       ) : (
-        <MaterialIcons name={icon} size={16} color={accent} />
+        <MaterialIcons name={icon} size={16} color={ink} />
       )}
-      <Text style={[styles.composeLabel, { color: accent }]}>{label}</Text>
+      <Text style={[styles.composeLabel, { color: ink }]}>{label}</Text>
     </Pressable>
   );
 }
