@@ -56,9 +56,10 @@ Fifth slot = Switch (not Poppins). Glyph = N double-arrows:
 | Build | Branch / commit | Notes |
 | --- | --- | --- |
 | **1.3.0 (100)** | `947a2fc` | Last submitted before this cut |
-| **1.3.0 (102)** queued | `cursor/make-v28` @ `a89fcd2` | [c6c7a77a](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/c6c7a77a-7372-44b0-8f9d-788b46c86b83) — proof / Switch / Support / trips; [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/84e0d33f-a0e1-419e-9d46-48253ec300a8) |
+| **1.3.0 (102)** failed | `a89fcd2` | App Groups on main app vs July provisioning profile |
+| **1.3.0 (103)** queued | `cursor/make-v28` @ `f3d98ca` | [7995de30](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/7995de30-df33-42ac-b896-3fbfbec74829) — main App Group deferred; [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/d4407ff5-6a10-4e8c-98a6-228c2b4f4065) |
 
-Non-interactive EAS needed `EXPO_NO_CAPABILITY_SYNC=1` (Apple App Groups patch for LiveActivity fails without an interactive session).
+Non-interactive EAS uses `EXPO_NO_CAPABILITY_SYNC=1`. Full Lock Screen shopping check-off sync needs App Groups on the main App ID + interactive profile refresh (`docs/testflight-setup.md`).
 
 ## TestFlight env (`eas.json`)
 
