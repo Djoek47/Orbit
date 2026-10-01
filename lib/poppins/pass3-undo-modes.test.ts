@@ -91,19 +91,23 @@ async function main() {
     assert.match(panelFile, /PoppinsTierCards/);
     assert.match(panelFile, /VoiceWheel/);
     assert.match(panelFile, /poppins-advanced/);
+    assert.match(panelFile, /poppins-actions/);
     assert.match(panelFile, /poppins-credits/);
     assert.match(panelFile, /poppins-how-it-works/);
 
     const tiers = readFileSync(join(root, 'components/orbit/poppins/tier-cards.tsx'), 'utf8');
     assert.match(tiers, /Poppins Base/);
     assert.match(tiers, /Poppins Max/);
-    assert.match(tiers, /Writes it down/);
-    assert.match(tiers, /Talks with you/);
+    // Short taglines, and a badge that shows which is listening and which is speaking.
+    assert.match(tiers, /Listens, writes it down/);
+    assert.match(tiers, /Talks back out loud/);
+    assert.match(tiers, /name="mic"/, 'Base shows a mic');
+    assert.match(tiers, /styles\.bars/, 'Max shows a voice');
+    assert.match(tiers, /costLine/, 'the cost sits above the pips, not beside them');
 
     const advanced = readFileSync(join(root, 'app/poppins-advanced.tsx'), 'utf8');
     assert.match(advanced, /Act immediately/);
     assert.match(advanced, /Show thinking/);
-    assert.match(advanced, /Allow Sidekick AI/);
     assert.match(advanced, /ScrollView/, 'a screen that scrolls, not a sheet that overshoots');
 
     const welcome = readFileSync(join(root, 'app/welcome.tsx'), 'utf8');

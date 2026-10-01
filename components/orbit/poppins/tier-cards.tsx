@@ -47,17 +47,17 @@ const COPY: Record<
 > = {
   base: {
     name: 'Poppins Base',
-    tagline: 'Writes it down',
-    does: 'You talk, it listens and writes. Everything appears on screen, nothing is spoken back.',
+    tagline: 'Listens, writes it down',
+    does: 'Nothing is spoken back.',
     cost: `${TOKEN_WEIGHT_QUIET} action each`,
     pips: 1,
     tone: BASE_TONE,
   },
   max: {
     name: 'Poppins Max',
-    tagline: 'Talks with you',
-    does: 'A real conversation out loud — it answers, asks, and keeps up. Richer, and dearer to run.',
-    cost: `about ${TOKEN_WEIGHT_SPEAK_BACK} actions each`,
+    tagline: 'Talks back out loud',
+    does: 'A real conversation. Costs more.',
+    cost: `~${TOKEN_WEIGHT_SPEAK_BACK} actions each`,
     pips: 10,
     tone: MAX_TONE,
   },
@@ -65,9 +65,9 @@ const COPY: Record<
 
 /** How far a month goes at each rate — the honest comparison. */
 function monthLine(tier: Tier): string {
-  if (tier === 'base') return `${TOKENS_PER_MONTH} things a month`;
+  if (tier === 'base') return `${TOKENS_PER_MONTH} a month`;
   const conversations = Math.floor(TOKENS_PER_MONTH / TOKEN_WEIGHT_SPEAK_BACK);
-  return `about ${conversations} conversations a month`;
+  return `~${conversations} chats a month`;
 }
 
 type Props = {
@@ -181,8 +181,19 @@ function TierCard({
 
       <Text style={[styles.does, { color: c.textSoft }]}>{copy.does}</Text>
 
-      {/* What it costs, as a picture first and a sentence second. */}
+      {/*
+        What it costs. The words sit on their own line above the pips: side by side, a long
+        cost ran straight into them.
+      */}
       <View style={[styles.costRow, { borderTopColor: glassBorder(0.08) }]}>
+        <View style={styles.costLine}>
+          <Text style={[styles.cost, { color: c.text }]} numberOfLines={1}>
+            {copy.cost}
+          </Text>
+          <Text style={[styles.month, { color: c.textMuted }]} numberOfLines={1}>
+            {monthLine(tier)}
+          </Text>
+        </View>
         <View style={styles.pips}>
           {Array.from({ length: 10 }, (_, index) => (
             <View
@@ -191,15 +202,11 @@ function TierCard({
                 styles.pip,
                 {
                   backgroundColor: index < copy.pips ? copy.tone : glassBorder(0.14),
-                  width: index < copy.pips ? 9 : 5,
+                  flex: index < copy.pips ? 1.4 : 1,
                 },
               ]}
             />
           ))}
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.cost, { color: c.text }]}>{copy.cost}</Text>
-          <Text style={[styles.month, { color: c.textMuted }]}>{monthLine(tier)}</Text>
         </View>
       </View>
     </Pressable>
@@ -240,18 +247,24 @@ function TierMark({
         </>
       ) : null}
       <View style={[styles.orb, { backgroundColor: `${tone}2E`, borderColor: `${tone}66` }]}>
-        <Moji name="poppins" size={26} />
+        <Moji name="poppins" size={24} />
       </View>
-      {tier === 'base' ? (
-        <View style={styles.lines} pointerEvents="none">
-          {[16, 11, 7].map((width, index) => (
-            <View
-              key={width}
-              style={[styles.line, { backgroundColor: tone, opacity: 0.85 - index * 0.22, width }]}
-            />
-          ))}
-        </View>
-      ) : null}
+      {/* Which one it is, at a glance: an ear listening, or a voice leaving. Both sit inside
+          the mark — the written lines used to spill out across the card's title. */}
+      <View
+        style={[styles.badge, { backgroundColor: `${tone}E6` }]}
+        pointerEvents="none"
+        accessible={false}>
+        {tier === 'base' ? (
+          <Moji name="mic" size={13} />
+        ) : (
+          <View style={styles.bars}>
+            {[6, 10, 7].map((height, index) => (
+              <View key={index} style={[styles.bar, { height }]} />
+            ))}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -267,8 +280,20 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   fill: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
-  head: { alignItems: 'center', flexDirection: 'row', gap: 14 },
-  mark: { alignItems: 'center', height: 58, justifyContent: 'center', width: 58 },
+  head: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  mark: { alignItems: 'center', height: 56, justifyContent: 'center', width: 56 },
+  badge: {
+    alignItems: 'center',
+    borderRadius: 10,
+    bottom: 2,
+    height: 20,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 2,
+    width: 20,
+  },
+  bars: { alignItems: 'center', flexDirection: 'row', gap: 1.5, height: 12 },
+  bar: { backgroundColor: '#0B1220', borderRadius: 1, width: 2 },
   orb: {
     alignItems: 'center',
     borderRadius: 17,
@@ -278,10 +303,8 @@ const styles = StyleSheet.create({
     width: 46,
   },
   ring: { borderRadius: 29, borderWidth: 1.5, height: 52, position: 'absolute', width: 52 },
-  lines: { gap: 3, position: 'absolute', right: -2, top: 12 },
-  line: { borderRadius: 2, height: 2.5 },
-  name: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
-  tagline: { fontSize: 13, fontWeight: '800', letterSpacing: 0.1 },
+  name: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  tagline: { fontSize: 12.5, fontWeight: '800', letterSpacing: 0.1 },
   radio: {
     alignItems: 'center',
     borderRadius: 11,
@@ -290,17 +313,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 22,
   },
-  does: { fontSize: 13.5, lineHeight: 19 },
+  does: { fontSize: 13, lineHeight: 18 },
   costRow: {
-    alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    gap: 12,
-    paddingTop: 12,
+    gap: 8,
+    paddingTop: 10,
   },
-  pips: { alignItems: 'center', flexDirection: 'row', gap: 3, width: 78 },
+  costLine: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  pips: { alignItems: 'center', flexDirection: 'row', gap: 3 },
   pip: { borderRadius: 2, height: 5 },
-  cost: { fontSize: 14.5, fontWeight: '800' },
-  month: { fontSize: 12.5, marginTop: 1 },
+  cost: { flexShrink: 1, fontSize: 14, fontWeight: '800' },
+  month: { flexShrink: 0, fontSize: 12 },
   custom: { fontSize: 12.5, lineHeight: 18, paddingHorizontal: 4 },
 });
