@@ -39,6 +39,7 @@ import { space } from '@/constants/orbit-theme';
 import { usePoppinsController } from '@/lib/poppins/use-poppins-controller';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { setPoppinsTypingMode } from '@/lib/ui/typing-mode';
+import { useKeyboardVisible } from '@/lib/ui/use-keyboard-visible';
 import { useOrbit } from '@/store/orbit-store';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 
@@ -92,6 +93,7 @@ function PoppinsScreenInner() {
   // the old layout came straight back (mic, pills, full tab bar) and the thread was a sliver.
   // It gets its own layout: thread tall, orb and dock folded, tab bar down to its icons.
   const typing = p.threadOpen;
+  const softKeyboard = useKeyboardVisible();
   useFocusEffect(
     useCallback(() => {
       setPoppinsTypingMode(typing);
@@ -256,9 +258,10 @@ function PoppinsScreenInner() {
 
           {live ? (
             <ScrollView
-              style={styles.stageScroll}
+              style={[styles.stageScroll, typing && styles.stageScrollTyping]}
               contentContainerStyle={styles.stageScrollContent}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}>
               {p.heard ? (
                 <Text
@@ -289,7 +292,9 @@ function PoppinsScreenInner() {
           )}
         </View>
 
-        {p.threadOpen ? <PoppinsThreadPanel p={p} keyboardUp={typing} /> : null}
+        {p.threadOpen ? (
+          <PoppinsThreadPanel p={p} keyboardUp={softKeyboard} stageLive={Boolean(live)} />
+        ) : null}
       </View>
 
       {/* Dock */}
@@ -378,6 +383,8 @@ const styles = StyleSheet.create({
   orbSlotLive: { flexGrow: 0, flexShrink: 0, paddingBottom: 10, paddingTop: 4 },
   orbSlotTyping: { height: 0, opacity: 0, overflow: 'hidden', paddingBottom: 0, paddingTop: 0 },
   stageScroll: { flex: 1, minHeight: 0, width: '100%' },
+  /** Typing + a live card: the stage keeps the room; the composer is a strip under it. */
+  stageScrollTyping: { flexGrow: 1, flexShrink: 1, minHeight: 220 },
   stageScrollContent: {
     flexGrow: 1,
     paddingBottom: space.lg,

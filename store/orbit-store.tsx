@@ -5234,17 +5234,21 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const appendPoppinsTurn = (question: string, answer: string) => {
+    const q = question.trim();
+    const a = answer.trim();
+    if (!q) return;
     setPoppinsAskCount((count) => count + 1);
-    setPoppinsConversation((current) => [
-      ...current,
-      { role: 'user', content: question },
-      { role: 'assistant', content: answer },
-    ]);
+    setPoppinsConversation((current) => {
+      const next = [...current, { role: 'user' as const, content: q }];
+      // Empty assistant shells drew as hollow purple ovals in typing mode — skip them.
+      if (a) next.push({ role: 'assistant' as const, content: a });
+      return next;
+    });
     void poppinsRepository.appendConversationTurn(
       household.id,
       currentUser?.id ?? null,
-      question,
-      answer
+      q,
+      a || '(no reply)'
     );
   };
 

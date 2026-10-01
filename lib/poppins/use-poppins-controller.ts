@@ -22,7 +22,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { AppState, Linking } from 'react-native';
+import { AppState, Keyboard, Linking } from 'react-native';
 import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import {
   isCorrectionUtterance,
@@ -995,7 +995,15 @@ export function usePoppinsController() {
 
       setVoiceState('speaking');
       setLiveCaption(applyLiveCaptionTurn(null, 'poppins', resolved.answer, true));
-      appendPoppinsTurn(trimmed, resolved.answer);
+      const maxReply =
+        (resolved.answer ?? '').trim() ||
+        (resolved.localConfirm ?? '').trim() ||
+        (resolved.modelAnswer ?? '').trim() ||
+        (poppinsUiOrchestrator.getState().live
+          ? 'On the card above — tap Add now when it looks right.'
+          : `${majordomo.displayName} needs a clearer ask.`);
+      appendPoppinsTurn(trimmed, maxReply);
+      if (poppinsUiOrchestrator.getState().live) Keyboard.dismiss();
 
       if (resolved.kind === 'model') {
         if (resolved.actions?.length) flashToolSuccess(resolved.actions[0]!.label);
@@ -1007,7 +1015,10 @@ export function usePoppinsController() {
         }
       }
     } catch {
-      appendPoppinsTurn(trimmed, '');
+      appendPoppinsTurn(
+        trimmed,
+        `${majordomo.displayName} could not answer right now. Try again in a moment.`
+      );
       setError(`${majordomo.displayName} could not answer right now. Try again in a moment.`);
     } finally {
       setAsking(false);
@@ -1075,7 +1086,17 @@ export function usePoppinsController() {
         ask: askPoppins,
         askWhenStaged: false,
       });
-      appendPoppinsTurn(trimmed, resolved.localConfirm ?? '');
+      const staged = () => poppinsUiOrchestrator.getState().live;
+      // Always put a real reply in the thread — empty shells drew as hollow purple ovals.
+      const replyForThread = (() => {
+        const confirm = (resolved.localConfirm ?? '').trim();
+        if (confirm) return confirm;
+        const answer = (resolved.answer ?? resolved.modelAnswer ?? '').trim();
+        if (answer) return answer;
+        if (staged()) return 'On the card above — tap Add now when it looks right.';
+        return `I couldn't place that. Try something clear like "add milk to groceries".`;
+      })();
+      appendPoppinsTurn(trimmed, replyForThread);
 
       if (resolved.kind === 'coach' && currentMember) {
         void recordActEvent(
@@ -1090,7 +1111,10 @@ export function usePoppinsController() {
         );
       }
 
-      const staged = () => poppinsUiOrchestrator.getState().live;
+      if (staged()) {
+        // Card is up — free the keyboard so Add now / HOLD aren't buried under it.
+        Keyboard.dismiss();
+      }
       if (modelDownRef.current && staged()) poppinsUiOrchestrator.flagModelOffline();
       if (resolved.kind === 'model') {
         if (resolved.ui_actions?.length) applyUiActions(resolved.ui_actions as Record<string, unknown>[], true);
