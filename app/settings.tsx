@@ -730,16 +730,7 @@ export default function SettingsScreen() {
               />
             </SettingsGroup>
 
-            <SettingsGroup header="You">
-              <SettingsNavRow
-                icon="person"
-                iconColor={accentTheme.primary}
-                label="You"
-                subtitle={lookValue}
-                last
-                onPress={() => setSection('you')}
-              />
-            </SettingsGroup>
+            {/* Profile / Day·Night already live on the identity card above — no second "You" row. */}
 
             <SettingsGroup header="Help">
               {isTourEnabledSync() ? (
