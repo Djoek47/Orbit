@@ -173,7 +173,7 @@ function TripCard({
             <MaterialIcons name="route" size={18} color={color} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.tripTitle, { color: c.text }]}>{trip.title}</Text>
+            <Text style={[styles.tripTitle, { color: '#F7F2EC' }]}>{trip.title}</Text>
             <Text style={[styles.tripDayLabel, { color }]}>{formatDayLabel(trip.date)}</Text>
           </View>
           {trip.favorite ? (
@@ -476,6 +476,7 @@ export function PlanTripsPanel({
                   icon="auto-awesome"
                   label={`Ask ${majordomoName}`}
                   accent="#38BDF8"
+                  fill="#38BDF8"
                   busy={busy}
                   onPress={askPoppinsAboutTrips}
                 />
@@ -621,15 +622,18 @@ function ComposeChip({
   label,
   onPress,
   accent,
+  fill,
   busy,
 }: {
   icon: keyof typeof MaterialIcons.glyphMap;
   label: string;
   onPress: () => void;
   accent: string;
+  /** Solid fill (Poppins path) vs tinted outline (DIY). */
+  fill?: string;
   busy?: boolean;
 }) {
-  const { glass } = useOrbitColors();
+  const ink = fill ? '#041018' : accent;
   return (
     <Pressable
       onPress={onPress}
@@ -637,17 +641,17 @@ function ComposeChip({
       style={({ pressed }) => [
         styles.composeChip,
         {
-          backgroundColor: `${accent}22`,
-          borderColor: `${accent}66`,
+          backgroundColor: fill ?? `${accent}24`,
+          borderColor: fill ?? `${accent}88`,
         },
         pressed && { opacity: 0.85 },
       ]}>
       {busy ? (
-        <ActivityIndicator size="small" color={accent} />
+        <ActivityIndicator size="small" color={ink} />
       ) : (
-        <MaterialIcons name={icon} size={16} color={accent} />
+        <MaterialIcons name={icon} size={16} color={ink} />
       )}
-      <Text style={[styles.composeLabel, { color: accent }]}>{label}</Text>
+      <Text style={[styles.composeLabel, { color: ink }]}>{label}</Text>
     </Pressable>
   );
 }

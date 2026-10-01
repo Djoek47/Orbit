@@ -21,7 +21,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { ContextMenu } from '@/components/orbit/context-menu';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
-import { orbitColors, space } from '@/constants/orbit-theme';
+import { space } from '@/constants/orbit-theme';
 import {
   makeStopNextIds,
   moveOpenStopIds,
@@ -100,9 +100,12 @@ export default function ItineraryDetailScreen() {
   }, [intent?.current?.id, arrivedStopId]);
 
   const tripColor = accentTheme.primary;
-  // Titles were washing out on warm dark themes — force high-contrast ink.
-  const titleColor = isDark ? '#F7F2EC' : c.text;
+  // Warm brown canvases can report isDark=false while still being dark — never trust that
+  // for the page title. Always use cream ink on this screen.
+  const titleColor = '#F7F2EC';
+  const softColor = '#C9B8AA';
   const arrived = Boolean(intent?.current && arrivedStopId === intent.current.id);
+  const isLastStop = (intent?.remaining.length ?? 0) <= 1;
 
   const fail = (message: string) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -309,9 +312,14 @@ export default function ItineraryDetailScreen() {
 
         <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.header}>
           <Text style={[styles.eyebrow, { color: tripColor }]}>{intent.subtitle}</Text>
-          <Text style={[styles.pageTitle, { color: titleColor }]} accessibilityRole="header">
+          <Text style={styles.pageTitle} accessibilityRole="header">
             {itinerary.title}
           </Text>
+          {!itinerary.favorite ? (
+            <Text style={[styles.saveHint, { color: softColor }]}>
+              Tap the star to save this trip
+            </Text>
+          ) : null}
         </Animated.View>
 
         {intent.phase === 'empty' ? (
@@ -354,7 +362,7 @@ export default function ItineraryDetailScreen() {
               </View>
               <Text style={[styles.heroName, { color: titleColor }]}>{current.label}</Text>
               {stopPlaceLine(current) ? (
-                <Text style={[styles.heroPlace, { color: c.textSoft }]} numberOfLines={2}>
+                <Text style={[styles.heroPlace, { color: softColor }]} numberOfLines={2}>
                   {stopPlaceLine(current)}
                 </Text>
               ) : null}
@@ -374,7 +382,10 @@ export default function ItineraryDetailScreen() {
 
                 {arrived ? (
                   <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)}>
-                    <DoneSlideButton onDone={() => void onImDone()} />
+                    <DoneSlideButton
+                      label={isLastStop ? 'I’m done · finish' : 'I’m done · next'}
+                      onDone={() => void onImDone()}
+                    />
                   </Animated.View>
                 ) : null}
 
@@ -494,7 +505,7 @@ export default function ItineraryDetailScreen() {
 }
 
 /** Slide-ish I’m done control — tap advances; visual cue is the green fill + chevrons. */
-function DoneSlideButton({ onDone }: { onDone: () => void }) {
+function DoneSlideButton({ onDone, label }: { onDone: () => void; label: string }) {
   const scale = useSharedValue(1);
   const shimmer = useSharedValue(0);
   useEffect(() => {
@@ -517,10 +528,10 @@ function DoneSlideButton({ onDone }: { onDone: () => void }) {
         onPress={onDone}
         style={styles.doneBtn}
         accessibilityRole="button"
-        accessibilityLabel="I’m done — go to next stop">
+        accessibilityLabel={label}>
         <Animated.View style={[styles.doneShimmer, shimmerStyle]} />
         <MaterialIcons name="chevron-left" size={20} color="#041018" />
-        <Text style={styles.doneBtnLabel}>I’m done · next</Text>
+        <Text style={styles.doneBtnLabel}>{label}</Text>
         <MaterialIcons name="check-circle" size={18} color="#041018" />
       </Pressable>
     </Animated.View>
@@ -542,30 +553,32 @@ function GlowStar({
   glassBg: string;
   glassBd: string;
 }) {
-  const glow = useSharedValue(favorite ? 1 : 0.45);
+  const glow = useSharedValue(favorite ? 1 : 0.35);
   useEffect(() => {
     if (favorite) {
       glow.value = withSpring(1);
       return;
     }
     glow.value = withRepeat(
-      withSequence(withTiming(1, { duration: 900 }), withTiming(0.4, { duration: 900 })),
+      withSequence(withTiming(1, { duration: 750 }), withTiming(0.3, { duration: 750 })),
       -1,
       false
     );
   }, [favorite, glow]);
   const ring = useAnimatedStyle(() => ({
-    shadowOpacity: 0.25 + glow.value * 0.55,
-    transform: [{ scale: 0.96 + glow.value * 0.06 }],
+    shadowOpacity: 0.35 + glow.value * 0.65,
+    transform: [{ scale: 0.94 + glow.value * 0.08 }],
   }));
+  const starOrange = '#FF8A3D';
   return (
     <Animated.View
       style={[
         ring,
         {
-          shadowColor: orbitColors.rankGold,
-          shadowRadius: 10,
+          shadowColor: starOrange,
+          shadowRadius: 14,
           shadowOffset: { width: 0, height: 0 },
+          elevation: 8,
         },
       ]}>
       <Pressable
@@ -573,8 +586,9 @@ function GlowStar({
         style={[
           styles.starBtn,
           {
-            backgroundColor: favorite ? 'rgba(251,191,36,0.22)' : glassBg,
-            borderColor: favorite ? 'rgba(251,191,36,0.7)' : glassBd,
+            backgroundColor: favorite ? 'rgba(255,138,61,0.28)' : glassBg,
+            borderColor: favorite ? starOrange : `${starOrange}99`,
+            borderWidth: 1.5,
           },
         ]}
         hitSlop={8}
@@ -583,8 +597,8 @@ function GlowStar({
         accessibilityState={{ selected: favorite }}>
         <MaterialIcons
           name={favorite ? 'star' : 'star-border'}
-          size={20}
-          color={favorite ? orbitColors.rankGold : muted}
+          size={22}
+          color={favorite ? starOrange : starOrange}
         />
       </Pressable>
     </Animated.View>
@@ -702,14 +716,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   pageTitle: {
+    color: '#F7F2EC',
     fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.6,
   },
+  saveHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   hero: {
     borderCurve: 'continuous',
     borderRadius: 24,
-    borderWidth: 1,
+    borderWidth: 1.5,
     gap: 8,
     padding: 18,
   },
@@ -717,13 +737,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderCurve: 'continuous',
     borderRadius: 16,
-    height: 48,
+    height: 52,
     justifyContent: 'center',
     marginBottom: 2,
-    width: 48,
+    width: 52,
   },
-  heroEmoji: { fontSize: 24 },
-  heroName: { fontSize: 24, fontWeight: '800', letterSpacing: -0.4 },
+  heroEmoji: { fontSize: 26 },
+  heroName: { color: '#F7F2EC', fontSize: 24, fontWeight: '800', letterSpacing: -0.4 },
   heroPlace: { fontSize: 14, lineHeight: 20 },
   heroActions: { gap: space.sm, marginTop: space.sm },
   doneBtn: {
