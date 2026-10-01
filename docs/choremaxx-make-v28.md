@@ -56,7 +56,9 @@ Fifth slot = Switch (not Poppins). Glyph = N double-arrows:
 | Build | Branch / commit | Notes |
 | --- | --- | --- |
 | **1.3.0 (100)** | `947a2fc` | Last submitted before this cut |
-| **1.3.0 (next)** | `cursor/make-v28` @ `90d9e59`+ | Proof / Switch / Support / trips since TF100 |
+| **1.3.0 (102)** queued | `cursor/make-v28` @ `a89fcd2` | [c6c7a77a](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/c6c7a77a-7372-44b0-8f9d-788b46c86b83) — proof / Switch / Support / trips; [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/84e0d33f-a0e1-419e-9d46-48253ec300a8) |
+
+Non-interactive EAS needed `EXPO_NO_CAPABILITY_SYNC=1` (Apple App Groups patch for LiveActivity fails without an interactive session).
 
 ## TestFlight env (`eas.json`)
 
