@@ -15,6 +15,7 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -38,6 +39,7 @@ import {
   formatDemoClock,
   type DemoCard,
 } from '@/lib/poppins/how-it-works-script';
+import { hasRecordedDemoAudio, recordedDemoAudio } from '@/lib/poppins/how-it-works-audio';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 const TICK_MS = 100;
@@ -61,6 +63,7 @@ export function HowItWorksPlayer({
   /** The two voices, spoken on the phone itself — free, offline, nothing sent anywhere. */
   const [sound, setSound] = useState(true);
   const speakingRef = useRef(false);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const offsets = useMemo(() => demoOffsets(), []);
 
   useEffect(() => {
@@ -88,15 +91,40 @@ export function HowItWorksPlayer({
   const index = beatAt(elapsed);
   const beat = DEMO_BEATS[index]!;
 
-  // Say each line as its beat starts. Rose a little higher, Indigo a little lower.
+  /**
+   * Say each line as its beat starts.
+   *
+   * A recorded line is played when one is bundled (lib/poppins/how-it-works-audio); otherwise
+   * the phone reads it — free and offline, but flat. Rose sits a little higher, Indigo lower.
+   */
   useEffect(() => {
     Speech.stop();
+    playerRef.current?.remove();
+    playerRef.current = null;
     speakingRef.current = false;
     if (!sound || !playing || !beat.speaker || !beat.line.trim()) return;
-    speakingRef.current = true;
+
     const done = () => {
       speakingRef.current = false;
     };
+    speakingRef.current = true;
+
+    const recorded = recordedDemoAudio(beat.id);
+    if (recorded != null) {
+      try {
+        const player = createAudioPlayer(recorded);
+        playerRef.current = player;
+        player.play();
+        // A recording is cut to its beat's own length, so the script's timing paces it; the
+        // next beat stops this one. Nothing needs to wait.
+        done();
+        return;
+      } catch (error) {
+        console.warn('how-it-works recorded audio', error);
+        playerRef.current = null;
+      }
+    }
+
     Speech.speak(beat.line, {
       pitch: beat.speaker === 'rose' ? 1.15 : 0.9,
       rate: 1.0,
@@ -107,7 +135,14 @@ export function HowItWorksPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beat.id, sound, playing]);
 
-  useEffect(() => () => void Speech.stop(), []);
+  useEffect(
+    () => () => {
+      void Speech.stop();
+      playerRef.current?.remove();
+      playerRef.current = null;
+    },
+    []
+  );
   const chapter = DEMO_CHAPTERS.find((item) => item.id === chapterOf(index))!;
   const finished = elapsed >= total;
   const progress = demoProgress(elapsed);
@@ -144,6 +179,7 @@ export function HowItWorksPlayer({
         <Text style={[styles.lede, { color: c.textMuted }]}>
           A recording, not a live session. Two Poppins voices — one asking, one doing — and the
           card follows along. Nothing here is saved, and watching it costs nothing.
+          {hasRecordedDemoAudio() ? '' : ' The voices are read by your iPhone.'}
         </Text>
 
         {/* Chapter rail. */}

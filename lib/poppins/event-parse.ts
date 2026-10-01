@@ -104,7 +104,7 @@ function capitalise(text: string) {
 }
 
 const LEAD_IN =
-  /^(?:(?:hey |ok |okay )?poppins[, ]+)?(?:(?:can you|could you|please|i need to|i want to|let's|we need to)\s+)*(?:add|put|schedule|book|create|make|set up|plan|log|note|save|there's|there is|we have|we've got|i have|i've got|remind me about|remind me of|new)?\s*(?:an?|the)?\s*(?:new )?(?:event|appointment for|calendar event)?\s*(?:called|named)?\s*/i;
+  /^(?:(?:hey |hi |hello |bonjour |salut |ok |okay )?poppins[,:\s]+)?(?:(?:est-ce que tu peux|peux-tu|can you|could you|would you|please|i need to|i want to|let's|we need to)\s+)*(?:add|put|schedule|book|create|make|set up|plan|log|note|save|there's|there is|we have|we've got|i have|i've got|remind me about|remind me of|new|rajouter|ajouter|mettre)?\s*(?:an?|the|un|une|le|la)?\s*(?:new |nouveau |nouvelle )?(?:event|appointment for|calendar event|rendez-vous|événement)?\s*(?:called|named|appelé)?\s*/i;
 
 const CALENDAR_TAIL =
   /\b(?:on|to|in|into) (?:the |my |our )?(?:family |shared |house )?calendar\b|\bto (?:the )?(?:plan|plans)\b/gi;
@@ -170,6 +170,15 @@ export function parseEventUtterance(text: string, opts: EventParseOpts = {}): Ev
       location = capitalise(at[1]!.replace(/^the\s+/i, '').trim());
       body = body.slice(0, at.index).trim();
     }
+  }
+
+  // Anything still carrying the assistant's name is the sentence someone said, not a title
+  // ("Bonjour Poppins est-ce que tu peux…" became an event called exactly that).
+  if (/\bpoppins\b/i.test(body)) {
+    body = body
+      .replace(/^[^.;]*\bpoppins\b[,:\s]*/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   let title = body

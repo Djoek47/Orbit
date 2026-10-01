@@ -165,8 +165,13 @@ async function main() {
 
   assert.equal(failureFromNativeError('no-speech'), 'ignore');
   assert.equal(failureFromNativeError('not-allowed'), 'permission');
-  assert.equal(listenLocale('fr_CA'), 'fr-CA');
+  // English only: a French phone listens in English, or it hears English as French and
+  // Poppins writes back nonsense.
+  assert.equal(listenLocale('fr_CA'), 'en-US');
+  assert.equal(listenLocale('fr-FR'), 'en-US');
   assert.equal(listenLocale('de-DE'), 'en-US');
+  assert.equal(listenLocale('en_GB'), 'en-GB', 'an English region is kept');
+  assert.equal(listenLocale('en'), 'en-US');
   assert.deepEqual(vocabularyFor(['Mia', 'mia', '', undefined, 'Noah']), ['Mia', 'Noah']);
 
   setSpeechNativeForTests(undefined);

@@ -131,12 +131,16 @@ export function failureFromNativeError(code: string): BaseListenFailure | 'ignor
   }
 }
 
-/** The recognizer's language: the phone's, when it is one we speak. */
+/**
+ * The recognizer's language. ChoreMaxx is English-only, so this is English whatever the phone is
+ * set to. A French phone used to put the recognizer into French: it then heard English as French,
+ * and Poppins wrote back nonsense like "Une TâChe Pour Moi". An English variant of the phone's
+ * region is kept, since that only affects accent and spelling.
+ */
 export function listenLocale(deviceLocale?: string): string {
   const raw = (deviceLocale ?? Intl.DateTimeFormat().resolvedOptions().locale ?? 'en-US').replace('_', '-');
-  if (/^fr/i.test(raw)) return /-/.test(raw) ? raw : 'fr-CA';
-  if (/^en/i.test(raw)) return /-/.test(raw) ? raw : 'en-US';
-  return 'en-US';
+  const match = /^en-([A-Za-z]{2})/i.exec(raw);
+  return match ? `en-${match[1]!.toUpperCase()}` : 'en-US';
 }
 
 /** De-duplicated, short, capped: the recognizer only takes so much. */
