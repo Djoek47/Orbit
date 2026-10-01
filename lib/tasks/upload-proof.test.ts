@@ -31,4 +31,11 @@ assert.equal(needsProofUpload(''), false);
 const roundTrip = proofBytesFromBase64(Buffer.from('hello-proof').toString('base64'));
 assert.equal(Buffer.from(roundTrip).toString('utf8'), 'hello-proof');
 
-console.log('upload-proof: ok');
+void (async () => {
+  const { stabilizeLocalProofUri } = await import('@/lib/tasks/stabilize-proof-uri');
+  assert.equal(
+    await stabilizeLocalProofUri('https://cdn.example/p.jpg'),
+    'https://cdn.example/p.jpg'
+  );
+  console.log('upload-proof: ok');
+})();

@@ -30,10 +30,12 @@ export async function pickProofPhoto(source: ProofPickSource): Promise<string | 
       allowsEditing: true,
       aspect: [4, 3],
       // Keep payloads small enough for edge upload (signed PUT / base64 fallback).
-      quality: 0.55,
+      quality: 0.45,
+      exif: false,
     });
     if (result.canceled || !result.assets?.[0]?.uri) return null;
-    return result.assets[0].uri;
+    const { stabilizeLocalProofUri } = await import('@/lib/tasks/stabilize-proof-uri');
+    return stabilizeLocalProofUri(result.assets[0].uri);
   }
 
   const granted = await ensureLibraryPermission();
@@ -45,10 +47,12 @@ export async function pickProofPhoto(source: ProofPickSource): Promise<string | 
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [4, 3],
-    quality: 0.55,
+    quality: 0.45,
+    exif: false,
   });
   if (result.canceled || !result.assets?.[0]?.uri) return null;
-  return result.assets[0].uri;
+  const { stabilizeLocalProofUri } = await import('@/lib/tasks/stabilize-proof-uri');
+  return stabilizeLocalProofUri(result.assets[0].uri);
 }
 
 /** Prompt camera vs library, then return a local proof URI (or null if cancelled). */

@@ -146,8 +146,9 @@ async function invokeSidekickTaskAction(
 }
 
 /**
- * Upload a local proof photo to Storage via a signed URL from the edge function
- * (Sidekick devices have no Storage JWT). Falls back to base64 in submit_proof.
+ * Prepare Sidekick proof bytes for the edge function.
+ * Always attach base64 — signed PUT is a best-effort shortcut only.
+ * (RN fetch + ArrayBuffer PUT often fails silently; service-role upload is reliable.)
  */
 async function uploadSidekickProofBytes(input: {
   code: string;
@@ -169,6 +170,7 @@ async function uploadSidekickProofBytes(input: {
     throw new Error('Could not read the photo. Try taking it again.');
   }
 
+  let remoteUri: string | undefined;
   try {
     const prep = await invokeSidekickTaskAction({
       action: 'prepare_proof_upload',
@@ -178,28 +180,40 @@ async function uploadSidekickProofBytes(input: {
       proofMime: bytes.proofMime,
     });
     const signedUrl = typeof prep.signedUrl === 'string' ? prep.signedUrl : '';
+    const token = typeof prep.token === 'string' ? prep.token : '';
+    const path = typeof prep.path === 'string' ? prep.path : '';
     const publicUrl = typeof prep.publicUrl === 'string' ? prep.publicUrl : '';
     if (signedUrl && publicUrl) {
       const raw = proofBytesFromBase64(bytes.proofBase64);
-      const copy = new ArrayBuffer(raw.byteLength);
-      new Uint8Array(copy).set(raw);
+      // Prefer Blob — ArrayBuffer bodies fail on some RN / TestFlight builds.
+      const copy = new Uint8Array(raw.byteLength);
+      copy.set(raw);
+      const putBody: BodyInit =
+        typeof Blob !== 'undefined'
+          ? new Blob([copy], { type: bytes.proofMime })
+          : copy.buffer;
       const put = await fetch(signedUrl, {
         method: 'PUT',
         headers: {
           'Content-Type': bytes.proofMime,
           'x-upsert': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: copy,
+        body: putBody,
       });
       if (put.ok) {
-        return { proofUri: publicUrl };
+        remoteUri = publicUrl;
+      } else {
+        console.warn('sidekickProof.signedPut', put.status, path);
       }
     }
-  } catch {
-    // Fall through to base64 on the submit call.
+  } catch (error) {
+    console.warn('sidekickProof.signedPut', error);
   }
 
   return {
+    proofUri: remoteUri,
+    // Always send bytes so the edge can upload via service role if PUT missed.
     proofBase64: bytes.proofBase64,
     proofMime: bytes.proofMime,
     proofExt: bytes.proofExt,
@@ -213,7 +227,7 @@ export async function sidekickSubmitTaskProof(input: {
   proofUri: string;
 }): Promise<HouseholdTask> {
   if (!input.proofUri?.trim()) {
-    throw new Error('proof_uri_required');
+    throw new Error('Add a photo before sending.');
   }
 
   const uploaded = await uploadSidekickProofBytes({
@@ -227,7 +241,9 @@ export async function sidekickSubmitTaskProof(input: {
     code: input.code,
     taskId: input.taskId,
   };
-  if (uploaded.proofUri) body.proofUri = uploaded.proofUri;
+  if (uploaded.proofUri && /^https?:\/\//i.test(uploaded.proofUri)) {
+    body.proofUri = uploaded.proofUri;
+  }
   if (uploaded.proofBase64) {
     body.proofBase64 = uploaded.proofBase64;
     body.proofMime = uploaded.proofMime;
@@ -241,7 +257,7 @@ export async function sidekickSubmitTaskProof(input: {
   const payload = await invokeSidekickTaskAction(body);
   const taskRow = payload.task as Record<string, unknown> | undefined;
   if (!taskRow) {
-    throw new Error('sidekickSubmitTaskProof empty response');
+    throw new Error(typeof payload.error === 'string' ? payload.error : 'Could not send the photo.');
   }
 
   const remoteUri =

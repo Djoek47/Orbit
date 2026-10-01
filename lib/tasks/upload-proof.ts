@@ -45,15 +45,21 @@ function bytesToBase64(bytes: ArrayBuffer): string {
 }
 
 async function readLocalBytes(uri: string): Promise<{ bytes: ArrayBuffer; mime: string; ext: string }> {
+  const { stabilizeLocalProofUri } = await import('@/lib/tasks/stabilize-proof-uri');
+  const stableUri = await stabilizeLocalProofUri(uri);
+
   // expo-file-system/legacy — read as base64 then decode (works for camera + library URIs).
   const FileSystem = await import('expo-file-system/legacy');
-  const base64 = await FileSystem.readAsStringAsync(uri, {
+  const base64 = await FileSystem.readAsStringAsync(stableUri, {
     encoding: FileSystem.EncodingType.Base64,
   });
+  if (!base64 || base64.length < 32) {
+    throw new Error('Could not read the photo. Try taking it again.');
+  }
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  const ext = guessExt(uri);
+  const ext = guessExt(stableUri);
   return { bytes: bytes.buffer, mime: guessMime(ext), ext };
 }
 

@@ -119,21 +119,30 @@ Deno.serve(async (req) => {
       const proofMime = String(body.proofMime ?? 'image/jpeg').trim() || 'image/jpeg';
       const proofExt = String(body.proofExt ?? 'jpg').trim().replace(/[^a-z0-9]/gi, '') || 'jpg';
       let storagePath: string | null = null;
+      const isLocalProofUri = (uri: string) =>
+        !uri ||
+        /^(file:|content:|ph:|assets-library:|data:)/i.test(uri) ||
+        uri.startsWith('/');
 
       // Prefer durable https from a prior signed PUT. Otherwise accept bytes and upload.
       const alreadyRemote = /^https?:\/\//i.test(proofUri);
-      if (!alreadyRemote && proofBase64) {
+      // If the client sent a local URI *and* bytes, ignore the local URI and upload bytes.
+      if ((!alreadyRemote || isLocalProofUri(proofUri)) && proofBase64) {
         const path = `${member.household_id}/${taskId}/${Date.now()}.${proofExt}`;
         try {
           const binary = atob(proofBase64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          if (bytes.byteLength < 32) {
+            return jsonResponse({ error: 'proof_bytes_empty' }, 400);
+          }
 
           const { error: uploadError } = await admin.storage.from('task-proofs').upload(path, bytes, {
             contentType: proofMime,
             upsert: true,
           });
           if (uploadError) {
+            console.warn('submit_proof upload', uploadError.message);
             return jsonResponse(
               {
                 error:
@@ -162,12 +171,12 @@ Deno.serve(async (req) => {
         if (idx >= 0) storagePath = decodeURIComponent(proofUri.slice(idx + marker.length));
       }
 
-      if (!proofUri || /^file:|^content:|^ph:|^assets-library:/i.test(proofUri)) {
+      if (!proofUri || isLocalProofUri(proofUri) || !/^https?:\/\//i.test(proofUri)) {
         return jsonResponse(
           {
             error: proofBase64
               ? 'proof_upload_failed'
-              : 'proof_uri_required',
+              : 'Could not read the photo on this device. Take it again and send.',
           },
           400
         );

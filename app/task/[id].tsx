@@ -447,6 +447,7 @@ export default function TaskDetailScreen() {
   };
 
   return (
+    <>
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: orbitPalette.backgroundSoft }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1102,6 +1103,10 @@ export default function TaskDetailScreen() {
         </ScrollView>
       </View>
 
+      </View>
+    </KeyboardAvoidingView>
+
+      {/* Outside KAV — sheets lift themselves; nesting them under KAV double-scrolled the form. */}
       <TaskProofRequestSheet
         visible={requestSheetOpen}
         taskTitle={task.title}
@@ -1137,6 +1142,10 @@ export default function TaskDetailScreen() {
         onSubmit={async (input) => {
           setProofBusy(true);
           try {
+            if (!input.proofUri?.trim()) {
+              throw new Error('Add a photo before sending.');
+            }
+            // Always use the reply path when an admin asked for proof; otherwise attach on complete.
             if (input.proofUri && !input.note && task.verification !== 'proof_requested') {
               await submitTaskProof(task.id, input.proofUri, {
                 forAssignee: split ? currentMember?.name : undefined,
@@ -1157,8 +1166,7 @@ export default function TaskDetailScreen() {
           }
         }}
       />
-      </View>
-    </KeyboardAvoidingView>
+    </>
   );
 }
 
