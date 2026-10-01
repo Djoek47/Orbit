@@ -28,13 +28,31 @@ const view = read('plugins/live-activity/LiveActivityView.swift');
 assert.match(view, /struct LiveActivityView: View/, 'same view name the widget uses');
 assert.match(view, /let contentState: LiveActivityAttributes\.ContentState/, 'same inputs');
 assert.match(view, /Image\("choremaxx_mark"\)/, 'the logo');
-assert.match(view, /LazyVGrid/, 'a two-column checklist');
+assert.match(view, /ShoppingBannerPageIntent/, 'Next/Previous flip pages without opening the app');
+assert.match(view, /pageSize = 3/, 'roomy single-column pages');
+assert.doesNotMatch(view, /LazyVGrid/, 'no cramped two-column grid');
 assert.ok(existsSync(join(process.cwd(), 'assets/liveActivity/choremaxx_mark.png')), 'logo asset');
+
+const widget = read('plugins/live-activity/LiveActivityWidget.swift');
+assert.match(widget, /LiveActivityView\(contentState/, 'lock screen hosts our view');
+const lockScreenBlock = widget.slice(
+  widget.indexOf('ActivityConfiguration'),
+  widget.indexOf('} dynamicIsland:')
+);
+assert.doesNotMatch(
+  lockScreenBlock,
+  /\.applyWidgetURL/,
+  'the whole banner is not a deep link — that swallowed every tap'
+);
+assert.match(widget, /compactTrailing/, 'Dynamic Island shows the left count');
+
 const appJson = read('app.json');
 assert.ok(
   appJson.indexOf('"expo-live-activity"') < appJson.indexOf('with-shopping-live-activity'),
   'our view is copied in after the library'
 );
+assert.match(read('plugins/with-shopping-live-activity.js'), /LiveActivityWidget\.swift/);
 assert.match(read('plugins/with-shopping-live-activity.js'), /withFinalizedMod/);
+assert.match(read('lib/grocery/shopping-banner-copy.ts'), /#p\$\{/, 'page marker for the native pager');
 
 console.log('shopping-run-ui: ok');

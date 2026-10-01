@@ -2,16 +2,17 @@
  * What the Lock Screen banner says during a shopping run. Pure, so it can be tested
  * without React Native (the Live Activity module itself needs the native side).
  *
- *   Monday run                    ← title: the run, and how far along
- *   3 of 8 · Dairy & Eggs
- *   ☐ Chocolate                   ← subtitle: what's still to get, by aisle order
- *   ☐ Dish
- *   ☐ On Groceries
- *   +3 more
- *   ▓▓▓▓░░░░░░░
+ * Protocol (newline-separated subtitle), read by plugins/live-activity/LiveActivityView.swift:
+ *   Monday run                         ← title
+ *   3 of 8 · Dairy & Eggs              ← line 0
+ *   🧀 Milk                            ← remaining items (all packed, paged on device)
+ *   🧀 Cheese
+ *   …
+ *   #p0                                ← page index the Lock Screen is showing
  *
- * Apple gives a Live Activity very little room, so the list is capped and the rest is
- * counted. Items already in the cart drop off, exactly like the list in the app.
+ * Apple forbids scrolling inside a Live Activity and caps height, so the native view shows
+ * one page of BANNER_PAGE_SIZE roomy rows and Next/Previous buttons flip the page without
+ * opening the app. Tapping the header still opens the run.
  */
 export type ShoppingRunState = {
   /** Items ticked off. */
@@ -32,17 +33,45 @@ export type ShoppingBannerState = {
   progressBar: { progress: number };
 };
 
-/** How many item lines fit on the Lock Screen before it gets cramped. */
-export const BANNER_LIST_MAX = 5;
+/** How many roomy rows fit on one Lock Screen page. */
+export const BANNER_PAGE_SIZE = 3;
 
-/** The checklist lines, capped, with "+N more" when there are others. */
-export function shoppingBannerList(remaining: string[], max = BANNER_LIST_MAX): string[] {
+/**
+ * Cap packed names so the Live Activity payload stays small. Anything beyond this is
+ * counted in the native "+N more" footer after the last page.
+ */
+export const BANNER_PACK_MAX = 36;
+
+/** @deprecated use BANNER_PAGE_SIZE — kept so older tests/names still resolve. */
+export const BANNER_LIST_MAX = BANNER_PAGE_SIZE;
+
+/** The checklist lines for one page (tests / previews). */
+export function shoppingBannerList(
+  remaining: string[],
+  max = BANNER_PAGE_SIZE,
+  page = 0
+): string[] {
   const clean = remaining.map((name) => name.trim()).filter(Boolean);
-  // No box character: the Lock Screen view draws its own tick circle beside each line, and the
-  // item's emoji leads the name (the caller passes "🧀 Swiss Cheese").
-  if (clean.length <= max) return clean;
-  const shown = clean.slice(0, max);
-  return [...shown, `+${clean.length - max} more`];
+  if (clean.length === 0) return [];
+  const start = Math.max(0, page) * max;
+  const shown = clean.slice(start, start + max);
+  const leftAfter = clean.length - (start + shown.length);
+  if (leftAfter > 0) return [...shown, `+${leftAfter} more`];
+  return shown;
+}
+
+/** Pack every remaining name (capped) plus a `#p0` page marker for the Lock Screen pager. */
+export function shoppingBannerPackedSubtitle(
+  head: string,
+  remaining: string[],
+  page = 0
+): string {
+  const clean = remaining.map((name) => name.trim()).filter(Boolean).slice(0, BANNER_PACK_MAX);
+  const overflow = Math.max(0, remaining.filter((n) => n.trim()).length - clean.length);
+  const lines = [head, ...clean];
+  if (overflow > 0) lines.push(`+${overflow} more`);
+  lines.push(`#p${Math.max(0, page)}`);
+  return lines.join('\n');
 }
 
 export function shoppingBannerState(run: ShoppingRunState): ShoppingBannerState {
@@ -58,10 +87,10 @@ export function shoppingBannerState(run: ShoppingRunState): ShoppingBannerState 
   }
 
   const head = `${run.done} of ${run.total} · ${run.nextAisle ?? 'Keep going'}`;
-  const list = shoppingBannerList(run.remaining ?? []);
+  const remaining = run.remaining ?? [];
   return {
     title: run.runLabel?.trim() || 'Shopping run',
-    subtitle: list.length ? [head, ...list].join('\n') : head,
+    subtitle: remaining.length ? shoppingBannerPackedSubtitle(head, remaining, 0) : head,
     progressBar: { progress },
   };
 }
