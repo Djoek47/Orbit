@@ -1375,11 +1375,24 @@ export const householdRepository = {
     }
 
     const supabase = getConfiguredSupabase('householdRepository.removeMember');
-    const { error } = await supabase
+    // Soft-remove and require a returned row — a silent 0-row update (RLS) left shared
+    // tablets stuck on People after the local UI thought they were gone.
+    const { data, error } = await supabase
       .from('household_members')
-      .update({ status: 'removed' })
-      .eq('id', memberId);
+      .update({
+        status: 'removed',
+        shared_with_member_ids: [],
+      })
+      .eq('id', memberId)
+      .neq('status', 'removed')
+      .select('id, role, status')
+      .maybeSingle();
     mapDbError('householdRepository.removeMember', error);
+    if (!data) {
+      throw new Error(
+        'Could not remove this person or device. Pull to refresh, then try again.'
+      );
+    }
   },
 
   async refreshInvite(householdId: string): Promise<InviteLinks> {

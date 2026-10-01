@@ -10,6 +10,7 @@
 | --- | --- |
 | Smart Trips card CTAs | Removed unlabeled clipboard + open-in-new icons; **Edit** labeled chip; **Start Trip in Maps** uses Bricolage ExtraBold |
 | Route timeline | Continuous rail, stronger first stop, category pills, staggered FadeInDown |
+| Shared devices | Remove device confirms inline on the card; soft-delete verifies a DB row so tablets don’t come back |
 | Settings | Removed duplicate **YOU** group — profile + Day/Night already on the top identity card |
 
 ## TestFlight

@@ -165,22 +165,29 @@ export function HouseholdMembersRoster({
       orbitAlert('Cannot remove', 'The household owner cannot be removed.');
       return;
     }
-    const isDevice = member.role === 'shared-device';
     orbitAlert(
-      isDevice ? 'Remove this device' : `Remove ${member.name}?`,
-      isDevice
-        ? `Remove ${member.name}? People stay in the household; this device just won't list them.`
-        : 'They lose access to this household on this device.',
+      `Remove ${member.name}?`,
+      'They lose access to this household on this device.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => void removeMember(member.id),
+          onPress: () => {
+            void removeMember(member.id).catch((error) => {
+              orbitAlert(
+                'Couldn’t remove',
+                error instanceof Error ? error.message : 'Try again in a moment.'
+              );
+            });
+          },
         },
       ]
     );
   };
+
+  /** Shared tablets confirm on the card (Settings is already a modal). */
+  const handleRemoveDevice = (device: HouseholdMember) => removeMember(device.id);
 
   const setDeviceLinks = (deviceId: string, next: string[]) => {
     void updateSharedDeviceLinks(deviceId, next);
@@ -385,7 +392,7 @@ export function HouseholdMembersRoster({
               members={household.members}
               accent={accent}
               onLinksChange={(next) => setDeviceLinks(device.id, next)}
-              onRemoveDevice={() => handleRemoveMember(device)}
+              onRemoveDevice={() => handleRemoveDevice(device)}
             />
           ))}
         </>

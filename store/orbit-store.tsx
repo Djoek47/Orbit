@@ -6572,13 +6572,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const removeMember = async (memberId: string) => {
     if (!permissions.canManageHousehold) {
-      return;
+      throw new Error('Only a household admin can remove people or devices.');
     }
     const target = household.members.find((item) => item.id === memberId);
-    if (!target || target.role === 'owner') {
-      return;
+    if (!target) {
+      throw new Error('That person or device is already gone.');
     }
-    await householdRepository.removeMember(memberId);
+    if (target.role === 'owner') {
+      throw new Error('The household owner cannot be removed.');
+    }
+
+    // Optimistic remove so shared tablets disappear even before the next poll.
+    const previous = household.members;
     setHousehold((current) => ({
       ...current,
       members: current.members
@@ -6594,6 +6599,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }));
     if (activeMemberId === memberId) {
       setActiveMemberId(null);
+    }
+
+    try {
+      await householdRepository.removeMember(memberId);
+    } catch (error) {
+      setHousehold((current) => ({ ...current, members: previous }));
+      throw error;
     }
     await trackAnalytics('member.removed', { memberId }, analyticsContext);
   };

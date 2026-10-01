@@ -5,8 +5,8 @@
  * tap on/off. The old mute pills looked dead; this card leads with faces and a clear edit.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useEffect, useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -26,7 +26,8 @@ type Props = {
   members: HouseholdMember[];
   accent: string;
   onLinksChange: (memberIds: string[]) => void;
-  onRemoveDevice: () => void;
+  /** Resolves when the device is gone (or rejects with an Error). */
+  onRemoveDevice: () => void | Promise<void>;
 };
 
 function monogram(name: string): string {
@@ -44,6 +45,9 @@ export function SharedDeviceManageCard({
   onRemoveDevice,
 }: Props) {
   const { c, isDark, glassBorder } = useOrbitColors();
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const linkedIds = device.sharedWithMemberIds ?? [];
   const onDevice = useMemo(
     () => resolveSharedDevicePeople(device, members),
@@ -56,6 +60,24 @@ export function SharedDeviceManageCard({
   );
   const atCap = onDevice.length >= SHARED_DEVICE_MAX_PEOPLE;
   const deviceName = device.name?.trim() || 'Shared device';
+
+  const confirmAndRemove = async () => {
+    if (removing) return;
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await onRemoveDevice();
+    } catch (error) {
+      setConfirmRemove(false);
+      setRemoveError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Could not remove this device. Try again.'
+      );
+    } finally {
+      setRemoving(false);
+    }
+  };
 
   // Drop any admin / owner who was linked before the rule landed.
   useEffect(() => {
@@ -188,14 +210,55 @@ export function SharedDeviceManageCard({
         </Text>
       ) : null}
 
-      <Pressable
-        onPress={onRemoveDevice}
-        accessibilityRole="button"
-        accessibilityLabel={`Remove ${deviceName}`}
-        style={[styles.danger, { borderColor: 'rgba(248,113,113,0.4)' }]}>
-        <MaterialIcons name="delete-outline" size={16} color="#F87171" />
-        <Text style={styles.dangerText}>Remove device</Text>
-      </Pressable>
+      {removeError ? (
+        <Text style={styles.removeError} accessibilityLiveRegion="polite">
+          {removeError}
+        </Text>
+      ) : null}
+
+      {confirmRemove ? (
+        <View
+          style={[styles.confirmBox, { borderColor: 'rgba(248,113,113,0.45)', backgroundColor: 'rgba(248,113,113,0.1)' }]}>
+          <Text style={[styles.confirmTitle, { color: c.text }]}>Remove {deviceName}?</Text>
+          <Text style={[styles.confirmBody, { color: c.textMuted }]}>
+            People stay in the household. This tablet just won’t list them anymore.
+          </Text>
+          <View style={styles.confirmRow}>
+            <Pressable
+              disabled={removing}
+              onPress={() => setConfirmRemove(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel remove"
+              style={[styles.confirmBtn, { borderColor: glassBorder(0.14), backgroundColor: glassFill(isDark) }]}>
+              <Text style={[styles.confirmBtnText, { color: c.textSoft }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              disabled={removing}
+              onPress={() => void confirmAndRemove()}
+              accessibilityRole="button"
+              accessibilityLabel={`Confirm remove ${deviceName}`}
+              style={[styles.confirmBtn, styles.confirmDanger]}>
+              {removing ? (
+                <ActivityIndicator size="small" color="#F87171" />
+              ) : (
+                <Text style={styles.dangerText}>Remove</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => {
+            setRemoveError(null);
+            setConfirmRemove(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${deviceName}`}
+          style={[styles.danger, { borderColor: 'rgba(248,113,113,0.4)' }]}>
+          <MaterialIcons name="delete-outline" size={16} color="#F87171" />
+          <Text style={styles.dangerText}>Remove device</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -307,4 +370,30 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   dangerText: { color: '#F87171', fontSize: 13, fontWeight: '700' },
+  removeError: { color: '#F87171', fontSize: 12, lineHeight: 16 },
+  confirmBox: {
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+    padding: 12,
+  },
+  confirmTitle: { fontSize: 15, fontWeight: '800' },
+  confirmBody: { fontSize: 13, lineHeight: 18 },
+  confirmRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  confirmBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 42,
+    paddingVertical: 10,
+  },
+  confirmDanger: {
+    backgroundColor: 'rgba(248,113,113,0.16)',
+    borderColor: '#F87171',
+  },
+  confirmBtnText: { fontSize: 13, fontWeight: '700' },
 });
