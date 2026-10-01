@@ -39,7 +39,7 @@ import {
   isXpEligible,
   normalizeRewardSettings,
 } from '@/lib/rewards/reward-mode';
-import { isTaskLate } from '@/lib/tasks/xp';
+import { canFinishTask, taskStateView } from '@/lib/tasks/task-state';
 import { displayDueLabel } from '@/lib/tasks/due-label';
 import { TASK_REPEAT_CHOICES } from '@/lib/tasks/series-edit';
 import { categoryDisplayLabel } from '@/lib/tasks/task-library';
@@ -49,15 +49,6 @@ import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdTask } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
-const statusTone: Record<HouseholdTask['status'], string> = {
-  Pending: '#38BDF8',
-  'In Progress': '#06B6D4',
-  Completed: '#34D399',
-  Overdue: '#F87171',
-  Cancelled: '#94A3B8',
-  Expired: '#F59E0B',
-  Missed: '#F59E0B',
-};
 
 const categories = ['Cleaning', 'Kitchen', 'Laundry', 'School', 'Homework', 'Groceries', 'Pets', 'Maintenance', 'General'];
 const repeats: HouseholdTask['repeat'][] = TASK_REPEAT_CHOICES;
@@ -200,8 +191,16 @@ export default function TaskDetailScreen() {
   const needsProof = Boolean(task.proofRequired);
   const myProofStatus = split ? myShare?.proofStatus : task.proofStatus;
   const proofReady = myProofStatus === 'submitted' || myProofStatus === 'approved';
-  const late = isTaskLate(task);
-  const statusColor = statusTone[task.status];
+  // One reading of the clock. Two readings is how a task came to say "Pending · Late" and
+  // "Expired · Late" at the same time.
+  const stateView = taskStateView(task);
+  const stateColor = {
+    neutral: c.textMuted,
+    live: accentTheme.primary,
+    warn: c.warning,
+    good: c.success,
+    gone: c.textSubtle,
+  }[stateView.tone];
   const memberColor = assigneeMember
     ? MEMBER_ACCENTS[assigneeMember.name]?.color ?? accentTheme.primary
     : accentTheme.primary;
@@ -209,23 +208,18 @@ export default function TaskDetailScreen() {
   const showProofPreview = Boolean(
     myProofUri && (myProofStatus === 'submitted' || myProofStatus === 'approved')
   );
+  // Open work can be finished by whoever it belongs to — and by an admin, who used to be
+  // left looking at a task with no way to close it.
   const canCompleteMine = split
     ? Boolean(onThisSplit && myShare?.status === 'Pending')
     : Boolean(
-        currentMember &&
-          taskMatchesAssignee(task, currentMember.name) &&
-          task.status !== 'Completed' &&
-          task.status !== 'Cancelled' &&
-          task.status !== 'Expired' &&
-          task.status !== 'Missed'
+        canFinishTask(task) &&
+          (permissions.canManageHousehold ||
+            (currentMember && taskMatchesAssignee(task, currentMember.name)))
       );
 
   const canAdjust = Boolean(canEdit && task.status !== 'Cancelled');
-  const isOpenWork =
-    task.status !== 'Completed' &&
-    task.status !== 'Cancelled' &&
-    task.status !== 'Expired' &&
-    task.status !== 'Missed';
+  const isOpenWork = stateView.open;
 
   const handleAttachProof = async (forAssignee?: string) => {
     setReplySheetOpen(true);
@@ -489,11 +483,10 @@ export default function TaskDetailScreen() {
           <>
             <Text style={[typography.title1, { color: c.text, marginTop: 4 }]}>{task.title}</Text>
             <View style={[styles.chipRow, { marginTop: 10, marginBottom: 4 }]}>
-              <View style={[styles.statusChip, { backgroundColor: `${statusColor}22` }]}>
-                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                <Text style={[styles.statusText, { color: statusColor }]}>
-                  {task.status === 'Missed' ? VOCAB.expired : task.status}
-                </Text>
+              {/* Exactly one status chip. */}
+              <View style={[styles.statusChip, { backgroundColor: `${stateColor}22` }]}>
+                <View style={[styles.statusDot, { backgroundColor: stateColor }]} />
+                <Text style={[styles.statusText, { color: stateColor }]}>{stateView.label}</Text>
               </View>
               <View style={[styles.statusChip, { backgroundColor: `${accentTheme.primary}22` }]}>
                 <Text style={[styles.statusText, { color: accentTheme.primary }]}>
@@ -505,7 +498,12 @@ export default function TaskDetailScreen() {
                   <Text style={[styles.metaChipText, { color: c.textMuted }]}>{task.repeat}</Text>
                 </View>
               ) : null}
-              {task.completedLate && task.status === 'Completed' ? (
+              {/*
+                Late Credit is not a status — it is how the XP was earned, and it only exists on
+                work already done. There is no separate "Late" chip any more: a task past its
+                deadline says Overdue, and once the day closes it says Expired.
+              */}
+              {stateView.state === 'done-late' ? (
                 <View style={[styles.statusChip, { backgroundColor: 'rgba(251,146,60,0.18)' }]}>
                   <Text style={[styles.statusText, { color: c.warning }]}>
                     {VOCAB.lateCredit}
@@ -516,10 +514,6 @@ export default function TaskDetailScreen() {
                       ? ` · was ${task.baseXp}`
                       : ''}
                   </Text>
-                </View>
-              ) : late && task.status !== 'Completed' ? (
-                <View style={[styles.statusChip, { backgroundColor: 'rgba(248,113,113,0.15)' }]}>
-                  <Text style={[styles.statusText, { color: c.danger }]}>Late</Text>
                 </View>
               ) : null}
             </View>
@@ -699,9 +693,8 @@ export default function TaskDetailScreen() {
                 <Text style={[styles.body, { color: c.textSoft }]}>Applies from this day on.</Text>
               ) : null}
             </View>
-            {(late || task.status === 'Overdue') &&
-            task.status !== 'Completed' &&
-            task.status !== 'Cancelled' &&
+            {/* Handing it on only makes sense while it can still be finished. */}
+            {stateView.state === 'overdue' &&
             (permissions.canAssignTask || permissions.canManageHousehold) ? (
               <View style={styles.detailRow}>
                 <Text style={[styles.label, { color: c.textMuted }]}>Reassign (overdue)</Text>

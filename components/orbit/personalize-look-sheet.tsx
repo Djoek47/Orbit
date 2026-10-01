@@ -1,18 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { AVATAR_EMOJIS } from '@/constants/accent-themes';
 import { space, typography } from '@/constants/orbit-theme';

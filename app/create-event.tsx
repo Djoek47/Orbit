@@ -1,19 +1,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInput as RNTextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { EventPreviewCard, type PreviewChip } from '@/components/orbit/event/event-preview-card';
 import { EventDatePicker } from '@/components/orbit/event-date-picker';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
@@ -104,7 +95,7 @@ export default function CreateEventScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showClock, setShowClock] = useState(false);
   const [manual, setManual] = useState<Partial<Record<ManualField, true>>>({});
-  const placeRef = useRef<TextInput>(null);
+  const placeRef = useRef<RNTextInput>(null);
 
   const accentText = isDark ? STAGE.domain.plan : STAGE.domainLight.plan;
   const fill = STAGE.domain.plan;

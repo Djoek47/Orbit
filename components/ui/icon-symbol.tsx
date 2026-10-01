@@ -24,6 +24,8 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  // The shared tablet's fifth tab: hand the iPad to someone else.
+  'arrow.left.arrow.right': 'swap-horiz',
 } as const satisfies Record<string, MaterialIconName>;
 
 type IconSymbolName = keyof typeof MAPPING;

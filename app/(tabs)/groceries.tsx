@@ -1,12 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View, type ScrollView } from 'react-native';
+import { Alert, Pressable, StyleSheet, View, type ScrollView, type TextInput as RNTextInput } from 'react-native';
 import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Moji } from '@/components/orbit/moji/moji';
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { GroceryCategoryGrid } from '@/components/orbit/grocery-category-grid';
@@ -64,7 +64,7 @@ export default function GroceriesScreen() {
   const [showBrowse, setShowBrowse] = useState(false);
   const [chip, setChip] = useState<'favorites' | 'buyAgain' | 'suggest' | null>(null);
   const [editing, setEditing] = useState<GroceryItem | null>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<RNTextInput>(null);
 
   useEffect(() => {
     markGroceriesOpened();

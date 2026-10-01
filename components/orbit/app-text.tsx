@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -38,7 +39,10 @@ export function AppText({ style, ...props }: TextProps) {
  * several gets the shared Done bar above the keyboard, because its return key has to make new
  * lines. Either can still be overridden per field.
  */
-export function AppTextInput({ style, ...props }: TextInputProps) {
+export const AppTextInput = forwardRef<TextInput, TextInputProps>(function AppTextInput(
+  { style, ...props },
+  ref
+) {
   const multiline = props.multiline === true;
   const returnKeyType = props.returnKeyType ?? (multiline ? undefined : 'done');
   const inputAccessoryViewID =
@@ -47,10 +51,11 @@ export function AppTextInput({ style, ...props }: TextInputProps) {
 
   return (
     <TextInput
+      ref={ref}
       {...props}
       returnKeyType={returnKeyType}
       inputAccessoryViewID={inputAccessoryViewID}
       style={style == null ? { fontFamily: FontFamily.regular } : remapStyles(style)}
     />
   );
-}
+});

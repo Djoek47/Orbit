@@ -1606,6 +1606,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const signIn = async (input: SignInInput) => {
     const session = await authRepository.signIn(input);
+    // An account signed in here owns the device now: the old Sidekick's "Continue as" card goes,
+    // and so does any leftover shared-tablet binding. Otherwise signing in as an admin after a
+    // Sidekick signed out walked straight into the shared-device setup wizard.
+    try {
+      const [{ clearSidekickSession, clearSidekickSignedOut }, { clearDeviceSession }] =
+        await Promise.all([
+          import('@/lib/sidekick/session'),
+          import('@/lib/device/device-session'),
+        ]);
+      await Promise.all([
+        clearSidekickSession(),
+        clearSidekickSignedOut(),
+        clearDeviceSession(),
+      ]);
+    } catch (error) {
+      console.warn('signIn.clearDeviceBinding', error);
+    }
     await hydrateFromSession(session);
     await trackAnalytics('auth.sign_in', { email: input.email }, { userId: session.user.id });
   };
@@ -2303,7 +2320,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
 
-  const clearSignedInState = (options?: { skipProfilePick?: boolean; sidekickSigningOut?: boolean }) => {
+  const clearSignedInState = (options?: { sidekickSigningOut?: boolean }) => {
     setCurrentUser(null);
     setHousehold(
       options?.sidekickSigningOut
@@ -2321,11 +2338,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setNotifications([]);
     setInviteLinks(null);
     setActiveMemberId(null);
-    if (!options?.skipProfilePick) {
-      void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-        markNeedsProfilePick()
-      );
-    }
+    // Signing out unbinds the device. It used to keep the binding on a Sidekick sign-out, so
+    // the phone still called itself a shared tablet — and the next person to sign in, as an
+    // admin, was dropped into "Add a device · 1 of 4" instead of their household.
+    void import('@/lib/device/device-session').then(({ clearDeviceSession }) =>
+      clearDeviceSession()
+    );
   };
 
   const signOut = async () => {
@@ -2352,7 +2370,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     } else {
       await clearMockHouseholdSnapshot();
     }
-    clearSignedInState({ skipProfilePick: sidekickSigningOut, sidekickSigningOut });
+    clearSignedInState({ sidekickSigningOut });
   };
 
   const createTask = async (

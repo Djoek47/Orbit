@@ -1,6 +1,7 @@
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -21,6 +22,8 @@ import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitOptional } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
+import { markNeedsProfilePick } from '@/lib/device/device-session';
+import { tabFifthSlot } from '@/lib/navigation/tab-fifth-slot';
 import type { TourTargetId } from '@/lib/tour/tour-types';
 
 const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'poppins'] as const;
@@ -35,7 +38,17 @@ const TAB_TOUR_TARGET: Partial<Record<TabRoute, TourTargetId>> = {
 
 const TAB_META: Record<
   TabRoute,
-  { label: string; color: string; icon: 'house.fill' | 'checklist' | 'calendar' | 'trophy.fill' | 'sparkles' }
+  {
+    label: string;
+    color: string;
+    icon:
+      | 'house.fill'
+      | 'checklist'
+      | 'calendar'
+      | 'trophy.fill'
+      | 'sparkles'
+      | 'arrow.left.arrow.right';
+  }
 > = {
   index: { label: 'Home', color: orbitTabColors.home, icon: 'house.fill' },
   tasks: { label: 'Tasks', color: orbitTabColors.tasks, icon: 'checklist' },
@@ -64,6 +77,23 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   const majordomoName = useMajordomoName();
   const poppinsLive = usePoppinsLive();
   const poppinsPulse = useRef(new Animated.Value(1)).current;
+  // While a session is running, the tab button wears the household's chosen voice colour and
+  // breathes, wherever you are in the app — so "Poppins is still listening" is visible from
+  // Tasks or Plan, not only from its own tab.
+  const [voiceColor, setVoiceColor] = useState<string | null>(null);
+  const poppinsBusy = Boolean(poppinsLive && poppinsLive.visual !== 'idle');
+  /**
+   * The fifth slot is not the same button for everyone:
+   *
+   *   admin           Poppins
+   *   shared tablet   Switch who's on — the thing people reach for on a shared iPad
+   *   a Sidekick      nothing; four tabs, since they have no Poppins
+   */
+  const fifthSlot = tabFifthSlot({
+    role: orbit?.currentMember?.role,
+    members: orbit?.household.members ?? [],
+    memberId: orbit?.currentMember?.id,
+  });
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
   const typeStyle = orbit?.accentTheme.typeStyle;
@@ -123,7 +153,26 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   const rewardsLabel = rewardsCycle[cycleIndex] ?? rewardsCycle[0];
 
   useEffect(() => {
-    if (!poppinsLive || poppinsLive.visual === 'idle') {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [{ loadPoppinsInteractionPrefs }, { poppinsVoice }] = await Promise.all([
+          import('@/lib/poppins/poppins-prefs'),
+          import('@/lib/ai/poppins-voices'),
+        ]);
+        const prefs = await loadPoppinsInteractionPrefs(orbit?.household.id);
+        if (!cancelled) setVoiceColor(poppinsVoice(prefs.voiceId).color);
+      } catch {
+        /* the theme colour is a fine fallback */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orbit?.household.id]);
+
+  useEffect(() => {
+    if (!poppinsBusy) {
       poppinsPulse.setValue(1);
       return;
     }
@@ -135,9 +184,10 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     );
     loop.start();
     return () => loop.stop();
-  }, [poppinsLive, poppinsLive?.visual, poppinsPulse]);
+  }, [poppinsBusy, poppinsPulse]);
 
   const visibleRoutes = TAB_ORDER.map((name) => {
+    if (name === 'poppins' && fifthSlot !== 'poppins') return null;
     const route = state.routes.find((r) => r.name === name);
     if (!route) return null;
     const options = descriptors[route.key]?.options as { href?: string | null } | undefined;
@@ -198,6 +248,8 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           if (!meta) return null;
 
           const isPoppins = route.name === 'poppins';
+          // Live: the voice's own colour. Idle: the theme, as before.
+          const poppinsTone = poppinsBusy ? voiceColor ?? accentPrimary : accentPrimary;
           const isRewards = route.name === 'rewards';
           const label = isRewards ? rewardsLabel : isPoppins ? majordomoName : meta.label;
           const color = isFocused
@@ -252,7 +304,9 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
             });
           };
 
-          const labelColor = isFocused
+          const labelColor = isPoppins && poppinsBusy
+            ? poppinsTone
+            : isFocused
             ? isPoppins
               ? accentPrimary
               : color
@@ -273,21 +327,29 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               {isPoppins ? (
                 <Animated.View style={{ transform: [{ scale: poppinsPulse }] }}>
                 <LinearGradient
-                  colors={isFocused ? [accentPrimary, accentSecondary] : [...poppinsIdleColors]}
+                  colors={
+                    poppinsBusy
+                      ? ([poppinsTone, `${poppinsTone}AA`] as const)
+                      : isFocused
+                        ? [accentPrimary, accentSecondary]
+                        : [...poppinsIdleColors]
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[
                     styles.poppinsButton,
-                    isFocused ? styles.poppinsButtonActive : styles.poppinsButtonInactive,
+                    isFocused || poppinsBusy
+                      ? styles.poppinsButtonActive
+                      : styles.poppinsButtonInactive,
                     {
-                      borderColor: `${accentPrimary}66`,
-                      shadowColor: accentPrimary,
+                      borderColor: `${poppinsTone}66`,
+                      shadowColor: poppinsTone,
                     },
                   ]}>
                   <IconSymbol
                     name={icon}
                     size={20}
-                    color={isFocused ? ink : accentPrimary}
+                    color={isFocused || poppinsBusy ? ink : accentPrimary}
                   />
                 </LinearGradient>
                 </Animated.View>
@@ -362,6 +424,43 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
             </View>
           );
         })}
+
+        {/* The shared tablet's fifth button: hand the iPad to whoever is next. */}
+        {fifthSlot === 'switch' ? (
+          <View style={[styles.tab, styles.poppinsTab]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Switch who's on this device"
+              onPress={() => {
+                if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
+                void markNeedsProfilePick().then(() =>
+                  router.replace('/select-profile' as never)
+                );
+              }}
+              style={styles.tabPressable}>
+              <LinearGradient
+                colors={[accentPrimary, accentSecondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.poppinsButton,
+                  styles.poppinsButtonActive,
+                  { borderColor: `${accentPrimary}66`, shadowColor: accentPrimary },
+                ]}>
+                <IconSymbol name="arrow.left.arrow.right" size={20} color={ink} />
+              </LinearGradient>
+              {keyboardUp ? null : (
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  style={[styles.label, styles.poppinsLabel, { color: accentPrimary }]}>
+                  Switch
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </View>
   );

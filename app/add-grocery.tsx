@@ -1,9 +1,9 @@
 import { Stack, router } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText as Text } from '@/components/orbit/app-text';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { classifyGroceryItem } from '@/lib/grocery/classify';
