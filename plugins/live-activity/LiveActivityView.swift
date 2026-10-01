@@ -19,8 +19,9 @@ import WidgetKit
     static let faint = Color(hex: "#8E7F74")
     static let chip = Color.white.opacity(0.10)
     static let chipStrong = Color.white.opacity(0.14)
-    static let pageSize = 3
-    static let rowHeight: CGFloat = 44
+    /// Lock Screen height is tiny — 2 rows + brand fits; 3 clipped the logo.
+    static let pageSize = 2
+    static let rowHeight: CGFloat = 34
   }
 
   struct BannerItem: Identifiable, Equatable {
@@ -251,72 +252,85 @@ import WidgetKit
     }
 
     var body: some View {
-      ZStack {
+      // Compact on purpose: Lock Screen clips tall Live Activities and hid our brand.
+      // No scroll (Apple forbids it) — page chevrons flip 2-item pages instead.
+      ZStack(alignment: .topLeading) {
         LinearGradient(
-          colors: [CMX.ember.opacity(0.22), Color.clear],
+          colors: [CMX.ember.opacity(0.28), Color.clear],
           startPoint: .topLeading, endPoint: .bottomTrailing
         )
-        VStack(alignment: .leading, spacing: 0) {
+        // Ember hairline so the banner reads as ChoreMaxx even when clipped oddly.
+        Capsule()
+          .fill(CMX.ember)
+          .frame(width: 36, height: 3)
+          .padding(.leading, 14)
+          .padding(.top, 6)
+
+        VStack(alignment: .leading, spacing: 8) {
           header
-            .padding(.bottom, 12)
           progress
-            .padding(.bottom, 14)
           if finished {
             finishedBlock
           } else {
             checklist
             pager
-              .padding(.top, 12)
           }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
       }
-      .animation(.snappy(duration: 0.32), value: contentState.progress)
-      .animation(.snappy(duration: 0.32), value: contentState.subtitle)
+      .animation(.snappy(duration: 0.28), value: contentState.progress)
+      .animation(.snappy(duration: 0.28), value: contentState.subtitle)
     }
 
     private var header: some View {
-      HStack(alignment: .center, spacing: 12) {
+      HStack(alignment: .center, spacing: 8) {
         Image("choremaxx_mark")
           .resizable()
           .scaledToFit()
-          .frame(width: 32, height: 32)
-          .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+          .frame(width: 26, height: 26)
+          .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
 
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 1) {
+          Text("ChoreMaxx")
+            .font(.system(size: 10, weight: .heavy, design: .rounded))
+            .tracking(0.6)
+            .textCase(.uppercase)
+            .foregroundStyle(CMX.ember)
+            .lineLimit(1)
           Text(contentState.title)
-            .font(.system(size: 17, weight: .bold, design: .rounded))
+            .font(.system(size: 15, weight: .bold, design: .rounded))
             .foregroundStyle(CMX.ink)
             .lineLimit(1)
-            .minimumScaleFactor(0.85)
+            .minimumScaleFactor(0.8)
           if let aisle = parsed.aisle, !finished {
             Text(aisle)
-              .font(.system(size: 12, weight: .semibold, design: .rounded))
+              .font(.system(size: 11, weight: .semibold, design: .rounded))
               .foregroundStyle(CMX.gold)
               .lineLimit(1)
           }
         }
 
-        Spacer(minLength: 8)
+        Spacer(minLength: 6)
 
         if !parsed.left.isEmpty && !finished {
           VStack(alignment: .trailing, spacing: 0) {
             Text(parsed.left)
-              .font(.system(size: 28, weight: .heavy, design: .rounded))
+              .font(.system(size: 22, weight: .heavy, design: .rounded))
               .foregroundStyle(CMX.ember)
               .monospacedDigit()
               .contentTransition(.numericText())
             Text("left")
-              .font(.system(size: 10, weight: .bold, design: .rounded))
-              .tracking(0.8)
+              .font(.system(size: 9, weight: .bold, design: .rounded))
+              .tracking(0.7)
               .textCase(.uppercase)
               .foregroundStyle(CMX.faint)
           }
-          .frame(minWidth: 44, alignment: .trailing)
+          .frame(minWidth: 36, alignment: .trailing)
         } else if finished {
           Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 28))
+            .font(.system(size: 22))
             .foregroundStyle(CMX.gold)
         }
       }
@@ -337,42 +351,36 @@ import WidgetKit
             )
             .frame(
               width: max(
-                10,
+                8,
                 geo.size.width * CGFloat(min(1, max(0, contentState.progress ?? 0)))
               )
             )
         }
       }
-      .frame(height: 6)
+      .frame(height: 4)
     }
 
     private var finishedBlock: some View {
-      HStack(spacing: 10) {
+      HStack(spacing: 8) {
         Image(systemName: "checkmark.circle.fill")
-          .font(.system(size: 18, weight: .semibold))
+          .font(.system(size: 16, weight: .semibold))
           .foregroundStyle(CMX.gold)
         Text(head.isEmpty ? "All picked up" : head)
-          .font(.system(size: 15, weight: .semibold, design: .rounded))
+          .font(.system(size: 13, weight: .semibold, design: .rounded))
           .foregroundStyle(CMX.ink)
           .lineLimit(2)
         Spacer(minLength: 0)
       }
-      .padding(.horizontal, 14)
-      .padding(.vertical, 14)
-      .frame(maxWidth: .infinity, minHeight: CMX.rowHeight * 2, alignment: .leading)
-      .background(CMX.chip, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .padding(.horizontal, 10)
+      .padding(.vertical, 10)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(CMX.chip, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var checklist: some View {
-      VStack(alignment: .leading, spacing: 8) {
+      VStack(alignment: .leading, spacing: 5) {
         ForEach(pageItems) { item in
           row(for: item)
-        }
-        // Keep the card height steady when the last page has fewer than three rows.
-        if pageItems.count < CMX.pageSize {
-          ForEach(0..<(CMX.pageSize - pageItems.count), id: \.self) { _ in
-            Color.clear.frame(height: CMX.rowHeight)
-          }
         }
       }
     }
@@ -380,21 +388,21 @@ import WidgetKit
     @ViewBuilder
     private func row(for item: BannerItem) -> some View {
       let label = Text(item.label)
-        .font(.system(size: 15, weight: .semibold, design: .rounded))
+        .font(.system(size: 13, weight: .semibold, design: .rounded))
         .foregroundStyle(CMX.ink)
         .lineLimit(1)
-        .minimumScaleFactor(0.82)
+        .minimumScaleFactor(0.8)
 
-      let body = HStack(spacing: 12) {
+      let body = HStack(spacing: 10) {
         Circle()
-          .strokeBorder(CMX.soft.opacity(0.55), lineWidth: 1.6)
-          .frame(width: 22, height: 22)
+          .strokeBorder(CMX.soft.opacity(0.55), lineWidth: 1.5)
+          .frame(width: 18, height: 18)
         label
         Spacer(minLength: 0)
       }
-      .padding(.horizontal, 14)
+      .padding(.horizontal, 10)
       .frame(maxWidth: .infinity, minHeight: CMX.rowHeight, alignment: .leading)
-      .background(CMX.chip, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+      .background(CMX.chip, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
 
       if #available(iOS 17.0, *), !item.groceryId.isEmpty {
         Button(intent: ShoppingBannerCheckOffIntent(itemId: item.groceryId)) {
@@ -409,47 +417,50 @@ import WidgetKit
     @ViewBuilder
     private var pager: some View {
       let canPage = allItems.count > CMX.pageSize
-      HStack(spacing: 0) {
+      HStack(spacing: 6) {
         if canPage {
           if #available(iOS 17.0, *) {
             Button(intent: ShoppingBannerPageIntent(delta: -1)) {
               Image(systemName: "chevron.left")
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(CMX.ink)
-                .frame(width: 32, height: 32)
+                .frame(width: 28, height: 28)
                 .background(CMX.chipStrong, in: Circle())
             }
             .buttonStyle(.plain)
           }
-          Text("\(page + 1) / \(pages)")
-            .font(.system(size: 12, weight: .bold, design: .rounded))
-            .foregroundStyle(CMX.soft)
-            .monospacedDigit()
-            .frame(minWidth: 44)
-            .contentTransition(.numericText())
+          // Dot strip — the "scroll illusion" without a real scroll view.
+          HStack(spacing: 4) {
+            ForEach(0..<pages, id: \.self) { index in
+              Capsule()
+                .fill(index == page ? CMX.ember : CMX.faint.opacity(0.55))
+                .frame(width: index == page ? 12 : 5, height: 5)
+            }
+          }
+          .animation(.snappy(duration: 0.22), value: page)
           if #available(iOS 17.0, *) {
             Button(intent: ShoppingBannerPageIntent(delta: 1)) {
               Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(CMX.ink)
-                .frame(width: 32, height: 32)
+                .frame(width: 28, height: 28)
                 .background(CMX.chipStrong, in: Circle())
             }
             .buttonStyle(.plain)
           }
         } else {
           Text(allItems.isEmpty ? "List clear" : "\(allItems.count) to pick up")
-            .font(.system(size: 12, weight: .semibold, design: .rounded))
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
             .foregroundStyle(CMX.faint)
         }
 
-        Spacer(minLength: 8)
+        Spacer(minLength: 6)
 
         Text("Open")
-          .font(.system(size: 12, weight: .bold, design: .rounded))
+          .font(.system(size: 11, weight: .bold, design: .rounded))
           .foregroundStyle(CMX.gold)
-          .padding(.horizontal, 12)
-          .padding(.vertical, 7)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 6)
           .background(CMX.gold.opacity(0.16), in: Capsule())
           .applyWidgetURL(from: attributes.deepLinkUrl)
       }

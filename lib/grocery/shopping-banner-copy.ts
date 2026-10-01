@@ -44,8 +44,8 @@ export type ShoppingBannerState = {
   progressBar: { progress: number };
 };
 
-/** How many roomy rows fit on one Lock Screen page. */
-export const BANNER_PAGE_SIZE = 3;
+/** How many rows fit on one Lock Screen page (2 keeps ChoreMaxx branding visible). */
+export const BANNER_PAGE_SIZE = 2;
 
 /**
  * Cap packed names so the Live Activity payload stays small. Anything beyond this is

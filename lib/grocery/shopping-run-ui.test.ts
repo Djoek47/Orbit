@@ -34,9 +34,11 @@ assert.match(view, /ShoppingBannerPageIntent/, 'Next/Previous flip pages without
 assert.match(view, /ShoppingBannerCheckOffIntent/, 'row tap checks off without opening the app');
 assert.match(view, /ShoppingBannerStore\.enqueueCheckOff/, 'check-off writes the App Group queue');
 assert.match(view, /enum ShoppingBannerStore/, 'store is in LiveActivityView (widget Compile Sources)');
-assert.match(view, /pageSize = 3/, 'roomy single-column pages');
-assert.match(view, /rowHeight: CGFloat = 44/, 'even row rhythm');
+assert.match(view, /pageSize = 2/, 'compact pages so branding still fits');
+assert.match(view, /rowHeight: CGFloat = 34/, 'tight row rhythm for Lock Screen');
+assert.match(view, /Text\("ChoreMaxx"\)/, 'brand wordmark on the banner');
 assert.doesNotMatch(view, /LazyVGrid/, 'no cramped two-column grid');
+assert.doesNotMatch(view, /Color\.clear\.frame\(height: CMX\.rowHeight\)/, 'no empty spacer rows that inflate height');
 assert.ok(existsSync(join(process.cwd(), 'assets/liveActivity/choremaxx_mark.png')), 'logo asset');
 assert.ok(
   existsSync(join(process.cwd(), 'modules/shopping-banner-bridge/ios/ShoppingBannerStore.swift')),

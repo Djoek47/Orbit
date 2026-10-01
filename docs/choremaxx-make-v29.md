@@ -1,18 +1,24 @@
 # ChoreMaxx make-v29
 
 **Branch:** `cursor/make-v29`  
-**Follows:** `cursor/make-v28`  
-**TestFlight:** not yet — wait for the cut message before building.
+**Follows TestFlight:** **1.3.0 (105)** (make-v28 shopping Live Activity compile fix)
 
-## Included so far
+## Included since build 105
 
-| Area | Change |
+| Area | What landed |
 | --- | --- |
-| Smart Trips card CTAs | Removed unlabeled clipboard + open-in-new icons; **Edit** labeled chip; **Start Trip in Maps** uses Bricolage ExtraBold |
-| Route timeline | Continuous rail, stronger first stop, category pills, staggered FadeInDown |
-| Shared devices | Remove device confirms inline on the card; soft-delete verifies a DB row so tablets don’t come back |
-| Settings | Removed duplicate **YOU** group — profile + Day/Night already on the top identity card |
+| Smart Trips | CTA polish, stop timeline animation |
+| Settings | Duplicate YOU row removed |
+| Shared devices | Remove actually deletes; existing QR view + regenerate |
+| People / Sidekicks | Member hub (QR first), presence, rename/picture/remove; personalize no longer locks app |
+| Sidekick permissions | Sticky grocery toggle; per-kid face chips; edge redeploy |
+| Plan Build trip | Calendar + saved Places only — no FreshMart / fake streets; star card |
+| Lock Screen shopping | Compact Live Activity: ChoreMaxx brand, 2 rows/page, page dots, check-off kept |
+
+## Lock Screen note
+
+Apple forbids scrolling inside Live Activities. Tall 3-row layouts clipped the logo. v29 shows **2 items + chevron/dot pager** and a visible **ChoreMaxx** wordmark. Tap a row to check off (App Group → app); Open / header deep-links into the run.
 
 ## TestFlight
 
-Hold until the explicit “push to TestFlight” request.
+Non-interactive EAS uses `EXPO_NO_CAPABILITY_SYNC=1`. Full Lock Screen check-off sync still needs App Groups on the main App ID when the provisioning profile is refreshed.
