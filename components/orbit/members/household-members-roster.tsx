@@ -9,10 +9,10 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { HouseholdSwitcher } from '@/components/orbit/household-switcher';
-import { SharedAccountRow } from '@/components/orbit/members/shared-account-row';
+import { SharedDeviceManageCard } from '@/components/orbit/members/shared-device-manage-card';
 import { SharedIpadCard } from '@/components/orbit/members/shared-ipad-card';
 import { Avatar } from '@/components/orbit/avatar';
-import { radius, space, typography } from '@/constants/orbit-theme';
+import { typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import {
   countMembersForMembersScreen,
@@ -24,7 +24,6 @@ import {
   listSharedDevices,
   nestedSharedAccountIds,
   resolveSharedDevicePeople,
-  sharedDeviceLinkCandidates,
 } from '@/lib/household/shared-device';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
 import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
@@ -105,10 +104,6 @@ export function HouseholdMembersRoster({
       ),
     [household.members, nestedAccountIds]
   );
-  const linkCandidates = useMemo(
-    () => sharedDeviceLinkCandidates(household.members),
-    [household.members]
-  );
 
   const signedIn =
     topLevel.find((m) => m.id === currentMember?.id) ??
@@ -187,10 +182,7 @@ export function HouseholdMembersRoster({
     );
   };
 
-  const toggleSharedLink = (deviceId: string, personId: string, linkedIds: string[]) => {
-    const next = linkedIds.includes(personId)
-      ? linkedIds.filter((id) => id !== personId)
-      : [...linkedIds, personId];
+  const setDeviceLinks = (deviceId: string, next: string[]) => {
     void updateSharedDeviceLinks(deviceId, next);
   };
 
@@ -383,89 +375,24 @@ export function HouseholdMembersRoster({
         <SharedIpadCard accent={accent} />
       )}
 
-      {permissions.canManageHousehold && sharedDevices.length > 0
-        ? sharedDevices.map((device) => {
-            const accounts = resolveSharedDevicePeople(device, household.members);
-            const linkedIds = device.sharedWithMemberIds ?? [];
-            return (
-              <View
-                key={device.id}
-                style={[
-                  styles.deviceCard,
-                  {
-                    backgroundColor: glassFill(isDark),
-                    borderColor: glassBorder(0.1),
-                  },
-                ]}>
-                <View style={styles.deviceHead}>
-                  <Text style={[styles.actionLabel, { color: c.text, flex: 1 }]}>
-                    {device.name?.trim() || 'Shared device'}
-                  </Text>
-                  {accounts.length > 0 ? (
-                    <Pressable
-                      onPress={() => {
-                        void markNeedsProfilePick().then(() =>
-                          router.push('/select-profile' as never)
-                        );
-                      }}
-                      style={[
-                        styles.switchChip,
-                        { backgroundColor: `${accent}18`, borderColor: `${accent}44` },
-                      ]}>
-                      <Text style={[styles.switchChipText, { color: accent }]}>Switch</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                {permissions.canManageHousehold ? (
-                  <View style={styles.linkWrap}>
-                    {linkCandidates.map((person) => {
-                      const linked = linkedIds.includes(person.id);
-                      return (
-                        <Pressable
-                          key={person.id}
-                          onPress={() => toggleSharedLink(device.id, person.id, linkedIds)}
-                          style={[
-                            styles.linkChip,
-                            {
-                              borderColor: glassBorder(0.1),
-                              backgroundColor: linked ? `${accent}22` : glassFill(isDark),
-                            },
-                          ]}>
-                          <Text
-                            style={[
-                              styles.linkChipText,
-                              { color: linked ? accent : c.textMuted },
-                            ]}>
-                            {person.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : null}
-                {accounts.map((person) => (
-                  <SharedAccountRow
-                    key={person.id}
-                    person={person}
-                    active={currentMember?.id === person.id}
-                    accent={accent}
-                    canManage={permissions.canManageHousehold}
-                    onSwitch={() => requestSwitch(person.id)}
-                    onPersonalize={() => onPersonalize(person.id)}
-                    onShareInvite={() => onShareInvite(person)}
-                    onUnlink={() => toggleSharedLink(device.id, person.id, linkedIds)}
-                    onRemove={() => handleRemoveMember(person)}
-                  />
-                ))}
-                <Pressable
-                  onPress={() => handleRemoveMember(device)}
-                  style={[styles.dangerChip, { borderColor: 'rgba(248,113,113,0.35)' }]}>
-                  <Text style={styles.dangerChipText}>Remove device</Text>
-                </Pressable>
-              </View>
-            );
-          })
-        : null}
+      {permissions.canManageHousehold && sharedDevices.length > 0 ? (
+        <>
+          <Text style={[styles.sectionTitle, { color: accent }]}>SHARED TABLETS</Text>
+          {sharedDevices.map((device) => (
+            <SharedDeviceManageCard
+              key={device.id}
+              device={device}
+              members={household.members}
+              accent={accent}
+              onLinksChange={(next) => setDeviceLinks(device.id, next)}
+              onRemoveDevice={() => handleRemoveMember(device)}
+              onOpenSwitch={() => {
+                void markNeedsProfilePick().then(() => router.push('/select-profile' as never));
+              }}
+            />
+          ))}
+        </>
+      ) : null}
 
       {variant === 'screen' && statusLine ? (
         <Text style={[styles.footerStatus, { color: c.textSubtle }]}>{statusLine}</Text>
@@ -561,38 +488,4 @@ const styles = StyleSheet.create({
   },
   actionLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
   footerStatus: { fontSize: 12, textAlign: 'center', marginTop: 4 },
-  deviceCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 10,
-    padding: 14,
-  },
-  deviceHead: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-  },
-  switchChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  switchChipText: { fontSize: 12, fontWeight: '700' },
-  linkWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  linkChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  linkChipText: { fontSize: 12, fontWeight: '600' },
-  dangerChip: {
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 4,
-    paddingVertical: 10,
-  },
-  dangerChipText: { color: '#F87171', fontSize: 13, fontWeight: '600' },
 });

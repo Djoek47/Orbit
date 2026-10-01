@@ -3,6 +3,9 @@ import type { HouseholdMember } from '@/types/orbit';
 /** Default display name for a new shared device profile (user-facing copy). */
 export const DEFAULT_SHARED_IPAD_NAME = 'Shared device';
 
+/** Caps how many faces can share one tablet. */
+export const SHARED_DEVICE_MAX_PEOPLE = 6;
+
 export function isSharedDeviceRole(role: HouseholdMember['role'] | undefined | null): boolean {
   return role === 'shared-device';
 }
@@ -11,20 +14,25 @@ export function isSharedDeviceMember(member: HouseholdMember | undefined | null)
   return Boolean(member && isSharedDeviceRole(member.role));
 }
 
-/** Real people who share this device (excludes the device profile itself). */
+/**
+ * Admins / owners run the household from their own phone — they don't sit on the shared
+ * tablet roster. Sidekicks (and non-admin adults) do.
+ */
+export function isSharedDeviceEligiblePerson(member: HouseholdMember | undefined | null): boolean {
+  if (!member || member.status !== 'active') return false;
+  if (isSharedDeviceRole(member.role) || member.role === 'guest') return false;
+  if (member.role === 'owner' || member.role === 'admin') return false;
+  return true;
+}
+
+/** Real people who share this device (excludes the device profile and household admins). */
 export function resolveSharedDevicePeople(
   device: HouseholdMember | undefined | null,
   members: HouseholdMember[]
 ): HouseholdMember[] {
   if (!isSharedDeviceMember(device)) return [];
   const ids = new Set(device?.sharedWithMemberIds ?? []);
-  return members.filter(
-    (member) =>
-      ids.has(member.id) &&
-      member.status === 'active' &&
-      !isSharedDeviceRole(member.role) &&
-      member.role !== 'guest'
-  );
+  return members.filter((member) => ids.has(member.id) && isSharedDeviceEligiblePerson(member));
 }
 
 /** All shared-device profiles in the household. */
@@ -78,14 +86,24 @@ export function assignTargetMembers(members: HouseholdMember[]): HouseholdMember
   );
 }
 
-/** Candidates an admin can attach to a shared device. */
+/** Candidates an admin can attach to a shared device (never owner / admin). */
 export function sharedDeviceLinkCandidates(members: HouseholdMember[]): HouseholdMember[] {
-  return members.filter(
-    (member) =>
-      member.status === 'active' &&
-      !isSharedDeviceRole(member.role) &&
-      member.role !== 'guest'
-  );
+  return members.filter(isSharedDeviceEligiblePerson);
+}
+
+/**
+ * Drop owner/admin ids (and unknowns) from a device's link list.
+ * Returns null when nothing needs pruning.
+ */
+export function pruneSharedDeviceLinks(
+  linkedIds: string[] | undefined | null,
+  members: HouseholdMember[]
+): string[] | null {
+  const eligible = new Set(sharedDeviceLinkCandidates(members).map((m) => m.id));
+  const next = (linkedIds ?? []).filter((id) => eligible.has(id));
+  const prev = linkedIds ?? [];
+  if (next.length === prev.length && next.every((id, i) => id === prev[i])) return null;
+  return next;
 }
 
 /** Title shown on the shared device: "Clean dishes - Josh". */
