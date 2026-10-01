@@ -1,9 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 import { Moji } from '@/components/orbit/moji/moji';
 import { MyPlacesPanel } from '@/components/orbit/my-places-panel';
@@ -12,6 +12,7 @@ import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps, type RouteStepItem } from '@/components/orbit/route-steps';
 import { SmartTripsIntro } from '@/components/orbit/trips/smart-trips-intro';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
+import { FontFamily } from '@/constants/typography';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -139,11 +140,6 @@ function TripCard({
     onStartTrip(trip);
   };
 
-  const handleCopy = async () => {
-    const lines = stops.map((s, i) => `${i + 1}. ${s.label} — ${s.address || s.placeQuery || ''}`);
-    await Clipboard.setStringAsync(`${trip.title}\n${lines.join('\n')}`);
-  };
-
   return (
     <View
       style={[
@@ -219,51 +215,56 @@ function TripCard({
       </Pressable>
 
       {expanded ? (
-        <View style={styles.tripExpanded}>
+        <Animated.View entering={FadeIn.duration(180)} style={styles.tripExpanded}>
           <View style={styles.poppinsReason}>
             <MaterialIcons name="auto-awesome" size={13} color="#06B6D4" />
             <Text style={[styles.heroBody, { color: c.textSoft }]}>
-              <Text style={{ color: '#06B6D4', fontWeight: '700' }}>{majordomoName}: </Text>
+              <Text style={{ color: '#06B6D4', fontFamily: FontFamily.bold, fontWeight: '700' }}>
+                {majordomoName}:{' '}
+              </Text>
               {poppinsReasonForTrip(trip)}
             </Text>
           </View>
           <RouteSteps steps={steps} accentColor={color} emphasized={!activated} />
-          <View style={styles.tripCtaRow}>
-            <Pressable onPress={handleStart} style={{ flex: 1 }}>
+          <Animated.View entering={FadeInUp.delay(80).springify().damping(18)} style={styles.tripCtaRow}>
+            <Pressable
+              onPress={handleStart}
+              accessibilityRole="button"
+              accessibilityLabel="Start trip in Maps"
+              style={{ flex: 1 }}>
               {activated ? (
                 <View style={styles.tripActivatedBtn}>
-                  <MaterialIcons name="check" size={15} color="#34D399" />
+                  <MaterialIcons name="check" size={16} color="#34D399" />
                   <Text style={styles.tripActivatedText}>Trip Activated</Text>
                 </View>
               ) : (
                 <LinearGradient
-                  colors={[color, `${color}CC`]}
+                  colors={[color, `${color}B8`]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.tripStartBtn}>
-                  <MaterialIcons name="navigation" size={16} color={c.ink} />
+                  <MaterialIcons name="navigation" size={17} color={c.ink} />
                   <Text style={[styles.tripStartText, { color: c.ink }]}>Start Trip in Maps</Text>
                 </LinearGradient>
               )}
             </Pressable>
             <Pressable
               onPress={() => router.push(`/itinerary/${trip.id}` as never)}
-              style={[
-                styles.detailBtn,
-                { backgroundColor: glass(0.07), borderColor: glassBorder(0.1) },
+              accessibilityRole="button"
+              accessibilityLabel="Edit trip"
+              style={({ pressed }) => [
+                styles.editBtn,
+                {
+                  backgroundColor: glass(0.08),
+                  borderColor: glassBorder(0.14),
+                  opacity: pressed ? 0.88 : 1,
+                },
               ]}>
-              <MaterialIcons name="open-in-new" size={18} color={c.textSoft} />
+              <MaterialIcons name="edit" size={16} color={c.textSoft} />
+              <Text style={[styles.editBtnText, { color: c.textSoft }]}>Edit</Text>
             </Pressable>
-            <Pressable
-              onPress={handleCopy}
-              style={[
-                styles.clipboardBtn,
-                { backgroundColor: glass(0.07), borderColor: glassBorder(0.1) },
-              ]}>
-              <Moji name="clipboard" size={18} />
-            </Pressable>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       ) : null}
     </View>
   );
@@ -798,43 +799,55 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     padding: 12,
   },
-  tripCtaRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  tripCtaRow: { alignItems: 'stretch', flexDirection: 'row', gap: 8, marginTop: 16 },
   tripStartBtn: {
     alignItems: 'center',
-    borderRadius: 24,
+    borderRadius: 18,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
+    minHeight: 52,
+    paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  tripStartText: { fontSize: 14, fontWeight: '700' },
+  tripStartText: {
+    fontFamily: FontFamily.extraBold,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
   tripActivatedBtn: {
     alignItems: 'center',
     backgroundColor: 'rgba(52,211,153,0.14)',
     borderColor: 'rgba(52,211,153,0.28)',
-    borderRadius: 24,
+    borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
+    minHeight: 52,
     paddingVertical: 14,
   },
-  tripActivatedText: { color: '#34D399', fontSize: 14, fontWeight: '700' },
-  clipboardBtn: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
+  tripActivatedText: {
+    color: '#34D399',
+    fontFamily: FontFamily.bold,
+    fontSize: 15,
+    fontWeight: '700',
   },
-  detailBtn: {
+  editBtn: {
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    height: 48,
+    flexDirection: 'row',
+    gap: 6,
     justifyContent: 'center',
-    width: 48,
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  editBtnText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 14,
+    fontWeight: '600',
   },
   routeIcon: {
     alignItems: 'center',
