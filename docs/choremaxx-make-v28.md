@@ -58,7 +58,8 @@ Fifth slot = Switch (not Poppins). Glyph = N double-arrows:
 | **1.3.0 (100)** | `947a2fc` | Last submitted before this cut |
 | **1.3.0 (102)** failed | `a89fcd2` | App Groups on main app vs July provisioning profile |
 | **1.3.0 (103)** failed | `f3d98ca` | Swift: missing `return DynamicIsland` after `let` bindings |
-| **1.3.0 (104)** queued | `cursor/make-v28` @ `eddb881` | [fd001779](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/fd001779-377b-440f-a790-70e900299765); [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/2c3f2cfc-4f53-45db-817a-a25669905db2) |
+| **1.3.0 (104)** failed | `eddb881` | `ShoppingBannerStore` not in widget Compile Sources |
+| **1.3.0 (105)** queued | `cursor/make-v28` @ `935e2b7` | [65e403c8](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/65e403c8-02ae-4374-95a5-57558b184127); [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/61d5bd97-239e-4a90-ac0b-a3ed92560742) |
 
 Non-interactive EAS uses `EXPO_NO_CAPABILITY_SYNC=1`. Full Lock Screen shopping check-off sync needs App Groups on the main App ID + interactive profile refresh (`docs/testflight-setup.md`).
 
