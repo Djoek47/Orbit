@@ -14,7 +14,6 @@ import { SmartTripsIntro } from '@/components/orbit/trips/smart-trips-intro';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
-import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { Itinerary, ItineraryStop, ItineraryStopKind } from '@/types/orbit';
@@ -281,13 +280,11 @@ export function PlanTripsPanel({
 }) {
   const {
     accentTheme,
-    askPoppins,
     household,
     openFullItineraryInMaps,
     rerunItinerary,
     suggestPoppinsItinerary,
   } = useOrbit();
-  const poppinsLive = usePoppinsLive();
   const majordomoName = useMajordomoName();
   const { c, glass, glassBorder } = useOrbitColors();
   const [sectionLocal, setSectionLocal] = useState<TripsSection>('trips');
@@ -329,44 +326,15 @@ export function PlanTripsPanel({
     }
   };
 
-  /** Live AI: propose_plan → Activity / create-itinerary draft. Mock: heuristic itinerary. */
-  const runAskPoppins = async () => {
-    setBusy(true);
-    setAskHint('');
-    poppinsLive?.markThinking();
-    try {
-      const { useLivePoppinsAi } = await import('@/config/poppins-ai-mode');
-      if (useLivePoppinsAi) {
-        const dayLabel = selectedDateKey || 'this weekend';
-        const answer = await askPoppins(
-          `Propose a household plan for ${dayLabel}. Use propose_plan with a clear title, detail, and dayLabel — do not create the itinerary yourself.`
-        );
-        const planAction = answer.actions?.find((a) => a.kind === 'plan');
-        const draft = planAction?.data as
-          | { planTitle?: string; planDetail?: string; dayLabel?: string; title?: string; detail?: string }
-          | undefined;
-        if (planAction && draft) {
-          router.push({
-            pathname: '/create-itinerary',
-            params: {
-              title: String(draft.planTitle ?? draft.title ?? planAction.label ?? ''),
-              detail: String(draft.planDetail ?? draft.detail ?? planAction.detail ?? ''),
-              dayLabel: String(draft.dayLabel ?? dayLabel),
-            },
-          } as never);
-          return;
-        }
-        setAskHint(answer.answer || 'Poppins proposed ideas — check Activity for a Plan draft.');
-        return;
-      }
-      await runSuggest();
-    } catch {
-      setAskHint('Poppins could not propose a plan. Try Calendar bundle instead.');
-    } finally {
-      setBusy(false);
-      poppinsLive?.markIdle();
-    }
+  /**
+   * Ask Poppins about trips. It opens the Poppins tab — in whichever mode the household is on —
+   * with a trip question ready to send, rather than running a hidden request from this screen
+   * and leaving people on a page that looks unchanged.
+   */
+  const askPoppinsAboutTrips = () => {
+    router.push('/(tabs)/poppins?ask=trips' as never);
   };
+
 
   const handleStartTrip = async (trip: Itinerary) => {
     await openFullItineraryInMaps(trip.id);
@@ -457,7 +425,7 @@ export function PlanTripsPanel({
             <SmartTripsIntro
               majordomoName={majordomoName}
               busy={busy}
-              onAsk={() => void runAskPoppins()}
+              onAsk={askPoppinsAboutTrips}
               onCalendar={() => void runSuggest({ date: selectedDateKey })}
               onNew={() => router.push('/create-itinerary' as never)}
             />
@@ -506,7 +474,7 @@ export function PlanTripsPanel({
                   label={`Ask ${majordomoName}`}
                   accent={accentTheme.primary}
                   busy={busy}
-                  onPress={() => void runAskPoppins()}
+                  onPress={askPoppinsAboutTrips}
                 />
                 <ComposeChip
                   icon="event"

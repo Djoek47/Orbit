@@ -9,6 +9,7 @@ import { AppErrorBoundary } from '@/components/orbit/app-error-boundary';
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
+import { KeyboardDoneAccessory } from '@/components/orbit/keyboard-done-accessory';
 import { TourProvider } from '@/components/orbit/tour/tour-provider';
 import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
 import { useSessionEpoch } from '@/lib/navigation/session-epoch';
@@ -251,6 +252,8 @@ export default function RootLayout() {
                     options={{ presentation: 'modal', headerShown: false, title: 'Notification history' }}
                   />
                 </Stack>
+                {/* One Done bar for every multi-line field in the app. */}
+                <KeyboardDoneAccessory />
               </LayoutAnimationConfig>
             </OrbitNavTheme>
           </TourProvider>

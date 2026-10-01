@@ -13,8 +13,8 @@
  * with faces) grew past the body and drew under the dock, which sat on top of it and ate
  * every tap. It now scrolls inside the body and can never reach the dock.
  */
-import { Redirect, router, useFocusEffect } from 'expo-router';
-import { useCallback, type ComponentType } from 'react';
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, type ComponentType } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -61,6 +61,13 @@ function PoppinsRemoteAudio({ streamURL }: { streamURL: string | null }) {
   return <RTCView streamURL={streamURL} style={styles.remoteAudio} />;
 }
 
+/** What "Ask Poppins" means, per place it was tapped. */
+const POPPINS_ASK_OPENERS: Record<string, string> = {
+  trips: 'Plan a run for today — group my errands into one trip.',
+  plan: 'What does the house need today?',
+  groceries: 'What should I add to the shopping list?',
+};
+
 function PoppinsScreenInner() {
   const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
@@ -68,6 +75,19 @@ function PoppinsScreenInner() {
   const { orbitPalette } = useOrbit();
   const tour = useTourControls();
   const p = usePoppinsController();
+  // "Ask Poppins" elsewhere in the app lands here with a topic, so the tab opens ready to talk
+  // about that thing instead of a blank stage. Nothing is sent — the words are theirs to send.
+  const askParams = useLocalSearchParams<{ ask?: string }>();
+  const askedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const topic = typeof askParams.ask === 'string' ? askParams.ask : null;
+    if (!topic || askedRef.current === topic) return;
+    askedRef.current = topic;
+    const opener = POPPINS_ASK_OPENERS[topic];
+    if (!opener) return;
+    p.setThreadOpen(true);
+    p.setDraft(opener);
+  }, [askParams.ask, p]);
   // Typing mode is the chat being open — not just the keyboard being up. With the keyboard down
   // the old layout came straight back (mic, pills, full tab bar) and the thread was a sliver.
   // It gets its own layout: thread tall, orb and dock folded, tab bar down to its icons.

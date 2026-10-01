@@ -9,7 +9,7 @@
  * Data is OpenStreetMap via Overpass — the same source the nearby-store watcher uses.
  */
 import { haversineMeters } from '@/lib/places/geo-distance';
-import type { SavedPlaceKind } from '@/types/orbit';
+import type { PreferredStore, SavedPlaceKind } from '@/types/orbit';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const RADIUS_M = 3000;
@@ -182,4 +182,38 @@ export async function findNearbySuggestions(origin: {
     }
   }
   return [];
+}
+
+/**
+ * The same shops New trip lists, as suggestion cards.
+ *
+ * New trip and Add place asked two different services. New trip's answered; this one's often
+ * didn't, so Places sat on "Couldn't find places near home" while the trip screen listed eight
+ * stores from the same spot. When the richer search comes back empty, these fill in — and being
+ * ordinary suggestions, they save as places like any other.
+ */
+export function suggestionsFromStores(
+  stores: PreferredStore[],
+  origin: { lat: number; lng: number }
+): NearbySuggestion[] {
+  const out: NearbySuggestion[] = [];
+  for (const store of stores) {
+    const name = store.name?.trim();
+    if (!name || store.lat == null || store.lng == null) continue;
+    const distanceMeters =
+      store.distanceMeters ?? haversineMeters(origin.lat, origin.lng, store.lat, store.lng);
+    const kind: SavedPlaceKind = store.shopKind === 'clothing' ? 'clothing' : 'shop';
+    out.push({
+      id: store.id,
+      name,
+      address: store.address?.trim() || name,
+      kind,
+      emoji: store.shopKind === 'clothing' ? '👕' : '🛒',
+      lat: store.lat,
+      lng: store.lng,
+      distanceMeters,
+      detail: `${store.shopKind === 'clothing' ? 'Clothing' : 'Store'} · ${metersLabel(distanceMeters)}`,
+    });
+  }
+  return out.sort((a, b) => a.distanceMeters - b.distanceMeters);
 }

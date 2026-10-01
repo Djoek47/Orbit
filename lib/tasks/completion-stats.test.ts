@@ -10,6 +10,7 @@ import {
   familyOf,
   formatMinutes,
   minutesForTask,
+  savedMinutesForTask,
   niceMax,
 } from '@/lib/tasks/completion-stats';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
@@ -36,13 +37,29 @@ const done = (title: string, category: string, assignee: string, at: string, ext
     ...extra,
   }) as HouseholdTask;
 
-// Minutes and families.
+// Minutes and families. Every task gets a time; only some of it counts as saved.
 assert.equal(minutesForTask({ title: 'Unload the dishwasher', category: 'kitchen_dining' }), 10);
 assert.equal(minutesForTask({ title: 'Mow the lawn', category: 'yard_outdoors' }), 45);
-assert.equal(minutesForTask({ title: 'Wipe counters', category: 'kitchen_dining' }), 15);
-assert.equal(minutesForTask({ title: 'Brush teeth', category: 'personal_hygiene' }), 0, 'a child’s own routine saves nobody time');
-assert.equal(minutesForTask({ title: 'Math homework', category: 'homework_education' }), 0);
+assert.equal(minutesForTask({ title: 'Wipe counters', category: 'kitchen_dining' }), 10, 'named chores beat the category');
+assert.equal(minutesForTask({ title: 'Wash the windows', category: 'living_shared' }), 30);
+assert.equal(minutesForTask({ title: 'Clean the litter tray', category: 'pets' }), 15);
+assert.equal(minutesForTask({ title: 'Take the bins out', category: 'trash_recycling' }), 5);
+// A chore someone typed themselves still scores its category, then its family — never zero.
+assert.equal(minutesForTask({ title: 'Sort the garage', category: 'home_maintenance' }), 20);
 assert.equal(minutesForTask({ title: 'Something new', category: 'unknown_domain' }), 15);
+assert.equal(minutesForTask({ title: 'Tidy the shed', category: 'Trash' }), 5, 'falls back to the family');
+for (const category of [
+  'kitchen_dining', 'trash_recycling', 'bathroom', 'laundry', 'bedroom', 'living_shared',
+  'floors_deep_cleaning', 'pets', 'car', 'yard_outdoors', 'personal_hygiene', 'daily_routine',
+  'homework_education', 'meals_groceries', 'home_maintenance',
+]) {
+  assert.ok(minutesForTask({ title: 'A chore', category }) > 0, `${category} has a time`);
+}
+// Saved is the grown-up's share: a child's own work shows its time but saves nobody else any.
+assert.equal(savedMinutesForTask({ title: 'Brush teeth', category: 'personal_hygiene' }), 0);
+assert.equal(savedMinutesForTask({ title: 'Math homework', category: 'homework_education' }), 0);
+assert.ok(minutesForTask({ title: 'Math homework', category: 'homework_education' }) > 0, 'but it still took time');
+assert.equal(savedMinutesForTask({ title: 'Mow the lawn', category: 'yard_outdoors' }), 45);
 assert.equal(familyOf({ title: 'Take out the recycling', category: 'trash_recycling' }), 'trash');
 assert.equal(familyOf({ title: 'Do your homework', category: 'custom' }), 'homework');
 
@@ -83,7 +100,12 @@ assert.equal(week.totals.bySidekicks, 5);
 assert.equal(week.headline.kind, 'average');
 assert.equal(week.headline.tasks, 8 / 7);
 assert.equal(week.span, 'Sep 20 – 26, 2026');
-assert.deepEqual(week.byFamily[0], { family: 'kitchen', tasks: 4, minutesSaved: 20 });
+assert.deepEqual(week.byFamily[0], {
+  family: 'kitchen',
+  tasks: 4,
+  minutesSaved: 20,
+  effortMinutes: 40,
+});
 
 // Day: today only, hourly
 const day = computeBreakdown(events, 'D', NOW);
@@ -122,5 +144,12 @@ assert.equal(niceMax(7), 8);
 assert.equal(niceMax(12), 20);
 assert.equal(niceMax(230), 300);
 assert.equal(bucketsFor('6M', NOW).length, 26);
+
+// Every family row carries an effort time, even where nothing was saved.
+for (const row of year.byFamily) {
+  assert.ok(row.effortMinutes > 0, `${row.family} shows a time, not 0m`);
+  assert.ok(row.effortMinutes >= row.minutesSaved, `${row.family}: saved is part of the effort`);
+}
+assert.ok(year.totals.effortMinutes >= year.totals.minutesSaved);
 
 console.log('completion-stats: ok');
