@@ -27,6 +27,7 @@ import { RewardVaultCard } from '@/components/orbit/reward-vault-card';
 import type { IconName } from '@/components/orbit/design/icons';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   isAvatarImageUri,
   memberDisplayEmoji,
@@ -536,7 +537,7 @@ export default function RewardsScreen() {
       const gate = canRequestReward(currentMember.name, household.tasks);
       if (!gate.allowed) {
         const copy = blockedRequestCopy(gate);
-        Alert.alert(copy.title, [copy.body, '', ...copy.lines].filter(Boolean).join('\n'), [
+        orbitAlert(copy.title, [copy.body, '', ...copy.lines].filter(Boolean).join('\n'), [
           { text: 'Cancel', style: 'cancel' },
           {
             text: copy.cta,
@@ -554,17 +555,17 @@ export default function RewardsScreen() {
     try {
       const result = await claimReward(rewardId);
       if (!result) {
-        Alert.alert('Couldn’t claim', 'Try again in a moment.');
+        orbitAlert('Couldn’t claim', 'Try again in a moment.');
         return;
       }
       if (result === 'requested') {
-        Alert.alert(
+        orbitAlert(
           'Request sent',
           'An admin was notified. You’ll hear back when it’s approved.'
         );
       }
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Not just yet',
         error instanceof Error ? error.message : "Finish today's tasks and homework to ask for a reward."
       );
@@ -587,7 +588,7 @@ export default function RewardsScreen() {
       const gate = canRequestReward(currentMember.name, household.tasks);
       if (!gate.allowed) {
         const copy = blockedRequestCopy(gate);
-        Alert.alert(copy.title, [copy.body, '', ...copy.lines].filter(Boolean).join('\n'), [
+        orbitAlert(copy.title, [copy.body, '', ...copy.lines].filter(Boolean).join('\n'), [
           { text: 'Cancel', style: 'cancel' },
           {
             text: copy.cta,
@@ -603,13 +604,13 @@ export default function RewardsScreen() {
     }
     const ceiling = recordedBalanceFor(currentMember?.id);
     if (ceiling <= 0) {
-      Alert.alert('Not just yet', "Finish today's tasks and homework first.");
+      orbitAlert('Not just yet', "Finish today's tasks and homework first.");
       return;
     }
     const steps = [1, 2, 5, 10, 20, 50].filter((n) => n < ceiling);
     const choices = [...steps, Math.round(ceiling * 100) / 100];
     const unique = [...new Set(choices.map((n) => Number(n.toFixed(2))))];
-    Alert.alert(
+    orbitAlert(
       'Ask for an amount',
       `Up to ${formatMoney(ceiling, allowanceCurrency)}.`,
       [
@@ -623,7 +624,7 @@ export default function RewardsScreen() {
             })
               .then((grant) => {
                 if (grant) {
-                  Alert.alert('Requested', 'An admin will review it. Nothing moves until they approve.');
+                  orbitAlert('Requested', 'An admin will review it. Nothing moves until they approve.');
                 }
               })
               .finally(() => setAllowanceBusy(false));
@@ -821,7 +822,7 @@ export default function RewardsScreen() {
                     onArchive={
                       isAdmin
                         ? () => {
-                            Alert.alert(
+                            orbitAlert(
                               'Remove reward?',
                               `“${reward.title}” will leave the catalogue.`,
                               [

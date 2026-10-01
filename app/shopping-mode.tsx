@@ -5,6 +5,7 @@
 
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   AccessibilityInfo,
   Alert,
@@ -205,7 +206,7 @@ export default function ShoppingModeScreen() {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       }
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Could not add item',
         error instanceof Error ? error.message : 'Try again.'
       );

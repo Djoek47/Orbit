@@ -2,7 +2,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { AccessibilityInfo, Alert, Pressable, RefreshControl, StyleSheet, View, type ScrollView } from 'react-native';
+import { AccessibilityInfo, Pressable, RefreshControl, StyleSheet, View, type ScrollView } from 'react-native';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import Animated, {
   Easing,
   FadeInDown,
@@ -607,7 +608,7 @@ function TaskItem({
                 icon: 'delete-outline' as const,
                 destructive: true,
                 onPress: () => {
-                  Alert.alert('Delete task', `Remove “${task.title}”?`, [
+                  orbitAlert('Delete task', `Remove “${task.title}”?`, [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Delete', style: 'destructive', onPress: onDelete },
                   ]);
@@ -1063,7 +1064,7 @@ export default function TasksScreen() {
       return;
     }
     if (!currentMember || !taskMatchesAssignee(task, currentMember.name)) {
-      Alert.alert(
+      orbitAlert(
         'Only they can finish it',
         `${task.assignee} marks “${task.title}” done from their own profile.`
       );
@@ -1081,7 +1082,7 @@ export default function TasksScreen() {
         if (result?.needsProof) {
           router.push({ pathname: '/task/[id]', params: { id: task.id, proof: '1' } } as never);
         } else if (!result) {
-          Alert.alert('Could not complete', 'Try again or open the task for details.');
+          orbitAlert('Could not complete', 'Try again or open the task for details.');
         }
         return;
       }
@@ -1093,12 +1094,12 @@ export default function TasksScreen() {
       if (result?.needsProof) {
         router.push({ pathname: '/task/[id]', params: { id: task.id, proof: '1' } } as never);
       } else if (!result) {
-        Alert.alert('Could not complete', 'Try again or open the task for details.');
+        orbitAlert('Could not complete', 'Try again or open the task for details.');
       }
     } catch (error) {
       setJustCompletedId(null);
       console.warn('handleToggle', error);
-      Alert.alert(
+      orbitAlert(
         'Could not complete',
         error instanceof Error ? error.message : 'Something went wrong. Pull to refresh and try again.'
       );
@@ -1503,12 +1504,12 @@ export default function TasksScreen() {
         try {
           await requestAnotherProof(proofRequestTask.id, note);
           setProofRequestId(null);
-          Alert.alert(
+          orbitAlert(
             'Photo requested',
             `${proofRequestAssignee?.name ?? 'Your Sidekick'} will get a notification to add a picture.`
           );
         } catch (error) {
-          Alert.alert(
+          orbitAlert(
             'Couldn’t request a photo',
             error instanceof Error ? error.message : 'Try again in a moment.'
           );
@@ -1529,9 +1530,9 @@ export default function TasksScreen() {
         try {
           await submitProofReply(proofReplyTask.id, input);
           setProofReplyId(null);
-          Alert.alert('Photo sent', 'A grown-up was notified to look at it.');
+          orbitAlert('Photo sent', 'A grown-up was notified to look at it.');
         } catch (error) {
-          Alert.alert(
+          orbitAlert(
             'Couldn’t send the photo',
             error instanceof Error ? error.message : 'Try again.'
           );

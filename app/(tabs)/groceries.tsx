@@ -22,6 +22,7 @@ import { typography } from '@/constants/orbit-theme';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
 import { getCatalogProduct, iconForGroceryName } from '@/lib/grocery/catalog';
 import { searchCatalog } from '@/lib/grocery/search-index';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   listBuyAgainProducts,
   listComplementSuggestions,
@@ -127,7 +128,7 @@ export default function GroceriesScreen() {
       setDraft('');
       inputRef.current?.focus();
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Could not add item',
         error instanceof Error ? error.message : 'Try again.'
       );
@@ -166,19 +167,19 @@ export default function GroceriesScreen() {
 
   const openMenu = () => {
     if (!isAdmin) {
-      Alert.alert('Admins only', 'Only a grown-up can clear the list.');
+      orbitAlert('Admins only', 'Only a grown-up can clear the list.');
       return;
     }
-    Alert.alert('Groceries', undefined, [
+    orbitAlert('Groceries', undefined, [
       {
         text: 'Clear checked',
         onPress: () => {
           const purchased = household.groceries.filter((g) => g.status === 'Purchased');
           if (!purchased.length) {
-            Alert.alert('Nothing checked', 'Check items off first.');
+            orbitAlert('Nothing checked', 'Check items off first.');
             return;
           }
-          Alert.alert('Clear checked?', `Remove ${purchased.length} checked item(s).`, [
+          orbitAlert('Clear checked?', `Remove ${purchased.length} checked item(s).`, [
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Clear',
@@ -192,7 +193,7 @@ export default function GroceriesScreen() {
         text: 'Clear list',
         style: 'destructive',
         onPress: () => {
-          Alert.alert('Clear entire list?', 'This removes every item on the list.', [
+          orbitAlert('Clear entire list?', 'This removes every item on the list.', [
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Clear list',

@@ -20,6 +20,7 @@ import { iconForGroceryName } from '@/lib/grocery/catalog';
 import { listGroceryCategories } from '@/lib/grocery/classify';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { GroceryItem } from '@/types/orbit';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 type Props = {
   item: GroceryItem | null;
@@ -52,7 +53,7 @@ function Editor({ item, accent, canEdit, onClose, onSave, onCategory, onRemove }
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      Alert.alert('Name it first', 'An item needs a name.');
+      orbitAlert('Name it first', 'An item needs a name.');
       return;
     }
     await onSave({ name: trimmed, quantity: quantity.trim() || '1' });
@@ -60,7 +61,7 @@ function Editor({ item, accent, canEdit, onClose, onSave, onCategory, onRemove }
   };
 
   const remove = () => {
-    Alert.alert('Remove item?', `"${item.name}" comes off the list.`, [
+    orbitAlert('Remove item?', `"${item.name}" comes off the list.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',

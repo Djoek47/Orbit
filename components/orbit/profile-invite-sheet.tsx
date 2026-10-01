@@ -15,6 +15,7 @@ import { buildInviteLinks } from '@/lib/invites/parse-invite';
 import { shareInvite } from '@/lib/invites/share-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 type Props = {
   visible: boolean;
@@ -89,7 +90,7 @@ export function ProfileInviteSheet({ visible, member, householdName, onClose }: 
         <Pressable
           onPress={() => {
             void Clipboard.setStringAsync(links.code);
-            Alert.alert('Copied', 'Invite code copied.');
+            orbitAlert('Copied', 'Invite code copied.');
           }}
           style={[styles.copyRow, { backgroundColor: glass(0.04) }]}
           hitSlop={6}>

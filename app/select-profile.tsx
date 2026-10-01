@@ -12,6 +12,7 @@ import { SidekickUnlockSplash } from '@/components/orbit/sidekick-unlock-splash'
 import { getAccentTheme } from '@/constants/accent-themes';
 import { space } from '@/constants/orbit-theme';
 import { isPersonalSidekickDevice } from '@/lib/device/device-host';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   clearDeviceSession,
   loadDeviceSession,
@@ -117,7 +118,7 @@ export default function SelectProfileScreen() {
   };
 
   const handleRemove = (member: HouseholdMember) => {
-    Alert.alert(`Remove ${member.name}?`, 'They can be added again with their profile QR.', [
+    orbitAlert(`Remove ${member.name}?`, 'They can be added again with their profile QR.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -196,7 +197,7 @@ export default function SelectProfileScreen() {
         {__DEV__ ? (
           <Pressable
             onPress={() => {
-              Alert.alert(
+              orbitAlert(
                 'DEV · leave shared tablet?',
                 'Clears this device binding so you can sign back in as admin.',
                 [

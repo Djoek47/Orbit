@@ -23,6 +23,7 @@ import { buildPickupSummary } from '@/lib/places/pickup-summary';
 import { placeUsedForSubtitle } from '@/lib/places/place-used-for';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { PreferredMapsApp } from '@/lib/theme/appearance-prefs';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   findNearbyStores,
   getCurrentCoords,
@@ -338,7 +339,7 @@ export default function PlacesScreen() {
     try {
       const coords = await getCurrentCoords();
       if (!coords) {
-        Alert.alert('Location needed', 'Allow location access to fill this place from where you are.');
+        orbitAlert('Location needed', 'Allow location access to fill this place from where you are.');
         return;
       }
       const address = await reverseGeocodeLabel(coords.lat, coords.lng);
@@ -367,7 +368,7 @@ export default function PlacesScreen() {
       editor.name.trim() ||
       (editor.kind === 'home' ? 'Home' : editor.kind === 'work' ? 'Work' : 'Place');
     if (!address) {
-      Alert.alert('Add an address', 'Enter a street address or use your current location.');
+      orbitAlert('Add an address', 'Enter a street address or use your current location.');
       return;
     }
     upsertSavedPlace({
@@ -388,7 +389,7 @@ export default function PlacesScreen() {
   const clearOrDelete = (place: SavedPlace | undefined, kind: 'home' | 'work' | 'extra') => {
     if (!place) return;
     const label = kind === 'extra' ? 'Remove this place?' : `Clear ${place.name}?`;
-    Alert.alert(label, 'Trips and near-shop alerts will stop using it.', [
+    orbitAlert(label, 'Trips and near-shop alerts will stop using it.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: kind === 'extra' ? 'Remove' : 'Clear',

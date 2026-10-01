@@ -9,6 +9,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { classifyGroceryItem } from '@/lib/grocery/classify';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 /** Revision C §4.2 — type it, it files itself. No category/location pickers. */
 export default function AddGroceryScreen() {
@@ -23,7 +24,7 @@ export default function AddGroceryScreen() {
 
   async function onSave() {
     if (!name.trim()) {
-      Alert.alert('Name required', 'What should we add to the list?');
+      orbitAlert('Name required', 'What should we add to the list?');
       return;
     }
     setBusy(true);
@@ -32,7 +33,7 @@ export default function AddGroceryScreen() {
       setName('');
       inputRef.current?.focus?.();
     } catch (error) {
-      Alert.alert('Could not add item', error instanceof Error ? error.message : 'Try again.');
+      orbitAlert('Could not add item', error instanceof Error ? error.message : 'Try again.');
     } finally {
       setBusy(false);
     }

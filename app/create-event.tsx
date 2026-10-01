@@ -25,6 +25,7 @@ import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent, HouseholdMember, SavedPlace } from '@/types/orbit';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 const CATEGORIES: HouseholdEvent['category'][] = ['School', 'Activity', 'Appointment', 'Family'];
 const TIME_CHIPS = ['08:00', '09:00', '12:00', '15:30', '16:00', '17:30', '18:00'];
@@ -274,7 +275,7 @@ export default function CreateEventScreen() {
         remindMe: !simplified && remindMe,
       });
       if (created?.approvalStatus === 'pending') {
-        Alert.alert(
+        orbitAlert(
           'Sent for approval',
           'A parent will review this before it shows for everyone.',
           [{ text: 'OK', onPress: () => router.back() }]
@@ -283,7 +284,7 @@ export default function CreateEventScreen() {
       }
       router.back();
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Could not add event',
         error instanceof Error ? error.message : 'Try again.'
       );

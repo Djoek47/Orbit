@@ -19,6 +19,7 @@ import type { IconName } from '@/components/orbit/design/icons';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   CHOREMAXX_TASK_LIBRARY,
   DEFAULT_QUICK_PRESET_IDS,
@@ -784,7 +785,7 @@ export default function CreateTaskScreen() {
         childMembers.some((m) => m.name === name)
       );
       if (kidNames.length === 0) {
-        Alert.alert('Homework is for kids', 'Pick a child to assign this homework.');
+        orbitAlert('Homework is for kids', 'Pick a child to assign this homework.');
         return;
       }
       const occurrenceDate = occurrenceDateForDueLabel(due);
@@ -833,7 +834,7 @@ export default function CreateTaskScreen() {
   const assignFromPicker = async () => {
     if (!permissions.canAssignTask || pickerIds.length === 0) return;
     if (resolvedAssigneeNames.length === 0) {
-      Alert.alert('Pick someone', 'Choose who should do these tasks before assigning.');
+      orbitAlert('Pick someone', 'Choose who should do these tasks before assigning.');
       return;
     }
     const library = allLibraryTasks();
@@ -889,7 +890,7 @@ export default function CreateTaskScreen() {
     }
 
     if (createdCount === 0) {
-      Alert.alert(
+      orbitAlert(
         'Nothing assigned',
         lastError
           ? `Could not save tasks: ${lastError}`
@@ -900,7 +901,7 @@ export default function CreateTaskScreen() {
       return;
     }
 
-    Alert.alert(
+    orbitAlert(
       'Assigned',
       createdCount === 1
         ? `1 task assigned to ${resolvedAssigneeName}.`

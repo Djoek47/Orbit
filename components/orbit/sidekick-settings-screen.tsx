@@ -23,6 +23,7 @@ import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 /**
  * Settings for everyone who isn't an admin — one screen, three shapes.
@@ -183,7 +184,7 @@ export function SidekickSettingsScreen() {
               label="Privacy & legal"
               last
               onPress={() =>
-                Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
+                orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
                   {
                     text: 'Privacy Policy',
                     onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
@@ -207,7 +208,7 @@ export function SidekickSettingsScreen() {
             accessibilityLabel={model.signOut.label}
             style={[styles.signOutBtn, { backgroundColor: glass(0.06) }]}
             onPress={() => {
-              Alert.alert(
+              orbitAlert(
                 model.signOut.title,
                 model.signOut.body,
                 [

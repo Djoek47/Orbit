@@ -27,6 +27,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
 import { typography } from '@/constants/orbit-theme';
 import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   formatResetDate,
   spendsFrom,
@@ -113,7 +114,7 @@ function PoppinsCreditsScreenInner() {
 
   const buy = useCallback(
     (pack: TopUpPack) => {
-      Alert.alert(
+      orbitAlert(
         `${pack.label} · ${formatPrice(pack.priceUsd)}`,
         'This is a test purchase. No card is charged and no money moves — the actions and the receipt are real so the whole flow can be checked.',
         [
@@ -143,7 +144,7 @@ function PoppinsCreditsScreenInner() {
                   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   setOpenReceipt(receipt);
                 } catch (error) {
-                  Alert.alert("That didn't go through", String(error));
+                  orbitAlert("That didn't go through", String(error));
                 } finally {
                   setBuying(null);
                 }

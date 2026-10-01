@@ -15,6 +15,7 @@ import { orbitScreen, space, typography } from '@/constants/orbit-theme';
 import { VOCAB } from '@/constants/vocabulary';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import { isMemberFullyConnected } from '@/lib/household/member-connection';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   REWARD_FREQUENCY_LABELS,
   REWARD_PRESETS,
@@ -174,7 +175,7 @@ export default function CreateRewardScreen() {
 
   const handleRemove = () => {
     if (!existing) return;
-    Alert.alert('Remove reward?', `“${existing.title}” will leave the catalogue.`, [
+    orbitAlert('Remove reward?', `“${existing.title}” will leave the catalogue.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',

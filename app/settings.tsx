@@ -3,9 +3,10 @@ import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
+import {  AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
@@ -32,10 +33,8 @@ import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { BUILD_INFO } from '@/constants/build-info';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import {
-  clearLastAppError,
-  loadLastAppError,
-  type LastAppError,
-} from '@/lib/errors/last-error';
+  loadErrorLog,
+} from '@/lib/errors/error-log';
 import { VOCAB } from '@/constants/vocabulary';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
@@ -292,7 +291,7 @@ export default function SettingsScreen() {
   const [poppinsPrefs, setPoppinsPrefs] = useState<PoppinsInteractionPrefs>(
     DEFAULT_POPPINS_INTERACTION_PREFS
   );
-  const [lastAppError, setLastAppError] = useState<LastAppError | null>(null);
+  const [errorCount, setErrorCount] = useState(0);
   const poppinsPrefsReadOnly = !permissions.canManageHousehold;
 
   useEffect(() => {
@@ -344,8 +343,14 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     if (section !== 'main') return;
-    void loadLastAppError().then(setLastAppError);
+    void loadErrorLog().then((entries) => setErrorCount(entries.length));
   }, [section]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadErrorLog().then((entries) => setErrorCount(entries.length));
+    }, [])
+  );
 
   useEffect(() => {
     if (section !== 'notifications') return;
@@ -363,7 +368,7 @@ export default function SettingsScreen() {
   const openAppleNotificationSettings = useCallback(async () => {
     const opened = await openSystemNotificationSettings();
     if (!opened) {
-      Alert.alert(
+      orbitAlert(
         'Could not open Settings',
         'Open Settings → Notifications → ChoreMaxx to change banners and alerts.'
       );
@@ -391,7 +396,7 @@ export default function SettingsScreen() {
         profileInviteCode: sidekickSession?.profileInviteCode,
       });
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Notifications',
         error instanceof Error ? error.message : 'Could not update notification settings.'
       );
@@ -759,7 +764,7 @@ export default function SettingsScreen() {
                     currentMember,
                   });
                   const chapters = chaptersForTour(tid);
-                  Alert.alert(
+                  orbitAlert(
                     'Replay a part',
                     'Pick a chapter to replay.',
                     [
@@ -782,48 +787,18 @@ export default function SettingsScreen() {
                 </>
               ) : null}
               <SettingsNavRow
-                icon="bug-report"
-                iconColor="#F87171"
-                label="Last error"
+                icon="support-agent"
+                iconColor="#FF8A3D"
+                label="Support"
                 subtitle={
-                  lastAppError
-                    ? `${lastAppError.at.slice(0, 19)} · ${lastAppError.message.slice(0, 72)}`
-                    : 'None saved'
+                  errorCount > 0
+                    ? `${errorCount} saved error${errorCount === 1 ? '' : 's'} · feedback`
+                    : 'Feedback, errors, and help'
                 }
                 last
-                onPress={() => {
-                  if (!lastAppError) {
-                    Alert.alert('Last error', 'No crash details saved yet.');
-                    return;
-                  }
-                  const body = [
-                    lastAppError.message,
-                    `At: ${lastAppError.at}`,
-                    lastAppError.stack ?? '',
-                    lastAppError.componentStack ?? '',
-                  ]
-                    .filter(Boolean)
-                    .join('\n\n');
-                  Alert.alert('Last error', lastAppError.message.slice(0, 280), [
-                    {
-                      text: 'Copy',
-                      onPress: () => {
-                        void Clipboard.setStringAsync(body);
-                      },
-                    },
-                    {
-                      text: 'Clear',
-                      style: 'destructive',
-                      onPress: () => {
-                        void clearLastAppError().then(() => setLastAppError(null));
-                      },
-                    },
-                    { text: 'OK', style: 'cancel' },
-                  ]);
-                }}
+                onPress={() => router.push('/support' as never)}
               />
             </SettingsGroup>
-
 <SettingsGroup header="Choremaxx">
               <SettingsNavRow
                 icon="workspace-premium"
@@ -838,7 +813,7 @@ export default function SettingsScreen() {
                 label="Privacy & legal"
                 last
                 onPress={() =>
-                  Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
+                  orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
                     {
                       text: 'Privacy Policy',
                       onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
@@ -1032,7 +1007,7 @@ export default function SettingsScreen() {
             onRewardMode={(mode) => updateHouseholdRewardSettings({ rewardMode: mode })}
             onHygiene={(rewarded) => {
               if (rewarded) {
-                Alert.alert(
+                orbitAlert(
                   'Reward hygiene tasks?',
                   'Brushing teeth and similar tasks will start earning XP. Streaks keep working either way.',
                   [
@@ -1190,7 +1165,7 @@ export default function SettingsScreen() {
                   void restorePurchases()
                     .then((next) => {
                       setEntitlement(next);
-                      Alert.alert('Restore', premiumCopy(next));
+                      orbitAlert('Restore', premiumCopy(next));
                     })
                     .finally(() => setBillingBusy(false));
                 }}>

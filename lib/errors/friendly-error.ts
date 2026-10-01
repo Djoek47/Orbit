@@ -1,0 +1,49 @@
+/**
+ * Friendly copy for technical / edge-function errors shown in Orbit alerts.
+ * Raw text is still saved in the error log for Support.
+ */
+export function friendlyErrorMessage(raw: string | null | undefined): string {
+  const text = (raw ?? '').trim();
+  if (!text) return 'Something went wrong. Try again in a moment.';
+
+  const lower = text.toLowerCase();
+  if (lower.includes('proof_uri_required') || lower.includes('proof uri')) {
+    return 'The photo didn’t attach. Take or pick it again, then send.';
+  }
+  if (lower.includes('proof_upload_failed') || lower.includes('proof_bucket')) {
+    return 'Couldn’t upload the photo. Check your connection and try again.';
+  }
+  if (lower.includes('proof_decode') || lower.includes('could not read the photo')) {
+    return 'That photo couldn’t be read. Try another shot.';
+  }
+  if (
+    lower.includes('non-2xx') ||
+    lower.includes('edge function') ||
+    lower.includes('functions.httperror')
+  ) {
+    return 'Couldn’t reach Choremaxx just now. Check your connection and try again.';
+  }
+  if (lower.includes('network') || lower.includes('failed to fetch')) {
+    return 'You’re offline or the connection dropped. Try again when you’re back online.';
+  }
+  // Already human-readable short messages — keep them.
+  if (text.length <= 160 && !/[_:]{2,}|\berror\b/i.test(text) && !/^[a-z0-9_]+$/i.test(text)) {
+    return text;
+  }
+  if (/^[a-z][a-z0-9_]+$/i.test(text)) {
+    return 'Something went wrong. Details are saved under Settings → Support.';
+  }
+  return text.length > 220 ? `${text.slice(0, 200).trim()}…` : text;
+}
+
+export function looksLikeErrorAlert(title: string, message?: string): boolean {
+  const blob = `${title} ${message ?? ''}`.toLowerCase();
+  return (
+    blob.includes('could not') ||
+    blob.includes('couldn’t') ||
+    blob.includes('failed') ||
+    blob.includes('error') ||
+    blob.includes('went wrong') ||
+    blob.includes('try again')
+  );
+}

@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   ActivityIndicator,
   Alert,
@@ -236,10 +237,10 @@ export default function TaskDetailScreen() {
         }
         return;
       }
-      Alert.alert('Could not complete', 'This task may already be done or not assigned to you.');
+      orbitAlert('Could not complete', 'This task may already be done or not assigned to you.');
     } catch (error) {
       console.warn('handleComplete', error);
-      Alert.alert(
+      orbitAlert(
         'Could not complete',
         error instanceof Error ? error.message : 'Something went wrong. Pull to refresh and try again.'
       );
@@ -250,7 +251,7 @@ export default function TaskDetailScreen() {
     setProofBusy(true);
     try {
       const ok = await confirmVerification(task.id);
-      if (ok) Alert.alert('Confirmed', 'Verification saved for this completion.');
+      if (ok) orbitAlert('Confirmed', 'Verification saved for this completion.');
     } finally {
       setProofBusy(false);
     }
@@ -271,7 +272,7 @@ export default function TaskDetailScreen() {
     task.proofStatus !== 'approved';
 
   const handleMarkNotDone = () => {
-    Alert.alert('Mark not done?', 'This reverses the XP awarded for this completion.', [
+    orbitAlert('Mark not done?', 'This reverses the XP awarded for this completion.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Mark not done',
@@ -286,7 +287,7 @@ export default function TaskDetailScreen() {
                 error instanceof Error && error.message
                   ? error.message
                   : 'Try again in a moment.';
-              Alert.alert('Couldn’t undo', detail);
+              orbitAlert('Couldn’t undo', detail);
             } finally {
               setProofBusy(false);
             }
@@ -306,7 +307,7 @@ export default function TaskDetailScreen() {
     const streak = assigneeMember.streak ?? 0;
     const streakNote =
       streak >= 2 ? ` Their ${streak}-day streak is at risk if this stays open.` : '';
-    Alert.alert(
+    orbitAlert(
       'Send reminder?',
       `${majordomoName} will notify ${assigneeMember.name} about “${task.title}”.${streakNote}`,
       [
@@ -319,7 +320,7 @@ export default function TaskDetailScreen() {
               try {
                 const ok = await sendTaskReminder(task.id, assigneeMember.id);
                 if (ok) {
-                  Alert.alert('Reminder sent', `${assigneeMember.name} was notified.`);
+                  orbitAlert('Reminder sent', `${assigneeMember.name} was notified.`);
                 }
               } finally {
                 setReminderBusy(false);
@@ -333,7 +334,7 @@ export default function TaskDetailScreen() {
 
   const handlePenalize = (name: string) => {
     const dock = splitPenaltyAmount(task);
-    Alert.alert(
+    orbitAlert(
       'Penalize for not finishing?',
       `Dock ${name} ${dock} XP for not completing their share of “${task.title}”?`,
       [
@@ -344,7 +345,7 @@ export default function TaskDetailScreen() {
           onPress: () => {
             void penalizeSplitAssignee(task.id, name).then((amount) => {
               if (amount != null) {
-                Alert.alert('Penalty applied', `${name} lost ${amount} XP.`);
+                orbitAlert('Penalty applied', `${name} lost ${amount} XP.`);
               }
             });
           },
@@ -367,7 +368,7 @@ export default function TaskDetailScreen() {
       });
       setEditing(false);
     } catch {
-      Alert.alert('Couldn’t save', 'Try again in a moment.');
+      orbitAlert('Couldn’t save', 'Try again in a moment.');
     } finally {
       setBusy(false);
     }
@@ -384,13 +385,13 @@ export default function TaskDetailScreen() {
         await updateTask({ ...task, repeat: next });
         setRepeatOpen(false);
       } catch {
-        Alert.alert('Couldn’t save', 'Try again in a moment.');
+        orbitAlert('Couldn’t save', 'Try again in a moment.');
       } finally {
         setBusy(false);
       }
     };
     if (next === 'None' && task.repeat !== 'None') {
-      Alert.alert(
+      orbitAlert(
         'Stop repeating?',
         'Today stays on the list. Nothing new will be added after this.',
         [
@@ -413,7 +414,7 @@ export default function TaskDetailScreen() {
       await updateTask({ ...task, assignee: name });
       setWhoOpen(false);
     } catch {
-      Alert.alert('Couldn’t save', 'Try again in a moment.');
+      orbitAlert('Couldn’t save', 'Try again in a moment.');
     } finally {
       setBusy(false);
     }
@@ -427,13 +428,13 @@ export default function TaskDetailScreen() {
     } catch (error) {
       const raw = error instanceof Error ? error.message : '';
       const detail = raw.replace(/^taskRepository\.[^:]+:\s*/, '').trim() || 'Try again in a moment.';
-      Alert.alert('Couldn’t skip', detail);
+      orbitAlert('Couldn’t skip', detail);
       setBusy(false);
     }
   };
 
   const confirmDelete = () => {
-    Alert.alert('Delete task', 'Remove this task from the household list?', [
+    orbitAlert('Delete task', 'Remove this task from the household list?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -709,7 +710,7 @@ export default function TaskDetailScreen() {
                       <Pressable
                         key={`reassign-${name}`}
                         onPress={() => {
-                          Alert.alert(
+                          orbitAlert(
                             'Reassign task',
                             `Move “${task.title}” to ${name}? ${task.assignee} will not earn XP for it.`,
                             [
@@ -1118,12 +1119,12 @@ export default function TaskDetailScreen() {
           try {
             await requestAnotherProof(task.id, note);
             setRequestSheetOpen(false);
-            Alert.alert(
+            orbitAlert(
               'Proof requested',
               `${assigneeMember?.name ?? 'Your Sidekick'} will get a notification to add a picture.`
             );
           } catch (error) {
-            Alert.alert(
+            orbitAlert(
               'Couldn’t request proof',
               error instanceof Error ? error.message : 'Try again in a moment.'
             );
@@ -1155,9 +1156,9 @@ export default function TaskDetailScreen() {
               await submitProofReply(task.id, input);
             }
             setReplySheetOpen(false);
-            Alert.alert('Photo sent', 'A grown-up was notified to look at it.');
+            orbitAlert('Photo sent', 'A grown-up was notified to look at it.');
           } catch (error) {
-            Alert.alert(
+            orbitAlert(
               'Could not send proof',
               error instanceof Error ? error.message : 'Try again.'
             );

@@ -18,6 +18,7 @@ import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   pickTourPracticeAssignee,
   pickTourPracticeLibraryTask,
@@ -285,7 +286,7 @@ export default function AssignTaskScreen() {
         else failed.push(item.task.name);
       }
       if (created === 0) {
-        Alert.alert(
+        orbitAlert(
           'Could not assign',
           failed.length
             ? `Could not save ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}. Try again.`
@@ -295,7 +296,7 @@ export default function AssignTaskScreen() {
       }
       router.back();
     } catch (error) {
-      Alert.alert('Could not assign', assignErrorMessage(error));
+      orbitAlert('Could not assign', assignErrorMessage(error));
     } finally {
       setBusy(false);
     }

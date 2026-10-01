@@ -11,6 +11,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   activeInviteForMember,
   buildMemberInviteDeepLink,
@@ -76,7 +77,7 @@ export function MemberInviteSheet({
   };
 
   const regenerate = () => {
-    Alert.alert('Generate a new code', 'The old code will stop working.', [
+    orbitAlert('Generate a new code', 'The old code will stop working.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Generate',
@@ -153,7 +154,7 @@ export function MemberInviteSheet({
           <Pressable
             onPress={() => {
               void Clipboard.setStringAsync(displayLink);
-              Alert.alert('Copied', 'Invite link copied.');
+              orbitAlert('Copied', 'Invite link copied.');
             }}
             style={[styles.copyRow, { backgroundColor: glass(0.04) }]}
             hitSlop={6}>

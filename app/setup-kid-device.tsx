@@ -9,6 +9,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   Alert,
   Dimensions,
@@ -319,7 +320,7 @@ export default function SetupKidDeviceScreen() {
   };
 
   const useAsPersonalPhone = () => {
-    Alert.alert('Use as a personal phone?', 'This device will stop asking who is using it.', [
+    orbitAlert('Use as a personal phone?', 'This device will stop asking who is using it.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Use as personal',
@@ -539,7 +540,7 @@ export default function SetupKidDeviceScreen() {
             <Pressable
               onPress={() => {
                 void Clipboard.setStringAsync(inviteLink);
-                Alert.alert('Copied', 'Shared-device invite link copied.');
+                orbitAlert('Copied', 'Shared-device invite link copied.');
               }}
               style={styles.copyRow}
               accessibilityRole="button">

@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -160,7 +161,7 @@ export default function EventDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete event', `Remove “${event.title}” from the household calendar?`, [
+    orbitAlert('Delete event', `Remove “${event.title}” from the household calendar?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -295,7 +296,7 @@ export default function EventDetailScreen() {
               tone="secondary"
               disabled={approveBusy}
               onPress={() =>
-                Alert.alert('Decline event', `Remove “${event.title}” from the calendar?`, [
+                orbitAlert('Decline event', `Remove “${event.title}” from the calendar?`, [
                   { text: 'Cancel', style: 'cancel' },
                   {
                     text: 'Decline',

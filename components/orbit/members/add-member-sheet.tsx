@@ -10,6 +10,7 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 type Props = {
   visible: boolean;
@@ -27,7 +28,7 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
 
   const handleConfirm = (draft: DraftMember) => {
     if (!household.id) {
-      Alert.alert('Household not ready', 'Finish setup, then try again.');
+      orbitAlert('Household not ready', 'Finish setup, then try again.');
       return;
     }
     const householdId = household.id;
@@ -49,7 +50,7 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
         const member = created[0];
         if (member) onAdded?.(member);
       } catch (err) {
-        Alert.alert(
+        orbitAlert(
           'Could not add member',
           err instanceof Error ? err.message : 'Try again in a moment.'
         );

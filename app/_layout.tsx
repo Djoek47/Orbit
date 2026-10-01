@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { AppErrorBoundary } from '@/components/orbit/app-error-boundary';
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
+import { OrbitAlertProvider } from '@/components/orbit/orbit-alert';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
 import { KeyboardDoneAccessory } from '@/components/orbit/keyboard-done-accessory';
@@ -41,6 +42,7 @@ export default function RootLayout() {
   return (
     <AppErrorBoundary>
       <OrbitProvider>
+        <OrbitAlertProvider>
         <PoppinsLiveProvider>
           <TourProvider>
             <OrbitNavTheme>
@@ -141,6 +143,10 @@ export default function RootLayout() {
                     options={{ presentation: 'modal', headerShown: false, title: 'Shared device setup' }}
                   />
                   <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
+                  <Stack.Screen
+                    name="support"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Support' }}
+                  />
                   {/* The Poppins pages draw their own header. Without these, iOS put a grey bar on
                       top reading the raw route name ("poppins-how-it-works"). */}
                   <Stack.Screen name="poppins-how-it-works" options={{ headerShown: false, title: 'How it works' }} />
@@ -263,6 +269,7 @@ export default function RootLayout() {
             </OrbitNavTheme>
           </TourProvider>
         </PoppinsLiveProvider>
+        </OrbitAlertProvider>
       </OrbitProvider>
     </AppErrorBoundary>
   );

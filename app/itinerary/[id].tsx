@@ -3,7 +3,8 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
+import {  AppState, LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -109,7 +110,7 @@ export default function ItineraryDetailScreen() {
 
   const fail = (message: string) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    Alert.alert(message);
+    orbitAlert(message);
   };
 
   const bannerRun = useMemo(() => {

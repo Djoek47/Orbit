@@ -14,6 +14,7 @@ import { SharedIpadCard } from '@/components/orbit/members/shared-ipad-card';
 import { Avatar } from '@/components/orbit/avatar';
 import { typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   countMembersForMembersScreen,
   membersScreenStatusLine,
@@ -161,11 +162,11 @@ export function HouseholdMembersRoster({
 
   const handleRemoveMember = (member: HouseholdMember) => {
     if (member.role === 'owner') {
-      Alert.alert('Cannot remove', 'The household owner cannot be removed.');
+      orbitAlert('Cannot remove', 'The household owner cannot be removed.');
       return;
     }
     const isDevice = member.role === 'shared-device';
-    Alert.alert(
+    orbitAlert(
       isDevice ? 'Remove this device' : `Remove ${member.name}?`,
       isDevice
         ? `Remove ${member.name}? People stay in the household; this device just won't list them.`

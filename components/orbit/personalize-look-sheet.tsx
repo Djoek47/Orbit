@@ -7,6 +7,7 @@ import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/a
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { AVATAR_EMOJIS } from '@/constants/accent-themes';
 import { space, typography } from '@/constants/orbit-theme';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   AvatarPickError,
   createAvatarWithImagePlayground,
@@ -76,7 +77,7 @@ export function PersonalizeLookSheet({
       await finish(await pickAvatarFromLibrary());
     } catch (error) {
       if (error instanceof AvatarPickError && error.code === 'cancelled') return;
-      Alert.alert(
+      orbitAlert(
         'Photos',
         error instanceof AvatarPickError ? error.message : 'Could not open Photos.'
       );
@@ -95,7 +96,7 @@ export function PersonalizeLookSheet({
       setSourcePhoto(await pickPlaygroundSourcePhoto());
     } catch (error) {
       if (error instanceof AvatarPickError && error.code === 'cancelled') return;
-      Alert.alert(
+      orbitAlert(
         'Photos',
         error instanceof AvatarPickError ? error.message : 'Could not open Photos.'
       );
@@ -124,7 +125,7 @@ export function PersonalizeLookSheet({
         setAvailability(imagePlaygroundAvailability());
       } else if (error instanceof AvatarPickError) {
         setShowGuide(false);
-        Alert.alert('Image Playground', error.message);
+        orbitAlert('Image Playground', error.message);
       }
     } finally {
       setBusy(false);

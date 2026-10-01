@@ -19,6 +19,7 @@ import { dueAtForFrequency } from '@/lib/tasks/recurrence-defaults';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 const DUE_OPTIONS = [
   { id: 'Today', label: 'Today', offset: 0 },
@@ -64,7 +65,7 @@ export default function AddHomeworkScreen() {
       );
       router.back();
     } catch (error) {
-      Alert.alert(
+      orbitAlert(
         'Could not add homework',
         error instanceof Error ? error.message : 'Try again.'
       );

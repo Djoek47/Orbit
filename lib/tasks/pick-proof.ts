@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Alert } from 'react-native';
+import { } from 'react-native';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 export type ProofPickSource = 'camera' | 'library';
 
@@ -22,7 +23,7 @@ export async function pickProofPhoto(source: ProofPickSource): Promise<string | 
   if (source === 'camera') {
     const granted = await ensureCameraPermission();
     if (!granted) {
-      Alert.alert('Camera needed', 'Allow camera access to take a proof photo for this task.');
+      orbitAlert('Camera needed', 'Allow camera access to take a proof photo for this task.');
       return null;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -40,7 +41,7 @@ export async function pickProofPhoto(source: ProofPickSource): Promise<string | 
 
   const granted = await ensureLibraryPermission();
   if (!granted) {
-    Alert.alert('Photos needed', 'Allow photo library access to attach proof for this task.');
+    orbitAlert('Photos needed', 'Allow photo library access to attach proof for this task.');
     return null;
   }
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -58,7 +59,7 @@ export async function pickProofPhoto(source: ProofPickSource): Promise<string | 
 /** Prompt camera vs library, then return a local proof URI (or null if cancelled). */
 export function promptPickProofPhoto(): Promise<string | null> {
   return new Promise((resolve) => {
-    Alert.alert('Attach proof', 'Add a photo so an admin can review this task.', [
+    orbitAlert('Attach proof', 'Add a photo so an admin can review this task.', [
       { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
       {
         text: 'Photo library',
