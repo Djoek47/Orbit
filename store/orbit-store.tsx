@@ -4463,6 +4463,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     eventIds?: string[];
   }) => {
     const suggestion = suggestItineraryFromHousehold(household, options);
+    if (!suggestion.stops.length) return null;
     return createItinerary(suggestion);
   };
 
