@@ -1221,8 +1221,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 function ProofPhotoPreview({ uri }: { uri: string }) {
   const { c, glass, glassBorder } = useOrbitColors();
   const [failed, setFailed] = useState(false);
+  const stuckLocal = isLocalProofUri(uri);
 
-  if (failed) {
+  if (failed || stuckLocal) {
     return (
       <View
         style={[
@@ -1231,7 +1232,7 @@ function ProofPhotoPreview({ uri }: { uri: string }) {
         ]}>
         <MaterialIcons name="broken-image" size={28} color={c.textMuted} />
         <Text style={[typography.footnote, { color: c.textSoft, textAlign: 'center' }]}>
-          {isLocalProofUri(uri)
+          {stuckLocal
             ? 'This photo stayed on the Sidekick’s device. Ask them to send it again.'
             : 'Photo couldn’t load. Ask them to send it again.'}
         </Text>

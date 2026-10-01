@@ -67,6 +67,8 @@ assert.match(formatResetDate(new Date(2026, 8, 30)), /Oct 1/);
   );
   assert.match(sql, /consumed <= tokens/, 'a balance can never go negative');
   assert.match(sql, /household_credit_balance/, 'and there is one place to read it');
+  assert.match(sql, /security_invoker/, 'the view respects token_grants RLS');
+  assert.match(sql, /grant select on public\.household_credit_balance/i, 'clients can inquire');
   assert.doesNotMatch(sql, /expires_at|expires on/i, 'nothing expires credits');
 }
 

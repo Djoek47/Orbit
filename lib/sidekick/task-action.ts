@@ -3,10 +3,13 @@
  */
 
 import { mapTaskRow, mapEventRow, mapGroceryRow } from '@/lib/mappers/orbit-mappers';
+import { buildSidekickProofSubmitBody } from '@/lib/sidekick/proof-submit-body';
 import { isSidekickLocalUserId, loadSidekickSession } from '@/lib/sidekick/session';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { dataMode } from '@/config/data-mode';
 import type { CreateEventInput, CreateGroceryInput, CreateTaskInput, GroceryItem, HouseholdEvent, HouseholdTask } from '@/types/orbit';
+
+export { buildSidekickProofSubmitBody } from '@/lib/sidekick/proof-submit-body';
 
 /**
  * Profile-code auth for Sidekick devices only.
@@ -147,7 +150,7 @@ async function invokeSidekickTaskAction(
 
 /**
  * Prepare Sidekick proof bytes for the edge function.
- * Always attach base64 — signed PUT is a best-effort shortcut only.
+ * Always attach base64 when it fits — signed PUT is a best-effort shortcut only.
  * (RN fetch + ArrayBuffer PUT often fails silently; service-role upload is reliable.)
  */
 async function uploadSidekickProofBytes(input: {
@@ -213,7 +216,6 @@ async function uploadSidekickProofBytes(input: {
 
   return {
     proofUri: remoteUri,
-    // Always send bytes so the edge can upload via service role if PUT missed.
     proofBase64: bytes.proofBase64,
     proofMime: bytes.proofMime,
     proofExt: bytes.proofExt,
@@ -236,23 +238,14 @@ export async function sidekickSubmitTaskProof(input: {
     localUri: input.proofUri,
   });
 
-  const body: Record<string, unknown> = {
-    action: 'submit_proof',
+  const body = buildSidekickProofSubmitBody({
     code: input.code,
     taskId: input.taskId,
-  };
-  if (uploaded.proofUri && /^https?:\/\//i.test(uploaded.proofUri)) {
-    body.proofUri = uploaded.proofUri;
-  }
-  if (uploaded.proofBase64) {
-    body.proofBase64 = uploaded.proofBase64;
-    body.proofMime = uploaded.proofMime;
-    body.proofExt = uploaded.proofExt;
-  }
-
-  if (!body.proofUri && !body.proofBase64) {
-    throw new Error('Could not prepare the photo for upload. Try again.');
-  }
+    remoteUri: uploaded.proofUri,
+    proofBase64: uploaded.proofBase64,
+    proofMime: uploaded.proofMime,
+    proofExt: uploaded.proofExt,
+  });
 
   const payload = await invokeSidekickTaskAction(body);
   const taskRow = payload.task as Record<string, unknown> | undefined;
@@ -263,7 +256,12 @@ export async function sidekickSubmitTaskProof(input: {
   const remoteUri =
     typeof taskRow.proof_uri === 'string' && taskRow.proof_uri.trim()
       ? taskRow.proof_uri.trim()
-      : uploaded.proofUri ?? input.proofUri;
+      : uploaded.proofUri ?? '';
+
+  // Never persist a file:// / ph:// URI as "submitted" — admins on other devices see a blank box.
+  if (!remoteUri || !/^https?:\/\//i.test(remoteUri)) {
+    throw new Error('Photo did not reach the household. Take it again and send.');
+  }
 
   return mapSidekickTaskRow(taskRow, {
     ...input.task,
