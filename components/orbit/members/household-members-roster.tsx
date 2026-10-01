@@ -25,7 +25,6 @@ import {
   nestedSharedAccountIds,
   resolveSharedDevicePeople,
 } from '@/lib/household/shared-device';
-import { markNeedsProfilePick } from '@/lib/device/device-session';
 import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
 import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
 import { formatHouseholdRole } from '@/lib/permissions';
@@ -386,9 +385,6 @@ export function HouseholdMembersRoster({
               accent={accent}
               onLinksChange={(next) => setDeviceLinks(device.id, next)}
               onRemoveDevice={() => handleRemoveMember(device)}
-              onOpenSwitch={() => {
-                void markNeedsProfilePick().then(() => router.push('/select-profile' as never));
-              }}
             />
           ))}
         </>

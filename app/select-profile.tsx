@@ -1,4 +1,3 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
@@ -14,6 +13,7 @@ import { getAccentTheme } from '@/constants/accent-themes';
 import { space } from '@/constants/orbit-theme';
 import { isPersonalSidekickDevice } from '@/lib/device/device-host';
 import {
+  clearDeviceSession,
   loadDeviceSession,
   removeHostedProfile,
   selectDeviceProfile,
@@ -96,7 +96,7 @@ export default function SelectProfileScreen() {
   }
 
   if (profiles.length === 0) {
-    router.replace('/setup-kid-device?step=3' as never);
+    router.replace('/welcome' as never);
     return null;
   }
 
@@ -126,7 +126,7 @@ export default function SelectProfileScreen() {
           void removeHostedProfile(member.id).then((next) => {
             setSession(next);
             if (next.profileMemberIds.length === 0) {
-              router.replace('/setup-kid-device?step=3' as never);
+              router.replace('/welcome' as never);
             }
           });
         },
@@ -149,7 +149,7 @@ export default function SelectProfileScreen() {
         <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
         <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this iPad?</Text>
         <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-          Tap your face. Switch anytime from Home.
+          Tap your face. Switch anytime from the Switch tab.
         </Text>
 
         <TourTarget id="selectProfile.faces">
@@ -190,18 +190,35 @@ export default function SelectProfileScreen() {
               </Pressable>
             );
           })}
-          <Pressable
-            style={styles.tile}
-            onPress={() => router.push('/setup-kid-device?step=3' as never)}
-            accessibilityRole="button"
-            accessibilityLabel="Add someone to this iPad">
-            <View style={[styles.addRing, { borderColor: orbitPalette.border }]}>
-              <MaterialIcons name="add" size={36} color={orbitPalette.textMuted} />
-            </View>
-            <Text style={[styles.name, { color: orbitPalette.textMuted }]}>Add</Text>
-          </Pressable>
         </View>
         </TourTarget>
+
+        {__DEV__ ? (
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                'DEV · leave shared tablet?',
+                'Clears this device binding so you can sign back in as admin.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Leave tablet',
+                    style: 'destructive',
+                    onPress: () => {
+                      void clearDeviceSession().then(() =>
+                        router.replace('/welcome' as never)
+                      );
+                    },
+                  },
+                ]
+              );
+            }}
+            style={styles.devBtn}
+            accessibilityRole="button"
+            accessibilityLabel="DEV leave shared tablet">
+            <Text style={styles.devLabel}>DEV</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -263,17 +280,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: 90,
   },
-  addRing: {
-    alignItems: 'center',
-    borderRadius: 48,
-    borderStyle: 'dashed',
-    borderWidth: 2,
-    height: 96,
-    justifyContent: 'center',
-    width: 96,
-  },
   name: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  devBtn: {
+    alignSelf: 'center',
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: space.xl,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  devLabel: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textAlign: 'center',
   },
 });

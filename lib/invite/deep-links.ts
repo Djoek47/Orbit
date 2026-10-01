@@ -2,6 +2,14 @@
 
 import { inviteWebPath } from '@/lib/invites/invite-host';
 import { normalizeInviteCode } from '@/lib/invites/parse-invite';
+import { parseSharedDeviceInvitePayload } from '@/lib/household/shared-device-invite';
+
+/** Shared-tablet invite: choremaxx://shared-device?label=&codes= */
+export function parseSharedDeviceInviteFromUrl(url: string): string | null {
+  if (!url?.trim()) return null;
+  const parsed = parseSharedDeviceInvitePayload(url);
+  return parsed ? url.trim() : null;
+}
 
 /** Per-member invite (Revision G): choremaxx://invite/member?token= */
 export function parseMemberInviteTokenFromUrl(url: string): string | null {

@@ -9,13 +9,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedTrophyTab } from '@/components/orbit/animated-trophy-tab';
 import { MorphingTabLabel } from '@/components/orbit/morphing-tab-label';
+import { SwitchPeopleIcon } from '@/components/orbit/switch-people-icon';
 import { useKeyboardVisible } from '@/lib/ui/use-keyboard-visible';
 import { usePoppinsTypingMode } from '@/lib/ui/typing-mode';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { androidBlurMethod, material, resolveBlurTint } from '@/constants/material-tokens';
 import { orbitTabColors, radius, shadow, space } from '@/constants/orbit-theme';
-import { isSharedDeviceAccount } from '@/lib/household/shared-device';
+import {
+  findSharedDeviceForMember,
+  isSharedDeviceAccount,
+  isSharedDeviceRole,
+  resolveSharedDevicePeople,
+} from '@/lib/household/shared-device';
 import { usePoppinsLive } from '@/lib/poppins/live-context';
 import { capabilitiesFor, DEFAULT_REWARD_MODEL } from '@/lib/rewards/reward-model';
 import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
@@ -89,11 +95,22 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
    *   shared tablet   Switch who's on — the thing people reach for on a shared iPad
    *   a Sidekick      nothing; four tabs, since they have no Poppins
    */
+  const members = orbit?.household.members ?? [];
   const fifthSlot = tabFifthSlot({
     role: orbit?.currentMember?.role,
-    members: orbit?.household.members ?? [],
+    members,
     memberId: orbit?.currentMember?.id,
   });
+  // How many faces share this tablet — drives the Switch glyph (2–6 arrows).
+  const switchPeopleCount = useMemo(() => {
+    const member = orbit?.currentMember;
+    if (!member) return 2;
+    const device = isSharedDeviceRole(member.role)
+      ? member
+      : findSharedDeviceForMember(member.id, members);
+    const people = resolveSharedDevicePeople(device, members);
+    return Math.max(2, people.length || 2);
+  }, [orbit?.currentMember, members]);
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
   const typeStyle = orbit?.accentTheme.typeStyle;
@@ -425,12 +442,12 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           );
         })}
 
-        {/* The shared tablet's fifth button: hand the iPad to whoever is next. */}
+        {/* Shared tablet fifth button — N double-arrows (not Poppins stars). */}
         {fifthSlot === 'switch' ? (
           <View style={[styles.tab, styles.poppinsTab]}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Switch who's on this device"
+              accessibilityLabel={`Switch who's on — ${switchPeopleCount} people`}
               onPress={() => {
                 if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
                 void markNeedsProfilePick().then(() =>
@@ -447,7 +464,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                   styles.poppinsButtonActive,
                   { borderColor: `${accentPrimary}66`, shadowColor: accentPrimary },
                 ]}>
-                <IconSymbol name="arrow.left.arrow.right" size={20} color={ink} />
+              <SwitchPeopleIcon count={switchPeopleCount} size={22} color={ink} />
               </LinearGradient>
               {keyboardUp ? null : (
                 <Text

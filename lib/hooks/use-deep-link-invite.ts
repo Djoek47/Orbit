@@ -2,7 +2,11 @@ import { useEffect } from 'react';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 
-import { parseInviteCodeFromUrl, parseMemberInviteTokenFromUrl } from '@/lib/invite/deep-links';
+import {
+  parseInviteCodeFromUrl,
+  parseMemberInviteTokenFromUrl,
+  parseSharedDeviceInviteFromUrl,
+} from '@/lib/invite/deep-links';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
 import { stashMemberInviteToken } from '@/lib/invite/member-invite-token-store';
 import {
@@ -16,6 +20,14 @@ async function handleInviteUrl(
   url: string,
   session: { isSignedIn: boolean; isPendingMember: boolean; hasHousehold: boolean }
 ) {
+  const sharedDevicePayload = parseSharedDeviceInviteFromUrl(url);
+  if (sharedDevicePayload) {
+    router.replace(
+      `/join-shared-device?payload=${encodeURIComponent(sharedDevicePayload)}` as never
+    );
+    return;
+  }
+
   const memberToken = parseMemberInviteTokenFromUrl(url);
   if (memberToken) {
     await stashMemberInviteToken(memberToken);

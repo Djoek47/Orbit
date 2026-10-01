@@ -66,6 +66,10 @@ export default function RootLayout() {
                     options={{ headerShown: false, title: 'Join profile' }}
                   />
                   <Stack.Screen
+                    name="join-shared-device"
+                    options={{ headerShown: false, title: 'Join shared device' }}
+                  />
+                  <Stack.Screen
                     name="invite-unsupported"
                     options={{ headerShown: false, title: 'Invite' }}
                   />

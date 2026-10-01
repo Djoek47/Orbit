@@ -27,7 +27,6 @@ type Props = {
   accent: string;
   onLinksChange: (memberIds: string[]) => void;
   onRemoveDevice: () => void;
-  onOpenSwitch?: () => void;
 };
 
 function monogram(name: string): string {
@@ -43,7 +42,6 @@ export function SharedDeviceManageCard({
   accent,
   onLinksChange,
   onRemoveDevice,
-  onOpenSwitch,
 }: Props) {
   const { c, isDark, glassBorder } = useOrbitColors();
   const linkedIds = device.sharedWithMemberIds ?? [];
@@ -107,16 +105,6 @@ export function SharedDeviceManageCard({
               : `${onDevice.length} of ${SHARED_DEVICE_MAX_PEOPLE} people · tap a face to edit`}
           </Text>
         </View>
-        {onDevice.length > 0 && onOpenSwitch ? (
-          <Pressable
-            onPress={onOpenSwitch}
-            accessibilityRole="button"
-            accessibilityLabel="Switch who's using this device"
-            style={[styles.switchChip, { backgroundColor: `${accent}22`, borderColor: `${accent}55` }]}>
-            <MaterialIcons name="swap-horiz" size={16} color={accent} />
-            <Text style={[styles.switchLabel, { color: accent }]}>Switch</Text>
-          </Pressable>
-        ) : null}
       </View>
 
       <Text style={[styles.sectionLabel, { color: accent }]}>On this device</Text>
@@ -245,17 +233,6 @@ const styles = StyleSheet.create({
   headCopy: { flex: 1, gap: 2, minWidth: 0 },
   title: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   subtitle: { fontSize: 13, lineHeight: 18 },
-  switchChip: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  switchLabel: { fontSize: 12, fontWeight: '800' },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '800',

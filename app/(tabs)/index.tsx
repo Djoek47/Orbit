@@ -325,7 +325,7 @@ export default function HomeScreen() {
                 ]}>
                 {sharedDevice.avatar ? <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar}</Text> : <Moji name="phone" size={16} />}
                 <Text style={[typography.caption1, { color: accentTheme.primary }]}>
-                  Switch who&apos;s on · {firstName}
+                  Switch · {firstName}
                 </Text>
                 <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
               </Pressable>

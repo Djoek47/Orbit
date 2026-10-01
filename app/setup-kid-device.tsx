@@ -1,9 +1,12 @@
 /**
- * Shared devices — WO14 §3.
- * List first; setup is a horizontal pager (next card peeks ~60px) with
- * Name · Who · Faces · Hand over pills.
+ * Shared devices — admin creates the device + invite QR on their phone;
+ * the tablet scans that QR (join-shared-device) and hosts the faces.
+ *
+ * Pager: Name · Who · Faces (tutorial) · Hand over (QR).
+ * DEV simulates the tablet connect locally without a second device.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as Clipboard from 'expo-clipboard';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -16,6 +19,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
@@ -23,18 +27,22 @@ import { Avatar } from '@/components/orbit/avatar';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
+import { SwitchPeopleIcon } from '@/components/orbit/switch-people-icon';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
-import { dataMode } from '@/config/data-mode';
 import { clearDeviceSession } from '@/lib/device/device-session';
 import { saveChildInviteRecord } from '@/lib/household/child-invites';
-import { getSupabaseClient } from '@/lib/supabase/client';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import {
   DEFAULT_SHARED_IPAD_NAME,
   listSharedDevices,
   resolveSharedDevicePeople,
+  SHARED_DEVICE_MAX_PEOPLE,
 } from '@/lib/household/shared-device';
+import {
+  buildSharedDeviceInviteLink,
+  parseSharedDeviceInvitePayload,
+} from '@/lib/household/shared-device-invite';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
@@ -84,6 +92,8 @@ export default function SetupKidDeviceScreen() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteReady, setInviteReady] = useState(false);
   const hydratedExisting = useRef(false);
   const addingAnotherRef = useRef(false);
   const pagerRef = useRef<FlatList>(null);
@@ -110,10 +120,10 @@ export default function SetupKidDeviceScreen() {
     [household.members, selectedIds]
   );
 
+  const switchCount = Math.max(2, Math.min(SHARED_DEVICE_MAX_PEOPLE, hostedMembers.length || 2));
+
   useEffect(() => {
     if (hydratedExisting.current) return;
-    // Only prefill when opening an empty flow with exactly one existing device
-    // and the user did not tap "Add another".
     if (addingAnotherRef.current) return;
     const existing = devices[0];
     if (!existing) return;
@@ -151,6 +161,90 @@ export default function SetupKidDeviceScreen() {
     goToStep((step - 1) as SetupStep);
   };
 
+  const prepareInvite = async (): Promise<string> => {
+    if (hostedMembers.length === 0) {
+      throw new Error('Pick at least one person.');
+    }
+    if (hostedMembers.length > SHARED_DEVICE_MAX_PEOPLE) {
+      throw new Error(`A shared device can host up to ${SHARED_DEVICE_MAX_PEOPLE} people.`);
+    }
+
+    const codes: string[] = [];
+    for (const person of hostedMembers) {
+      const personCode = await ensureMemberProfileInviteCode(person.id);
+      if (!personCode) {
+        throw new Error(`Could not make a profile code for ${person.name}.`);
+      }
+      codes.push(personCode);
+      if (!household.id) {
+        throw new Error('Create the household before setting up this device.');
+      }
+      await saveChildInviteRecord({
+        member: { ...person, profileInviteCode: personCode, role: 'child' },
+        householdId: household.id,
+        householdName: household.householdName,
+        code: personCode,
+      });
+    }
+
+    const label = deviceLabel.trim() || DEFAULT_SHARED_IPAD_NAME;
+    let sharedDeviceId: string | null =
+      listSharedDevices(household.members).find((d) => d.name === label)?.id ?? null;
+
+    if (!sharedDeviceId) {
+      const created = await createSharedDevice(label);
+      sharedDeviceId = created?.id ?? null;
+    }
+
+    if (sharedDeviceId) {
+      await updateSharedDeviceLinks(
+        sharedDeviceId,
+        hostedMembers.map((person) => person.id)
+      );
+    }
+
+    return buildSharedDeviceInviteLink({ label, codes });
+  };
+
+  /** Admin phone: create device + QR. Never signs the admin out. */
+  const finishWithQr = async () => {
+    try {
+      setBusy(true);
+      setError('');
+      const link = await prepareInvite();
+      setInviteLink(link);
+      setInviteReady(true);
+    } catch (err) {
+      setError(userFacingMessage(err, 'Could not create this shared-device invite.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * DEV only — pretend this phone is the tablet so we can test Switch / face picker
+   * without a second device. Normal Hand over never does this.
+   */
+  const finishDevOnThisPhone = async () => {
+    try {
+      setBusy(true);
+      setError('');
+      const link = inviteLink ?? (await prepareInvite());
+      setInviteLink(link);
+      setInviteReady(true);
+      const invite = parseSharedDeviceInvitePayload(link);
+      if (!invite?.codes.length) {
+        throw new Error('Invite has no profile codes.');
+      }
+      await connectSharedTabletProfiles(invite.codes, invite.label);
+      router.replace('/select-profile' as never);
+    } catch (err) {
+      setError(userFacingMessage(err, 'DEV connect failed.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const goNextStep = () => {
     if (step === 1 && !deviceLabel.trim()) {
       setError('Give the device a name.');
@@ -164,7 +258,7 @@ export default function SetupKidDeviceScreen() {
       goToStep((step + 1) as SetupStep);
       return;
     }
-    void finish();
+    void finishWithQr();
   };
 
   const onPagerScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -176,9 +270,15 @@ export default function SetupKidDeviceScreen() {
 
   const toggleSidekick = async (member: HouseholdMember) => {
     setError('');
+    setInviteReady(false);
+    setInviteLink(null);
     const already = selectedIds.includes(member.id);
     if (already) {
       setSelectedIds((current) => current.filter((id) => id !== member.id));
+      return;
+    }
+    if (selectedIds.length >= SHARED_DEVICE_MAX_PEOPLE) {
+      setError(`Up to ${SHARED_DEVICE_MAX_PEOPLE} people on one device.`);
       return;
     }
     try {
@@ -202,73 +302,19 @@ export default function SetupKidDeviceScreen() {
       setError(`${member.name} is already on this device.`);
       return;
     }
+    if (selectedIds.length >= SHARED_DEVICE_MAX_PEOPLE) {
+      setError(`Up to ${SHARED_DEVICE_MAX_PEOPLE} people on one device.`);
+      return;
+    }
     try {
       await ensureMemberProfileInviteCode(member.id);
       setSelectedIds((current) => [...current, member.id]);
       setCode('');
       setCodeMode(false);
+      setInviteReady(false);
+      setInviteLink(null);
     } catch (err) {
       setError(userFacingMessage(err, 'Could not add this Sidekick.'));
-    }
-  };
-
-  const finish = async () => {
-    if (hostedMembers.length === 0) {
-      setError('Pick at least one person.');
-      return;
-    }
-    try {
-      setBusy(true);
-      setError('');
-      const codes: string[] = [];
-      for (const person of hostedMembers) {
-        const personCode = await ensureMemberProfileInviteCode(person.id);
-        if (!personCode) {
-          throw new Error(`Could not make a profile code for ${person.name}.`);
-        }
-        codes.push(personCode);
-        if (!household.id) {
-          throw new Error('Create the household before setting up this device.');
-        }
-        await saveChildInviteRecord({
-          member: { ...person, profileInviteCode: personCode, role: 'child' },
-          householdId: household.id,
-          householdName: household.householdName,
-          code: personCode,
-        });
-      }
-      const label = deviceLabel.trim() || DEFAULT_SHARED_IPAD_NAME;
-      // Match by name only — never fall back to devices[0] (audit WO14 P1).
-      let sharedDeviceId: string | null =
-        listSharedDevices(household.members).find((d) => d.name === label)?.id ?? null;
-
-      if (!sharedDeviceId) {
-        const created = await createSharedDevice(label);
-        sharedDeviceId = created?.id ?? null;
-      }
-
-      if (sharedDeviceId) {
-        await updateSharedDeviceLinks(
-          sharedDeviceId,
-          hostedMembers.map((person) => person.id)
-        );
-      }
-
-      await connectSharedTabletProfiles(codes, label);
-
-      if (dataMode !== 'mock') {
-        const supabase = getSupabaseClient();
-        if (supabase) {
-          const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
-          if (signOutError) console.warn('setupKidDevice.localSignOut', signOutError.message);
-        }
-      }
-
-      router.replace('/select-profile' as never);
-    } catch (err) {
-      setError(userFacingMessage(err, 'Could not set up this shared device.'));
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -293,8 +339,10 @@ export default function SetupKidDeviceScreen() {
         : step === 3
           ? 'Next · hand over'
           : busy
-            ? 'Saving…'
-            : 'Hand over';
+            ? 'Creating…'
+            : inviteReady
+              ? 'Done'
+              : 'Create QR';
 
   const cardStyle = [
     styles.stepCard,
@@ -310,11 +358,17 @@ export default function SetupKidDeviceScreen() {
       return (
         <View style={cardStyle}>
           <Text style={[styles.stepTitle, { color: c.text }]}>Name the device</Text>
-          <Text style={[styles.stepSub, { color: c.textMuted }]}>Only you see this name.</Text>
+          <Text style={[styles.stepSub, { color: c.textMuted }]}>
+            Only you see this name. The tablet joins by scanning a QR next.
+          </Text>
           <Text style={[styles.fieldLabel, { color: c.textSubtle }]}>DEVICE NAME</Text>
           <TextInput
             value={deviceLabel}
-            onChangeText={setDeviceLabel}
+            onChangeText={(value) => {
+              setDeviceLabel(value);
+              setInviteReady(false);
+              setInviteLink(null);
+            }}
             placeholder={DEFAULT_SHARED_IPAD_NAME}
             placeholderTextColor={c.textSubtle}
             accessibilityLabel="Device name"
@@ -325,7 +379,9 @@ export default function SetupKidDeviceScreen() {
             returnKeyType="done"
             onSubmitEditing={goNextStep}
           />
-          <Text style={[styles.hint, { color: c.textSubtle }]}>Do this on the device itself.</Text>
+          <Text style={[styles.hint, { color: c.textSubtle }]}>
+            Do this on your phone — then scan the QR on the shared tablet.
+          </Text>
         </View>
       );
     }
@@ -334,7 +390,9 @@ export default function SetupKidDeviceScreen() {
         <View style={cardStyle}>
           <Text style={[styles.stepTitle, { color: c.text }]}>Who uses it</Text>
           <Text style={[styles.stepSub, { color: c.textMuted }]}>
-            {isAdmin ? 'Tap each Sidekick who shares it.' : 'Scan or type a profile code.'}
+            {isAdmin
+              ? `Tap each Sidekick who shares it (max ${SHARED_DEVICE_MAX_PEOPLE}). Admins stay on their own phones.`
+              : 'Scan or type a profile code.'}
           </Text>
           {isAdmin && sidekicks.length > 0 ? (
             <View style={styles.faceGrid}>
@@ -413,8 +471,29 @@ export default function SetupKidDeviceScreen() {
         <View style={cardStyle}>
           <Text style={[styles.stepTitle, { color: c.text }]}>Faces</Text>
           <Text style={[styles.stepSub, { color: c.textMuted }]}>
-            They tap their face to open their own Orbit.
+            On the tablet, each person taps their face to open their own Orbit.
           </Text>
+
+          <View
+            style={[
+              styles.tutorialBox,
+              { backgroundColor: `${accent}14`, borderColor: `${accent}33` },
+            ]}>
+            <View style={[styles.tutorialIcon, { backgroundColor: accent }]}>
+              <SwitchPeopleIcon count={switchCount} size={22} color={isDark ? '#041018' : '#fff'} />
+            </View>
+            <View style={styles.tutorialCopy}>
+              <Text style={[styles.tutorialTitle, { color: c.text }]}>Switch button</Text>
+              <Text style={[styles.tutorialBody, { color: c.textMuted }]}>
+                Where Poppins sits on an admin phone, the tablet shows Switch —{' '}
+                {hostedMembers.length >= 2
+                  ? `${hostedMembers.length} double-arrows`
+                  : 'double-arrows'}{' '}
+                so anyone can hand the device over without leaving the app.
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.faceGrid}>
             {hostedMembers.map((person) => (
               <View key={person.id} style={styles.faceTile}>
@@ -432,7 +511,11 @@ export default function SetupKidDeviceScreen() {
           </View>
           {hostedMembers.length === 0 ? (
             <Text style={[styles.hint, { color: c.textSubtle }]}>Pick people in Who first.</Text>
-          ) : null}
+          ) : (
+            <Text style={[styles.hint, { color: c.textSubtle }]}>
+              Tip: long-press a face later to remove them from this tablet.
+            </Text>
+          )}
         </View>
       );
     }
@@ -440,24 +523,47 @@ export default function SetupKidDeviceScreen() {
       <View style={cardStyle}>
         <Text style={[styles.stepTitle, { color: c.text }]}>Hand over</Text>
         <Text style={[styles.stepSub, { color: c.textMuted }]}>
-          {hostedMembers.length} on {labelPreview}. This phone signs out here so they can pick a
-          face.
+          {inviteReady
+            ? `Scan this on ${labelPreview}. Your admin account stays signed in here.`
+            : `${hostedMembers.length} on ${labelPreview}. Create a QR — the tablet scans it to join. You stay signed in.`}
         </Text>
-        <View style={styles.faceGrid}>
-          {hostedMembers.map((person) => (
-            <View key={person.id} style={styles.faceTile}>
-              <Avatar
-                name={person.name}
-                emoji={memberDisplayEmoji(person)}
-                imageUri={isAvatarImageUri(person.avatar) ? person.avatar : undefined}
-                size="m"
-              />
-              <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
-                {person.name}
-              </Text>
+
+        {inviteReady && inviteLink ? (
+          <View style={styles.qrBlock}>
+            <View style={styles.qrWrap}>
+              <QRCode value={inviteLink} size={168} backgroundColor="#FFFFFF" color="#0F1C2A" />
             </View>
-          ))}
-        </View>
+            <Text style={[styles.hint, { color: c.textSubtle, textAlign: 'center' }]}>
+              Open ChoreMaxx on the tablet → Get Started → scan this code.
+            </Text>
+            <Pressable
+              onPress={() => {
+                void Clipboard.setStringAsync(inviteLink);
+                Alert.alert('Copied', 'Shared-device invite link copied.');
+              }}
+              style={styles.copyRow}
+              accessibilityRole="button">
+              <MaterialIcons name="content-copy" size={15} color={c.textSubtle} />
+              <Text style={[styles.copyLabel, { color: c.textSubtle }]}>Copy invite link</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.faceGrid}>
+            {hostedMembers.map((person) => (
+              <View key={person.id} style={styles.faceTile}>
+                <Avatar
+                  name={person.name}
+                  emoji={memberDisplayEmoji(person)}
+                  imageUri={isAvatarImageUri(person.avatar) ? person.avatar : undefined}
+                  size="m"
+                />
+                <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
+                  {person.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     );
   };
@@ -470,7 +576,7 @@ export default function SetupKidDeviceScreen() {
         <SettingsModalChrome
           backLabel="People"
           title="Shared devices"
-          purpose="One device the kids share. They tap their own face to switch.">
+          purpose="Create a QR on your phone. The tablet scans it — kids tap their face to switch.">
           <View style={[styles.listBody, { paddingBottom: insets.bottom + 24 }]}>
             {devices.length === 0 ? (
               <View
@@ -480,7 +586,7 @@ export default function SetupKidDeviceScreen() {
                 ]}>
                 <Text style={[styles.emptyTitle, { color: c.text }]}>No shared devices yet</Text>
                 <Text style={[styles.stepSub, { color: c.textMuted }]}>
-                  Set one up on the tablet or phone the kids will share.
+                  Name it, pick Sidekicks, then hand the QR to the tablet.
                 </Text>
               </View>
             ) : (
@@ -502,7 +608,7 @@ export default function SetupKidDeviceScreen() {
                         {device.name?.trim() || DEFAULT_SHARED_IPAD_NAME}
                       </Text>
                       <Text style={[styles.deviceMeta, { color: c.textMuted }]}>
-                        {names} · ready
+                        {names} · ready for QR
                       </Text>
                     </View>
                     <View style={[styles.livePill, { backgroundColor: `${accent}22` }]}>
@@ -515,7 +621,7 @@ export default function SetupKidDeviceScreen() {
 
             {readOnly ? (
               <Text style={[styles.hint, { color: c.textSubtle, textAlign: 'center' }]}>
-                Do this on the device itself.
+                Ask an admin to create the invite QR on their phone.
               </Text>
             ) : (
               <>
@@ -526,16 +632,20 @@ export default function SetupKidDeviceScreen() {
                     setDeviceLabel('');
                     setSelectedIds([]);
                     setError('');
+                    setInviteLink(null);
+                    setInviteReady(false);
                     setFlowOpen(true);
                     setStep(1);
                   }}>
                   {devices.length ? 'Add another' : 'Add a device'}
                 </OrbitButton>
-                <Pressable onPress={useAsPersonalPhone} accessibilityRole="button">
-                  <Text style={[styles.link, { color: c.textSubtle, textAlign: 'center' }]}>
-                    This is my personal phone
-                  </Text>
-                </Pressable>
+                {__DEV__ ? (
+                  <Pressable onPress={useAsPersonalPhone} accessibilityRole="button">
+                    <Text style={[styles.link, { color: c.textSubtle, textAlign: 'center' }]}>
+                      DEV · clear device binding
+                    </Text>
+                  </Pressable>
+                ) : null}
               </>
             )}
           </View>
@@ -630,8 +740,24 @@ export default function SetupKidDeviceScreen() {
               accessibilityLabel="Back">
               <MaterialIcons name="chevron-left" size={28} color={c.textMuted} />
             </Pressable>
+            {step === 4 && __DEV__ ? (
+              <Pressable
+                onPress={() => void finishDevOnThisPhone()}
+                disabled={busy || selectedIds.length === 0}
+                style={[styles.devBtn, { borderColor: glassBorder(0.2) }]}
+                accessibilityRole="button"
+                accessibilityLabel="DEV connect on this phone">
+                <Text style={[styles.devLabel, { color: c.textSubtle }]}>DEV</Text>
+              </Pressable>
+            ) : null}
             <OrbitButton
-              onPress={goNextStep}
+              onPress={() => {
+                if (step === 4 && inviteReady) {
+                  setFlowOpen(false);
+                  return;
+                }
+                goNextStep();
+              }}
               disabled={busy || (step === 2 && selectedIds.length === 0)}
               style={styles.navNext}>
               {nextLabel}
@@ -728,6 +854,37 @@ const styles = StyleSheet.create({
   codeRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
   codeInput: { flex: 1 },
   link: { fontSize: 15, fontWeight: '600', paddingVertical: 8 },
+  tutorialBox: {
+    alignItems: 'flex-start',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+  },
+  tutorialIcon: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  tutorialCopy: { flex: 1, gap: 4 },
+  tutorialTitle: { fontSize: 15, fontWeight: '700' },
+  tutorialBody: { fontSize: 13, lineHeight: 18 },
+  qrBlock: { alignItems: 'center', gap: 10 },
+  qrWrap: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+  },
+  copyRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  copyLabel: { fontSize: 13, fontWeight: '600' },
   pillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -760,5 +917,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 48,
   },
+  devBtn: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: 'center',
+    minWidth: 52,
+    paddingHorizontal: 10,
+  },
+  devLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8 },
   navNext: { flex: 1 },
 });
