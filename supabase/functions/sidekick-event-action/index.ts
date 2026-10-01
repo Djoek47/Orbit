@@ -59,11 +59,11 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'household_not_found' }, 404);
     }
 
-    const capDenied = assertCapability(settings, 'allowCalendarCreate');
+    const capDenied = assertCapability(settings, 'allowCalendarCreate', member.id);
     if (capDenied) return capDenied;
 
     const category = normalizeCategory(String(body.category ?? 'family'));
-    const approvalStatus = resolveSidekickEventApproval(settings, category);
+    const approvalStatus = resolveSidekickEventApproval(settings, category, member.id);
     const dateLabel = String(body.date ?? 'Today').trim() || 'Today';
     const timeLabel = String(body.time ?? '').trim() || 'All day';
     const location = String(body.location ?? '').trim();

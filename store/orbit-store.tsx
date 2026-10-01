@@ -243,6 +243,10 @@ import {
 } from '@/lib/household/admins';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import {
+  buildCapabilitiesDocument,
+  memberMayAddGrocery,
+  readCapabilityOverrides,
+  resolveCapabilitiesForMember,
   resolveMemberCapabilities,
 } from '@/lib/member-capabilities';
 import {
@@ -568,6 +572,11 @@ type OrbitContextValue = {
   /** Optional personal majordomo override for the current member. */
   updateMemberMajordomoProfile: (profileId: string | null) => void;
   updateMemberCapabilities: (prefs: Partial<MemberCapabilities>) => void;
+  /** Override capabilities for one Sidekick (null patch values clear that key). */
+  updateMemberCapabilityOverrides: (
+    memberId: string,
+    patch: Partial<MemberCapabilities>
+  ) => void;
   /** Parent/admin: Meritocracy vs Equity + hygiene XP opt-in (household-scoped). */
   updateHouseholdRewardSettings: (prefs: {
     rewardMode?: 'weighted' | 'flat';
@@ -735,6 +744,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   householdRef.current = household;
   const presenceSnapshotRef = useRef<Record<string, PresencePhase>>({});
   const presenceEmitAtRef = useRef<Record<string, number>>({});
+  /** Keep admin permission toggles from being wiped by a concurrent realtime reload. */
+  const stickyPermissionsRef = useRef<{
+    at: number;
+    sidekickGroceryAdd?: boolean;
+    memberCapabilities?: HouseholdSnapshot['memberCapabilities'];
+  } | null>(null);
   const currentMemberRef = useRef<HouseholdMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -1249,8 +1264,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const baseHousehold = await householdRepository.getHousehold();
     const hydratedHousehold = await hydrateHousehold(baseHousehold);
+    const sticky = stickyPermissionsRef.current;
+    const stickyFresh = Boolean(sticky && Date.now() - sticky.at < 12_000);
     const withExpiry = {
       ...hydratedHousehold,
+      ...(stickyFresh && sticky
+        ? {
+            sidekickGroceryAdd:
+              sticky.sidekickGroceryAdd ?? hydratedHousehold.sidekickGroceryAdd,
+            memberCapabilities:
+              sticky.memberCapabilities ?? hydratedHousehold.memberCapabilities,
+          }
+        : {}),
       tasks: refreshStaleDueLabels(
         applyHouseholdTaskExpiry(hydratedHousehold.tasks, hydratedHousehold),
         new Date()
@@ -4565,36 +4590,159 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const persistHouseholdPermissions = (
+    current: HouseholdSnapshot,
+    next: HouseholdSnapshot,
+    audienceMemberIds?: string[]
+  ) => {
+    stickyPermissionsRef.current = {
+      at: Date.now(),
+      sidekickGroceryAdd: next.sidekickGroceryAdd,
+      memberCapabilities: next.memberCapabilities,
+    };
+    const flags = resolveMemberCapabilities(next);
+    void saveMemberCapabilitiesPrefs(current.id, flags);
+    void (async () => {
+      const { permissionState } = await import('@/lib/household/permission-changes');
+      announcePermissionChanges(
+        permissionState(current),
+        permissionState(next),
+        audienceMemberIds
+      );
+    })();
+    if (dataMode === 'mock') {
+      void persistMockHouseholdSnapshot(next);
+    }
+    const householdId = current.id;
+    if (dataMode === 'supabase' && householdId && isPersistedHouseholdId(householdId)) {
+      void import('@/repositories/repository-utils').then(async ({ getConfiguredSupabase, mapDbError }) => {
+        try {
+          const supabase = getConfiguredSupabase('persistHouseholdPermissions');
+          const { error } = await supabase
+            .from('households')
+            .update({
+              sidekick_grocery_add: next.sidekickGroceryAdd === true,
+              member_capabilities: (next.memberCapabilities ?? {}) as never,
+            })
+            .eq('id', householdId);
+          mapDbError('persistHouseholdPermissions', error);
+        } catch (error) {
+          console.warn('persistHouseholdPermissions supabase skipped', error);
+        }
+      });
+    }
+  };
+
   const updateMemberCapabilities = (prefs: Partial<MemberCapabilities>) => {
     if (!permissions.canManageHousehold) {
       return;
     }
     setHousehold((current) => {
-      const memberCapabilities = {
+      const overrides = readCapabilityOverrides(current.memberCapabilities);
+      const flags = {
         ...resolveMemberCapabilities(current),
         ...prefs,
       };
-      void saveMemberCapabilitiesPrefs(current.id, memberCapabilities);
-      const next: HouseholdSnapshot = { ...current, memberCapabilities };
-      announceFrom(current, next);
+      // Keep grocery dual-write in sync when Everyone toggles caps.allowGroceryAdd.
+      const grocery =
+        typeof prefs.allowGroceryAdd === 'boolean'
+          ? prefs.allowGroceryAdd
+          : current.sidekickGroceryAdd === true;
+      const memberCapabilities = buildCapabilitiesDocument(
+        { ...flags, allowGroceryAdd: grocery },
+        overrides
+      );
+      const next: HouseholdSnapshot = {
+        ...current,
+        sidekickGroceryAdd: grocery,
+        memberCapabilities,
+      };
+      persistHouseholdPermissions(current, next);
+      return next;
+    });
+  };
+
+  const updateMemberCapabilityOverrides = (
+    memberId: string,
+    patch: Partial<MemberCapabilities>
+  ) => {
+    if (!permissions.canManageHousehold || !memberId.trim()) return;
+    setHousehold((current) => {
+      const beforeCaps = resolveCapabilitiesForMember(current, memberId);
+      const overrides = { ...readCapabilityOverrides(current.memberCapabilities) };
+      const prev = overrides[memberId] ?? {};
+      const merged = { ...prev, ...patch };
+      // Drop keys that match household defaults so “Everyone” still drives the rest.
+      const defaults = resolveMemberCapabilities(current);
+      const cleaned: Partial<MemberCapabilities> = {};
+      for (const [key, value] of Object.entries(merged) as [keyof MemberCapabilities, boolean][]) {
+        if (typeof value !== 'boolean') continue;
+        if (defaults[key] === value) continue;
+        cleaned[key] = value;
+      }
+      if (Object.keys(cleaned).length === 0) delete overrides[memberId];
+      else overrides[memberId] = cleaned;
+
+      const flags = resolveMemberCapabilities(current);
+      const memberCapabilities = buildCapabilitiesDocument(flags, overrides);
+      const next: HouseholdSnapshot = {
+        ...current,
+        memberCapabilities,
+      };
+      stickyPermissionsRef.current = {
+        at: Date.now(),
+        sidekickGroceryAdd: next.sidekickGroceryAdd,
+        memberCapabilities: next.memberCapabilities,
+      };
+      void saveMemberCapabilitiesPrefs(current.id, flags);
       if (dataMode === 'mock') {
         void persistMockHouseholdSnapshot(next);
       }
       const householdId = current.id;
-      if (dataMode === 'supabase' && householdId) {
+      if (dataMode === 'supabase' && householdId && isPersistedHouseholdId(householdId)) {
         void import('@/repositories/repository-utils').then(async ({ getConfiguredSupabase, mapDbError }) => {
           try {
-            const supabase = getConfiguredSupabase('updateMemberCapabilities');
+            const supabase = getConfiguredSupabase('updateMemberCapabilityOverrides');
             const { error } = await supabase
               .from('households')
-              .update({ member_capabilities: memberCapabilities })
+              // byMemberId map is intentional — column is jsonb, generated types are too narrow.
+              .update({ member_capabilities: memberCapabilities as never })
               .eq('id', householdId);
-            mapDbError('updateMemberCapabilities', error);
+            mapDbError('updateMemberCapabilityOverrides', error);
           } catch (error) {
-            console.warn('updateMemberCapabilities supabase skipped', error);
+            console.warn('updateMemberCapabilityOverrides supabase skipped', error);
           }
         });
       }
+      const afterCaps = resolveCapabilitiesForMember(next, memberId);
+      void (async () => {
+        const { permissionState, permissionChanges, permissionChangeSummary, permissionChangeTone } =
+          await import('@/lib/household/permission-changes');
+        const changes = permissionChanges(
+          permissionState({
+            memberCapabilities: beforeCaps,
+            sidekickGroceryAdd: beforeCaps.allowGroceryAdd,
+          }),
+          permissionState({
+            memberCapabilities: afterCaps,
+            sidekickGroceryAdd: afterCaps.allowGroceryAdd,
+          })
+        );
+        if (!changes.length) return;
+        const tone = permissionChangeTone(changes);
+        await pushNotification({
+          title: tone === 'granted' ? 'Something new for you' : 'A change from a grown-up',
+          body: permissionChangeSummary(changes),
+          category: 'members',
+          priority: 'low',
+          data: {
+            kind: 'permission_changed',
+            tone,
+            audienceMemberIds: [memberId],
+            changes: changes.map((change) => ({ key: change.key, granted: change.granted })),
+          },
+        });
+      })();
       return next;
     });
   };
@@ -5883,7 +6031,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const announcePermissionChanges = (
     before: import('@/lib/household/permission-changes').SidekickPermissionState,
-    after: import('@/lib/household/permission-changes').SidekickPermissionState
+    after: import('@/lib/household/permission-changes').SidekickPermissionState,
+    audienceMemberIds?: string[]
   ) => {
     void (async () => {
       const { permissionChangeSummary, permissionChangeTone, permissionChanges } = await import(
@@ -5892,9 +6041,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const changes = permissionChanges(before, after);
       if (!changes.length) return;
       const tone = permissionChangeTone(changes);
-      const sidekickIds = household.members
-        .filter((member) => isSidekickRole(member.role) && member.status !== 'inactive')
-        .map((member) => member.id);
+      const sidekickIds =
+        audienceMemberIds?.length
+          ? audienceMemberIds
+          : household.members
+              .filter((member) => isSidekickRole(member.role) && member.status !== 'inactive')
+              .map((member) => member.id);
       if (!sidekickIds.length) return;
       await pushNotification({
         title: tone === 'granted' ? 'Something new for you' : 'A change from a grown-up',
@@ -5914,17 +6066,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const updateSidekickGroceryAdd = (enabled: boolean) => {
     if (!permissions.canManageHousehold) return;
     setHousehold((current) => {
-      const next: HouseholdSnapshot = { ...current, sidekickGroceryAdd: enabled };
-      announceFrom(current, next);
-      if (dataMode === 'mock') {
-        void persistMockHouseholdSnapshot(next);
+      const overrides = readCapabilityOverrides(current.memberCapabilities);
+      // Everyone grocery: clear per-kid grocery overrides so the household flag is truth.
+      for (const id of Object.keys(overrides)) {
+        if (overrides[id] && 'allowGroceryAdd' in overrides[id]!) {
+          const nextPatch = { ...overrides[id] };
+          delete nextPatch.allowGroceryAdd;
+          if (Object.keys(nextPatch).length === 0) delete overrides[id];
+          else overrides[id] = nextPatch;
+        }
       }
-      if (dataMode === 'supabase' && current.id && isPersistedHouseholdId(current.id)) {
-        void getSupabaseClient()
-          ?.from('households')
-          .update({ sidekick_grocery_add: enabled })
-          .eq('id', current.id);
-      }
+      const flags = {
+        ...resolveMemberCapabilities(current),
+        allowGroceryAdd: enabled,
+      };
+      const memberCapabilities = buildCapabilitiesDocument(flags, overrides);
+      const next: HouseholdSnapshot = {
+        ...current,
+        sidekickGroceryAdd: enabled,
+        memberCapabilities,
+      };
+      persistHouseholdPermissions(current, next);
       return next;
     });
   };
@@ -6818,6 +6980,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         groceryAddAllowedForSidekick({
           role: currentMember?.role,
           householdAllows: household.sidekickGroceryAdd === true,
+          memberAllows: currentMember
+            ? memberMayAddGrocery(household, currentMember.id)
+            : null,
         }),
       askPoppins,
       askPoppinsVoice,
@@ -6899,6 +7064,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMajordomoProfile,
       updateMemberMajordomoProfile,
       updateMemberCapabilities,
+      updateMemberCapabilityOverrides,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
       queueDailyDeadline,
@@ -7036,6 +7202,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       upsertRoom,
       removeRoom,
       updateMemberCapabilities,
+      updateMemberCapabilityOverrides,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
       queueDailyDeadline,
