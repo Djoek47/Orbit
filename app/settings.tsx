@@ -92,6 +92,7 @@ import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { hasAllowanceModel } from '@/lib/rules/visibility';
 import { DeadlinePickerSheet } from '@/components/orbit/house-rules/deadline-picker';
 import { SidekickSettingsScreen } from '@/components/orbit/sidekick-settings-screen';
+import { usesMemberSettings } from '@/lib/settings/member-settings-model';
 import { HouseholdMembersRoster } from '@/components/orbit/members/household-members-roster';
 import { RewardsXpPanel } from '@/components/orbit/settings/rewards-xp-panel';
 import { SidekickPermissionsPanel } from '@/components/orbit/settings/sidekick-permissions-panel';
@@ -193,12 +194,16 @@ export default function SettingsScreen() {
   );
 
   // House rules (and anything else) can open a section directly: /settings?section=rewards
-  const params = useLocalSearchParams<{ section?: string }>();
+  // Getting started can land on exactly what it names: ?add=1 opens Add someone, and
+  // ?invite=<memberId> opens that Sidekick's QR straight away (?invite=pick just shows the
+  // roster). Before, every one of those rows dropped you on the Settings root.
+  const params = useLocalSearchParams<{ section?: string; add?: string; invite?: string }>();
   const requestedSection = SECTIONS.includes(params.section as Section)
     ? (params.section as Section)
     : null;
   const [section, setSection] = useState<Section>(requestedSection ?? 'main');
   const lastRequested = useRef<string | null>(requestedSection);
+  const handledIntent = useRef<string | null>(null);
 
   useEffect(() => {
     if (!requestedSection || requestedSection === lastRequested.current) return;
@@ -435,6 +440,22 @@ export default function SettingsScreen() {
     setInviteTarget({ kind: 'token', memberId: member.id });
   };
 
+  // Act on ?add / ?invite once the roster is in hand.
+  const intentKey = `${params.add ?? ''}:${params.invite ?? ''}`;
+  useEffect(() => {
+    if (intentKey === ':' || handledIntent.current === intentKey) return;
+    if (!household.members.length) return;
+    handledIntent.current = intentKey;
+    if (params.add === '1') {
+      setAddMemberOpen(true);
+      return;
+    }
+    const wanted = params.invite;
+    if (!wanted || wanted === 'pick') return;
+    const member = household.members.find((m) => m.id === wanted);
+    if (member) openMemberInvite(member);
+  }, [intentKey, household.members, params.add, params.invite]);
+
   const inviteMember = useMemo(
     () =>
       inviteTarget?.memberId != null
@@ -453,7 +474,9 @@ export default function SettingsScreen() {
     [household.members, personalizeMemberId]
   );
 
-  if (isSidekickRole(currentMember?.role)) {
+  // Sidekicks and the shared iPad share one simpler screen — the iPad used to fall through
+  // to the full household admin settings.
+  if (usesMemberSettings(currentMember?.role)) {
     return <SidekickSettingsScreen />;
   }
 

@@ -6,6 +6,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { Moji } from '@/components/orbit/moji/moji';
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
+import { EmptyDaySparkle } from '@/components/orbit/plan/empty-day-sparkle';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
@@ -462,7 +463,7 @@ export default function PlanScreen() {
                 styles.emptyDay,
                 { backgroundColor: glass(0.03), borderColor: glassBorder(0.06) },
               ]}>
-              <Moji name="sparkles" size={34} />
+              <EmptyDaySparkle size={34} />
               <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
                 Nothing scheduled — a free day!
               </Text>
@@ -627,7 +628,11 @@ export default function PlanScreen() {
         />
       )}
     </ScrollView>
-    <PlanAddSheet visible={planAddOpen} onDismiss={() => setPlanAddOpen(false)} />
+    <PlanAddSheet
+      visible={planAddOpen}
+      onDismiss={() => setPlanAddOpen(false)}
+      dateKey={selectedKey}
+    />
     </>
   );
 }

@@ -66,7 +66,7 @@ function matchSavedPlace(places: SavedPlace[], text: string): SavedPlace | null 
 
 export default function CreateEventScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ kind?: string }>();
+  const params = useLocalSearchParams<{ kind?: string; date?: string }>();
   const kind = Array.isArray(params.kind) ? params.kind[0] : params.kind;
   const { createEvent, household, currentMember, orbitPalette, permissions } = useOrbit();
   const { c, isDark } = useOrbitColors();
@@ -83,7 +83,12 @@ export default function CreateEventScreen() {
 
   const [sentence, setSentence] = useState('');
   const [title, setTitle] = useState('');
-  const [dateKey, setDateKey] = useState(todayKey());
+  // The + on the calendar carries the day you were looking at; without one, today.
+  const [dateKey, setDateKey] = useState(
+    typeof params.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date)
+      ? params.date
+      : todayKey()
+  );
   const [time, setTime] = useState('17:30');
   const [allDay, setAllDay] = useState(false);
   const [duration, setDuration] = useState(60);

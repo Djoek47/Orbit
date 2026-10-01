@@ -3,6 +3,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { GlassCard } from '@/components/orbit/glass-card';
@@ -11,6 +17,10 @@ import { onTourEvent } from '@/lib/tour/tour-events';
 import type { ChecklistItemId } from '@/lib/tour/tour-types';
 import { showRewards } from '@/lib/tour/tour-conditions';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
+import {
+  sidekickSetupRoute,
+  sidekickSetupTarget,
+} from '@/lib/household/sidekick-setup-target';
 import { trackAnalytics } from '@/lib/analytics';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
@@ -131,11 +141,13 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
         done: poppinsDone,
         onPress: () => router.push('/(tabs)/poppins' as never),
       },
+      // Straight to Members with Add someone already open — this used to land on the
+      // Settings root and leave you to find it.
       {
         id: 'add_sidekick',
         label: 'Add a Sidekick',
         done: hasChildBeyondOwner,
-        onPress: () => router.push('/settings' as never),
+        onPress: () => router.push('/settings?section=members&add=1' as never),
       },
       // Homework is a Sidekick's, so it only makes sense once there is one to give it to.
       // Without one, this row invites you to add a Sidekick instead of leading to a dead end.
@@ -155,11 +167,14 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
           router.push('/tour/proof-walkthrough?kind=chore' as never);
         },
       },
+      // One Sidekick waiting for a device → their QR opens straight away. Several → the
+      // roster, to pick. None yet → Add someone first.
       {
         id: 'setup_device',
         label: 'Set up a device for a Sidekick',
         done: hasDevice,
-        onPress: () => router.push('/settings' as never),
+        onPress: () =>
+          router.push(sidekickSetupRoute(sidekickSetupTarget(household.members)) as never),
       }
     );
 
@@ -219,32 +234,53 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
       ) : (
         <View style={styles.list}>
           {items.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={item.onPress}
-              style={styles.row}
-              accessibilityRole="button">
-              <MaterialIcons
-                name={item.done ? 'check-circle' : 'radio-button-unchecked'}
-                size={20}
-                color={item.done ? orbitColors.success ?? '#34D399' : c.textSubtle}
-              />
-              <Text
-                style={[
-                  typography.subheadline,
-                  {
-                    color: item.done ? c.textSubtle : c.text,
-                    textDecorationLine: item.done ? 'line-through' : 'none',
-                    flex: 1,
-                  },
-                ]}>
-                {item.label}
-              </Text>
-            </Pressable>
+            <ChecklistRow key={item.id} item={item} />
           ))}
         </View>
       )}
     </GlassCard>
+  );
+}
+
+/** One line of the checklist. It dips under the finger so a tap feels like it landed. */
+function ChecklistRow({ item }: { item: Item }) {
+  const { c } = useOrbitColors();
+  const press = useSharedValue(0);
+  const anim = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - press.get() * 0.025 }, { translateX: press.get() * 4 }],
+    opacity: 1 - press.get() * 0.25,
+  }));
+
+  return (
+    <Animated.View style={anim}>
+      <Pressable
+        onPress={item.onPress}
+        onPressIn={() => press.set(withTiming(1, { duration: 90 }))}
+        onPressOut={() => press.set(withSpring(0, { damping: 16, stiffness: 320 }))}
+        style={styles.row}
+        accessibilityRole="button"
+        accessibilityState={{ checked: item.done }}>
+        <MaterialIcons
+          name={item.done ? 'check-circle' : 'radio-button-unchecked'}
+          size={20}
+          color={item.done ? orbitColors.success ?? '#34D399' : c.textSubtle}
+        />
+        <Text
+          style={[
+            typography.subheadline,
+            {
+              color: item.done ? c.textSubtle : c.text,
+              textDecorationLine: item.done ? 'line-through' : 'none',
+              flex: 1,
+            },
+          ]}>
+          {item.label}
+        </Text>
+        {item.done ? null : (
+          <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 

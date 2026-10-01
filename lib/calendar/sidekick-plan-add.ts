@@ -110,10 +110,15 @@ export function planAddOptionsForActor(opts: {
   return items;
 }
 
-export function planAddHref(option: PlanAddOption): string {
-  if (!option.query) return option.route;
-  const params = new URLSearchParams(option.query);
-  return `${option.route}?${params.toString()}`;
+/**
+ * Where an Add-to-Plan row goes. `dateKey` carries the day the calendar is showing, so tapping +
+ * on the 7th starts an event on the 7th rather than today.
+ */
+export function planAddHref(option: PlanAddOption, dateKey?: string | null): string {
+  const params = new URLSearchParams(option.query ?? {});
+  if (dateKey) params.set('date', dateKey);
+  const query = params.toString();
+  return query ? `${option.route}?${query}` : option.route;
 }
 
 export function categoryForPlanAddKind(kind: string | undefined): HouseholdEvent['category'] {
