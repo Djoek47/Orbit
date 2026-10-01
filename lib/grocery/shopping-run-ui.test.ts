@@ -60,7 +60,11 @@ assert.ok(
   appJson.indexOf('"expo-live-activity"') < appJson.indexOf('with-shopping-live-activity'),
   'our view is copied in after the library'
 );
-assert.match(appJson, /group\.app\.choremaxx\.household/, 'main app App Group entitlement');
+assert.doesNotMatch(
+  appJson,
+  /com\.apple\.security\.application-groups/,
+  'main app App Group waits for refreshed App Store profile (see testflight-setup)'
+);
 assert.match(read('plugins/with-shopping-live-activity.js'), /LiveActivityWidget\.swift/);
 assert.match(read('plugins/with-shopping-live-activity.js'), /ShoppingBannerStore\.swift/);
 assert.match(read('plugins/with-shopping-live-activity.js'), /withFinalizedMod/);

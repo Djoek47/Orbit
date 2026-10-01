@@ -11,10 +11,7 @@
  *
  * Needs a native (EAS) build — an OTA update cannot change it.
  */
-const {
-  withEntitlementsPlist,
-  withFinalizedMod,
-} = require('@expo/config-plugins');
+const { withFinalizedMod } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
@@ -29,13 +26,6 @@ function ensureAppGroup(entitlements) {
   if (!groups.includes(APP_GROUP)) groups.push(APP_GROUP);
   next['com.apple.security.application-groups'] = groups;
   return next;
-}
-
-function withMainAppGroup(config) {
-  return withEntitlementsPlist(config, (cfg) => {
-    cfg.modResults = ensureAppGroup(cfg.modResults);
-    return cfg;
-  });
 }
 
 function withShoppingLiveActivityFiles(config) {
@@ -95,8 +85,10 @@ function withShoppingLiveActivityFiles(config) {
 }
 
 module.exports = function withShoppingLiveActivity(config) {
-  let next = withMainAppGroup(config);
-  next = withShoppingLiveActivityFiles(next);
+  // Main-app App Group is intentionally NOT added here — the App Store profile for
+  // app.choremaxx.household must include App Groups (interactive EAS / Apple portal).
+  // Until then, Live Activity UI ships; Lock Screen → app check-off sync is best-effort.
+  let next = withShoppingLiveActivityFiles(config);
   // EAS app-extension entitlement hint so credentials include the App Group.
   next.extra = next.extra ?? {};
   next.extra.eas = next.extra.eas ?? {};
