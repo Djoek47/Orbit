@@ -38,6 +38,8 @@ type Props = {
   usage: { used: number; remaining: number; topUp: number; resetsAt: string; paused: boolean };
   isAdmin: boolean;
   onPrefs: (next: PoppinsInteractionPrefs) => void;
+  /** True while the voice wheel is being dragged — Settings locks scroll / sheet gestures. */
+  onVoiceWheelInteraction?: (active: boolean) => void;
 };
 
 export function PoppinsSettingsPanel({
@@ -47,6 +49,7 @@ export function PoppinsSettingsPanel({
   usage,
   isAdmin,
   onPrefs,
+  onVoiceWheelInteraction,
 }: Props) {
   const { c, glassBorder, isDark } = useOrbitColors();
   const voiceId = useMemo(
@@ -114,6 +117,7 @@ export function PoppinsSettingsPanel({
             voiceId={voiceId}
             disabled={readOnly}
             onSelect={(next) => onPrefs({ ...prefs, voiceId: next })}
+            onInteractionChange={onVoiceWheelInteraction}
           />
         </View>
       </Group>

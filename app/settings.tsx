@@ -202,6 +202,8 @@ export default function SettingsScreen() {
     ? (params.section as Section)
     : null;
   const [section, setSection] = useState<Section>(requestedSection ?? 'main');
+  /** Voice-wheel drag — lock the sheet scroll so the dial owns the gesture. */
+  const [wheelDragging, setWheelDragging] = useState(false);
   const lastRequested = useRef<string | null>(requestedSection);
   const handledIntent = useRef<string | null>(null);
 
@@ -483,13 +485,20 @@ export default function SettingsScreen() {
   return (
     <>
     <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          // Poppins voice wheel: horizontal drags must not dismiss the sheet or pop back.
+          gestureEnabled: section !== 'poppins' && !wheelDragging,
+          fullScreenGestureEnabled: section !== 'poppins' && !wheelDragging,
+        }}
+      />
 
-      <View style={styles.handleRow}>
+      <View style={styles.handleRow} pointerEvents={wheelDragging ? 'none' : 'auto'}>
         <View style={[styles.handle, { backgroundColor: glassBorder(0.2) }]} />
       </View>
 
-      <View style={styles.header}>
+      <View style={styles.header} pointerEvents={wheelDragging ? 'none' : 'auto'}>
         {section !== 'main' ? (
           <Pressable style={styles.backRow} onPress={() => setSection('main')}>
             <Text style={[styles.backChevron, { color: accentTheme.primary }]}>‹</Text>
@@ -523,7 +532,8 @@ export default function SettingsScreen() {
       <KeyboardScreen
         offset={12}
         style={styles.scroll}
-        contentContainerStyle={styles.content}>
+        contentContainerStyle={styles.content}
+        scrollEnabled={!wheelDragging}>
         {section === 'main' ? (
           <>
             {isHouseholdDeletionPending(household) && household.deletionScheduledFor ? (
@@ -1147,6 +1157,7 @@ export default function SettingsScreen() {
               if (poppinsPrefsReadOnly) return;
               void updatePoppinsPrefs(next);
             }}
+            onVoiceWheelInteraction={setWheelDragging}
           />
         ) : null}
 

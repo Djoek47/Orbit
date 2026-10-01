@@ -15,6 +15,8 @@ type KeyboardScreenProps = PropsWithChildren<{
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
   footer?: ReactNode;
+  /** Lock scrolling while a child (e.g. the voice wheel) is being dragged. */
+  scrollEnabled?: boolean;
 }>;
 
 /**
@@ -26,6 +28,7 @@ export function KeyboardScreen({
   contentContainerStyle,
   style,
   footer,
+  scrollEnabled = true,
 }: KeyboardScreenProps) {
   const insets = useSafeAreaInsets();
   const keyboardVerticalOffset = Platform.OS === 'ios' ? Math.max(12, offset) : 0;
@@ -41,6 +44,7 @@ export function KeyboardScreen({
           { paddingBottom: Math.max(insets.bottom, 16) + 24 },
           contentContainerStyle,
         ]}
+        scrollEnabled={scrollEnabled}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
