@@ -49,6 +49,20 @@ function randomTokenChars(length: number): string {
   return out;
 }
 
+/** 4-char suffix that always includes a digit — never collides with CMX-NAME legacy. */
+function randomStrongSuffix(length = 4): string {
+  const digits = '23456789';
+  let out = randomTokenChars(length);
+  if (!/[2-9]/.test(out)) {
+    const i = Math.floor(Math.random() * length);
+    out =
+      out.slice(0, i) +
+      digits[Math.floor(Math.random() * digits.length)]! +
+      out.slice(i + 1);
+  }
+  return out;
+}
+
 /**
  * Legacy helper — first name-only code (`CMX-LIAM`). Kept for tests / reading old behaviour;
  * new mints use {@link allocateChildInviteCode}.
@@ -61,10 +75,17 @@ export function childInviteCodeFromName(name: string): string {
   return createInviteCode();
 }
 
-/** True when a code looks like the old guessable CMX-NAME / CMX-NAME8 style. */
+/**
+ * True when a code looks like the old guessable CMX-NAME / CMX-NAME8 style.
+ * New mints are `CMX-{2 letters}{4 mixed with ≥1 digit}` and never match.
+ */
 export function isLegacyNameProfileCode(code: string): boolean {
   const normalized = normalizeInviteCode(code);
   const suffix = normalized.replace(/^(CMX|ORBIT)-/, '');
+  // Strong token shape (current mint): never treat as legacy once a digit is present.
+  if (/^[A-Z]{2}[A-Z2-9]{4}$/.test(suffix) && /[2-9]/.test(suffix)) {
+    return false;
+  }
   return /^[A-Z]{3,6}\d{0,2}$/.test(suffix);
 }
 
@@ -79,17 +100,17 @@ export function allocateChildInviteCode(name: string, taken: Iterable<string> = 
   const hint = childInviteHint(name);
 
   for (let n = 0; n < 64; n += 1) {
-    const attempt = normalizeInviteCode(`CMX-${hint}${randomTokenChars(4)}`);
+    const attempt = normalizeInviteCode(`CMX-${hint}${randomStrongSuffix(4)}`);
     if (!takenSet.has(attempt)) return attempt;
   }
 
   // Extremely unlikely — fall back to a longer random token.
   for (let n = 0; n < 16; n += 1) {
-    const attempt = normalizeInviteCode(`CMX-${randomTokenChars(1)}${randomTokenChars(7)}`);
+    const attempt = normalizeInviteCode(`CMX-${randomStrongSuffix(1)}${randomStrongSuffix(7)}`);
     if (!takenSet.has(attempt)) return attempt;
   }
 
-  return normalizeInviteCode(`CMX-${hint}${randomTokenChars(6)}`);
+  return normalizeInviteCode(`CMX-${hint}${randomStrongSuffix(6)}`);
 }
 
 export function ensureProfileInviteCode(member: HouseholdMember): string {

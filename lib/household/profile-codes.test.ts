@@ -30,10 +30,14 @@ const a = allocateChildInviteCode('Emma');
 const b = allocateChildInviteCode('Emma', [a]);
 assert.match(a, /^CMX-EM[A-Z2-9]{4}$/);
 assert.match(b, /^CMX-EM[A-Z2-9]{4}$/);
+assert.match(a, /[2-9]/, 'strong tokens always carry a digit');
 assert.notEqual(a, b);
 assert.equal(classifyInviteCode(a), 'profile');
 assert.equal(classifyInviteCode(b), 'profile');
 assert.equal(isLegacyNameProfileCode(a), false);
+assert.equal(isLegacyNameProfileCode(b), false);
+// All-letter 6-char names stay legacy; digit-bearing strong tokens do not.
+assert.equal(isLegacyNameProfileCode('CMX-SOPHIE'), true);
 
 // Collision set of many codes still yields a fresh unused one.
 const taken = new Set<string>();
@@ -42,6 +46,8 @@ for (let i = 0; i < 40; i += 1) {
   assert.equal(taken.has(next), false);
   taken.add(next);
   assert.equal(classifyInviteCode(next), 'profile');
+  assert.equal(isLegacyNameProfileCode(next), false);
+  assert.match(next, /[2-9]/);
 }
 
 assert.equal(isUniqueViolation({ code: '23505', message: 'duplicate key' }), true);
