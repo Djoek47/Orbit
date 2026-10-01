@@ -456,4 +456,38 @@ import WidgetKit
     }
   }
 
+  /// App Group queue for Lock Screen check-offs.
+  /// Lives in this file (not a separate .swift) so expo-live-activity's target
+  /// compiles it — copying a new file into ios/LiveActivity/ does not add it to
+  /// the Xcode Compile Sources list.
+  enum ShoppingBannerStore {
+    static let appGroupId = "group.app.choremaxx.household"
+    static let pendingKey = "shopping.pendingCheckOffIds"
+
+    private static var defaults: UserDefaults? {
+      UserDefaults(suiteName: appGroupId)
+    }
+
+    static func enqueueCheckOff(_ itemId: String) {
+      let id = itemId.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !id.isEmpty else { return }
+      var pending = pendingCheckOffIds()
+      if pending.contains(id) { return }
+      pending.append(id)
+      defaults?.set(pending, forKey: pendingKey)
+      defaults?.synchronize()
+    }
+
+    static func pendingCheckOffIds() -> [String] {
+      (defaults?.array(forKey: pendingKey) as? [String]) ?? []
+    }
+
+    static func drainPendingCheckOffIds() -> [String] {
+      let pending = pendingCheckOffIds()
+      defaults?.removeObject(forKey: pendingKey)
+      defaults?.synchronize()
+      return pending
+    }
+  }
+
 #endif

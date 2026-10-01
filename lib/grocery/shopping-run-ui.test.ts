@@ -33,13 +33,14 @@ assert.match(view, /Image\("choremaxx_mark"\)/, 'the logo');
 assert.match(view, /ShoppingBannerPageIntent/, 'Next/Previous flip pages without opening the app');
 assert.match(view, /ShoppingBannerCheckOffIntent/, 'row tap checks off without opening the app');
 assert.match(view, /ShoppingBannerStore\.enqueueCheckOff/, 'check-off writes the App Group queue');
+assert.match(view, /enum ShoppingBannerStore/, 'store is in LiveActivityView (widget Compile Sources)');
 assert.match(view, /pageSize = 3/, 'roomy single-column pages');
 assert.match(view, /rowHeight: CGFloat = 44/, 'even row rhythm');
 assert.doesNotMatch(view, /LazyVGrid/, 'no cramped two-column grid');
 assert.ok(existsSync(join(process.cwd(), 'assets/liveActivity/choremaxx_mark.png')), 'logo asset');
 assert.ok(
-  existsSync(join(process.cwd(), 'plugins/live-activity/ShoppingBannerStore.swift')),
-  'shared App Group store'
+  existsSync(join(process.cwd(), 'modules/shopping-banner-bridge/ios/ShoppingBannerStore.swift')),
+  'main-app bridge has the same App Group store'
 );
 
 const widget = read('plugins/live-activity/LiveActivityWidget.swift');
@@ -71,7 +72,11 @@ assert.doesNotMatch(
   'main app App Group waits for refreshed App Store profile (see testflight-setup)'
 );
 assert.match(read('plugins/with-shopping-live-activity.js'), /LiveActivityWidget\.swift/);
-assert.match(read('plugins/with-shopping-live-activity.js'), /ShoppingBannerStore\.swift/);
+assert.doesNotMatch(
+  read('plugins/with-shopping-live-activity.js'),
+  /ShoppingBannerStore\.swift/,
+  'do not copy an orphan .swift the widget target never compiles'
+);
 assert.match(read('plugins/with-shopping-live-activity.js'), /withFinalizedMod/);
 assert.match(read('plugins/with-shopping-live-activity.js'), /group\.app\.choremaxx\.household/);
 assert.match(read('lib/grocery/shopping-banner-copy.ts'), /#p\$\{/, 'page marker for the native pager');

@@ -16,7 +16,9 @@ const fs = require('fs');
 const path = require('path');
 
 const APP_GROUP = 'group.app.choremaxx.household';
-const FILES = ['LiveActivityView.swift', 'LiveActivityWidget.swift', 'ShoppingBannerStore.swift'];
+// Only replace files expo-live-activity already adds to the widget target.
+// ShoppingBannerStore lives inside LiveActivityView.swift for the same reason.
+const FILES = ['LiveActivityView.swift', 'LiveActivityWidget.swift'];
 
 function ensureAppGroup(entitlements) {
   const next = { ...entitlements };
