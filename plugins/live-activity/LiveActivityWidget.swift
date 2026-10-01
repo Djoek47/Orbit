@@ -65,7 +65,8 @@ struct LiveActivityWidget: Widget {
         ShoppingBannerCodec.head(from: context.state.subtitle)
       ).aisle
 
-      DynamicIsland {
+      // Explicit return — `let` bindings above disable single-expression inference.
+      return DynamicIsland {
         DynamicIslandExpandedRegion(.leading, priority: 1) {
           VStack(alignment: .leading, spacing: 4) {
             Text(context.state.title)

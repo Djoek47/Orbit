@@ -44,6 +44,11 @@ assert.ok(
 
 const widget = read('plugins/live-activity/LiveActivityWidget.swift');
 assert.match(widget, /LiveActivityView\(contentState/, 'lock screen hosts our view');
+assert.match(
+  widget,
+  /return DynamicIsland/,
+  'explicit return — let bindings break single-expression DynamicIsland inference'
+);
 const lockScreenBlock = widget.slice(
   widget.indexOf('ActivityConfiguration'),
   widget.indexOf('} dynamicIsland:')
