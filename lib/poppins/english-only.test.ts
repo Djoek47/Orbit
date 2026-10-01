@@ -33,6 +33,12 @@ assert.match(
   read('supabase/functions/_shared/poppins-realtime-session-config.ts'),
   /language: 'en'/
 );
+// Cloud STT for Base hybrid also pins English (Apple-first → Whisper / mini-transcribe).
+assert.match(read('supabase/functions/poppins-voice/index.ts'), /append\('language', 'en'\)/);
+assert.match(
+  read('supabase/functions/poppins-voice/index.ts'),
+  /getOpenAIInputTranscribeModel/
+);
 
 // The spoken wrapper never becomes the title — in either language.
 for (const said of [

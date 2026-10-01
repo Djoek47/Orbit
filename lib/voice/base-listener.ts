@@ -1,10 +1,10 @@
 /**
- * Base listening — the iPhone's own speech recognizer, streaming.
+ * Base listening — the iPhone's own speech recognizer, streaming (Apple first).
  *
  * Base is Max without the voice: it hears you, writes down what it heard, and drives the
- * stage. Nothing is uploaded and nothing talks back, so there is no server to be
- * unreachable and no per-minute cost. On a phone that supports it, recognition runs fully
- * on device.
+ * stage. Prefer on-device English recognition. When Apple is silent, unavailable, or
+ * mishears into another language, the controller escalates to cloud STT (`poppins-voice`
+ * transcriptOnly) — listening only; understanding stays in local parsers.
  *
  * One session lasts until the person taps to close (or goes quiet for a while). Inside it,
  * the endpointer cuts the running transcript into sentences; each sentence is handed to
@@ -252,10 +252,12 @@ export class BaseListener {
       }
     })();
     native.start({
+      // Always English for ChoreMaxx — never the phone's UI language (see listenLocale).
       lang: this.opts.locale ?? listenLocale(),
       interimResults: true,
       continuous: true,
       maxAlternatives: 1,
+      // Prefer on-device when available, but never without an explicit English locale above.
       requiresOnDeviceRecognition: onDevice,
       addsPunctuation: false,
       contextualStrings: this.opts.vocabulary ?? [],
