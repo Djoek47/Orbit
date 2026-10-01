@@ -21,4 +21,8 @@ Apple forbids scrolling inside Live Activities. Tall 3-row layouts clipped the l
 
 ## TestFlight
 
+| Build | Branch / commit | Notes |
+| --- | --- | --- |
+| **1.3.0 (106)** queued | `cursor/make-v29` @ `e19d1bb` | [c530a922](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/c530a922-4ae9-436a-bf46-8a1b6d2e4d27); [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/e39b6e01-802e-425b-a7d0-53b3ef746b43) |
+
 Non-interactive EAS uses `EXPO_NO_CAPABILITY_SYNC=1`. Full Lock Screen check-off sync still needs App Groups on the main App ID when the provisioning profile is refreshed.
