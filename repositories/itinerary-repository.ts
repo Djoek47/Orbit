@@ -101,6 +101,33 @@ export const itineraryRepository = {
     const stops = applyStopOrder(current.stops, stopIds);
     return this.update({ ...current, stops });
   },
+
+  /** Put a finished stop back in the open queue as the next active stop. */
+  async reopenStop(itineraryId: string, stopId: string): Promise<Itinerary | null> {
+    const current = await this.getById(itineraryId);
+    if (!current) return null;
+    const ordered = [...current.stops].sort((a, b) => a.sortOrder - b.sortOrder);
+    const target = ordered.find((stop) => stop.id === stopId);
+    if (!target || (target.status !== 'done' && target.status !== 'skipped')) return current;
+
+    const flipped = ordered.map((stop) =>
+      stop.id === stopId ? { ...stop, status: 'pending' as const } : stop
+    );
+    const completed = flipped.filter(
+      (stop) => stop.status === 'done' || stop.status === 'skipped'
+    );
+    const remaining = [
+      stopId,
+      ...flipped.filter((stop) => stop.status === 'active' || stop.status === 'pending').map((s) => s.id),
+    ];
+    const ids = [...completed.map((s) => s.id), ...remaining];
+    const stops = applyStopOrder(flipped, ids);
+    return this.update({
+      ...current,
+      stops,
+      status: 'active',
+    });
+  },
 };
 
 function clone<T>(value: T): T {

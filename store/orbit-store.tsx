@@ -532,6 +532,7 @@ type OrbitContextValue = {
     eventIds?: string[];
   }) => Promise<Itinerary | null>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<void>;
+  reopenItineraryStop: (itineraryId: string, stopId: string) => Promise<void>;
   openStopInMaps: (itineraryId: string, stopId: string) => Promise<void>;
   reorderItineraryStops: (itineraryId: string, stopIds: string[]) => Promise<void>;
   signIn: (input: SignInInput) => Promise<void>;
@@ -4422,6 +4423,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await trackAnalytics('itinerary.stop_advanced', { itineraryId, stopId }, analyticsContext);
   };
 
+  const reopenItineraryStop = async (itineraryId: string, stopId: string) => {
+    const updated = await itineraryRepository.reopenStop(itineraryId, stopId);
+    if (!updated) return;
+    setHousehold((current) => ({
+      ...current,
+      itineraries: (current.itineraries ?? []).map((item) => (item.id === itineraryId ? updated : item)),
+    }));
+    await trackAnalytics('itinerary.stop_reopened', { itineraryId, stopId }, analyticsContext);
+  };
+
   const openStopInMaps = async (itineraryId: string, stopId: string) => {
     const itinerary = household.itineraries?.find((item) => item.id === itineraryId);
     if (!itinerary) {
@@ -6773,6 +6784,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createItinerary,
       suggestPoppinsItinerary,
       advanceItineraryStop,
+      reopenItineraryStop,
       openStopInMaps,
       reorderItineraryStops,
       signIn,

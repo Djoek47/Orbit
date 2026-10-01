@@ -16,10 +16,23 @@ export function isOpenStop(stop: ItineraryStop): boolean {
 }
 
 const COORDINATE_PAIR = /^-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+$/;
+/** "Metro 45.5740, -73.6850" or a trailing lat/lng after the name. */
+const COORDINATE_IN_TEXT = /-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+/;
 
 export function looksLikeCoordinates(value: string | null | undefined): boolean {
   if (!value) return false;
   return COORDINATE_PAIR.test(value.trim());
+}
+
+function stripCoordinateNoise(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (looksLikeCoordinates(trimmed)) return null;
+  if (COORDINATE_IN_TEXT.test(trimmed)) {
+    const cleaned = trimmed.replace(COORDINATE_IN_TEXT, '').replace(/\s{2,}/g, ' ').trim();
+    return cleaned || null;
+  }
+  return trimmed;
 }
 
 /**
@@ -30,11 +43,16 @@ export function looksLikeCoordinates(value: string | null | undefined): boolean 
 export function stopPlaceLine(stop: ItineraryStop): string | null {
   const label = stop.label.trim().toLowerCase();
   for (const raw of [stop.address, stop.placeQuery]) {
-    const value = raw?.trim();
-    if (!value) continue;
-    if (looksLikeCoordinates(value)) continue;
-    if (value.toLowerCase() === label) continue;
-    return value;
+    const cleaned = stripCoordinateNoise(raw ?? '');
+    if (!cleaned) continue;
+    if (cleaned.toLowerCase() === label) continue;
+    // "IGA IGA" / placeQuery that is just "Name" after stripping coords
+    if (cleaned.toLowerCase().startsWith(`${label} `)) {
+      const rest = cleaned.slice(stop.label.trim().length).trim();
+      if (!rest || looksLikeCoordinates(rest) || COORDINATE_IN_TEXT.test(rest)) continue;
+      return rest;
+    }
+    return cleaned;
   }
   return null;
 }
@@ -73,17 +91,25 @@ export function applyStopOrder(stops: ItineraryStop[], orderedIds: string[]): It
   const next = orderedIds
     .map((id) => byId.get(id))
     .filter((stop): stop is ItineraryStop => Boolean(stop));
-  const firstOpen = next.findIndex(isOpenStop);
-  return next.map((stop, index) => ({
-    ...stop,
-    sortOrder: index,
-    status:
-      stop.status === 'done' || stop.status === 'skipped'
-        ? stop.status
-        : index === firstOpen
-          ? 'active'
-          : 'pending',
-  }));
+  // First non-done/skipped in the new order is active — even if it was done before (reopen).
+  const firstOpen = next.findIndex(
+    (stop) => stop.status !== 'done' && stop.status !== 'skipped'
+  );
+  return next.map((stop, index) => {
+    const wasClosed = stop.status === 'done' || stop.status === 'skipped';
+    // Stops listed before the first open stay closed; everything from first open onward is open.
+    if (firstOpen < 0) {
+      return { ...stop, sortOrder: index, status: wasClosed ? stop.status : 'done' };
+    }
+    if (index < firstOpen) {
+      return { ...stop, sortOrder: index, status: 'done' };
+    }
+    return {
+      ...stop,
+      sortOrder: index,
+      status: index === firstOpen ? 'active' : 'pending',
+    };
+  });
 }
 
 export function makeStopNextIds(itinerary: Itinerary, stopId: string): string[] | null {

@@ -176,6 +176,9 @@ function TripCard({
             <Text style={[styles.tripTitle, { color: c.text }]}>{trip.title}</Text>
             <Text style={[styles.tripDayLabel, { color }]}>{formatDayLabel(trip.date)}</Text>
           </View>
+          {trip.favorite ? (
+            <MaterialIcons name="star" size={16} color="#FBBF24" style={{ marginRight: 4 }} />
+          ) : null}
           <MaterialIcons
             name="chevron-right"
             size={16}
@@ -472,25 +475,24 @@ export function PlanTripsPanel({
                 <ComposeChip
                   icon="auto-awesome"
                   label={`Ask ${majordomoName}`}
-                  accent={accentTheme.primary}
+                  accent="#38BDF8"
                   busy={busy}
                   onPress={askPoppinsAboutTrips}
                 />
                 <ComposeChip
                   icon="event"
                   label="From calendar"
-                  accent={accentTheme.primary}
+                  accent="#F59E0B"
                   onPress={() => void runSuggest({ date: selectedDateKey })}
                 />
                 <ComposeChip
                   icon="add"
                   label="New"
-                  accent={accentTheme.primary}
+                  accent="#2DD4BF"
                   onPress={() => router.push('/create-itinerary' as never)}
                 />
               </View>
               </TourTarget>
-
               {/* How the stops get ordered */}
               <View style={styles.modeRow}>
                 <Text style={[styles.modeHint, { color: c.textSubtle }]}>Order stops</Text>
@@ -635,8 +637,8 @@ function ComposeChip({
       style={({ pressed }) => [
         styles.composeChip,
         {
-          backgroundColor: glass(0.04),
-          borderColor: `${accent}44`,
+          backgroundColor: `${accent}22`,
+          borderColor: `${accent}66`,
         },
         pressed && { opacity: 0.85 },
       ]}>

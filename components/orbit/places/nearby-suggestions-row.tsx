@@ -66,14 +66,13 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
         setNoLocation(true);
         return;
       }
-      const found = await findNearbySuggestions(origin);
+      // Refresh button forces a new Overpass hit; otherwise use the week-long cache.
+      const found = await findNearbySuggestions(origin, { forceRefresh: askForLocation });
       if (found.length) {
         setAll(found);
         return;
       }
-      // Nothing from the richer search — fall back to the shops New trip lists, from the
-      // same spot. Places used to give up here while New trip showed eight stores.
-      const stores = await findNearbyStores(origin);
+      const stores = await findNearbyStores(origin, { forceRefresh: askForLocation });
       const fromStores = suggestionsFromStores(stores.stores, origin);
       setAll(fromStores);
       setFailed(fromStores.length === 0);
@@ -109,7 +108,9 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
         name: suggestion.name,
         kind: suggestion.kind,
         address: suggestion.address,
-        placeQuery: `${suggestion.name} ${suggestion.address}`,
+        placeQuery: suggestion.address
+          ? `${suggestion.name} ${suggestion.address}`
+          : suggestion.name,
         lat: suggestion.lat,
         lng: suggestion.lng,
         emoji: suggestion.emoji,

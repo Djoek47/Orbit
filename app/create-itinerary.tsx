@@ -103,7 +103,7 @@ function eventToStop(event: HouseholdEvent): DraftStop {
 
 export default function CreateItineraryScreen() {
   const insets = useSafeAreaInsets();
-  const { createItinerary, household, preferredStore, accentTheme } = useOrbit();
+  const { createItinerary, household, preferredStore, accentTheme, upsertSavedPlace } = useOrbit();
   const majordomoName = useMajordomoName();
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const accent = accentTheme.primary;
@@ -162,6 +162,19 @@ export default function CreateItineraryScreen() {
     }
   }, [selected, nearby, missingCount, store]);
 
+  const persistNearbyAsPlace = (item: PreferredStore) => {
+    upsertSavedPlace({
+      id: item.id.startsWith('osm-') ? item.id : `place-${item.id}`,
+      name: item.name,
+      kind: item.shopKind === 'clothing' ? 'clothing' : 'shop',
+      address: item.address?.trim() || '',
+      placeQuery: item.placeQuery || item.name,
+      lat: item.lat,
+      lng: item.lng,
+      emoji: item.shopKind === 'clothing' ? '👕' : '🛒',
+    });
+  };
+
   const toggleStop = (stop: DraftStop) => {
     setSelected((current) => {
       if (current.some((s) => s.key === stop.key)) {
@@ -169,6 +182,13 @@ export default function CreateItineraryScreen() {
       }
       return [...current, stop];
     });
+  };
+
+  const toggleNearbyStore = (item: PreferredStore) => {
+    const stop = storeToStop(item);
+    const already = selected.some((s) => s.key === stop.key);
+    if (!already) persistNearbyAsPlace(item);
+    toggleStop(stop);
   };
 
   const moveStop = (key: string, direction: -1 | 1) => {
@@ -226,7 +246,7 @@ export default function CreateItineraryScreen() {
       nearby.find((s) => shopNearStops(s, selected, 1500)) ??
       (store && shopNearStops(store, selected, 1500) ? store : preferredStore ?? store);
     if (!shop) return;
-    toggleStop(storeToStop(shop));
+    toggleNearbyStore(shop);
     setPassByHint(null);
   };
 
@@ -404,7 +424,7 @@ export default function CreateItineraryScreen() {
                   key={item!.id}
                   label={`${item!.name}${km}`}
                   on={selected.some((s) => s.key === stop.key)}
-                  onPress={() => toggleStop(stop)}
+                  onPress={() => toggleNearbyStore(item!)}
                   emoji="🛒"
                 />
               );

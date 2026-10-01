@@ -9,6 +9,10 @@
  * Data is OpenStreetMap via Overpass — the same source the nearby-store watcher uses.
  */
 import { haversineMeters } from '@/lib/places/geo-distance';
+import {
+  loadCachedNearbySuggestions,
+  saveCachedNearbySuggestions,
+} from '@/lib/places/nearby-cache';
 import type { PreferredStore, SavedPlaceKind } from '@/types/orbit';
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
@@ -98,7 +102,8 @@ export function suggestionsFromElements(
     out.push({
       id: `osm-${el.type}-${el.id}`,
       name,
-      address: street || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+      // Prefer a real street; never fall back to raw coords (trip UI hides those).
+      address: street,
       kind: rule.kind,
       emoji: rule.emoji,
       lat,
@@ -165,23 +170,37 @@ async function askOverpass(url: string, query: string): Promise<OverpassElement[
 }
 
 /**
- * Ask Overpass, trying each mirror in turn. Always settles: on failure it returns [], so
- * the caller can say "nothing nearby" instead of spinning for ever.
+ * Ask Overpass, trying each mirror in turn. Cached after the first successful hit so
+ * Places doesn't re-fetch every open. Pass forceRefresh to bypass (refresh button).
  */
-export async function findNearbySuggestions(origin: {
-  lat: number;
-  lng: number;
-}): Promise<NearbySuggestion[]> {
+export async function findNearbySuggestions(
+  origin: {
+    lat: number;
+    lng: number;
+  },
+  options?: { forceRefresh?: boolean }
+): Promise<NearbySuggestion[]> {
+  if (!options?.forceRefresh) {
+    const cached = await loadCachedNearbySuggestions(origin.lat, origin.lng);
+    if (cached?.length) return cached;
+  }
   const query = nearbyQuery(origin.lat, origin.lng);
   for (const url of OVERPASS_MIRRORS) {
     try {
       const elements = await askOverpass(url, query);
-      if (elements.length) return suggestionsFromElements(elements, origin);
+      if (elements.length) {
+        const found = suggestionsFromElements(elements, origin);
+        if (found.length) {
+          await saveCachedNearbySuggestions(origin.lat, origin.lng, found);
+          return found;
+        }
+      }
     } catch (error) {
       console.warn('findNearbySuggestions', url, error);
     }
   }
-  return [];
+  const cached = await loadCachedNearbySuggestions(origin.lat, origin.lng);
+  return cached ?? [];
 }
 
 /**

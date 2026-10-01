@@ -2,26 +2,31 @@
  * The Smart Trips page when there is nothing planned yet — what a trip is, in three steps,
  * and one obvious button to make the first one.
  *
- *   ┌────────────────────────────────────┐
- *   │  (orb)  One drive, every errand    │
- *   │         Poppins puts the stops in  │
- *   │         the order that drives best │
- *   │  [ ✨ Plan my day ]                 │
- *   │  ① Pick a day  ② Poppins orders    │
- *   │  ③ Tap Start and it opens Maps     │
- *   │  [ From calendar ] [ Build my own ]│
- *   └────────────────────────────────────┘
+ * Plan my day = Poppins (sky blue). From calendar / Build my own = other hues so people
+ * know those are DIY, not the AI path.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
 import type { MojiName } from '@/components/orbit/moji/art';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+
+const POPPINS_BLUE = '#38BDF8';
+const CALENDAR_AMBER = '#F59E0B';
+const BUILD_TEAL = '#2DD4BF';
 
 type Props = {
   majordomoName: string;
@@ -31,22 +36,57 @@ type Props = {
   onNew: () => void;
 };
 
+function PulsePressable({
+  color,
+  children,
+  onPress,
+  style,
+  accessibilityLabel,
+}: {
+  color: string;
+  children: ReactNode;
+  onPress: () => void;
+  style?: object;
+  accessibilityLabel: string;
+}) {
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(withTiming(1.035, { duration: 900 }), withTiming(1, { duration: 900 })),
+      -1,
+      false
+    );
+  }, [pulse]);
+  const anim = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  return (
+    <Animated.View style={anim}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [style, { opacity: pressed ? 0.88 : 1, borderColor: `${color}88` }]}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}>
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export function SmartTripsIntro({ majordomoName, busy, onAsk, onCalendar, onNew }: Props) {
   const { c, glass, glassBorder } = useOrbitColors();
 
   const steps: { moji: MojiName; title: string; body: string }[] = [
-    { moji: 'calendar', title: 'Pick a day', body: 'Your events and errands for that day.' },
-    { moji: 'map', title: `${majordomoName} orders the stops`, body: 'Shortest drive, in a sensible order.' },
-    { moji: 'car', title: 'Tap Start', body: 'It opens in your maps app, stop by stop.' },
+    { moji: 'calendar', title: 'Pick a day', body: 'Events and errands.' },
+    { moji: 'map', title: `${majordomoName} orders`, body: 'Shortest drive.' },
+    { moji: 'car', title: 'Tap Start', body: 'Maps, stop by stop.' },
   ];
 
   return (
     <Animated.View entering={FadeInDown.springify().damping(18)} style={{ gap: 12 }}>
       <LinearGradient
-        colors={['rgba(56,189,248,0.18)', 'rgba(129,140,248,0.10)']}
+        colors={['rgba(56,189,248,0.22)', 'rgba(129,140,248,0.10)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.hero, { borderColor: glassBorder(0.14) }]}>
+        style={[styles.hero, { borderColor: `${POPPINS_BLUE}55` }]}>
         <View style={styles.heroTop}>
           <PoppinsOrb size={52} />
           <View style={{ flex: 1, gap: 3 }}>
@@ -60,7 +100,10 @@ export function SmartTripsIntro({ majordomoName, busy, onAsk, onCalendar, onNew 
         <Pressable
           onPress={onAsk}
           disabled={busy}
-          style={({ pressed }) => [styles.cta, { backgroundColor: '#38BDF8', opacity: pressed ? 0.88 : 1 }]}
+          style={({ pressed }) => [
+            styles.cta,
+            { backgroundColor: POPPINS_BLUE, opacity: pressed ? 0.88 : 1 },
+          ]}
           accessibilityRole="button"
           accessibilityLabel={`Ask ${majordomoName} to plan my day`}>
           {busy ? (
@@ -70,6 +113,9 @@ export function SmartTripsIntro({ majordomoName, busy, onAsk, onCalendar, onNew 
           )}
           <Text style={styles.ctaLabel}>Plan my day</Text>
         </Pressable>
+        <Text style={[styles.poppinsHint, { color: POPPINS_BLUE }]}>
+          With {majordomoName}
+        </Text>
       </LinearGradient>
 
       <View style={styles.steps}>
@@ -90,28 +136,31 @@ export function SmartTripsIntro({ majordomoName, busy, onAsk, onCalendar, onNew 
         ))}
       </View>
 
+      <Text style={[styles.diyLabel, { color: c.textSubtle }]}>Or build it yourself</Text>
       <View style={styles.alt}>
-        <Pressable
+        <PulsePressable
+          color={CALENDAR_AMBER}
           onPress={onCalendar}
-          style={[styles.altBtn, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}
-          accessibilityRole="button">
-          <MaterialIcons name="event" size={16} color={c.textMuted} />
-          <Text style={[styles.altLabel, { color: c.textMuted }]}>From calendar</Text>
-        </Pressable>
-        <Pressable
+          accessibilityLabel="Build a trip from the calendar"
+          style={[styles.altBtn, { backgroundColor: `${CALENDAR_AMBER}22`, flex: 1 }]}>
+          <MaterialIcons name="event" size={16} color={CALENDAR_AMBER} />
+          <Text style={[styles.altLabel, { color: CALENDAR_AMBER }]}>From calendar</Text>
+        </PulsePressable>
+        <PulsePressable
+          color={BUILD_TEAL}
           onPress={onNew}
-          style={[styles.altBtn, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}
-          accessibilityRole="button">
-          <MaterialIcons name="add" size={16} color={c.textMuted} />
-          <Text style={[styles.altLabel, { color: c.textMuted }]}>Build my own</Text>
-        </Pressable>
+          accessibilityLabel="Build my own trip"
+          style={[styles.altBtn, { backgroundColor: `${BUILD_TEAL}22`, flex: 1 }]}>
+          <MaterialIcons name="add" size={16} color={BUILD_TEAL} />
+          <Text style={[styles.altLabel, { color: BUILD_TEAL }]}>Build my own</Text>
+        </PulsePressable>
       </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { borderRadius: 22, borderWidth: 1, gap: 14, padding: 16 },
+  hero: { borderRadius: 22, borderWidth: 1, gap: 12, padding: 16 },
   heroTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   title: { fontSize: 21, fontWeight: '800', letterSpacing: -0.4 },
   body: { fontSize: 14, lineHeight: 19 },
@@ -124,6 +173,12 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   ctaLabel: { color: '#041018', fontSize: 16, fontWeight: '800' },
+  poppinsHint: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textAlign: 'center',
+  },
   steps: { gap: 8 },
   step: {
     alignItems: 'center',
@@ -138,16 +193,24 @@ const styles = StyleSheet.create({
   stepNumText: { fontSize: 12, fontWeight: '800' },
   stepTitle: { fontSize: 15, fontWeight: '700' },
   stepBody: { fontSize: 12.5, lineHeight: 17, marginTop: 1 },
+  diyLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
   alt: { flexDirection: 'row', gap: 8 },
   altBtn: {
     alignItems: 'center',
+    borderCurve: 'continuous',
     borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    flex: 1,
+    borderWidth: 1.5,
     flexDirection: 'row',
     gap: 6,
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 48,
+    paddingHorizontal: 10,
   },
-  altLabel: { fontSize: 14, fontWeight: '700' },
+  altLabel: { fontSize: 14, fontWeight: '800' },
 });
