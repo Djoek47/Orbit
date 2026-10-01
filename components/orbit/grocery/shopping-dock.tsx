@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -24,15 +25,19 @@ type Props = {
   onAdd: () => void;
 };
 
-/** The closed dock: just the round orange button. */
+/** The closed dock: just the round orange button — fully on-screen. */
 const BUTTON = 56;
+/** Inset from the screen edge so the circle is never cropped. */
+const EDGE = 20;
 
 /**
  * Add an item — a round + that grows into the field.
  *
- * Closed, it's only the button in the corner, so it doesn't cover the list. Tap it and the field
- * opens out to the left from the button and the keyboard comes up. The keyboard's blue ✓ adds
- * what's typed and stays open for the next one; with nothing typed, ✓ (or the ×) folds it back.
+ * Closed, it's only the button in the corner, so it doesn't cover the list. The + is pinned to
+ * the right of the track (absolute), so flex/padding on the field can never shove it off-screen.
+ * Tap it and the field opens out to the left from the button and the keyboard comes up. The
+ * keyboard's blue ✓ adds what's typed and stays open for the next one; with nothing typed, ✓
+ * (or the ×) folds it back.
  */
 export function ShoppingDock({
   palette,
@@ -66,8 +71,8 @@ export function ShoppingDock({
   useEffect(() => {
     grow.set(
       open
-        ? withSpring(1, { damping: 18, stiffness: 180 })
-        : withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) })
+        ? withSpring(1, { damping: 20, stiffness: 220, mass: 0.85 })
+        : withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) })
     );
   }, [grow, open]);
 
@@ -86,15 +91,28 @@ export function ShoppingDock({
     onAdd();
   };
 
-  const dockStyle = useAnimatedStyle(() => {
+  // Capsule grows from the + toward the left; + stays fixed on the right.
+  const capsuleStyle = useAnimatedStyle(() => {
     const full = trackW > 0 ? trackW : BUTTON;
-    return { width: BUTTON + (full - BUTTON) * grow.get() };
+    return {
+      width: interpolate(grow.get(), [0, 1], [BUTTON, full]),
+    };
   });
-  const fieldStyle = useAnimatedStyle(() => ({ opacity: grow.get() }));
-  const iconStyle = useAnimatedStyle(() => ({
-    // + turns into × while the field is open and empty — the way to fold it back.
-    transform: [{ rotate: `${open && empty ? 45 * grow.get() : 0}deg` }],
+  const fieldStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(grow.get(), [0, 0.4, 1], [0, 0, 1]),
   }));
+  const glassStyle = useAnimatedStyle(() => ({
+    opacity: grow.get(),
+  }));
+  const iconStyle = useAnimatedStyle(() => {
+    const twist = open && empty ? 45 : 0;
+    return {
+      transform: [
+        { rotate: `${interpolate(grow.get(), [0, 1], [0, twist])}deg` },
+        { scale: interpolate(grow.get(), [0, 0.45, 1], [1, 1.08, 1]) },
+      ],
+    };
+  });
 
   const lift = keyboard > 0 ? keyboard - bottomInset + 10 : 0;
 
@@ -116,37 +134,45 @@ export function ShoppingDock({
         </View>
       ) : null}
 
-      <Animated.View
-        style={[styles.dock, { borderColor: open ? palette.glassEdge : 'transparent' }, dockStyle]}>
-        {open ? (
-          <>
+      <View style={styles.track} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.capsule,
+            { borderColor: open ? palette.glassEdge : 'transparent' },
+            capsuleStyle,
+          ]}>
+          <Animated.View style={[StyleSheet.absoluteFill, glassStyle]} pointerEvents="none">
             <BlurView
               intensity={Platform.OS === 'ios' ? 30 : 50}
               tint={palette.isDark ? 'dark' : 'light'}
               style={StyleSheet.absoluteFill}
             />
             <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.dockBg }]} />
-          </>
-        ) : null}
-        <Animated.View style={[styles.field, fieldStyle]} pointerEvents={open ? 'auto' : 'none'}>
-          {open ? (
-          <AppTextInput
-            autoFocus
-            value={value}
-            onChangeText={onChangeText}
-            placeholder="Add an item"
-            placeholderTextColor={palette.inkFaint}
-            returnKeyType="done"
-            blurOnSubmit={false}
-            onSubmitEditing={submit}
-            onBlur={() => {
-              if (!value.trim()) setOpen(false);
-            }}
-            editable={!busy}
-            style={[styles.input, { color: palette.ink }]}
-          />
-          ) : null}
+          </Animated.View>
+
+          <Animated.View
+            style={[styles.field, fieldStyle]}
+            pointerEvents={open ? 'auto' : 'none'}>
+            {open ? (
+              <AppTextInput
+                autoFocus
+                value={value}
+                onChangeText={onChangeText}
+                placeholder="Add an item"
+                placeholderTextColor={palette.inkFaint}
+                returnKeyType="done"
+                blurOnSubmit={false}
+                onSubmitEditing={submit}
+                onBlur={() => {
+                  if (!value.trim()) setOpen(false);
+                }}
+                editable={!busy}
+                style={[styles.input, { color: palette.ink }]}
+              />
+            ) : null}
+          </Animated.View>
         </Animated.View>
+
         <Pressable
           onPress={open ? submit : openDock}
           disabled={busy}
@@ -157,7 +183,7 @@ export function ShoppingDock({
             <MaterialIcons name="add" size={24} color={palette.isDark ? palette.canvas : '#fff'} />
           </Animated.View>
         </Pressable>
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -165,8 +191,8 @@ export function ShoppingDock({
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    left: 18,
-    right: 18,
+    left: EDGE,
+    right: EDGE,
     zIndex: 5,
   },
   guess: {
@@ -182,16 +208,29 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  dock: {
-    alignSelf: 'flex-end',
-    flexDirection: 'row',
-    alignItems: 'center',
+  track: {
+    height: BUTTON,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  capsule: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
     height: BUTTON,
     borderRadius: BUTTON / 2,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+    // Leave the trailing BUTTON-wide slot clear for the pinned +.
+    paddingRight: BUTTON,
   },
-  field: { flex: 1, minWidth: 0, paddingLeft: 20, paddingRight: 8 },
+  field: {
+    flex: 1,
+    height: BUTTON,
+    justifyContent: 'center',
+    paddingLeft: 20,
+    paddingRight: 8,
+  },
   input: {
     flex: 1,
     minWidth: 0,
@@ -200,10 +239,14 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   addBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
     width: BUTTON,
     height: BUTTON,
     borderRadius: BUTTON / 2,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
 });

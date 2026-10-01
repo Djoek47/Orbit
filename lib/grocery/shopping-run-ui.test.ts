@@ -10,10 +10,13 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 
 const dock = read('components/orbit/grocery/shopping-dock.tsx');
 assert.match(dock, /useState\(false\)/, 'the dock starts closed — only the + shows');
-assert.match(dock, /alignSelf: 'flex-end'/, 'anchored at the button, so it opens out to the left');
+assert.match(dock, /position: 'absolute'[\s\S]*right: 0/, 'the + is pinned to the right, never flexed off-screen');
+assert.match(dock, /EDGE = 20/, 'inset from the screen edge so the circle is not cropped');
 assert.match(dock, /returnKeyType="done"/, "the keyboard's blue ✓");
 assert.match(dock, /if \(empty\) \{\s*closeDock\(\);/, '✓ with nothing typed folds it back and adds nothing');
 assert.match(dock, /\{open \? \(\s*<AppTextInput\s*autoFocus/, 'opening brings the keyboard up');
+assert.match(dock, /withSpring\(1/, 'open springs out from the +');
+assert.match(dock, /paddingRight: BUTTON/, 'field never shares layout with the +');
 
 const screen = read('app/shopping-mode.tsx');
 assert.match(screen, /loadShoppingBannerEnabled/, 'the Lock Screen switch is remembered');

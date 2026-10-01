@@ -125,7 +125,11 @@ function Editor({ item, accent, canEdit, onClose, onSave, onCategory, onRemove }
         ) : null}
 
         <Text style={[typography.eyebrow, { color: c.textSubtle }]}>Aisle</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cats}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cats}
+          style={styles.catsScroll}>
           {categories.map((cat) => {
             const on = cat.id === item.categoryId || cat.name === item.category;
             return (
@@ -205,7 +209,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     textAlign: 'center',
   },
-  cats: { gap: 8, paddingVertical: 2 },
+  catsScroll: { marginHorizontal: -4 },
+  cats: { gap: 8, paddingVertical: 2, paddingHorizontal: 4, paddingRight: 28 },
   cat: { borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 9 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 2 },
   primary: { flex: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
