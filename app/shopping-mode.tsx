@@ -5,7 +5,16 @@
 
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
-import { AccessibilityInfo, Alert, LayoutAnimation, Platform, StyleSheet, UIManager, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Alert,
+  AppState,
+  LayoutAnimation,
+  Platform,
+  StyleSheet,
+  UIManager,
+  View,
+} from 'react-native';
 import { router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView } from 'react-native';
@@ -31,6 +40,7 @@ import {
   stopShoppingBanner,
   updateShoppingBanner,
 } from '@/lib/grocery/shopping-live-activity';
+import { drainLockScreenCheckOffs } from '@/modules/shopping-banner-bridge';
 import { iconForGroceryName } from '@/lib/grocery/catalog';
 import { loadShoppingBannerEnabled, saveShoppingBannerEnabled } from '@/lib/grocery/shopping-banner-pref';
 import { ShoppingAmbient } from '@/components/orbit/grocery/shopping-ambient';
@@ -154,6 +164,30 @@ export default function ShoppingModeScreen() {
     [listItems, markGroceryMissing, markGroceryPurchased, reduceMotion, clearToast, showToast]
   );
 
+  // Lock Screen check-offs land in the App Group; pull them into the grocery list when the
+  // run is open or the app comes back to the foreground.
+  const applyLockScreenCheckOffs = useCallback(() => {
+    const ids = drainLockScreenCheckOffs();
+    if (!ids.length) return;
+    for (const id of ids) {
+      const item = listItems.find((row) => row.id === id);
+      if (!item || item.done) continue;
+      void markGroceryPurchased(id);
+    }
+  }, [listItems, markGroceryPurchased]);
+
+  useEffect(() => {
+    applyLockScreenCheckOffs();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') applyLockScreenCheckOffs();
+    });
+    const tick = setInterval(applyLockScreenCheckOffs, 2500);
+    return () => {
+      sub.remove();
+      clearInterval(tick);
+    };
+  }, [applyLockScreenCheckOffs]);
+
   const undo = useCallback(() => {
     const id = lastToggled.current;
     if (!id) return;
@@ -184,19 +218,29 @@ export default function ShoppingModeScreen() {
   // put when you leave the app so it's there at the store. It ends when the run does, or
   // when you tap End run.
   const nextAisle = aisles.find((aisle) => aisle.items.some((item) => !item.done))?.categoryName;
-  // Each line leads with the item's emoji, the same one the list shows.
-  const remaining = useMemo(
+  // Each line leads with the item's emoji, the same one the list shows — and carries the
+  // grocery id so a Lock Screen tap can check it off without opening the app.
+  const remainingItems = useMemo(
     () =>
       aisles.flatMap((aisle) =>
         aisle.items
           .filter((item) => !item.done)
-          .map((item) => `${iconForGroceryName(item.name, item.categoryId)} ${item.name}`)
+          .map((item) => ({
+            id: item.id,
+            label: `${iconForGroceryName(item.name, item.categoryId)} ${item.name}`,
+          }))
       ),
     [aisles]
   );
   const bannerRun = useMemo(
-    () => ({ done: progress.done, total: progress.total, nextAisle, runLabel, remaining }),
-    [progress.done, progress.total, nextAisle, runLabel, remaining]
+    () => ({
+      done: progress.done,
+      total: progress.total,
+      nextAisle,
+      runLabel,
+      remainingItems,
+    }),
+    [progress.done, progress.total, nextAisle, runLabel, remainingItems]
   );
   const started = useRef(false);
   // The Lock Screen switch. Off means no banner at all for this run and the next.

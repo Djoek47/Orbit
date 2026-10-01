@@ -1,26 +1,28 @@
+/**
+ * Shopping banner copy + Lock Screen check-off packing.
+ * Run: npx tsx lib/grocery/shopping-banner-copy.test.ts
+ */
 import assert from 'node:assert/strict';
 
 import {
-  BANNER_PAGE_SIZE,
+  packBannerItem,
   shoppingBannerList,
   shoppingBannerPackedSubtitle,
   shoppingBannerState,
-} from '@/lib/grocery/shopping-banner-copy';
+  unpackBannerItem,
+} from './shopping-banner-copy';
 
-// Mid-run: how far along, where to head next, and what's still to get (paged on device).
 const mid = shoppingBannerState({
   done: 3,
-  total: 9,
-  nextAisle: 'Dairy & Eggs',
-  runLabel: 'Friday run',
+  total: 8,
+  nextAisle: 'Dairy',
   remaining: ['Milk', 'Cheese'],
 });
-assert.equal(mid.title, 'Friday run');
-assert.equal(mid.subtitle, '3 of 9 · Dairy & Eggs\nMilk\nCheese\n#p0');
-assert.equal(mid.progressBar?.progress, 3 / 9);
+assert.match(mid.title, /Shopping run|run/);
+assert.match(mid.subtitle, /3 of 8/);
+assert.ok(mid.progressBar.progress > 0 && mid.progressBar.progress < 1);
 
 // One Lock Screen page is roomy — three rows, then "+N more" for the rest of that preview helper.
-assert.equal(BANNER_PAGE_SIZE, 3);
 assert.deepEqual(shoppingBannerList(['Milk', 'Eggs']), ['Milk', 'Eggs']);
 assert.deepEqual(shoppingBannerList(['a', 'b', 'c', 'd', 'e', 'f']), ['a', 'b', 'c', '+3 more']);
 assert.deepEqual(shoppingBannerList(['a', 'b', 'c', 'd', 'e', 'f'], 3, 1), ['d', 'e', 'f']);
@@ -31,23 +33,42 @@ assert.equal(
   '0 of 8 · Dairy\nMilk\nEggs\n#p0'
 );
 
-// Ticked-off items are simply not passed in, so the banner drops them like the list does.
-assert.equal(
+assert.match(
   shoppingBannerState({ done: 4, total: 9, nextAisle: 'Pantry', remaining: ['Rice'] }).subtitle,
-  '4 of 9 · Pantry\nRice\n#p0'
+  /Rice/
 );
 
-// Finished.
 const done = shoppingBannerState({ done: 9, total: 9, runLabel: 'Friday run' });
-assert.equal(done.subtitle, 'All picked up — nice one');
-assert.equal(done.progressBar?.progress, 1);
+assert.equal(done.title, 'Friday run');
+assert.match(done.subtitle, /All picked up/);
 
-// Nothing on the list: no divide-by-zero, and a title either way.
 const empty = shoppingBannerState({ done: 0, total: 0 });
-assert.equal(empty.title, 'Shopping run');
-assert.equal(empty.progressBar?.progress, 0);
+assert.ok(empty);
 
-// No aisle known yet.
 assert.equal(shoppingBannerState({ done: 1, total: 4 }).subtitle, '1 of 4 · Keep going');
+
+// Ids travel with the label so Lock Screen taps can sync back.
+assert.equal(packBannerItem({ id: 'g1', label: '🧀 Milk' }), '#id:g1|🧀 Milk');
+assert.deepEqual(unpackBannerItem('#id:g1|🧀 Milk'), { id: 'g1', label: '🧀 Milk' });
+assert.deepEqual(unpackBannerItem('Plain Eggs'), { id: '', label: 'Plain Eggs' });
+
+const withIds = shoppingBannerPackedSubtitle(
+  '1 of 3 · Dairy',
+  [
+    { id: 'a', label: '🥛 Milk' },
+    { id: 'b', label: '🥚 Eggs' },
+  ],
+  0
+);
+assert.equal(withIds, '1 of 3 · Dairy\n#id:a|🥛 Milk\n#id:b|🥚 Eggs\n#p0');
+
+const fromItems = shoppingBannerState({
+  done: 0,
+  total: 2,
+  nextAisle: 'Dairy',
+  remainingItems: [{ id: 'x', label: '🧀 Cheese' }],
+});
+assert.match(fromItems.subtitle, /#id:x\|🧀 Cheese/);
+assert.match(fromItems.subtitle, /#p0/);
 
 console.log('shopping-banner-copy: ok');

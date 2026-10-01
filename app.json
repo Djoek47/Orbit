@@ -8,11 +8,14 @@
     "icon": "./assets/images/icon.png",
     "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
-    "ios": {
+      "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.choremaxx.household",
       "buildNumber": "1",
       "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.app.choremaxx.household"]
+      },
       "icon": {
         "light": "./assets/images/icon-light.png",
         "dark": "./assets/images/icon-dark.png",

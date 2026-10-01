@@ -84,14 +84,18 @@ struct LiveActivityWidget: Widget {
         }
         DynamicIslandExpandedRegion(.trailing) {
           if !left.isEmpty {
-            VStack(alignment: .trailing, spacing: 0) {
+            VStack(alignment: .trailing, spacing: 1) {
               Text(left)
-                .font(.system(size: 28, weight: .heavy, design: .rounded))
+                .font(.system(size: 26, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color(hex: "#FF7A45"))
-              Text("LEFT")
+                .monospacedDigit()
+              Text("left")
                 .font(.system(size: 9, weight: .bold, design: .rounded))
+                .textCase(.uppercase)
+                .tracking(0.6)
                 .foregroundStyle(.white.opacity(0.55))
             }
+            .frame(minWidth: 40, alignment: .trailing)
             .padding(.trailing, 4)
             .applyWidgetURL(from: context.attributes.deepLinkUrl)
           } else if let imageName = context.state.imageName {
