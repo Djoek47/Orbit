@@ -5,13 +5,16 @@
  * tap on/off. The old mute pills looked dead; this card leads with faces and a clear edit.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Avatar } from '@/components/orbit/avatar';
+import { MemberPresencePill } from '@/components/orbit/members/member-presence-pill';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { formatLastSeen, memberIsLive } from '@/lib/household/member-presence';
 import {
   pruneSharedDeviceLinks,
   resolveSharedDevicePeople,
@@ -124,10 +127,32 @@ export function SharedDeviceManageCard({
           <Text style={[styles.subtitle, { color: c.textMuted }]}>
             {onDevice.length === 0
               ? 'No one on this device yet'
-              : `${onDevice.length} of ${SHARED_DEVICE_MAX_PEOPLE} people · tap a face to edit`}
+              : onDevice.some((p) => memberIsLive(p))
+                ? `${onDevice.length} people · someone connected`
+                : (() => {
+                    const times = onDevice
+                      .map((p) => p.lastSeenAt)
+                      .filter((iso): iso is string => Boolean(iso?.trim()))
+                      .map((iso) => new Date(iso).getTime())
+                      .filter((ms) => !Number.isNaN(ms));
+                    const latest = times.length ? Math.max(...times) : null;
+                    return latest
+                      ? `${onDevice.length} people · last active ${formatLastSeen(new Date(latest).toISOString())}`
+                      : `${onDevice.length} of ${SHARED_DEVICE_MAX_PEOPLE} people · tap a face to edit`;
+                  })()}
           </Text>
         </View>
       </View>
+
+      <Pressable
+        onPress={() => router.push(`/setup-kid-device?deviceId=${encodeURIComponent(device.id)}` as never)}
+        accessibilityRole="button"
+        accessibilityLabel={`Show QR for ${deviceName}`}
+        style={[styles.showQr, { backgroundColor: `${accent}18`, borderColor: `${accent}44` }]}>
+        <MaterialIcons name="qr-code-2" size={18} color={accent} />
+        <Text style={[styles.showQrText, { color: accent }]}>Show QR / regenerate</Text>
+        <MaterialIcons name="chevron-right" size={18} color={accent} />
+      </Pressable>
 
       <Text style={[styles.sectionLabel, { color: accent }]}>On this device</Text>
       {onDevice.length === 0 ? (
@@ -156,9 +181,12 @@ export function SharedDeviceManageCard({
                   </Text>
                 )}
               </View>
-              <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
-                {person.name}
-              </Text>
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
+                  {person.name}
+                </Text>
+                <MemberPresencePill member={person} variant="compact" />
+              </View>
               <View style={[styles.faceRemove, { backgroundColor: `${accent}33` }]}>
                 <MaterialIcons name="close" size={12} color={accent} />
               </View>
@@ -296,6 +324,17 @@ const styles = StyleSheet.create({
   headCopy: { flex: 1, gap: 2, minWidth: 0 },
   title: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   subtitle: { fontSize: 13, lineHeight: 18 },
+  showQr: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  showQrText: { flex: 1, fontSize: 14, fontWeight: '700' },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '800',

@@ -97,6 +97,12 @@ import {
 } from '@/lib/household/active-household-pref';
 import { getHouseholdAccentPref } from '@/lib/household/household-accent-pref';
 import { isMemberFullyConnected } from '@/lib/household/member-connection';
+import {
+  diffPresenceTransitions,
+  presenceSnapshot,
+  presenceTransitionCopy,
+  type PresencePhase,
+} from '@/lib/household/presence-transitions';
 import { plannedTasksForMember } from '@/lib/onboarding/planned-member-tasks';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
@@ -671,6 +677,8 @@ type OrbitContextValue = {
    * Used by Family iPad Step 3 face select — mock and Supabase.
    */
   ensureMemberProfileInviteCode: (memberId: string) => Promise<string | null>;
+  /** Mint a new profile invite code / QR (invalidates the previous one). */
+  rotateMemberProfileInviteCode: (memberId: string) => Promise<string | null>;
   /**
    * Admin creates 1–2 kid profiles (no child email). Invites are AirDrop/shareable.
    * Household data stays on the admin account.
@@ -725,6 +733,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [household, setHousehold] = useState<HouseholdSnapshot>(mockHousehold);
   const householdRef = useRef(household);
   householdRef.current = household;
+  const presenceSnapshotRef = useRef<Record<string, PresencePhase>>({});
+  const presenceEmitAtRef = useRef<Record<string, number>>({});
   const currentMemberRef = useRef<HouseholdMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -4224,6 +4234,52 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return persistInboxRow(passthrough, named);
   };
 
+  // Sidekick connect / disconnect → admin notification + activity log (throttled).
+  useEffect(() => {
+    const next = presenceSnapshot(household.members);
+    const transitions = diffPresenceTransitions(
+      presenceSnapshotRef.current,
+      next,
+      household.members
+    );
+    presenceSnapshotRef.current = next;
+    if (!household.id || !permissions.canManageHousehold || transitions.length === 0) return;
+
+    const now = Date.now();
+    for (const transition of transitions) {
+      const throttleKey = `${transition.memberId}:${transition.from}->${transition.to}`;
+      if ((presenceEmitAtRef.current[throttleKey] ?? 0) > now - 60_000) continue;
+      presenceEmitAtRef.current[throttleKey] = now;
+      const copy = presenceTransitionCopy(transition);
+      void pushNotification({
+        title: copy.title,
+        body: copy.body,
+        category: 'members',
+        priority: 'low',
+        data: {
+          memberId: transition.memberId,
+          presenceFrom: transition.from,
+          presenceTo: transition.to,
+        },
+      });
+      void logActivity({
+        householdId: household.id,
+        kind: 'assistant_report',
+        memberId: transition.memberId,
+        title: copy.title,
+        body: copy.body,
+        category: 'members',
+        detail: {
+          presenceFrom: transition.from,
+          presenceTo: transition.to,
+        },
+        dedupeKey: `presence:${throttleKey}:${Math.floor(now / 60_000)}`,
+      });
+    }
+    // pushNotification is stable enough for this effect; intentional member-list trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [household.members, household.id, permissions.canManageHousehold]);
+
   const createEvent = async (input: CreateEventInput): Promise<HouseholdEvent | null> => {
     const caps = resolveMemberCapabilities(household);
     if (!permissions.canManageHousehold && !caps.allowCalendarCreate) {
@@ -6188,6 +6244,35 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       : null;
   };
 
+  const rotateMemberProfileInviteCode = async (memberId: string) => {
+    if (!permissions.canManageHousehold) {
+      throw new Error('Only an admin can generate a new QR code.');
+    }
+    const member = household.members.find((item) => item.id === memberId);
+    if (!member) return null;
+    const taken = household.members
+      .map((item) => item.profileInviteCode)
+      .filter((code): code is string => Boolean(code?.trim()));
+    const updated = await householdRepository.rotateMemberProfileInviteCode(
+      member,
+      taken,
+      household.id
+    );
+    setHousehold((current) => {
+      const next = {
+        ...current,
+        members: current.members.map((item) => (item.id === memberId ? updated : item)),
+      };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      return next;
+    });
+    return updated.profileInviteCode?.trim()
+      ? normalizeInviteCode(updated.profileInviteCode)
+      : null;
+  };
+
   const createChildInvites = async (
     names: string[],
     options?: { householdId?: string | null; householdName?: string }
@@ -6872,6 +6957,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createSharedDevice,
       updateSharedDeviceLinks,
       ensureMemberProfileInviteCode,
+      rotateMemberProfileInviteCode,
       createChildInvites,
       addOnboardingMembers,
       redeemChildInvite,

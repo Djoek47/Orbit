@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { HouseholdSwitcher } from '@/components/orbit/household-switcher';
+import { MemberPresencePill } from '@/components/orbit/members/member-presence-pill';
 import { SharedDeviceManageCard } from '@/components/orbit/members/shared-device-manage-card';
 import { SharedIpadCard } from '@/components/orbit/members/shared-ipad-card';
 import { Avatar } from '@/components/orbit/avatar';
@@ -26,6 +27,7 @@ import {
   nestedSharedAccountIds,
   resolveSharedDevicePeople,
 } from '@/lib/household/shared-device';
+import { memberPresenceParts } from '@/lib/household/member-presence';
 import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
 import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
 import { formatHouseholdRole } from '@/lib/permissions';
@@ -248,15 +250,22 @@ export function HouseholdMembersRoster({
         const progress = todayProgress(member, household);
         const age = ageLabel(member);
         const device = findSharedDeviceForMember(member.id, household.members);
+        const presence = memberPresenceParts(member);
+        const presenceBit =
+          presence.isLive
+            ? 'Connected'
+            : presence.lastSeenText
+              ? `Last seen ${presence.lastSeenText}`
+              : presence.connectionLabel;
         const sub = device
-          ? `${age ? `${age} · ` : ''}shares the ${device.name?.trim() || 'shared device'}`
+          ? `${age ? `${age} · ` : ''}shares the ${device.name?.trim() || 'shared device'} · ${presenceBit}`
           : age
-            ? `${age} · ${progress.done} of ${progress.total} done today`
-            : `${progress.done} of ${progress.total} done today`;
+            ? `${age} · ${progress.done} of ${progress.total} done today · ${presenceBit}`
+            : `${progress.done} of ${progress.total} done today · ${presenceBit}`;
         return (
           <Pressable
             key={member.id}
-            onPress={() => onPersonalize(member.id)}
+            onPress={() => router.push(`/member/${member.id}` as never)}
             onLongPress={() =>
               permissions.canManageHousehold ? handleRemoveMember(member) : undefined
             }
@@ -276,7 +285,12 @@ export function HouseholdMembersRoster({
               )}
             </View>
             <View style={styles.kidBody}>
-              <Text style={[styles.kidName, { color: c.text }]}>{member.name}</Text>
+              <View style={styles.nameRow}>
+                <Text style={[styles.kidName, { color: c.text, flexShrink: 1 }]} numberOfLines={1}>
+                  {member.name}
+                </Text>
+                <MemberPresencePill member={member} variant="compact" />
+              </View>
               <Text style={[styles.kidMeta, { color: c.textMuted }]} numberOfLines={1}>
                 {sub}
               </Text>
@@ -462,6 +476,12 @@ const styles = StyleSheet.create({
   },
   monoText: { fontSize: 15, fontWeight: '700' },
   kidBody: { flex: 1, gap: 4, minWidth: 0 },
+  nameRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   kidName: { fontSize: 16, fontWeight: '600' },
   kidMeta: { fontSize: 13 },
   barTrack: { borderRadius: 2, height: 4, overflow: 'hidden', width: '100%' },

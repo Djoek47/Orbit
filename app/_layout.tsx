@@ -142,6 +142,10 @@ export default function RootLayout() {
                     name="setup-kid-device"
                     options={{ presentation: 'modal', headerShown: false, title: 'Shared device setup' }}
                   />
+                  <Stack.Screen
+                    name="member/[id]"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Member' }}
+                  />
                   <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
                   <Stack.Screen
                     name="support"
