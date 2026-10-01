@@ -1,10 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
+import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { Moji } from '@/components/orbit/moji/moji';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PlaceMap } from '@/components/orbit/place-map';
@@ -27,7 +31,6 @@ import {
 import { createLocalId } from '@/repositories/repository-utils';
 import { useOrbit } from '@/store/orbit-store';
 import type { PreferredStore, SavedPlace, SavedPlaceKind } from '@/types/orbit';
-import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 const HOME_ID = 'place-home';
 const WORK_ID = 'place-work';
@@ -154,7 +157,6 @@ export default function PlacesScreen() {
   const {
     accentTheme,
     household,
-    orbitPalette,
     removeSavedPlace,
     suggestPoppinsItinerary,
     upsertSavedPlace,
@@ -569,280 +571,319 @@ export default function PlacesScreen() {
     );
   }
 
+  const accent = accentTheme.primary;
+  const kindChoices = KIND_OPTIONS.filter((k) =>
+    editor.kind === 'home' || editor.kind === 'work'
+      ? k.id === editor.kind
+      : k.id !== 'home' && k.id !== 'work'
+  );
+
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: c.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.handle, { backgroundColor: glass(0.18) }]} />
-      <View style={styles.header}>
+      <View style={styles.editorTopBar}>
         <Pressable
           onPress={() => setEditor(null)}
-          style={[styles.iconBtn, { backgroundColor: glass(0.06) }]}
-          hitSlop={8}>
-          <MaterialIcons name="arrow-back" size={18} color={orbitPalette.textMuted} />
+          style={styles.editorBack}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Places">
+          <MaterialIcons name="chevron-left" size={22} color={accent} />
+          <Text style={[styles.editorBackLabel, { color: accent }]}>Places</Text>
         </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.kicker, { color: orbitPalette.textSubtle }]}>Places</Text>
-          <Text style={[styles.title, { color: orbitPalette.text }]}>
-            {editor.isNew ? 'Add place' : 'Edit place'}
-          </Text>
-        </View>
-        <View style={{ width: 40 }} />
+        <Pressable
+          onPress={() => setEditor({ ...editor, isFavorite: !editor.isFavorite })}
+          style={[
+            styles.starBtn,
+            {
+              backgroundColor: editor.isFavorite ? 'rgba(245,158,11,0.18)' : glass(0.06),
+              borderColor: editor.isFavorite ? 'rgba(245,158,11,0.45)' : glassBorder(0.1),
+            },
+          ]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={editor.isFavorite ? 'Unfavorite place' : 'Favorite place'}
+          accessibilityState={{ selected: editor.isFavorite }}>
+          <MaterialIcons
+            name={editor.isFavorite ? 'star' : 'star-border'}
+            size={20}
+            color={editor.isFavorite ? '#F59E0B' : c.textMuted}
+          />
+        </Pressable>
       </View>
 
       {cat ? (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-            Used for trips, grocery stops, and near-shop alerts.
-          </Text>
-
-          <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>CATEGORY</Text>
-          <View style={styles.kindWrap}>
-            {KIND_OPTIONS.filter((k) =>
-              editor.kind === 'home' || editor.kind === 'work'
-                ? k.id === editor.kind
-                : k.id !== 'home' && k.id !== 'work'
-            ).map((k) => {
-              const active = editor.kind === k.id;
-              return (
-                <Pressable
-                  key={k.id}
-                  onPress={() =>
-                    setEditor({
-                      ...editor,
-                      kind: k.id,
-                      emoji:
-                        editor.emoji === defaultEmoji(cat.id) ? defaultEmoji(k.id) : editor.emoji,
-                    })
-                  }
-                  style={[
-                    styles.kindChip,
-                    {
-                      backgroundColor: active ? `${k.color}20` : glass(0.05),
-                      borderColor: active ? `${k.color}55` : orbitPalette.border,
-                    },
-                  ]}>
-                  <MaterialIcons
-                    name={k.icon}
-                    size={14}
-                    color={active ? k.color : orbitPalette.textMuted}
-                  />
-                  <Text style={{ fontSize: 12, color: active ? k.color : orbitPalette.textSubtle, fontWeight: active ? '700' : '500' }}>
-                    {k.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>MARK</Text>
-          <View style={styles.emojiRow}>
-            {EMOJI_PRESETS.map((e) => {
-              const active = editor.emoji === e;
-              return (
-                <Pressable
-                  key={e}
-                  onPress={() => setEditor({ ...editor, emoji: e })}
-                  style={[
-                    styles.emojiChip,
-                    {
-                      backgroundColor: active ? `${cat.color}22` : glass(0.05),
-                      borderColor: active ? `${cat.color}55` : orbitPalette.border,
-                    },
-                  ]}>
-                  <Moji emoji={e} size={22} />
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Pressable
-            onPress={() => setEditor({ ...editor, isFavorite: !editor.isFavorite })}
-            style={[
-              styles.favToggle,
-              {
-                backgroundColor: editor.isFavorite ? 'rgba(245,158,11,0.15)' : glass(0.05),
-                borderColor: editor.isFavorite ? 'rgba(245,158,11,0.4)' : orbitPalette.border,
-              },
-            ]}>
-            <MaterialIcons
-              name={editor.isFavorite ? 'star' : 'star-border'}
-              size={18}
-              color={editor.isFavorite ? '#F59E0B' : orbitPalette.textSubtle}
-            />
-            <Text style={{ color: editor.isFavorite ? '#F59E0B' : orbitPalette.textMuted, fontWeight: '600' }}>
-              {editor.isFavorite ? 'Favorite place' : 'Mark as favorite'}
+        <KeyboardScreen
+          offset={8}
+          contentContainerStyle={styles.editorContent}
+          footer={
+            <View style={styles.editorFooter}>
+              <OrbitButton onPress={saveEditor}>Save place</OrbitButton>
+            </View>
+          }>
+          <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.editorHeader}>
+            <Text style={[styles.editorEyebrow, { color: accent }]}>Places</Text>
+            <Text style={[styles.editorTitle, { color: c.text }]}>
+              {editor.isNew ? 'Add place' : 'Edit place'}
             </Text>
-          </Pressable>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(40).duration(260)} style={styles.editorSection}>
+            <Text style={[styles.editorLabel, { color: accent }]}>Type</Text>
+            <View style={styles.kindWrap}>
+              {kindChoices.map((k) => {
+                const active = editor.kind === k.id;
+                return (
+                  <Pressable
+                    key={k.id}
+                    onPress={() =>
+                      setEditor({
+                        ...editor,
+                        kind: k.id,
+                        emoji:
+                          editor.emoji === defaultEmoji(cat.id)
+                            ? defaultEmoji(k.id)
+                            : editor.emoji,
+                      })
+                    }
+                    style={[
+                      styles.kindChip,
+                      {
+                        backgroundColor: active ? `${k.color}28` : glass(0.05),
+                        borderColor: active ? k.color : glassBorder(0.1),
+                      },
+                    ]}>
+                    <MaterialIcons
+                      name={k.icon}
+                      size={14}
+                      color={active ? k.color : c.textMuted}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: active ? k.color : c.textSoft,
+                        fontWeight: active ? '800' : '600',
+                      }}>
+                      {k.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(70).duration(260)} style={styles.editorSection}>
+            <Text style={[styles.editorLabel, { color: accent }]}>Icon</Text>
+            <View style={styles.emojiRow}>
+              {EMOJI_PRESETS.map((e) => {
+                const active = editor.emoji === e;
+                return (
+                  <Pressable
+                    key={e}
+                    onPress={() => setEditor({ ...editor, emoji: e })}
+                    style={[
+                      styles.emojiChip,
+                      {
+                        backgroundColor: active ? `${cat.color}28` : glass(0.05),
+                        borderColor: active ? cat.color : glassBorder(0.1),
+                      },
+                    ]}>
+                    <Moji emoji={e} size={22} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Animated.View>
 
           {editor.kind !== 'home' && editor.kind !== 'work' ? (
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>PLACE NAME</Text>
+            <Animated.View entering={FadeInDown.delay(90).duration(260)}>
+              <LinearGradient
+                colors={[`${accent}30`, `${accent}0A`]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.fieldCard, { borderColor: `${accent}44` }]}>
+                <Text style={[styles.editorLabel, { color: accent }]}>Name</Text>
+                <TextInput
+                  value={editor.name}
+                  onChangeText={(name) => setEditor({ ...editor, name })}
+                  placeholder="School, Grandma…"
+                  placeholderTextColor={c.textFaint}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: glassFill(isDark),
+                      borderColor: glassBorder(0.1),
+                      color: c.text,
+                    },
+                  ]}
+                />
+              </LinearGradient>
+            </Animated.View>
+          ) : null}
+
+          <Animated.View entering={FadeInDown.delay(110).duration(260)}>
+            <LinearGradient
+              colors={[`${cat.color}32`, `${cat.color}0C`]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.fieldCard, { borderColor: `${cat.color}55` }]}>
+              <Text style={[styles.editorLabel, { color: cat.color }]}>Address</Text>
               <TextInput
-                value={editor.name}
-                onChangeText={(name) => setEditor({ ...editor, name })}
-                placeholder="Work, School, Grandma…"
-                placeholderTextColor={orbitPalette.textFaint}
+                value={editor.address}
+                onChangeText={(address) =>
+                  setEditor({ ...editor, address, lat: undefined, lng: undefined })
+                }
+                placeholder="Street, city"
+                placeholderTextColor={c.textFaint}
+                style={[
+                  styles.input,
+                  styles.inputTall,
+                  {
+                    backgroundColor: glassFill(isDark),
+                    borderColor: glassBorder(0.1),
+                    color: c.text,
+                  },
+                ]}
+                multiline
+              />
+              {searching ? (
+                <Text style={[styles.searchHint, { color: c.textMuted }]}>Searching…</Text>
+              ) : null}
+              {suggestions.length > 0 ? (
+                <View style={styles.suggestList}>
+                  {suggestions.map((row) => (
+                    <Pressable
+                      key={row.id}
+                      onPress={() => {
+                        setEditor({
+                          ...editor,
+                          address: row.address,
+                          lat: row.lat,
+                          lng: row.lng,
+                          name: editor.name || row.label,
+                        });
+                        setSuggestions([]);
+                      }}
+                      style={[
+                        styles.suggestRow,
+                        { borderColor: glassBorder(0.1), backgroundColor: glass(0.06) },
+                      ]}>
+                      <MaterialIcons name="place" size={16} color={accent} />
+                      <Text style={[styles.suggestText, { color: c.text }]} numberOfLines={2}>
+                        {row.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </LinearGradient>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(130).duration(260)} style={styles.mapBlock}>
+            <PlaceMap
+              height={168}
+              locating={locating && editor.lat == null}
+              permissionDenied={permissionDenied}
+              userLocation={gps}
+              emptyHint="Type an address or use your location."
+              markers={
+                editor.lat != null && editor.lng != null
+                  ? [
+                      {
+                        id: editor.id,
+                        title: editor.name || 'Place',
+                        lat: editor.lat,
+                        lng: editor.lng,
+                      },
+                    ]
+                  : []
+              }
+            />
+            <View style={styles.mapActions}>
+              <Pressable
+                onPress={() => void fillFromCurrentLocation()}
+                style={[
+                  styles.mapAction,
+                  { borderColor: `${accent}55`, backgroundColor: glass(0.05) },
+                ]}
+                disabled={locating}>
+                <MaterialIcons name="my-location" size={16} color={accent} />
+                <Text style={[styles.mapActionText, { color: accent }]}>
+                  {locating ? 'Finding…' : 'My location'}
+                </Text>
+              </Pressable>
+              {editor.lat != null && editor.lng != null ? (
+                <Pressable
+                  onPress={() =>
+                    void openDirections(
+                      undefined,
+                      { address: editor.address, lat: editor.lat, lng: editor.lng },
+                      preferredMapsApp
+                    )
+                  }
+                  style={[
+                    styles.mapAction,
+                    { borderColor: `${accent}55`, backgroundColor: glass(0.05) },
+                  ]}>
+                  <MaterialIcons name="directions" size={16} color={accent} />
+                  <Text style={[styles.mapActionText, { color: accent }]}>Directions</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(150).duration(260)} style={styles.editorSection}>
+            <Text style={[styles.editorLabel, { color: accent }]}>Pickup</Text>
+            <View style={styles.addItemRow}>
+              <TextInput
+                value={itemInput}
+                onChangeText={setItemInput}
+                placeholder="Milk, bread…"
+                placeholderTextColor={c.textFaint}
+                onSubmitEditing={addEditorItem}
                 style={[
                   styles.input,
                   {
+                    flex: 1,
                     backgroundColor: glass(0.06),
-                    borderColor: orbitPalette.border,
-                    color: orbitPalette.text,
+                    borderColor: glassBorder(0.1),
+                    color: c.text,
                   },
                 ]}
+                returnKeyType="done"
               />
+              <Pressable
+                onPress={addEditorItem}
+                style={[
+                  styles.addItemBtn,
+                  { backgroundColor: `${cat.color}22`, borderColor: `${cat.color}40` },
+                ]}>
+                <MaterialIcons name="add" size={18} color={cat.color} />
+              </Pressable>
             </View>
-          ) : null}
-
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>ADDRESS</Text>
-            <TextInput
-              value={editor.address}
-              onChangeText={(address) =>
-                setEditor({ ...editor, address, lat: undefined, lng: undefined })
-              }
-              placeholder="Street, city"
-              placeholderTextColor={orbitPalette.textFaint}
-              style={[
-                styles.input,
-                styles.inputTall,
-                {
-                  backgroundColor: glass(0.06),
-                  borderColor: orbitPalette.border,
-                  color: orbitPalette.text,
-                },
-              ]}
-              multiline
-            />
-            {searching ? (
-              <Text style={[styles.label, { color: orbitPalette.textSubtle, marginTop: 8 }]}>
-                Looking up addresses…
-              </Text>
-            ) : null}
-            {suggestions.length > 0 ? (
-              <View style={{ gap: 6, marginTop: 8 }}>
-                {suggestions.map((row) => (
+            {editor.pickupItemNames.length > 0 ? (
+              <View style={styles.pickupWrap}>
+                {editor.pickupItemNames.map((item) => (
                   <Pressable
-                    key={row.id}
-                    onPress={() => {
+                    key={item}
+                    onPress={() =>
                       setEditor({
                         ...editor,
-                        address: row.address,
-                        lat: row.lat,
-                        lng: row.lng,
-                        name: editor.name || row.label,
-                      });
-                      setSuggestions([]);
-                    }}
+                        pickupItemNames: editor.pickupItemNames.filter((i) => i !== item),
+                      })
+                    }
                     style={[
-                      styles.locateBtn,
-                      { borderColor: orbitPalette.border, backgroundColor: glass(0.04) },
+                      styles.pickupChip,
+                      { backgroundColor: `${cat.color}18`, borderColor: `${cat.color}30` },
                     ]}>
-                    <MaterialIcons name="place" size={16} color={accentTheme.primary} />
-                    <Text style={[styles.locateText, { color: orbitPalette.text, flex: 1 }]}>
-                      {row.label}
-                    </Text>
+                    <Text style={{ fontSize: 12, color: cat.color, fontWeight: '600' }}>{item}</Text>
+                    <MaterialIcons name="close" size={12} color={cat.color} />
                   </Pressable>
                 ))}
               </View>
             ) : null}
-          </View>
-
-          <PlaceMap
-            height={176}
-            locating={locating && editor.lat == null}
-            permissionDenied={permissionDenied}
-            userLocation={gps}
-            emptyHint="The map follows you. Type an address or use current location to drop a pin — Poppins uses this GPS to find nearby stores."
-            markers={
-              editor.lat != null && editor.lng != null
-                ? [{ id: editor.id, title: editor.name || 'Place', lat: editor.lat, lng: editor.lng }]
-                : []
-            }
-          />
-
-          {editor.lat != null && editor.lng != null ? (
-            <Pressable
-              onPress={() =>
-                void openDirections(
-                  undefined,
-                  { address: editor.address, lat: editor.lat, lng: editor.lng },
-                  preferredMapsApp
-                )
-              }
-              style={[styles.locateBtn, { borderColor: `${accentTheme.primary}55`, backgroundColor: glass(0.04) }]}>
-              <MaterialIcons name="directions" size={18} color={accentTheme.primary} />
-              <Text style={[styles.locateText, { color: accentTheme.primary }]}>Open in Maps</Text>
-            </Pressable>
-          ) : null}
-
-          <Pressable
-            onPress={() => void fillFromCurrentLocation()}
-            style={[styles.locateBtn, { borderColor: `${accentTheme.primary}55`, backgroundColor: glass(0.04) }]}
-            disabled={locating}>
-            <MaterialIcons name="my-location" size={18} color={accentTheme.primary} />
-            <Text style={[styles.locateText, { color: accentTheme.primary }]}>
-              {locating ? 'Finding you…' : 'Use current location'}
-            </Text>
-          </Pressable>
-
-          <Text style={[styles.label, { color: orbitPalette.textSubtle }]}>ITEMS TO PICK UP</Text>
-          <View style={styles.addItemRow}>
-            <TextInput
-              value={itemInput}
-              onChangeText={setItemInput}
-              placeholder="e.g. Milk, Bread…"
-              placeholderTextColor={orbitPalette.textFaint}
-              onSubmitEditing={addEditorItem}
-              style={[
-                styles.input,
-                {
-                  flex: 1,
-                  backgroundColor: glass(0.06),
-                  borderColor: orbitPalette.border,
-                  color: orbitPalette.text,
-                },
-              ]}
-              returnKeyType="done"
-            />
-            <Pressable
-              onPress={addEditorItem}
-              style={[styles.addItemBtn, { backgroundColor: `${cat.color}22`, borderColor: `${cat.color}40` }]}>
-              <MaterialIcons name="add" size={18} color={cat.color} />
-            </Pressable>
-          </View>
-          {editor.pickupItemNames.length > 0 ? (
-            <View style={styles.pickupWrap}>
-              {editor.pickupItemNames.map((item) => (
-                <Pressable
-                  key={item}
-                  onPress={() =>
-                    setEditor({
-                      ...editor,
-                      pickupItemNames: editor.pickupItemNames.filter((i) => i !== item),
-                    })
-                  }
-                  style={[styles.pickupChip, { backgroundColor: `${cat.color}18`, borderColor: `${cat.color}30` }]}>
-                  <Text style={{ fontSize: 12, color: cat.color }}>{item}</Text>
-                  <MaterialIcons name="close" size={12} color={cat.color} />
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-
-          <View style={[styles.poppinsHint, { backgroundColor: 'rgba(6,182,212,0.08)', borderColor: 'rgba(6,182,212,0.18)' }]}>
-            <MaterialIcons name="auto-awesome" size={13} color="#06B6D4" />
-            <Text style={{ flex: 1, fontSize: 12, color: orbitPalette.textMuted, lineHeight: 18 }}>
-              <Text style={{ color: '#06B6D4', fontWeight: '700' }}>Poppins uses this</Text> to bundle
-              errands, suggest pickup reminders, and build smart itineraries.
-            </Text>
-          </View>
-
-          <OrbitButton onPress={saveEditor}>Save place</OrbitButton>
-        </ScrollView>
+          </Animated.View>
+        </KeyboardScreen>
       ) : null}
     </View>
   );
@@ -941,38 +982,89 @@ function PlaceRow({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  handle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  header: {
+  content: { paddingHorizontal: 20, gap: 12, paddingTop: 8 },
+  editorTopBar: {
+    alignItems: 'center',
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+    paddingVertical: 4,
   },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  editorBack: {
     alignItems: 'center',
-    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 2,
+    minHeight: 44,
   },
-  headerCopy: { flex: 1 },
-  kicker: {
-    fontSize: 11,
-    fontWeight: '700',
+  editorBackLabel: { fontSize: 16, fontWeight: '700' },
+  starBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  editorContent: {
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+  },
+  editorHeader: { gap: 2, marginBottom: 2 },
+  editorEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
-  title: { fontSize: 22, fontWeight: '800' },
-  content: { paddingHorizontal: 20, gap: 12, paddingTop: 8 },
-  subtitle: { fontSize: 14, lineHeight: 20, marginBottom: 4 },
+  editorTitle: {
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  editorSection: { gap: 10 },
+  editorLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  editorFooter: { marginTop: 8 },
+  fieldCard: {
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    padding: 14,
+  },
+  searchHint: { fontSize: 12, fontWeight: '600' },
+  suggestList: { gap: 6 },
+  suggestRow: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  suggestText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  mapBlock: { gap: 10 },
+  mapActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  mapAction: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  mapActionText: { fontSize: 13, fontWeight: '800' },
   pinRow: { flexDirection: 'row', gap: 12 },
   pinTile: {
     flex: 1,
@@ -1030,85 +1122,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   setLabel: { color: '#1A1208', fontSize: 13, fontWeight: '700' },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginTop: 4,
-  },
   kindWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   kindChip: {
-    flexDirection: 'row',
     alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
   },
   emojiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   emojiChip: {
-    width: 44,
-    height: 44,
+    alignItems: 'center',
+    borderCurve: 'continuous',
     borderRadius: 12,
     borderWidth: 1,
-    alignItems: 'center',
+    height: 44,
     justifyContent: 'center',
+    width: 44,
   },
-  favToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  field: { gap: 8 },
   input: {
+    borderCurve: 'continuous',
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
     fontSize: 16,
-  },
-  inputTall: { minHeight: 72, textAlignVertical: 'top' },
-  locateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    fontWeight: '600',
     paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
+    paddingVertical: 12,
   },
-  locateText: { fontSize: 14, fontWeight: '700' },
-  addItemRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  inputTall: { minHeight: 68, textAlignVertical: 'top' },
+  addItemRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   addItemBtn: {
-    width: 48,
-    height: 48,
+    alignItems: 'center',
+    borderCurve: 'continuous',
     borderRadius: 14,
     borderWidth: 1,
-    alignItems: 'center',
+    height: 48,
     justifyContent: 'center',
+    width: 48,
   },
   pickupWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pickupChip: {
-    flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: radius.full,
+    borderWidth: 1,
+    flexDirection: 'row',
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: radius.full,
-    borderWidth: 1,
-  },
-  poppinsHint: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'flex-start',
   },
   row: {
     flexDirection: 'row',

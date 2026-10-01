@@ -1,21 +1,22 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { OrbitInput } from '@/components/orbit/orbit-input';
-import { RouteSteps } from '@/components/orbit/route-steps';
+import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { getPreferredStore } from '@/data/preferred-stores';
-import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
+import { radius, space } from '@/constants/orbit-theme';
 import { optimizeDraftStops } from '@/lib/calendar/suggest-itinerary';
 import { shopNearStops, findNearbyStores } from '@/lib/places/nearby-stores';
-import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdEvent, ItineraryStopKind, PreferredStore, SavedPlace } from '@/types/orbit';
-import { AppText as Text } from '@/components/orbit/app-text';
 
 type DraftStop = {
   key: string;
@@ -40,18 +41,6 @@ const STOP_EMOJI: Record<ItineraryStopKind, string> = {
   home: '🏡',
   shop: '🛒',
   custom: '📍',
-};
-
-const STOP_CATEGORY: Record<ItineraryStopKind, string> = {
-  school: 'School',
-  work: 'Work',
-  grocery: 'Grocery',
-  pickup: 'Pickup',
-  practice: 'Practice',
-  family: 'Family',
-  home: 'Home',
-  shop: 'Shop',
-  custom: 'Errand',
 };
 
 function placeToStop(place: SavedPlace): DraftStop {
@@ -113,24 +102,23 @@ function eventToStop(event: HouseholdEvent): DraftStop {
 }
 
 export default function CreateItineraryScreen() {
+  const insets = useSafeAreaInsets();
   const { createItinerary, household, preferredStore, accentTheme } = useOrbit();
   const majordomoName = useMajordomoName();
-  const { c, glass, glassBorder } = useOrbitColors();
+  const { c, glass, glassBorder, isDark } = useOrbitColors();
+  const accent = accentTheme.primary;
   const params = useLocalSearchParams<{
     title?: string | string[];
     detail?: string | string[];
     dayLabel?: string | string[];
   }>();
   const paramTitle = Array.isArray(params.title) ? params.title[0] : params.title;
-  const paramDetail = Array.isArray(params.detail) ? params.detail[0] : params.detail;
   const paramDay = Array.isArray(params.dayLabel) ? params.dayLabel[0] : params.dayLabel;
   const [title, setTitle] = useState(
-    paramTitle?.trim() ||
-      (paramDay?.trim() ? `${paramDay.trim()} run` : 'Family run')
+    paramTitle?.trim() || (paramDay?.trim() ? `${paramDay.trim()} run` : 'Family run')
   );
   const [selected, setSelected] = useState<DraftStop[]>([]);
   const [nearby, setNearby] = useState<PreferredStore[]>([]);
-  const [nearbySource, setNearbySource] = useState<string>('');
   const [passByHint, setPassByHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const date = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -148,19 +136,15 @@ export default function CreateItineraryScreen() {
 
   useEffect(() => {
     let mounted = true;
-    findNearbyStores()
-      .then((result) => {
-        if (!mounted) return;
-        setNearby(result.stores.slice(0, 8));
-        setNearbySource(result.source);
-      })
-      .catch(() => {
-        if (mounted) setNearby([preferredStore]);
-      });
+    void (async () => {
+      const found = await findNearbyStores();
+      if (!mounted) return;
+      setNearby(found.stores);
+    })();
     return () => {
       mounted = false;
     };
-  }, [preferredStore]);
+  }, []);
 
   useEffect(() => {
     if (missingCount === 0 || selected.length === 0) {
@@ -169,12 +153,10 @@ export default function CreateItineraryScreen() {
     }
     const shop =
       nearby.find((s) => shopNearStops(s, selected, 1500)) ??
-      (shopNearStops(store, selected, 1500) ? store : null);
+      (store && shopNearStops(store, selected, 1500) ? store : null);
     const alreadyHasGrocery = selected.some((s) => s.kind === 'grocery' || s.kind === 'shop');
     if (shop && !alreadyHasGrocery) {
-      setPassByHint(
-        `Save a trip — pick up ${missingCount} missing items at ${shop.name} on the way`
-      );
+      setPassByHint(`Pick up ${missingCount} at ${shop.name}`);
     } else {
       setPassByHint(null);
     }
@@ -182,8 +164,8 @@ export default function CreateItineraryScreen() {
 
   const toggleStop = (stop: DraftStop) => {
     setSelected((current) => {
-      if (current.some((item) => item.key === stop.key)) {
-        return current.filter((item) => item.key !== stop.key);
+      if (current.some((s) => s.key === stop.key)) {
+        return current.filter((s) => s.key !== stop.key);
       }
       return [...current, stop];
     });
@@ -192,20 +174,14 @@ export default function CreateItineraryScreen() {
   const moveStop = (key: string, direction: -1 | 1) => {
     setSelected((current) => {
       const index = current.findIndex((s) => s.key === key);
+      if (index < 0) return current;
       const next = index + direction;
-      if (index < 0 || next < 0 || next >= current.length) return current;
+      if (next < 0 || next >= current.length) return current;
       const copy = [...current];
-      [copy[index], copy[next]] = [copy[next]!, copy[index]!];
+      const [item] = copy.splice(index, 1);
+      copy.splice(next, 0, item!);
       return copy;
     });
-  };
-
-  const addPassByShop = () => {
-    const shop =
-      nearby.find((s) => shopNearStops(s, selected, 1500)) ??
-      (shopNearStops(store, selected, 1500) ? store : preferredStore);
-    toggleStop(storeToStop(shop));
-    setPassByHint(null);
   };
 
   const handleOptimize = () => {
@@ -245,8 +221,17 @@ export default function CreateItineraryScreen() {
     );
   };
 
+  const addPassByShop = () => {
+    const shop =
+      nearby.find((s) => shopNearStops(s, selected, 1500)) ??
+      (store && shopNearStops(store, selected, 1500) ? store : preferredStore ?? store);
+    if (!shop) return;
+    toggleStop(storeToStop(shop));
+    setPassByHint(null);
+  };
+
   const handleCreate = async () => {
-    if (selected.length === 0) return;
+    if (!title.trim() || selected.length === 0) return;
     setBusy(true);
     try {
       const created = await createItinerary({
@@ -277,260 +262,340 @@ export default function CreateItineraryScreen() {
     }
   };
 
-  const chipTone = { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) } as const;
+  const Chip = ({
+    label,
+    on,
+    onPress,
+    emoji,
+  }: {
+    label: string;
+    on: boolean;
+    onPress: () => void;
+    emoji?: string;
+  }) => (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: on ? `${accent}28` : glass(0.06),
+          borderColor: on ? accent : glassBorder(0.1),
+        },
+      ]}>
+      {emoji ? <Text style={styles.chipEmoji}>{emoji}</Text> : null}
+      <Text style={[styles.chipText, { color: on ? accent : c.textSoft }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 
   return (
-    <ScrollView
-      style={[orbitScreen.container, { backgroundColor: c.background }]}
-      contentContainerStyle={orbitScreen.content}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}>
-      <View style={orbitScreen.header}>
-        <Text style={[typography.footnote, { color: c.textMuted }]}>Plan</Text>
-        <Text style={[typography.title1, { color: c.text }]}>New trip</Text>
-        <Text style={[typography.body, { color: c.textSoft }]}>
-          {paramDetail?.trim()
-            ? paramDetail.trim()
-            : 'Add stops from places, today’s calendar, or nearby stores.'}
-        </Text>
+    <View style={[styles.root, { backgroundColor: c.background, paddingTop: insets.top }]}>
+      <View style={styles.topBar}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+          <MaterialIcons name="chevron-left" size={22} color={accent} />
+          <Text style={[styles.backLabel, { color: accent }]}>Plan</Text>
+        </Pressable>
       </View>
 
-      <GlassCard>
-        <OrbitInput label="Title" value={title} onChangeText={setTitle} />
-      </GlassCard>
+      <PersistentScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+        keyboardShouldPersistTaps="handled"
+        indicatorColor={accent}
+        showsVerticalScrollIndicator={false}>
+        <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.header}>
+          <Text style={[styles.eyebrow, { color: accent }]}>Trip</Text>
+          <Text style={[styles.pageTitle, { color: c.text }]}>New trip</Text>
+        </Animated.View>
 
-      {passByHint ? (
-        <Pressable
-          onPress={addPassByShop}
-          style={[
-            styles.hintCard,
-            { backgroundColor: glass(0.04), borderColor: `${accentTheme.primary}55` },
-          ]}>
-          <MaterialIcons name="local-grocery-store" size={18} color={accentTheme.primary} />
-          <Text style={[styles.hintText, { color: accentTheme.primary }]}>{passByHint}</Text>
-          <Text style={[styles.hintAdd, { color: c.text }]}>Add</Text>
-        </Pressable>
-      ) : null}
+        <Animated.View entering={FadeInDown.delay(50).duration(260)}>
+          <LinearGradient
+            colors={[`${accent}30`, `${accent}0A`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.titleCard, { borderColor: `${accent}44` }]}>
+            <Text style={[styles.fieldLabel, { color: accent }]}>Title</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Family run"
+              placeholderTextColor={c.textFaint}
+              style={[styles.titleInput, { color: c.text, backgroundColor: glassFill(isDark) }]}
+              returnKeyType="done"
+            />
+          </LinearGradient>
+        </Animated.View>
 
-      {todayEvents.length > 0 ? (
-        <>
-          <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Today’s calendar</Text>
+        {passByHint ? (
+          <Pressable
+            onPress={addPassByShop}
+            style={[styles.hintCard, { backgroundColor: `${accent}18`, borderColor: `${accent}55` }]}>
+            <MaterialIcons name="local-grocery-store" size={18} color={accent} />
+            <Text style={[styles.hintText, { color: c.text }]} numberOfLines={2}>
+              {passByHint}
+            </Text>
+            <Text style={[styles.hintAdd, { color: accent }]}>Add</Text>
+          </Pressable>
+        ) : null}
+
+        {todayEvents.length > 0 ? (
+          <Animated.View entering={FadeInDown.delay(80).duration(260)} style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: accent }]}>Today</Text>
+            <View style={styles.chipWrap}>
+              {todayEvents.map((event) => {
+                const stop = eventToStop(event);
+                return (
+                  <Chip
+                    key={event.id}
+                    label={event.title}
+                    on={selected.some((s) => s.key === stop.key)}
+                    onPress={() => toggleStop(stop)}
+                    emoji={STOP_EMOJI[stop.kind]}
+                  />
+                );
+              })}
+            </View>
+          </Animated.View>
+        ) : null}
+
+        <Animated.View entering={FadeInDown.delay(100).duration(260)} style={styles.section}>
+          <View style={styles.sectionRow}>
+            <Text style={[styles.sectionLabel, { color: accent }]}>Places</Text>
+            <Pressable onPress={() => router.push('/places' as never)} hitSlop={8}>
+              <Text style={[styles.manageLink, { color: accent }]}>Manage</Text>
+            </Pressable>
+          </View>
           <View style={styles.chipWrap}>
-            {todayEvents.map((event) => {
-              const stop = eventToStop(event);
-              const on = selected.some((s) => s.key === stop.key);
+            {places.length === 0 ? (
+              <Chip
+                label="Add home / work"
+                on={false}
+                onPress={() => router.push('/places' as never)}
+                emoji="📍"
+              />
+            ) : null}
+            {places.map((place) => {
+              const stop = placeToStop(place);
               return (
-                <Pressable
-                  key={event.id}
+                <Chip
+                  key={place.id}
+                  label={place.name}
+                  on={selected.some((s) => s.key === stop.key)}
                   onPress={() => toggleStop(stop)}
-                  style={[
-                    styles.chip,
-                    chipTone,
-                    on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
-                  ]}>
-                  <Text style={[styles.chipText, { color: on ? accentTheme.primary : c.textSoft }]}>
-                    {event.title}
-                  </Text>
-                </Pressable>
+                  emoji={place.emoji || STOP_EMOJI[stop.kind]}
+                />
               );
             })}
           </View>
-        </>
-      ) : null}
+        </Animated.View>
 
-      <View style={styles.sectionRow}>
-        <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Saved places</Text>
-        <Pressable onPress={() => router.push('/places' as never)} hitSlop={8}>
-          <Text style={[styles.manageLink, { color: accentTheme.primary }]}>Manage</Text>
-        </Pressable>
-      </View>
-      <View style={styles.chipWrap}>
-        {places.length === 0 ? (
-          <Pressable
-            onPress={() => router.push('/places' as never)}
-            style={[styles.chip, chipTone, { borderColor: `${accentTheme.primary}55` }]}>
-            <Text style={[styles.chipText, { color: accentTheme.primary }]}>Add home / work…</Text>
-          </Pressable>
-        ) : null}
-        {places.map((place) => {
-          const stop = placeToStop(place);
-          const on = selected.some((s) => s.key === stop.key);
-          return (
-            <Pressable
-              key={place.id}
-              onPress={() => toggleStop(stop)}
-              style={[
-                styles.chip,
-                chipTone,
-                on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
-              ]}>
-              <Text style={[styles.chipText, { color: on ? accentTheme.primary : c.textSoft }]}>
-                {place.name}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <Text style={[styles.sectionLabel, { color: c.textMuted }]}>
-        Stores near you{nearbySource ? ` · ${nearbySource}` : ''}
-      </Text>
-      <View style={styles.chipWrap}>
-        {(nearby.length ? nearby : [store]).map((item) => {
-          const stop = storeToStop(item);
-          const on = selected.some((s) => s.key === stop.key);
-          return (
-            <Pressable
-              key={item.id}
-              onPress={() => toggleStop(stop)}
-              style={[
-                styles.chip,
-                chipTone,
-                on && { backgroundColor: `${accentTheme.primary}28`, borderColor: accentTheme.primary },
-              ]}>
-              <Text style={[styles.chipText, { color: on ? accentTheme.primary : c.textSoft }]}>
-                {item.name}
-                {item.distanceMeters != null
-                  ? ` · ${Math.round(item.distanceMeters / 100) / 10}km`
-                  : ''}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {selected.length > 0 ? (
-        <GlassCard
-          elevated
-          style={{
-            backgroundColor: glass(0.05),
-            borderColor: `${accentTheme.primary}28`,
-          }}>
-          <View style={styles.orderHead}>
-            <Text style={[typography.headline, { color: c.text }]}>Stop order</Text>
-            <Pressable onPress={handleOptimize} hitSlop={8}>
-              <Text style={[styles.optimizeLink, { color: accentTheme.primary }]}>
-                Optimize with {majordomoName}
-              </Text>
-            </Pressable>
+        <Animated.View entering={FadeInDown.delay(120).duration(260)} style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: accent }]}>Nearby</Text>
+          <View style={styles.chipWrap}>
+            {(nearby.length ? nearby : [store]).filter(Boolean).map((item) => {
+              const stop = storeToStop(item!);
+              const km =
+                item!.distanceMeters != null
+                  ? ` · ${Math.round(item!.distanceMeters / 100) / 10}km`
+                  : '';
+              return (
+                <Chip
+                  key={item!.id}
+                  label={`${item!.name}${km}`}
+                  on={selected.some((s) => s.key === stop.key)}
+                  onPress={() => toggleStop(stop)}
+                  emoji="🛒"
+                />
+              );
+            })}
           </View>
-          <RouteSteps
-            steps={selected.map((stop, index) => ({
-              id: stop.key,
-              emoji: STOP_EMOJI[stop.kind],
-              title: stop.label,
-              address: stop.address || stop.placeQuery,
-              category: STOP_CATEGORY[stop.kind],
-              driveMinutes: index < selected.length - 1 ? 5 : undefined,
-              estimatedMinutes: 12 + index * 8,
-            }))}
-            accentColor={accentTheme.primary}
-            emphasized
-          />
-          <View style={{ gap: 4, marginTop: 8 }}>
+        </Animated.View>
+
+        {selected.length > 0 ? (
+          <Animated.View
+            entering={FadeInDown.delay(140).duration(260)}
+            style={[
+              styles.orderCard,
+              { backgroundColor: glass(0.05), borderColor: `${accent}33` },
+            ]}>
+            <View style={styles.orderHead}>
+              <Text style={[styles.orderTitle, { color: c.text }]}>
+                {selected.length} stop{selected.length === 1 ? '' : 's'}
+              </Text>
+              {selected.length > 1 ? (
+                <Pressable onPress={handleOptimize} hitSlop={8}>
+                  <Text style={[styles.optimizeLink, { color: accent }]}>
+                    Optimize · {majordomoName}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
             {selected.map((stop, index) => (
-              <View key={stop.key} style={styles.orderRow}>
-                <Text style={[styles.orderIndex, { color: c.textMuted }]}>{index + 1}</Text>
-                <Text style={[styles.orderLabel, { color: c.text }]}>{stop.label}</Text>
+              <View
+                key={stop.key}
+                style={[styles.orderRow, { backgroundColor: glass(0.04) }]}>
+                <View style={[styles.orderIndex, { backgroundColor: `${accent}22` }]}>
+                  <Text style={[styles.orderIndexText, { color: accent }]}>{index + 1}</Text>
+                </View>
+                <Text style={styles.orderEmoji}>{STOP_EMOJI[stop.kind]}</Text>
+                <Text style={[styles.orderLabel, { color: c.text }]} numberOfLines={1}>
+                  {stop.label}
+                </Text>
                 <Pressable onPress={() => moveStop(stop.key, -1)} hitSlop={6}>
                   <MaterialIcons name="keyboard-arrow-up" size={20} color={c.textMuted} />
                 </Pressable>
                 <Pressable onPress={() => moveStop(stop.key, 1)} hitSlop={6}>
                   <MaterialIcons name="keyboard-arrow-down" size={20} color={c.textMuted} />
                 </Pressable>
-                <Pressable onPress={() => toggleStop(stop)}>
+                <Pressable onPress={() => toggleStop(stop)} hitSlop={6}>
                   <MaterialIcons name="close" size={18} color={c.danger} />
                 </Pressable>
               </View>
             ))}
-          </View>
-        </GlassCard>
-      ) : null}
+          </Animated.View>
+        ) : null}
 
-      <OrbitButton
-        disabled={busy || !title.trim() || selected.length === 0}
-        onPress={() => void handleCreate()}>
-        {busy ? 'Saving…' : 'Create trip'}
-      </OrbitButton>
-      <OrbitButton tone="secondary" onPress={() => router.back()}>
-        Cancel
-      </OrbitButton>
-    </ScrollView>
+        <OrbitButton
+          disabled={busy || !title.trim() || selected.length === 0}
+          onPress={() => void handleCreate()}>
+          {busy ? 'Saving…' : 'Create trip'}
+        </OrbitButton>
+        <OrbitButton tone="secondary" onPress={() => router.back()}>
+          Cancel
+        </OrbitButton>
+      </PersistentScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionRow: {
-    flexDirection: 'row',
+  root: { flex: 1 },
+  topBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  backBtn: {
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 2,
+    minHeight: 44,
+  },
+  backLabel: { fontSize: 16, fontWeight: '700' },
+  scroll: { flex: 1 },
+  content: {
+    gap: 16,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+  },
+  header: { gap: 2 },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  pageTitle: {
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  titleCard: {
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    padding: 14,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  titleInput: {
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    fontSize: 17,
+    fontWeight: '700',
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  section: { gap: 10 },
+  sectionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
     justifyContent: 'space-between',
   },
   sectionLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+    fontWeight: '800',
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
   },
-  manageLink: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  manageLink: { fontSize: 13, fontWeight: '700' },
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
     borderRadius: radius.full,
     borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
   },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
+  chipEmoji: { fontSize: 13 },
+  chipText: { fontSize: 13, fontWeight: '700', maxWidth: 180 },
+  orderCard: {
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    padding: 12,
   },
   orderHead: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  optimizeLink: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  orderTitle: { fontSize: 16, fontWeight: '800' },
+  optimizeLink: { fontSize: 13, fontWeight: '700' },
   orderRow: {
     alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
     flexDirection: 'row',
     gap: space.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   orderIndex: {
-    fontSize: 13,
-    fontWeight: '800',
-    width: 20,
+    alignItems: 'center',
+    borderRadius: 10,
+    height: 26,
+    justifyContent: 'center',
+    width: 26,
   },
-  orderLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  orderIndexText: { fontSize: 12, fontWeight: '800' },
+  orderEmoji: { fontSize: 15 },
+  orderLabel: { flex: 1, fontSize: 15, fontWeight: '700' },
   hintCard: {
     alignItems: 'center',
+    borderCurve: 'continuous',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
-    padding: 14,
+    padding: 12,
   },
-  hintText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  hintAdd: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
+  hintText: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  hintAdd: { fontSize: 13, fontWeight: '800' },
 });

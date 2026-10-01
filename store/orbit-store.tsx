@@ -3386,26 +3386,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         return nextHouseholdSnapshot;
       });
 
-      const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-      if (!profileAuth) {
-        await poppinsNotifications.taskCompleted(pushNotification, prefs, {
-          title: currentTask.title,
-          assignee: forAssignee,
-          awardedXp: totalAwarded,
-          penalty: latePenalty,
-          late,
-          taskId,
-          audienceMemberIds: adminMemberIds(household.members),
-        });
+      try {
+        const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+        if (!profileAuth) {
+          await poppinsNotifications.taskCompleted(pushNotification, prefs, {
+            title: currentTask.title,
+            assignee: forAssignee,
+            awardedXp: totalAwarded,
+            penalty: latePenalty,
+            late,
+            taskId,
+            audienceMemberIds: adminMemberIds(household.members),
+          });
+        }
+        if (nextHouseholdSnapshot) {
+          await finishTrophyAndStreakHooks(forAssignee, totalAwarded, nextHouseholdSnapshot);
+        }
+        await trackAnalytics(
+          'task.share_completed',
+          { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof },
+          analyticsContext
+        );
+      } catch (postShareError) {
+        console.warn('completeTask.sharePostHooks', postShareError);
       }
-      if (nextHouseholdSnapshot) {
-        await finishTrophyAndStreakHooks(forAssignee, totalAwarded, nextHouseholdSnapshot);
-      }
-      await trackAnalytics(
-        'task.share_completed',
-        { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof },
-        analyticsContext
-      );
       return {
         awarded,
         penalty: latePenalty,
