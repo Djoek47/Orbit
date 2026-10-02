@@ -22,6 +22,6 @@
 
 | Build | Branch / commit | Notes |
 | --- | --- | --- |
-| **1.3.0 (107)** queued | `cursor/make-v30` @ `7b442a7` | [2deddfd8](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2deddfd8-f979-43cb-af1a-40b8edf542b5); [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/19bf326e-92a1-4da6-89c0-0d793f794666) |
+| **1.3.0 (107)** finished | `cursor/make-v30` @ `7b442a7` | [build](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2deddfd8-f979-43cb-af1a-40b8edf542b5) finished 2026-10-02; [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/19bf326e-92a1-4da6-89c0-0d793f794666) in queue for App Store Connect |
 
 Non-interactive EAS uses `EXPO_NO_CAPABILITY_SYNC=1`.
