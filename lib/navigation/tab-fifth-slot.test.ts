@@ -66,7 +66,11 @@ assert.equal(tabFifthSlot({ role: 'child', members, memberId: 'm2' }), 'switch')
 const bar = read('components/orbit/make-tab-bar.tsx');
 assert.match(bar, /fifthSlot !== 'poppins'/, 'the Poppins tab goes when the slot is not it');
 assert.match(bar, /fifthSlot === 'switch'/, 'and the switcher takes its place');
+assert.match(bar, /SwitchPeopleIcon/, 'Switch glyph mounts in the fifth slot');
+assert.match(bar, /^\s*Switch\s*$/m, 'Switch label is visible under the glyph');
 assert.match(bar, /markNeedsProfilePick/, 'which opens the face picker');
+assert.match(read('lib/refresh/use-home-live-refresh.ts'), /useHomeLiveRefresh/, 'Home has a live refresh hook');
+assert.match(read('app/(tabs)/index.tsx'), /useHomeLiveRefresh/, 'Home wires the live refresh');
 assert.match(read('app/(tabs)/_layout.tsx'), /useTabFifthSlot\(/, 'the layout uses the same rule');
 assert.match(read('components/orbit/make-tab-bar.tsx'), /useTabFifthSlot\(/, 'the tab bar uses the same hook');
 

@@ -7,6 +7,7 @@
 
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { resolveOccurrenceDate } from '@/lib/tasks/due-label';
+import { isExpiredStatus } from '@/lib/tasks/recurring';
 import type { HouseholdTask } from '@/types/orbit';
 
 /** True when the due label is today-scoped (includes “Today, …”). */
@@ -46,6 +47,7 @@ export function isDueToday(
   timeZone?: string
 ): boolean {
   if (task.status === 'Completed' || task.status === 'Cancelled') return false;
+  if (isExpiredStatus(task.status)) return false;
   if (task.status === 'Overdue') return true;
   const occurrence = resolveOccurrenceDate(task, now);
   if (occurrence) return occurrence === formatLocalDate(now, timeZone);
@@ -56,13 +58,14 @@ export function isDueToday(
  * Canonical today scope for Home counters + streak gate:
  * - open + (due today OR overdue)
  * - completed today only
+ * - never Expired / Missed
  */
 export function isTodayTask(
   task: Pick<HouseholdTask, 'status' | 'due' | 'completedAt' | 'occurrenceDate' | 'dueAt'>,
   now: Date = new Date(),
   timeZone?: string
 ): boolean {
-  if (task.status === 'Cancelled') return false;
+  if (task.status === 'Cancelled' || isExpiredStatus(task.status)) return false;
   if (task.status === 'Completed') {
     return isCompletedToday(task, now, timeZone);
   }

@@ -45,6 +45,7 @@ import {
 } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
+import { useHomeLiveRefresh } from '@/lib/refresh/use-home-live-refresh';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
@@ -73,6 +74,7 @@ export default function HomeScreen() {
   } = useOrbit();
   const tour = useTourControls();
   const { refreshing, onRefresh } = useHouseholdRefresh();
+  useHomeLiveRefresh();
   const majordomoName = useMajordomoName();
   const { c, glass } = useOrbitColors();
   const scrollRef = useRef<ScrollView>(null);
@@ -481,6 +483,7 @@ export default function HomeScreen() {
             members={household.members}
             currentMember={currentMember}
             accentTheme={accentTheme}
+            timeZone={household.timezone}
             canFocusMembers={permissions.canManageHousehold}
             mineOnly={sharedKidMode}
             streak={currentMember?.streak ?? 0}

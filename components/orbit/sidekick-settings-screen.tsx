@@ -29,8 +29,8 @@ import { orbitAlert } from '@/components/orbit/orbit-alert';
  * Settings for everyone who isn't an admin — one screen, three shapes.
  *
  *   a Sidekick's own phone      · their look, their house rules, their way out
- *   a person on a shared iPad   · the same, plus the device it lives on and who else is on it
- *   the shared iPad itself      · before anyone taps a face
+ *   a person on a shared device · the same, plus the device it lives on and who else is on it
+ *   the shared device itself    · before anyone taps a face
  *
  * What differs between them is decided in lib/settings/member-settings-model (tested), so the
  * three never drift apart. Full household admin settings stay on adult profiles.

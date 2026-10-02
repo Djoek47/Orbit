@@ -18,7 +18,7 @@ const members = [jack, ama, nero, ipad, person('o1', 'Cisse', 'owner')];
 // Which screen.
 assert.equal(usesMemberSettings('child'), true);
 assert.equal(usesMemberSettings('sidekick'), true);
-assert.equal(usesMemberSettings('shared-device'), true, 'the iPad never gets admin settings');
+assert.equal(usesMemberSettings('shared-device'), true, 'the shared device never gets admin settings');
 assert.equal(usesMemberSettings('owner'), false);
 assert.equal(usesMemberSettings('admin'), false);
 
@@ -29,29 +29,29 @@ assert.equal(own.canSwitchProfiles, false);
 assert.equal(own.deviceName, undefined);
 assert.equal(own.signOut.label, 'Sign out');
 
-// Someone on the shared iPad: switching is the way out, and sign out warns it takes the others.
+// Someone on the shared device: switching is the way out, and sign out warns it takes the others.
 const shared = memberSettingsModel({ member: ama, members })!;
 assert.equal(shared.kind, 'shared-account');
-assert.equal(shared.deviceName, 'Kitchen iPad');
+assert.equal(shared.deviceName, 'Kitchen device');
 assert.equal(shared.canSwitchProfiles, true);
 assert.deepEqual(shared.sharedWith, ['Nero'], 'the others, not themselves');
 assert.match(shared.signOut.body, /Nero/);
 assert.match(shared.signOut.body, /Switch who/);
 assert.equal(shared.signOut.label, 'Sign this device out');
 
-// The iPad before anyone picks a face.
+// The shared device before anyone picks a face.
 const device = memberSettingsModel({ member: ipad, members })!;
 assert.equal(device.kind, 'shared-device');
 assert.deepEqual(device.sharedWith, ['Ama', 'Nero']);
 assert.match(device.signOut.body, /Ama and Nero/);
-assert.match(device.signOut.title, /Kitchen iPad/);
+assert.match(device.signOut.title, /Kitchen device/);
 
 // Three or more names read as a sentence.
 const big = { ...ipad, sharedWithMemberIds: ['m1', 'm2', 'm3'] } as HouseholdMember;
 const bigModel = memberSettingsModel({ member: big, members: [jack, ama, nero, big] })!;
 assert.match(bigModel.signOut.body, /Jack, Ama and Nero/);
 
-// An iPad nobody is on yet still reads as a sentence.
+// A device nobody is on yet still reads as a sentence.
 const lonely = { ...ipad, sharedWithMemberIds: [] } as HouseholdMember;
 const lonelyModel = memberSettingsModel({ member: lonely, members: [lonely] })!;
 assert.match(lonelyModel.signOut.body, /everyone on it/);

@@ -50,6 +50,18 @@ assert(
 );
 assert(isTodayTask(task({ due: 'Today', status: 'Pending' })), 'pending today counts');
 assert(isTodayTask(task({ due: 'Tomorrow', status: 'Overdue' })), 'overdue status counts');
+assert(
+  !isTodayTask(task({ due: 'Today', status: 'Expired' })),
+  'Expired never counts as today'
+);
+assert(
+  !isTodayTask(task({ due: 'Today', status: 'Missed' })),
+  'Missed never counts as today'
+);
+assert(
+  !isDueToday(task({ due: 'Today', status: 'Expired' })),
+  'Expired excluded from isDueToday'
+);
 
 const now = new Date('2026-08-02T15:00:00');
 assert(
