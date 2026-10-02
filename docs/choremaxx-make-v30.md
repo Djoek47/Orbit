@@ -22,6 +22,6 @@
 
 | Build | Branch / commit | Notes |
 | --- | --- | --- |
-| **1.3.0 (107+)** | `cursor/make-v30` | EAS `autoIncrement`; `EXPO_NO_CAPABILITY_SYNC=1` |
+| **1.3.0 (107)** queued | `cursor/make-v30` @ `7b442a7` | [2deddfd8](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2deddfd8-f979-43cb-af1a-40b8edf542b5); [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/19bf326e-92a1-4da6-89c0-0d793f794666) |
 
 Non-interactive EAS uses `EXPO_NO_CAPABILITY_SYNC=1`.
