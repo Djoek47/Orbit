@@ -455,7 +455,7 @@ function TaskItem({
               ]}>
               <Text style={[styles.metaPillText, { color: c.warning }]}>
                 {task.proofStatus === 'submitted'
-                  ? 'Photo sent'
+                  ? 'Proof sent'
                   : task.proofStatus === 'approved'
                     ? 'Photo added'
                     : 'Proof'}
