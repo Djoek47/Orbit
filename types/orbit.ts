@@ -1,6 +1,6 @@
 export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 'shared-device';
 
-export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive' | 'invited';
+export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive' | 'invited' | 'removed';
 
 /** ChoreMaxx v2: every household is a family. Legacy DB values are normalized to `family`. */
 export type HouseholdType = 'family';
@@ -745,11 +745,16 @@ export type HouseholdSnapshot = {
   majordomoProfileId?: string;
   taskTemplates: TaskTemplate[];
   notificationPrefs: PoppinsNotificationPrefs;
-  /** What non-admin members may do (admin-controlled). */
-  memberCapabilities?: MemberCapabilities;
   /**
-   * Revision G §7.2 — household-level, default OFF.
-   * // TODO(product): Should the grocery permission be per-member rather than household-level?
+   * What non-admin members may do (admin-controlled).
+   * May also carry `byMemberId` overrides (see MemberCapabilitiesDocument).
+   */
+  memberCapabilities?: MemberCapabilities & {
+    byMemberId?: Record<string, Partial<MemberCapabilities>>;
+  };
+  /**
+   * Household default for Sidekick grocery add (Everyone scope).
+   * Per-kid overrides live on `memberCapabilities.byMemberId`.
    */
   sidekickGroceryAdd?: boolean;
   /**

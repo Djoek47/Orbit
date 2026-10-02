@@ -1156,7 +1156,7 @@ export default function TaskDetailScreen() {
               await submitProofReply(task.id, input);
             }
             setReplySheetOpen(false);
-            orbitAlert('Photo sent', 'A grown-up was notified to look at it.');
+            orbitAlert('Proof sent');
           } catch (error) {
             orbitAlert(
               'Could not send proof',

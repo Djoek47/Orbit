@@ -1,23 +1,38 @@
 /**
- * Sidekick permissions — WO14 §7.
- * One grocery switch (sidekickGroceryAdd). Calendar approval is dependent.
+ * Sidekick permissions — household defaults (“Everyone”) or one kid at a time.
+ * Face chips match Home → Today’s tasks person chips.
  */
-import { StyleSheet, Switch, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { Avatar } from '@/components/orbit/avatar';
 import { Moji } from '@/components/orbit/moji/moji';
 import type { MojiName } from '@/components/orbit/moji/art';
-import { resolveMemberCapabilities } from '@/lib/member-capabilities';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  resolveCapabilitiesForMember,
+  resolveMemberCapabilities,
+} from '@/lib/member-capabilities';
+import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import type { HouseholdSnapshot, MemberCapabilities } from '@/types/orbit';
+import type { HouseholdMember, HouseholdSnapshot, MemberCapabilities } from '@/types/orbit';
+
+type Scope = 'all' | string;
 
 type Props = {
-  household: Pick<HouseholdSnapshot, 'memberCapabilities' | 'sidekickGroceryAdd'>;
+  household: Pick<
+    HouseholdSnapshot,
+    'memberCapabilities' | 'sidekickGroceryAdd' | 'members'
+  >;
   accent: string;
   busy?: boolean;
+  /** Patch household defaults (Everyone). */
   onCapabilities: (patch: Partial<MemberCapabilities>) => void;
   onGrocery: (enabled: boolean) => void;
+  /** Patch one Sidekick’s overrides. */
+  onMemberCapabilities: (memberId: string, patch: Partial<MemberCapabilities>) => void;
 };
 
 type Row = {
@@ -31,16 +46,55 @@ type Row = {
   disabled?: boolean;
 };
 
+function monogram(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]!.slice(0, 1).toUpperCase();
+  return `${parts[0]!.slice(0, 1)}${parts[1]!.slice(0, 1)}`.toUpperCase();
+}
+
 export function SidekickPermissionsPanel({
   household,
   accent,
   busy,
   onCapabilities,
   onGrocery,
+  onMemberCapabilities,
 }: Props) {
   const { c, isDark, glassBorder } = useOrbitColors();
-  const caps = resolveMemberCapabilities(household);
+  const [scope, setScope] = useState<Scope>('all');
+
+  const sidekicks = useMemo(
+    () =>
+      household.members.filter(
+        (member) =>
+          isSidekickRole(member.role) &&
+          (member.status === 'active' || member.status === 'invited')
+      ),
+    [household.members]
+  );
+
+  const selected: HouseholdMember | null =
+    scope === 'all' ? null : sidekicks.find((m) => m.id === scope) ?? null;
+
+  const caps =
+    scope === 'all'
+      ? resolveMemberCapabilities(household)
+      : resolveCapabilitiesForMember(household, scope);
+
   const calendarOn = caps.allowCalendarCreate;
+
+  const apply = (patch: Partial<MemberCapabilities>) => {
+    if (scope === 'all') {
+      if (typeof patch.allowGroceryAdd === 'boolean') {
+        onGrocery(patch.allowGroceryAdd);
+        return;
+      }
+      onCapabilities(patch);
+      return;
+    }
+    onMemberCapabilities(scope, patch);
+  };
 
   const groups: { header: string; moji: MojiName; tone: string; rows: Row[] }[] = [
     {
@@ -54,21 +108,21 @@ export function SidekickPermissionsPanel({
           label: 'Spend points on rewards',
           sub: 'From your catalogue',
           value: caps.allowRewardRedeem,
-          onChange: (v) => onCapabilities({ allowRewardRedeem: v }),
+          onChange: (v) => apply({ allowRewardRedeem: v }),
         },
         {
           key: 'suggest',
           moji: 'sparkles',
           label: 'Suggest a reward',
           value: caps.allowSpecialRewardRequest,
-          onChange: (v) => onCapabilities({ allowSpecialRewardRequest: v }),
+          onChange: (v) => apply({ allowSpecialRewardRequest: v }),
         },
         {
           key: 'allowance',
           moji: 'moneyBag',
           label: 'See their allowance',
           value: caps.allowAllowance,
-          onChange: (v) => onCapabilities({ allowAllowance: v }),
+          onChange: (v) => apply({ allowAllowance: v }),
         },
       ],
     },
@@ -81,16 +135,19 @@ export function SidekickPermissionsPanel({
           key: 'grocery',
           moji: 'cart',
           label: 'Add to the grocery list',
-          sub: 'Add only — no ticking off',
-          value: household.sidekickGroceryAdd === true,
-          onChange: onGrocery,
+          sub:
+            scope === 'all'
+              ? 'Everyone — add only, no ticking off'
+              : `Only ${selected?.name ?? 'this Sidekick'}`,
+          value: caps.allowGroceryAdd,
+          onChange: (v) => apply({ allowGroceryAdd: v }),
         },
         {
           key: 'calendar',
           moji: 'calendar',
           label: 'Add to the calendar',
           value: caps.allowCalendarCreate,
-          onChange: (v) => onCapabilities({ allowCalendarCreate: v }),
+          onChange: (v) => apply({ allowCalendarCreate: v }),
         },
         {
           key: 'approve',
@@ -98,7 +155,7 @@ export function SidekickPermissionsPanel({
           label: 'A parent approves events',
           sub: '…after you approve',
           value: caps.requireSidekickEventApproval,
-          onChange: (v) => onCapabilities({ requireSidekickEventApproval: v }),
+          onChange: (v) => apply({ requireSidekickEventApproval: v }),
           dependent: true,
           disabled: !calendarOn,
         },
@@ -111,20 +168,97 @@ export function SidekickPermissionsPanel({
     0
   );
   const total = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  const who = selected?.name ?? 'Everyone';
 
   return (
     <View style={styles.root}>
-      {/* What's on, at a glance — the page used to be a wall of grey switches. */}
+      <Animated.View entering={FadeInDown.duration(220)} style={styles.faces}>
+        <Pressable
+          onPress={() => setScope('all')}
+          accessibilityRole="button"
+          accessibilityState={{ selected: scope === 'all' }}
+          style={[
+            styles.faceChip,
+            {
+              backgroundColor: scope === 'all' ? `${accent}28` : glassFill(isDark),
+              borderColor: scope === 'all' ? accent : glassBorder(0.12),
+            },
+          ]}>
+          <View style={[styles.everyoneMark, { backgroundColor: `${accent}22` }]}>
+            <Moji name="teddy" size={18} />
+          </View>
+          <Text
+            style={[
+              styles.faceName,
+              { color: scope === 'all' ? accent : c.textMuted, fontWeight: '800' },
+            ]}>
+            Everyone
+          </Text>
+        </Pressable>
+
+        {sidekicks.map((member) => {
+          const active = scope === member.id;
+          return (
+            <Pressable
+              key={member.id}
+              onPress={() => setScope(member.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${member.name} permissions`}
+              accessibilityState={{ selected: active }}
+              style={[
+                styles.faceChip,
+                {
+                  backgroundColor: active ? `${accent}28` : glassFill(isDark),
+                  borderColor: active ? accent : glassBorder(0.12),
+                },
+              ]}>
+              {isAvatarImageUri(member.avatar) ? (
+                <Avatar name={member.name} imageUri={member.avatar} size="s" />
+              ) : (
+                <View style={[styles.mono, { backgroundColor: `${accent}22` }]}>
+                  <Text style={[styles.monoText, { color: accent }]}>
+                    {memberDisplayEmoji(member) || monogram(member.name)}
+                  </Text>
+                </View>
+              )}
+              <Text
+                style={[
+                  styles.faceName,
+                  { color: active ? accent : c.text, fontWeight: active ? '800' : '600' },
+                ]}
+                numberOfLines={1}>
+                {member.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </Animated.View>
+
       <Animated.View
-        entering={FadeInDown.duration(240)}
+        entering={FadeInDown.delay(40).duration(240)}
         style={[styles.hero, { backgroundColor: `${accent}18`, borderColor: `${accent}44` }]}>
         <View style={[styles.heroMoji, { backgroundColor: `${accent}26` }]}>
-          <Moji name="teddy" size={30} />
+          {selected ? (
+            isAvatarImageUri(selected.avatar) ? (
+              <Avatar name={selected.name} imageUri={selected.avatar} size="m" />
+            ) : (
+              <Text style={{ fontSize: 26 }}>
+                {memberDisplayEmoji(selected) || monogram(selected.name)}
+              </Text>
+            )
+          ) : (
+            <Moji name="teddy" size={30} />
+          )}
         </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[styles.title, { color: c.text }]}>Sidekicks can…</Text>
+          <Text style={[styles.title, { color: c.text }]}>
+            {selected ? `${selected.name} can…` : 'Sidekicks can…'}
+          </Text>
           <Text style={[styles.purpose, { color: c.textMuted }]}>
-            {onCount} of {total} on · applies to every kid, exceptions live on their card
+            {onCount} of {total} on · {who}
+            {scope === 'all'
+              ? ' · tap a face for one kid only'
+              : ' · overrides Everyone for this person'}
           </Text>
         </View>
       </Animated.View>
@@ -132,7 +266,7 @@ export function SidekickPermissionsPanel({
       {groups.map((group, groupIndex) => (
         <Animated.View
           key={group.header}
-          entering={FadeInDown.delay(60 + groupIndex * 50).duration(260)}
+          entering={FadeInDown.delay(80 + groupIndex * 50).duration(260)}
           style={{ gap: 8 }}>
           <View style={styles.groupHead}>
             <View style={[styles.groupMoji, { backgroundColor: `${group.tone}22` }]}>
@@ -161,7 +295,8 @@ export function SidekickPermissionsPanel({
                   style={[
                     styles.rowMoji,
                     {
-                      backgroundColor: row.value && !row.disabled ? `${group.tone}22` : glassBorder(0.08),
+                      backgroundColor:
+                        row.value && !row.disabled ? `${group.tone}22` : glassBorder(0.08),
                     },
                   ]}>
                   <Moji name={row.moji} size={18} />
@@ -189,6 +324,38 @@ export function SidekickPermissionsPanel({
 
 const styles = StyleSheet.create({
   root: { gap: 14 },
+  faces: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  faceChip: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    gap: 8,
+    maxWidth: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  everyoneMark: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  mono: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  monoText: { fontSize: 12, fontWeight: '800' },
+  faceName: { fontSize: 13, maxWidth: 96 },
   hero: {
     alignItems: 'center',
     borderRadius: 22,
@@ -197,27 +364,51 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 14,
   },
-  heroMoji: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 21, fontWeight: '800', letterSpacing: -0.4 },
-  purpose: { fontSize: 13, lineHeight: 18 },
-  groupHead: { alignItems: 'center', flexDirection: 'row', gap: 8, marginLeft: 2 },
-  groupMoji: { width: 26, height: 26, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  groupLabel: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+  heroMoji: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 54,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 54,
   },
-  rowMoji: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  card: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  title: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  purpose: { fontSize: 13, lineHeight: 18 },
+  groupHead: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 2 },
+  groupMoji: {
+    alignItems: 'center',
+    borderRadius: 10,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  groupLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  card: {
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
-    minHeight: 56,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  dependent: { paddingLeft: 26 },
-  rowLabel: { fontSize: 15, fontWeight: '600' },
-  rowSub: { fontSize: 13 },
+  dependent: { paddingLeft: 28 },
+  rowMoji: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  rowLabel: { fontSize: 15, fontWeight: '700' },
+  rowSub: { fontSize: 12, lineHeight: 16 },
 });

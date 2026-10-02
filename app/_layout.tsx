@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { AppErrorBoundary } from '@/components/orbit/app-error-boundary';
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
+import { MemberRemovedCountdown } from '@/components/orbit/member-removed-countdown';
 import { OrbitAlertProvider } from '@/components/orbit/orbit-alert';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
 import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
@@ -48,6 +49,7 @@ export default function RootLayout() {
             <OrbitNavTheme>
               <DeepLinkBridge />
               <OrbitChromeBridge />
+              <MemberRemovedCountdown />
               <LayoutAnimationConfig
                 key={sessionEpoch}
                 skipEntering={sessionEpoch > 0}
@@ -141,6 +143,10 @@ export default function RootLayout() {
                   <Stack.Screen
                     name="setup-kid-device"
                     options={{ presentation: 'modal', headerShown: false, title: 'Shared device setup' }}
+                  />
+                  <Stack.Screen
+                    name="member/[id]"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Member' }}
                   />
                   <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
                   <Stack.Screen

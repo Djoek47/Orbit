@@ -97,6 +97,12 @@ import {
 } from '@/lib/household/active-household-pref';
 import { getHouseholdAccentPref } from '@/lib/household/household-accent-pref';
 import { isMemberFullyConnected } from '@/lib/household/member-connection';
+import {
+  diffPresenceTransitions,
+  presenceSnapshot,
+  presenceTransitionCopy,
+  type PresencePhase,
+} from '@/lib/household/presence-transitions';
 import { plannedTasksForMember } from '@/lib/onboarding/planned-member-tasks';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
@@ -121,9 +127,11 @@ import { isHomeworkCategory } from '@/lib/tasks/homework-subject';
 import { needsProofOnComplete, proofRequiredForHomeworkAssign } from '@/lib/tasks/homework-proof';
 import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
 import {
+  clearSidekickSession,
   loadSidekickSession,
   loadSidekickSessionFor,
   listSidekickSessions,
+  removeSidekickSessionFor,
   saveSidekickSession,
   type SidekickSession,
   markSidekickSignedOut,
@@ -133,8 +141,14 @@ import {
 } from '@/lib/sidekick/session';
 import {
   fetchSidekickSync,
+  fetchSidekickSyncDetailed,
   mergeSidekickSyncIntoHousehold,
 } from '@/lib/sidekick/sync-household';
+import {
+  MEMBER_REMOVAL_GRACE_SECONDS,
+  memberRemovalNotice,
+  removalAudienceIds,
+} from '@/lib/household/member-removal-protocol';
 import {
   sidekickCompleteTask,
   sidekickSubmitTaskProof,
@@ -237,6 +251,10 @@ import {
 } from '@/lib/household/admins';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import {
+  buildCapabilitiesDocument,
+  memberMayAddGrocery,
+  readCapabilityOverrides,
+  resolveCapabilitiesForMember,
   resolveMemberCapabilities,
 } from '@/lib/member-capabilities';
 import {
@@ -538,6 +556,15 @@ type OrbitContextValue = {
   signIn: (input: SignInInput) => Promise<void>;
   hydrateFromSession: (session: AuthSession) => Promise<HouseholdSnapshot>;
   signOut: () => Promise<void>;
+  /** Active countdown after admin removed this Sidekick / shared profile. */
+  memberRemovalKick: {
+    memberId: string;
+    memberName: string;
+    startedAt: number;
+    secondsLeft: number;
+  } | null;
+  beginMemberRemovalKick: (input: { memberId: string; memberName: string }) => void;
+  finishMemberRemovalKick: () => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ needsConfirmation: boolean; email: string }>;
   suggestedPoppinsQuestions: readonly string[];
   refreshNotifications: () => Promise<void>;
@@ -562,6 +589,11 @@ type OrbitContextValue = {
   /** Optional personal majordomo override for the current member. */
   updateMemberMajordomoProfile: (profileId: string | null) => void;
   updateMemberCapabilities: (prefs: Partial<MemberCapabilities>) => void;
+  /** Override capabilities for one Sidekick (null patch values clear that key). */
+  updateMemberCapabilityOverrides: (
+    memberId: string,
+    patch: Partial<MemberCapabilities>
+  ) => void;
   /** Parent/admin: Meritocracy vs Equity + hygiene XP opt-in (household-scoped). */
   updateHouseholdRewardSettings: (prefs: {
     rewardMode?: 'weighted' | 'flat';
@@ -671,6 +703,8 @@ type OrbitContextValue = {
    * Used by Family iPad Step 3 face select — mock and Supabase.
    */
   ensureMemberProfileInviteCode: (memberId: string) => Promise<string | null>;
+  /** Mint a new profile invite code / QR (invalidates the previous one). */
+  rotateMemberProfileInviteCode: (memberId: string) => Promise<string | null>;
   /**
    * Admin creates 1–2 kid profiles (no child email). Invites are AirDrop/shareable.
    * Household data stays on the admin account.
@@ -725,6 +759,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [household, setHousehold] = useState<HouseholdSnapshot>(mockHousehold);
   const householdRef = useRef(household);
   householdRef.current = household;
+  const presenceSnapshotRef = useRef<Record<string, PresencePhase>>({});
+  const presenceEmitAtRef = useRef<Record<string, number>>({});
+  /** Keep admin permission toggles from being wiped by a concurrent realtime reload. */
+  const stickyPermissionsRef = useRef<{
+    at: number;
+    sidekickGroceryAdd?: boolean;
+    memberCapabilities?: HouseholdSnapshot['memberCapabilities'];
+  } | null>(null);
   const currentMemberRef = useRef<HouseholdMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -778,6 +820,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const dismissedNotificationIdsRef = useRef<Set<string>>(new Set());
   notificationsRef.current = notifications;
   dismissedNotificationIdsRef.current = dismissedNotificationIds;
+  const [memberRemovalKick, setMemberRemovalKick] = useState<{
+    memberId: string;
+    memberName: string;
+    startedAt: number;
+    secondsLeft: number;
+  } | null>(null);
+  const memberRemovalKickRef = useRef(memberRemovalKick);
+  memberRemovalKickRef.current = memberRemovalKick;
+  const memberRemovalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentMember = useMemo(() => {
     if (activeMemberId) {
@@ -1218,13 +1269,107 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     []
   );
 
+  const finishMemberRemovalKick = useCallback(async () => {
+    if (memberRemovalTimerRef.current) {
+      clearTimeout(memberRemovalTimerRef.current);
+      memberRemovalTimerRef.current = null;
+    }
+    const kick = memberRemovalKickRef.current;
+    setMemberRemovalKick(null);
+    try {
+      if (kick?.memberId) {
+        await removeSidekickSessionFor(kick.memberId);
+        const { removeHostedProfile, loadDeviceSession, clearDeviceSession } = await import(
+          '@/lib/device/device-session'
+        );
+        const device = await loadDeviceSession();
+        if (device.mode === 'shared' && device.profileMemberIds.includes(kick.memberId)) {
+          const next = await removeHostedProfile(kick.memberId);
+          if (next.profileMemberIds.length === 0) {
+            await clearDeviceSession();
+            await clearSidekickSession();
+          }
+        } else {
+          const remaining = await listSidekickSessions();
+          if (remaining.length === 0) {
+            await clearSidekickSession();
+            await clearDeviceSession();
+          }
+        }
+      } else {
+        await clearSidekickSession();
+        const { clearDeviceSession } = await import('@/lib/device/device-session');
+        await clearDeviceSession();
+      }
+    } catch (error) {
+      console.warn('finishMemberRemovalKick.sessions', error);
+    }
+    try {
+      await authRepository.signOut();
+    } catch {
+      try {
+        const { signOutEverywhere } = await import('@/lib/auth/local-sign-out');
+        await signOutEverywhere();
+      } catch {
+        /* leave locally anyway */
+      }
+    }
+    await clearMockHouseholdSnapshot().catch(() => undefined);
+    clearSignedInState();
+    try {
+      const { resetToGetStarted } = await import('@/lib/navigation/reset-to-get-started');
+      resetToGetStarted();
+    } catch (error) {
+      console.warn('finishMemberRemovalKick.nav', error);
+    }
+  }, []);
+
+  const beginMemberRemovalKick = useCallback(
+    (input: { memberId: string; memberName: string }) => {
+      if (memberRemovalKickRef.current?.memberId === input.memberId) return;
+      if (memberRemovalTimerRef.current) {
+        clearTimeout(memberRemovalTimerRef.current);
+      }
+      const startedAt = Date.now();
+      setMemberRemovalKick({
+        memberId: input.memberId,
+        memberName: input.memberName,
+        startedAt,
+        secondsLeft: MEMBER_REMOVAL_GRACE_SECONDS,
+      });
+      void presentLocalBanner(
+        'Removed from household',
+        `${input.memberName} was removed. Signing out in ${MEMBER_REMOVAL_GRACE_SECONDS}s.`,
+        { kind: 'member_removed', memberId: input.memberId }
+      ).catch(() => undefined);
+      memberRemovalTimerRef.current = setTimeout(() => {
+        void finishMemberRemovalKick();
+      }, MEMBER_REMOVAL_GRACE_SECONDS * 1000);
+    },
+    [finishMemberRemovalKick]
+  );
+
   const reloadSidekickDomains = useCallback(async () => {
     const session = await loadSidekickSession();
     if (!session?.profileInviteCode) return null;
-    const sync = await fetchSidekickSync(session.profileInviteCode);
-    if (!sync) return null;
-    return applySidekickSyncPayload(sync, { announceNewTasks: true });
-  }, [applySidekickSyncPayload]);
+    const result = await fetchSidekickSyncDetailed(session.profileInviteCode);
+    if (result.status === 'removed') {
+      beginMemberRemovalKick({
+        memberId: session.memberId,
+        memberName: session.displayName,
+      });
+      return null;
+    }
+    if (result.status !== 'ok') return null;
+    if (result.sync.member.status === 'removed') {
+      beginMemberRemovalKick({
+        memberId: session.memberId,
+        memberName: session.displayName,
+      });
+      return null;
+    }
+    return applySidekickSyncPayload(result.sync, { announceNewTasks: true });
+  }, [applySidekickSyncPayload, beginMemberRemovalKick]);
 
   const reloadHouseholdDomains = useCallback(async () => {
     // Never treat a leftover Sidekick session as active when the signed-in member is admin/co-admin.
@@ -1233,14 +1378,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (dataMode === 'supabase' && sidekickActive) {
       const synced = await reloadSidekickDomains();
       if (synced) return synced;
+      // When the profile was removed, reloadSidekickDomains already started the kick.
+      if (memberRemovalKickRef.current) return householdRef.current;
       console.warn('reloadHouseholdDomains: sidekick sync failed, keeping in-memory snapshot');
       return householdRef.current;
     }
 
     const baseHousehold = await householdRepository.getHousehold();
     const hydratedHousehold = await hydrateHousehold(baseHousehold);
+    const sticky = stickyPermissionsRef.current;
+    const stickyFresh = Boolean(sticky && Date.now() - sticky.at < 12_000);
     const withExpiry = {
       ...hydratedHousehold,
+      ...(stickyFresh && sticky
+        ? {
+            sidekickGroceryAdd:
+              sticky.sidekickGroceryAdd ?? hydratedHousehold.sidekickGroceryAdd,
+            memberCapabilities:
+              sticky.memberCapabilities ?? hydratedHousehold.memberCapabilities,
+          }
+        : {}),
       tasks: refreshStaleDueLabels(
         applyHouseholdTaskExpiry(hydratedHousehold.tasks, hydratedHousehold),
         new Date()
@@ -1248,6 +1405,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     };
     setHousehold(withExpiry);
     const memberId = currentMemberRef.current?.id;
+    // Mock / roster path: if this Sidekick was soft-removed, start the same kick protocol.
+    if (
+      sidekickActive &&
+      memberId &&
+      !withExpiry.members.some(
+        (member) =>
+          member.id === memberId &&
+          (member.status === 'active' || member.status === 'invited')
+      )
+    ) {
+      beginMemberRemovalKick({
+        memberId,
+        memberName: currentMemberRef.current?.name ?? 'Sidekick',
+      });
+      return withExpiry;
+    }
     const stored =
       withExpiry.id && memberId
         ? await loadDismissedNotificationIds(withExpiry.id, memberId)
@@ -1281,7 +1454,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     return withExpiry;
-  }, []);
+  }, [beginMemberRemovalKick, reloadSidekickDomains]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1992,9 +2165,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     if (dataMode === 'supabase') {
-      const sync = await fetchSidekickSync(normalizedCode);
-      if (!sync) return false;
-      await applySidekickSyncPayload(sync, { announceNewTasks: true });
+      const result = await fetchSidekickSyncDetailed(normalizedCode);
+      if (result.status === 'removed') {
+        await removeSidekickSessionFor(session.memberId);
+        await markSidekickSignedOut();
+        return false;
+      }
+      if (result.status !== 'ok') return false;
+      await applySidekickSyncPayload(result.sync, { announceNewTasks: true });
       registerSidekickPushNotifications(normalizedCode).catch((error) => {
         console.warn('Sidekick push registration skipped', error);
       });
@@ -2348,7 +2526,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const signOut = async () => {
-    const sidekickSigningOut = isSidekickRole(currentMember?.role);
+    const { loadDeviceSession, isSharedTabletDeviceSession, clearDeviceSession } = await import(
+      '@/lib/device/device-session'
+    );
+    const device = await loadDeviceSession();
+    const sharedTablet = isSharedTabletDeviceSession(device);
+    // Personal Sidekick: keep Continue-as. Shared tablet: wipe every hosted face.
+    const sidekickSigningOut = isSidekickRole(currentMember?.role) && !sharedTablet;
     try {
       await authRepository.signOut();
     } catch (error) {
@@ -2365,9 +2549,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     } catch {
       /* never block leaving */
     }
+    if (sharedTablet) {
+      await clearSidekickSession();
+      await clearDeviceSession();
+      await clearMockHouseholdSnapshot();
+      clearSignedInState();
+      return;
+    }
     if (sidekickSigningOut) {
       await touchSidekickSession();
       await markSidekickSignedOut();
+      // Device binding for a personal Sidekick phone should not linger as a "shared tablet".
+      await clearDeviceSession();
     } else {
       await clearMockHouseholdSnapshot();
     }
@@ -4224,6 +4417,52 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return persistInboxRow(passthrough, named);
   };
 
+  // Sidekick connect / disconnect → admin notification + activity log (throttled).
+  useEffect(() => {
+    const next = presenceSnapshot(household.members);
+    const transitions = diffPresenceTransitions(
+      presenceSnapshotRef.current,
+      next,
+      household.members
+    );
+    presenceSnapshotRef.current = next;
+    if (!household.id || !permissions.canManageHousehold || transitions.length === 0) return;
+
+    const now = Date.now();
+    for (const transition of transitions) {
+      const throttleKey = `${transition.memberId}:${transition.from}->${transition.to}`;
+      if ((presenceEmitAtRef.current[throttleKey] ?? 0) > now - 60_000) continue;
+      presenceEmitAtRef.current[throttleKey] = now;
+      const copy = presenceTransitionCopy(transition);
+      void pushNotification({
+        title: copy.title,
+        body: copy.body,
+        category: 'members',
+        priority: 'low',
+        data: {
+          memberId: transition.memberId,
+          presenceFrom: transition.from,
+          presenceTo: transition.to,
+        },
+      });
+      void logActivity({
+        householdId: household.id,
+        kind: 'assistant_report',
+        memberId: transition.memberId,
+        title: copy.title,
+        body: copy.body,
+        category: 'members',
+        detail: {
+          presenceFrom: transition.from,
+          presenceTo: transition.to,
+        },
+        dedupeKey: `presence:${throttleKey}:${Math.floor(now / 60_000)}`,
+      });
+    }
+    // pushNotification is stable enough for this effect; intentional member-list trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [household.members, household.id, permissions.canManageHousehold]);
+
   const createEvent = async (input: CreateEventInput): Promise<HouseholdEvent | null> => {
     const caps = resolveMemberCapabilities(household);
     if (!permissions.canManageHousehold && !caps.allowCalendarCreate) {
@@ -4382,6 +4621,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     eventIds?: string[];
   }) => {
     const suggestion = suggestItineraryFromHousehold(household, options);
+    if (!suggestion.stops.length) return null;
     return createItinerary(suggestion);
   };
 
@@ -4509,36 +4749,159 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const persistHouseholdPermissions = (
+    current: HouseholdSnapshot,
+    next: HouseholdSnapshot,
+    audienceMemberIds?: string[]
+  ) => {
+    stickyPermissionsRef.current = {
+      at: Date.now(),
+      sidekickGroceryAdd: next.sidekickGroceryAdd,
+      memberCapabilities: next.memberCapabilities,
+    };
+    const flags = resolveMemberCapabilities(next);
+    void saveMemberCapabilitiesPrefs(current.id, flags);
+    void (async () => {
+      const { permissionState } = await import('@/lib/household/permission-changes');
+      announcePermissionChanges(
+        permissionState(current),
+        permissionState(next),
+        audienceMemberIds
+      );
+    })();
+    if (dataMode === 'mock') {
+      void persistMockHouseholdSnapshot(next);
+    }
+    const householdId = current.id;
+    if (dataMode === 'supabase' && householdId && isPersistedHouseholdId(householdId)) {
+      void import('@/repositories/repository-utils').then(async ({ getConfiguredSupabase, mapDbError }) => {
+        try {
+          const supabase = getConfiguredSupabase('persistHouseholdPermissions');
+          const { error } = await supabase
+            .from('households')
+            .update({
+              sidekick_grocery_add: next.sidekickGroceryAdd === true,
+              member_capabilities: (next.memberCapabilities ?? {}) as never,
+            })
+            .eq('id', householdId);
+          mapDbError('persistHouseholdPermissions', error);
+        } catch (error) {
+          console.warn('persistHouseholdPermissions supabase skipped', error);
+        }
+      });
+    }
+  };
+
   const updateMemberCapabilities = (prefs: Partial<MemberCapabilities>) => {
     if (!permissions.canManageHousehold) {
       return;
     }
     setHousehold((current) => {
-      const memberCapabilities = {
+      const overrides = readCapabilityOverrides(current.memberCapabilities);
+      const flags = {
         ...resolveMemberCapabilities(current),
         ...prefs,
       };
-      void saveMemberCapabilitiesPrefs(current.id, memberCapabilities);
-      const next: HouseholdSnapshot = { ...current, memberCapabilities };
-      announceFrom(current, next);
+      // Keep grocery dual-write in sync when Everyone toggles caps.allowGroceryAdd.
+      const grocery =
+        typeof prefs.allowGroceryAdd === 'boolean'
+          ? prefs.allowGroceryAdd
+          : current.sidekickGroceryAdd === true;
+      const memberCapabilities = buildCapabilitiesDocument(
+        { ...flags, allowGroceryAdd: grocery },
+        overrides
+      );
+      const next: HouseholdSnapshot = {
+        ...current,
+        sidekickGroceryAdd: grocery,
+        memberCapabilities,
+      };
+      persistHouseholdPermissions(current, next);
+      return next;
+    });
+  };
+
+  const updateMemberCapabilityOverrides = (
+    memberId: string,
+    patch: Partial<MemberCapabilities>
+  ) => {
+    if (!permissions.canManageHousehold || !memberId.trim()) return;
+    setHousehold((current) => {
+      const beforeCaps = resolveCapabilitiesForMember(current, memberId);
+      const overrides = { ...readCapabilityOverrides(current.memberCapabilities) };
+      const prev = overrides[memberId] ?? {};
+      const merged = { ...prev, ...patch };
+      // Drop keys that match household defaults so “Everyone” still drives the rest.
+      const defaults = resolveMemberCapabilities(current);
+      const cleaned: Partial<MemberCapabilities> = {};
+      for (const [key, value] of Object.entries(merged) as [keyof MemberCapabilities, boolean][]) {
+        if (typeof value !== 'boolean') continue;
+        if (defaults[key] === value) continue;
+        cleaned[key] = value;
+      }
+      if (Object.keys(cleaned).length === 0) delete overrides[memberId];
+      else overrides[memberId] = cleaned;
+
+      const flags = resolveMemberCapabilities(current);
+      const memberCapabilities = buildCapabilitiesDocument(flags, overrides);
+      const next: HouseholdSnapshot = {
+        ...current,
+        memberCapabilities,
+      };
+      stickyPermissionsRef.current = {
+        at: Date.now(),
+        sidekickGroceryAdd: next.sidekickGroceryAdd,
+        memberCapabilities: next.memberCapabilities,
+      };
+      void saveMemberCapabilitiesPrefs(current.id, flags);
       if (dataMode === 'mock') {
         void persistMockHouseholdSnapshot(next);
       }
       const householdId = current.id;
-      if (dataMode === 'supabase' && householdId) {
+      if (dataMode === 'supabase' && householdId && isPersistedHouseholdId(householdId)) {
         void import('@/repositories/repository-utils').then(async ({ getConfiguredSupabase, mapDbError }) => {
           try {
-            const supabase = getConfiguredSupabase('updateMemberCapabilities');
+            const supabase = getConfiguredSupabase('updateMemberCapabilityOverrides');
             const { error } = await supabase
               .from('households')
-              .update({ member_capabilities: memberCapabilities })
+              // byMemberId map is intentional — column is jsonb, generated types are too narrow.
+              .update({ member_capabilities: memberCapabilities as never })
               .eq('id', householdId);
-            mapDbError('updateMemberCapabilities', error);
+            mapDbError('updateMemberCapabilityOverrides', error);
           } catch (error) {
-            console.warn('updateMemberCapabilities supabase skipped', error);
+            console.warn('updateMemberCapabilityOverrides supabase skipped', error);
           }
         });
       }
+      const afterCaps = resolveCapabilitiesForMember(next, memberId);
+      void (async () => {
+        const { permissionState, permissionChanges, permissionChangeSummary, permissionChangeTone } =
+          await import('@/lib/household/permission-changes');
+        const changes = permissionChanges(
+          permissionState({
+            memberCapabilities: beforeCaps,
+            sidekickGroceryAdd: beforeCaps.allowGroceryAdd,
+          }),
+          permissionState({
+            memberCapabilities: afterCaps,
+            sidekickGroceryAdd: afterCaps.allowGroceryAdd,
+          })
+        );
+        if (!changes.length) return;
+        const tone = permissionChangeTone(changes);
+        await pushNotification({
+          title: tone === 'granted' ? 'Something new for you' : 'A change from a grown-up',
+          body: permissionChangeSummary(changes),
+          category: 'members',
+          priority: 'low',
+          data: {
+            kind: 'permission_changed',
+            tone,
+            audienceMemberIds: [memberId],
+            changes: changes.map((change) => ({ key: change.key, granted: change.granted })),
+          },
+        });
+      })();
       return next;
     });
   };
@@ -5827,7 +6190,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const announcePermissionChanges = (
     before: import('@/lib/household/permission-changes').SidekickPermissionState,
-    after: import('@/lib/household/permission-changes').SidekickPermissionState
+    after: import('@/lib/household/permission-changes').SidekickPermissionState,
+    audienceMemberIds?: string[]
   ) => {
     void (async () => {
       const { permissionChangeSummary, permissionChangeTone, permissionChanges } = await import(
@@ -5836,9 +6200,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const changes = permissionChanges(before, after);
       if (!changes.length) return;
       const tone = permissionChangeTone(changes);
-      const sidekickIds = household.members
-        .filter((member) => isSidekickRole(member.role) && member.status !== 'inactive')
-        .map((member) => member.id);
+      const sidekickIds =
+        audienceMemberIds?.length
+          ? audienceMemberIds
+          : household.members
+              .filter((member) => isSidekickRole(member.role) && member.status !== 'inactive')
+              .map((member) => member.id);
       if (!sidekickIds.length) return;
       await pushNotification({
         title: tone === 'granted' ? 'Something new for you' : 'A change from a grown-up',
@@ -5858,17 +6225,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const updateSidekickGroceryAdd = (enabled: boolean) => {
     if (!permissions.canManageHousehold) return;
     setHousehold((current) => {
-      const next: HouseholdSnapshot = { ...current, sidekickGroceryAdd: enabled };
-      announceFrom(current, next);
-      if (dataMode === 'mock') {
-        void persistMockHouseholdSnapshot(next);
+      const overrides = readCapabilityOverrides(current.memberCapabilities);
+      // Everyone grocery: clear per-kid grocery overrides so the household flag is truth.
+      for (const id of Object.keys(overrides)) {
+        if (overrides[id] && 'allowGroceryAdd' in overrides[id]!) {
+          const nextPatch = { ...overrides[id] };
+          delete nextPatch.allowGroceryAdd;
+          if (Object.keys(nextPatch).length === 0) delete overrides[id];
+          else overrides[id] = nextPatch;
+        }
       }
-      if (dataMode === 'supabase' && current.id && isPersistedHouseholdId(current.id)) {
-        void getSupabaseClient()
-          ?.from('households')
-          .update({ sidekick_grocery_add: enabled })
-          .eq('id', current.id);
-      }
+      const flags = {
+        ...resolveMemberCapabilities(current),
+        allowGroceryAdd: enabled,
+      };
+      const memberCapabilities = buildCapabilitiesDocument(flags, overrides);
+      const next: HouseholdSnapshot = {
+        ...current,
+        sidekickGroceryAdd: enabled,
+        memberCapabilities,
+      };
+      persistHouseholdPermissions(current, next);
       return next;
     });
   };
@@ -6183,6 +6560,35 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       ...current,
       members: current.members.map((item) => (item.id === memberId ? updated : item)),
     }));
+    return updated.profileInviteCode?.trim()
+      ? normalizeInviteCode(updated.profileInviteCode)
+      : null;
+  };
+
+  const rotateMemberProfileInviteCode = async (memberId: string) => {
+    if (!permissions.canManageHousehold) {
+      throw new Error('Only an admin can generate a new QR code.');
+    }
+    const member = household.members.find((item) => item.id === memberId);
+    if (!member) return null;
+    const taken = household.members
+      .map((item) => item.profileInviteCode)
+      .filter((code): code is string => Boolean(code?.trim()));
+    const updated = await householdRepository.rotateMemberProfileInviteCode(
+      member,
+      taken,
+      household.id
+    );
+    setHousehold((current) => {
+      const next = {
+        ...current,
+        members: current.members.map((item) => (item.id === memberId ? updated : item)),
+      };
+      if (dataMode === 'mock') {
+        void persistMockHouseholdSnapshot(next);
+      }
+      return next;
+    });
     return updated.profileInviteCode?.trim()
       ? normalizeInviteCode(updated.profileInviteCode)
       : null;
@@ -6572,13 +6978,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const removeMember = async (memberId: string) => {
     if (!permissions.canManageHousehold) {
-      return;
+      throw new Error('Only a household admin can remove people or devices.');
     }
     const target = household.members.find((item) => item.id === memberId);
-    if (!target || target.role === 'owner') {
-      return;
+    if (!target) {
+      throw new Error('That person or device is already gone.');
     }
-    await householdRepository.removeMember(memberId);
+    if (target.role === 'owner') {
+      throw new Error('The household owner cannot be removed.');
+    }
+
+    const audienceMemberIds = removalAudienceIds({
+      targetId: target.id,
+      targetRole: target.role,
+      sharedWithMemberIds: target.sharedWithMemberIds,
+    });
+    const notice = memberRemovalNotice({
+      removedName: target.name,
+      removedMemberId: target.id,
+      audienceMemberIds,
+      householdName: household.householdName,
+    });
+
+    // Optimistic remove so shared tablets disappear even before the next poll.
+    const previous = household.members;
     setHousehold((current) => ({
       ...current,
       members: current.members
@@ -6595,6 +7018,40 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (activeMemberId === memberId) {
       setActiveMemberId(null);
     }
+
+    try {
+      await householdRepository.removeMember(memberId);
+    } catch (error) {
+      setHousehold((current) => ({ ...current, members: previous }));
+      throw error;
+    }
+
+    // Notify → their device shows a banner, then a countdown, then a forced sign-out.
+    // Removed status already blocks sidekick-sync / profile-code rejoin.
+    try {
+      if (household.id) {
+        const item = await notificationsRepository.create({
+          householdId: household.id,
+          title: notice.title,
+          body: notice.body,
+          category: notice.category,
+          priority: notice.priority,
+          data: notice.data,
+        });
+        setNotifications((current) => [item, ...current.filter((row) => row.id !== item.id)]);
+        if (dataMode === 'supabase') {
+          dispatchMemberPush(item.id);
+        }
+      }
+    } catch (error) {
+      console.warn('removeMember.notify', error);
+    }
+
+    const selfId = currentMemberRef.current?.id;
+    if (selfId && audienceMemberIds.includes(selfId)) {
+      beginMemberRemovalKick({ memberId: target.id, memberName: target.name });
+    }
+
     await trackAnalytics('member.removed', { memberId }, analyticsContext);
   };
 
@@ -6721,6 +7178,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         groceryAddAllowedForSidekick({
           role: currentMember?.role,
           householdAllows: household.sidekickGroceryAdd === true,
+          memberAllows: currentMember
+            ? memberMayAddGrocery(household, currentMember.id)
+            : null,
         }),
       askPoppins,
       askPoppinsVoice,
@@ -6790,6 +7250,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       signIn,
       hydrateFromSession,
       signOut,
+      memberRemovalKick,
+      beginMemberRemovalKick,
+      finishMemberRemovalKick,
       signUp,
       suggestedPoppinsQuestions,
       refreshNotifications,
@@ -6802,6 +7265,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateMajordomoProfile,
       updateMemberMajordomoProfile,
       updateMemberCapabilities,
+      updateMemberCapabilityOverrides,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
       queueDailyDeadline,
@@ -6860,6 +7324,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createSharedDevice,
       updateSharedDeviceLinks,
       ensureMemberProfileInviteCode,
+      rotateMemberProfileInviteCode,
       createChildInvites,
       addOnboardingMembers,
       redeemChildInvite,
@@ -6938,6 +7403,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       upsertRoom,
       removeRoom,
       updateMemberCapabilities,
+      updateMemberCapabilityOverrides,
       updateHouseholdRewardSettings,
       updateHouseholdRewardModel,
       queueDailyDeadline,
@@ -6960,6 +7426,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       declineRewardProposal,
       updateSidekickGroceryAdd,
       updateSidekickPoppinsAi,
+      memberRemovalKick,
+      beginMemberRemovalKick,
+      finishMemberRemovalKick,
     ]
   );
 

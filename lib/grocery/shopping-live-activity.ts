@@ -63,15 +63,9 @@ function liveActivity(): LiveActivityModule | null {
   return moduleRef;
 }
 
-/** True when this build and this iPhone can show one. */
+/** Grocery Lock Screen banner is off for now — always false. */
 export function shoppingBannerAvailable(): boolean {
-  const mod = liveActivity();
-  if (!mod) return false;
-  try {
-    return mod.areActivitiesEnabled ? mod.areActivitiesEnabled() : true;
-  } catch {
-    return true;
-  }
+  return false;
 }
 
 let currentId: string | null = null;
@@ -82,40 +76,14 @@ const withMark = (run: ShoppingRunState) => ({
   dynamicIslandImageName: 'choremaxx_mark',
 });
 
-/** Put the run on the Lock Screen. Safe to call when one is already showing. */
-export function startShoppingBanner(run: ShoppingRunState, accent: string): string | null {
-  const mod = liveActivity();
-  if (!mod) return null;
-  if (currentId) {
-    updateShoppingBanner(run);
-    return currentId;
-  }
-  try {
-    const id = mod.startActivity(withMark(run), {
-      // ChoreMaxx's warm dark; the Lock Screen view (plugins/live-activity) draws the rest.
-      backgroundColor: '#17110E',
-      titleColor: '#F7F2EC',
-      subtitleColor: '#C9B8AA',
-      progressViewTint: accent,
-      progressViewLabelColor: '#F5F7FA',
-      deepLinkUrl: '/shopping-mode',
-    });
-    currentId = id ?? null;
-    return currentId;
-  } catch (error) {
-    console.warn('startShoppingBanner', error);
-    return null;
-  }
+/** No-op while grocery Lock Screen is disabled. */
+export function startShoppingBanner(_run: ShoppingRunState, _accent: string): string | null {
+  return null;
 }
 
-export function updateShoppingBanner(run: ShoppingRunState): void {
-  const mod = liveActivity();
-  if (!mod || !currentId) return;
-  try {
-    mod.updateActivity(currentId, withMark(run));
-  } catch (error) {
-    console.warn('updateShoppingBanner', error);
-  }
+/** No-op while grocery Lock Screen is disabled. */
+export function updateShoppingBanner(_run: ShoppingRunState): void {
+  // intentionally empty
 }
 
 export function stopShoppingBanner(run?: ShoppingRunState): void {

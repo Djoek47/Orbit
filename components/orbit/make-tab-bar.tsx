@@ -28,8 +28,13 @@ import { glassBorder, glassFill } from '@/lib/theme/use-orbit-colors';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitOptional } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
-import { markNeedsProfilePick } from '@/lib/device/device-session';
-import { tabFifthSlot } from '@/lib/navigation/tab-fifth-slot';
+import {
+  isSharedTabletDeviceSession,
+  loadDeviceSession,
+  markNeedsProfilePick,
+  type DeviceSession,
+} from '@/lib/device/device-session';
+import { useTabFifthSlot } from '@/lib/navigation/use-tab-fifth-slot';
 import type { TourTargetId } from '@/lib/tour/tour-types';
 
 const TAB_ORDER = ['index', 'tasks', 'plan', 'rewards', 'poppins'] as const;
@@ -96,21 +101,38 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
    *   a Sidekick      nothing; four tabs, since they have no Poppins
    */
   const members = orbit?.household.members ?? [];
-  const fifthSlot = tabFifthSlot({
+  const fifthSlot = useTabFifthSlot({
     role: orbit?.currentMember?.role,
     members,
     memberId: orbit?.currentMember?.id,
   });
+  const [deviceSession, setDeviceSession] = useState<DeviceSession | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    void loadDeviceSession().then((next) => {
+      if (mounted) setDeviceSession(next);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [orbit?.currentMember?.id, fifthSlot]);
   // How many faces share this tablet — drives the Switch glyph (2–6 arrows).
   const switchPeopleCount = useMemo(() => {
+    if (
+      deviceSession &&
+      isSharedTabletDeviceSession(deviceSession) &&
+      deviceSession.profileMemberIds.length > 0
+    ) {
+      return Math.min(6, Math.max(2, deviceSession.profileMemberIds.length));
+    }
     const member = orbit?.currentMember;
     if (!member) return 2;
     const device = isSharedDeviceRole(member.role)
       ? member
       : findSharedDeviceForMember(member.id, members);
     const people = resolveSharedDevicePeople(device, members);
-    return Math.max(2, people.length || 2);
-  }, [orbit?.currentMember, members]);
+    return Math.min(6, Math.max(2, people.length || 2));
+  }, [deviceSession, orbit?.currentMember, members]);
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';
   const typeStyle = orbit?.accentTheme.typeStyle;

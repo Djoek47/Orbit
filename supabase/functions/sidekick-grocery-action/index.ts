@@ -41,12 +41,8 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'household_not_found' }, 404);
     }
 
-    if (!settings.sidekickGroceryAdd) {
-      return jsonResponse({ error: 'grocery_add_disabled' }, 403);
-    }
-
-    const capDenied = assertCapability(settings, 'allowGroceryAdd');
-    if (capDenied) return capDenied;
+    const capDenied = assertCapability(settings, 'allowGroceryAdd', member.id);
+    if (capDenied) return jsonResponse({ error: 'grocery_add_disabled' }, 403);
 
     if (action !== 'add_item') {
       return jsonResponse({ error: 'unknown_action' }, 400);

@@ -154,7 +154,6 @@ export type TourRect = {
 
 export type ChecklistItemId =
   | 'assign_chore'
-  | 'assign_homework'
   | 'see_proof'
   | 'add_grocery'
   | 'calendar_event'

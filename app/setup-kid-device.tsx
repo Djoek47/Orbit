@@ -17,15 +17,19 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { Avatar } from '@/components/orbit/avatar';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
+import { MemberPresencePill } from '@/components/orbit/members/member-presence-pill';
+import { ProfileQrCard } from '@/components/orbit/members/profile-qr-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
 import { SwitchPeopleIcon } from '@/components/orbit/switch-people-icon';
@@ -33,6 +37,7 @@ import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { clearDeviceSession } from '@/lib/device/device-session';
 import { saveChildInviteRecord } from '@/lib/household/child-invites';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import { formatLastSeen, memberIsLive } from '@/lib/household/member-presence';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
 import {
   DEFAULT_SHARED_IPAD_NAME,
@@ -68,15 +73,28 @@ function isTruthyParam(raw: string | string[] | undefined): boolean {
   return value === '1' || value === 'true' || value === 'yes';
 }
 
+function deviceLastActive(people: HouseholdMember[]): string | null {
+  let latest: number | null = null;
+  for (const person of people) {
+    const iso = person.lastSeenAt?.trim();
+    if (!iso) continue;
+    const ms = new Date(iso).getTime();
+    if (Number.isNaN(ms)) continue;
+    if (latest == null || ms > latest) latest = ms;
+  }
+  return latest == null ? null : new Date(latest).toISOString();
+}
+
 export default function SetupKidDeviceScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ step?: string; readonly?: string }>();
+  const params = useLocalSearchParams<{ step?: string; readonly?: string; deviceId?: string }>();
   const {
     connectSharedTabletProfiles,
     createSharedDevice,
     ensureMemberProfileInviteCode,
     household,
     permissions,
+    rotateMemberProfileInviteCode,
     updateSharedDeviceLinks,
   } = useOrbit();
   const { c, isDark, glassBorder } = useOrbitColors();
@@ -84,6 +102,7 @@ export default function SetupKidDeviceScreen() {
 
   const readOnly = isTruthyParam(params.readonly);
   const fromStepParam = parseStep(params.step);
+  const paramDeviceId = Array.isArray(params.deviceId) ? params.deviceId[0] : params.deviceId;
   const [flowOpen, setFlowOpen] = useState(Boolean(fromStepParam) && !readOnly);
   const [step, setStep] = useState<SetupStep>(fromStepParam ?? 1);
   const [deviceLabel, setDeviceLabel] = useState(DEFAULT_SHARED_IPAD_NAME);
@@ -95,6 +114,10 @@ export default function SetupKidDeviceScreen() {
   const [error, setError] = useState('');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [inviteReady, setInviteReady] = useState(false);
+  const [viewingDeviceId, setViewingDeviceId] = useState<string | null>(paramDeviceId ?? null);
+  const [detailLink, setDetailLink] = useState<string | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [regeneratingDetail, setRegeneratingDetail] = useState(false);
   const hydratedExisting = useRef(false);
   const addingAnotherRef = useRef(false);
   const pagerRef = useRef<FlatList>(null);
@@ -142,12 +165,89 @@ export default function SetupKidDeviceScreen() {
   }, [fromStepParam, readOnly]);
 
   useEffect(() => {
+    if (paramDeviceId) {
+      setViewingDeviceId(paramDeviceId);
+      setFlowOpen(false);
+    }
+  }, [paramDeviceId]);
+
+  useEffect(() => {
     if (!flowOpen) return;
     const timer = setTimeout(() => {
       pagerRef.current?.scrollToIndex({ index: step - 1, animated: true });
     }, 16);
     return () => clearTimeout(timer);
   }, [flowOpen, step]);
+
+  const viewingDevice = useMemo(
+    () =>
+      viewingDeviceId
+        ? household.members.find((m) => m.id === viewingDeviceId) ?? null
+        : null,
+    [household.members, viewingDeviceId]
+  );
+
+  const viewingPeople = useMemo(
+    () => (viewingDevice ? resolveSharedDevicePeople(viewingDevice, household.members) : []),
+    [viewingDevice, household.members]
+  );
+
+  const buildLinkForDevice = async (
+    device: HouseholdMember,
+    people: HouseholdMember[],
+    rotateCodes: boolean
+  ): Promise<string> => {
+    const codes: string[] = [];
+    for (const person of people) {
+      const personCode = rotateCodes
+        ? await rotateMemberProfileInviteCode(person.id)
+        : await ensureMemberProfileInviteCode(person.id);
+      if (!personCode) {
+        throw new Error(`Could not make a profile code for ${person.name}.`);
+      }
+      codes.push(personCode);
+      if (household.id) {
+        await saveChildInviteRecord({
+          member: { ...person, profileInviteCode: personCode, role: 'child' },
+          householdId: household.id,
+          householdName: household.householdName,
+          code: personCode,
+        });
+      }
+    }
+    if (codes.length === 0) {
+      throw new Error('Add at least one Sidekick on this device before showing a QR.');
+    }
+    const label = device.name?.trim() || DEFAULT_SHARED_IPAD_NAME;
+    return buildSharedDeviceInviteLink({ label, codes });
+  };
+
+  useEffect(() => {
+    if (!viewingDevice) {
+      setDetailLink(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailBusy(true);
+    void buildLinkForDevice(viewingDevice, viewingPeople, false)
+      .then((link) => {
+        if (!cancelled) setDetailLink(link);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDetailLink(null);
+          setError(userFacingMessage(err, 'Could not load this device QR.'));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Rebuild when device or linked people change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingDevice?.id, viewingPeople.map((p) => p.id).join('|')]);
 
   const goToStep = (next: SetupStep) => {
     setError('');
@@ -569,6 +669,150 @@ export default function SetupKidDeviceScreen() {
     );
   };
 
+  // ——— Existing device detail (QR + presence + regenerate) ———
+  if (!flowOpen && viewingDevice) {
+    const label = viewingDevice.name?.trim() || DEFAULT_SHARED_IPAD_NAME;
+    const lastIso = deviceLastActive(viewingPeople);
+    const anyoneLive = viewingPeople.some((p) => memberIsLive(p));
+    const statusLine = anyoneLive
+      ? 'Someone is connected'
+      : lastIso
+        ? `Last active ${formatLastSeen(lastIso)}`
+        : viewingPeople.length
+          ? 'No one connected yet'
+          : 'No one on this device yet';
+
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SettingsModalChrome
+          backLabel="Shared devices"
+          onBack={() => {
+            setViewingDeviceId(null);
+            setDetailLink(null);
+            setError('');
+          }}
+          title={label}
+          purpose="Show the QR the tablet already uses — or mint a fresh one.">
+          <ScrollView
+            contentContainerStyle={[styles.listBody, { paddingBottom: insets.bottom + 32 }]}
+            showsVerticalScrollIndicator={false}>
+            <Animated.View
+              entering={FadeInDown.duration(260)}
+              style={[
+                styles.detailCard,
+                { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
+              ]}>
+              <View style={styles.detailHead}>
+                <View style={[styles.deviceIcon, { backgroundColor: `${accent}22` }]}>
+                  <MaterialIcons name="tablet-mac" size={20} color={accent} />
+                </View>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={[styles.deviceName, { color: c.text }]}>{label}</Text>
+                  <Text style={[styles.deviceMeta, { color: anyoneLive ? '#38BDF8' : c.textMuted }]}>
+                    {statusLine}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.livePill,
+                    { backgroundColor: anyoneLive ? 'rgba(56,189,248,0.22)' : glassBorder(0.08) },
+                  ]}>
+                  <Text style={[styles.liveLabel, { color: anyoneLive ? '#38BDF8' : c.textSubtle }]}>
+                    {anyoneLive ? 'Live' : 'Idle'}
+                  </Text>
+                </View>
+              </View>
+
+              {viewingPeople.length > 0 ? (
+                <View style={styles.detailFaces}>
+                  {viewingPeople.map((person) => (
+                    <View
+                      key={person.id}
+                      style={[
+                        styles.detailFace,
+                        { backgroundColor: `${accent}14`, borderColor: glassBorder(0.1) },
+                      ]}>
+                      <Avatar
+                        name={person.name}
+                        emoji={memberDisplayEmoji(person)}
+                        imageUri={isAvatarImageUri(person.avatar) ? person.avatar : undefined}
+                        size="s"
+                      />
+                      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                        <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
+                          {person.name}
+                        </Text>
+                        <MemberPresencePill member={person} variant="full" />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.hint, { color: c.textSubtle }]}>
+                  Add Sidekicks on People → Shared tablets, then come back for the QR.
+                </Text>
+              )}
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(70).duration(260)}
+              style={[
+                styles.detailCard,
+                { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
+              ]}>
+              <Text style={[styles.emptyTitle, { color: c.text }]}>Device QR</Text>
+              {detailBusy && !detailLink ? (
+                <Text style={[styles.hint, { color: c.textMuted }]}>Preparing QR…</Text>
+              ) : detailLink ? (
+                <ProfileQrCard
+                  qrValue={detailLink}
+                  caption="Open ChoreMaxx on the tablet → Get Started → scan this code."
+                  onShare={async () => {
+                    await Clipboard.setStringAsync(detailLink);
+                    orbitAlert('Copied', 'Shared-device invite link copied.');
+                  }}
+                  shareLabel="Copy invite link"
+                  onRegenerate={
+                    readOnly || !isAdmin
+                      ? undefined
+                      : async () => {
+                          setRegeneratingDetail(true);
+                          try {
+                            const link = await buildLinkForDevice(
+                              viewingDevice,
+                              viewingPeople,
+                              true
+                            );
+                            setDetailLink(link);
+                            orbitAlert(
+                              'New QR ready',
+                              'Old tablet scans for this handoff will stop working.'
+                            );
+                          } catch (err) {
+                            orbitAlert(
+                              'QR',
+                              userFacingMessage(err, 'Could not generate a new QR.')
+                            );
+                          } finally {
+                            setRegeneratingDetail(false);
+                          }
+                        }
+                  }
+                  regenerating={regeneratingDetail}
+                />
+              ) : (
+                <Text style={[styles.hint, { color: c.textMuted }]}>
+                  {error || 'Add at least one Sidekick to show a QR.'}
+                </Text>
+              )}
+            </Animated.View>
+          </ScrollView>
+        </SettingsModalChrome>
+      </>
+    );
+  }
+
   // ——— List mode ———
   if (!flowOpen) {
     return (
@@ -594,9 +838,22 @@ export default function SetupKidDeviceScreen() {
               devices.map((device) => {
                 const people = resolveSharedDevicePeople(device, household.members);
                 const names = people.map((p) => p.name).join(', ') || 'No one yet';
+                const anyoneLive = people.some((p) => memberIsLive(p));
+                const lastIso = deviceLastActive(people);
+                const meta = anyoneLive
+                  ? `${names} · connected`
+                  : lastIso
+                    ? `${names} · last active ${formatLastSeen(lastIso)}`
+                    : `${names} · tap for QR`;
                 return (
-                  <View
+                  <Pressable
                     key={device.id}
+                    onPress={() => {
+                      setError('');
+                      setViewingDeviceId(device.id);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${device.name?.trim() || DEFAULT_SHARED_IPAD_NAME} QR`}
                     style={[
                       styles.deviceCard,
                       { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
@@ -608,14 +865,29 @@ export default function SetupKidDeviceScreen() {
                       <Text style={[styles.deviceName, { color: c.text }]}>
                         {device.name?.trim() || DEFAULT_SHARED_IPAD_NAME}
                       </Text>
-                      <Text style={[styles.deviceMeta, { color: c.textMuted }]}>
-                        {names} · ready for QR
+                      <Text style={[styles.deviceMeta, { color: c.textMuted }]} numberOfLines={2}>
+                        {meta}
                       </Text>
                     </View>
-                    <View style={[styles.livePill, { backgroundColor: `${accent}22` }]}>
-                      <Text style={[styles.liveLabel, { color: accent }]}>Live</Text>
+                    <View
+                      style={[
+                        styles.livePill,
+                        {
+                          backgroundColor: anyoneLive
+                            ? 'rgba(56,189,248,0.22)'
+                            : glassBorder(0.08),
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.liveLabel,
+                          { color: anyoneLive ? '#38BDF8' : c.textSubtle },
+                        ]}>
+                        {anyoneLive ? 'Live' : 'QR'}
+                      </Text>
                     </View>
-                  </View>
+                    <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
+                  </Pressable>
                 );
               })
             )}
@@ -635,6 +907,7 @@ export default function SetupKidDeviceScreen() {
                     setError('');
                     setInviteLink(null);
                     setInviteReady(false);
+                    setViewingDeviceId(null);
                     setFlowOpen(true);
                     setStep(1);
                   }}>
@@ -783,6 +1056,29 @@ const styles = StyleSheet.create({
   listBody: { gap: 14, paddingHorizontal: 20, paddingTop: 8 },
   emptyCard: { borderRadius: 20, borderWidth: 1, gap: 8, padding: 16 },
   emptyTitle: { fontSize: 17, fontWeight: '600' },
+  detailCard: {
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 14,
+    padding: 16,
+  },
+  detailHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  detailFaces: { gap: 8 },
+  detailFace: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   deviceCard: {
     alignItems: 'center',
     borderRadius: 20,

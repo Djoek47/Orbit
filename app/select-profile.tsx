@@ -1,17 +1,16 @@
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/orbit/avatar';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { SharedDeviceProfilePicker } from '@/components/orbit/shared-device-profile-picker';
 import { SidekickUnlockSplash } from '@/components/orbit/sidekick-unlock-splash';
-import { getAccentTheme } from '@/constants/accent-themes';
 import { space } from '@/constants/orbit-theme';
 import { isPersonalSidekickDevice } from '@/lib/device/device-host';
+import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   clearDeviceSession,
@@ -20,8 +19,7 @@ import {
   selectDeviceProfile,
   type DeviceSession,
 } from '@/lib/device/device-session';
-import { memberDisplayEmoji, isAvatarImageUri } from '@/lib/game-levels';
-import { DEFAULT_SHARED_IPAD_NAME, findSharedDeviceForMember, resolveSharedDevicePeople } from '@/lib/household/shared-device';
+import { findSharedDeviceForMember, resolveSharedDevicePeople } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -47,7 +45,7 @@ function profilesForSession(
   return [];
 }
 
-/** Shared iPad — pick a face, then Choremaxx. */
+/** Shared device — pick a face (Switch tab or cold start), then Choremaxx. */
 export default function SelectProfileScreen() {
   const insets = useSafeAreaInsets();
   const { household, isLoading, isSignedIn, orbitPalette, switchPersona } = useOrbit();
@@ -77,10 +75,10 @@ export default function SelectProfileScreen() {
     [session, profiles]
   );
 
-  const deviceLabel =
+  const deviceLabel = normalizeSharedDeviceLabel(
     session?.deviceLabel ||
-    findSharedDeviceForMember(profiles[0]?.id, household.members)?.name ||
-    DEFAULT_SHARED_IPAD_NAME;
+      findSharedDeviceForMember(profiles[0]?.id, household.members)?.name
+  );
 
   const enterAsMember = async (member: HouseholdMember) => {
     await selectDeviceProfile(member.id);
@@ -145,54 +143,30 @@ export default function SelectProfileScreen() {
           backgroundColor: orbitPalette.background,
         },
       ]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ChoremaxxBadge size="lg" />
-        <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
-        <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this iPad?</Text>
-        <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-          Tap your face. Switch anytime from the Switch tab.
-        </Text>
-
-        <TourTarget id="selectProfile.faces">
-        <View style={styles.grid}>
-          {profiles.map((member) => {
-            const theme = getAccentTheme(member.accentThemeId);
-            const photo = isAvatarImageUri(member.avatar);
-            return (
-              <Pressable
-                key={member.id}
-                onPress={() => void handleSelect(member)}
-                onLongPress={() => handleRemove(member)}
-                delayLongPress={450}
-                style={styles.tile}
-                accessibilityRole="button"
-                accessibilityLabel={`Continue as ${member.name}. Long press to remove from this iPad.`}>
-                <LinearGradient
-                  colors={[theme.primary, theme.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.avatarRing}>
-                  <View
-                    style={[
-                      styles.avatarInner,
-                      { backgroundColor: orbitPalette.backgroundSoft },
-                    ]}>
-                    <Avatar
-                      name={member.name}
-                      emoji={memberDisplayEmoji(member)}
-                      imageUri={photo ? member.avatar : undefined}
-                      size="xl"
-                    />
-                  </View>
-                </LinearGradient>
-                <Text style={[styles.name, { color: orbitPalette.text }]} numberOfLines={1}>
-                  {member.name}
-                </Text>
-              </Pressable>
-            );
-          })}
+      <View style={styles.body}>
+        <View style={styles.hero}>
+          <ChoremaxxBadge size="lg" />
+          <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
+          <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this device?</Text>
+          <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
+            Tap your face. Switch anytime from the Switch tab.
+          </Text>
         </View>
-        </TourTarget>
+
+        <ScrollView
+          contentContainerStyle={styles.facesScroll}
+          showsVerticalScrollIndicator={false}
+          bounces={profiles.length > 4}>
+          <TourTarget id="selectProfile.faces">
+            <SharedDeviceProfilePicker
+              profiles={profiles}
+              backgroundSoft={orbitPalette.backgroundSoft}
+              textColor={orbitPalette.text}
+              onSelect={(member) => void handleSelect(member)}
+              onRemove={handleRemove}
+            />
+          </TourTarget>
+        </ScrollView>
 
         {__DEV__ ? (
           <Pressable
@@ -220,7 +194,7 @@ export default function SelectProfileScreen() {
             <Text style={styles.devLabel}>DEV</Text>
           </Pressable>
         ) : null}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -229,61 +203,41 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  content: {
+  body: {
+    flex: 1,
+    paddingBottom: 24,
+  },
+  hero: {
     alignItems: 'center',
-    gap: space.md,
+    gap: space.sm,
     paddingHorizontal: space.xl,
-    paddingBottom: 40,
+    paddingTop: space.md,
+  },
+  facesScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    minHeight: 260,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.lg,
   },
   eyebrow: {
     fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 0.3,
-    marginTop: space.xl,
+    letterSpacing: 0.4,
+    marginTop: space.lg,
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
+    lineHeight: 34,
+    maxWidth: 320,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     lineHeight: 22,
-    maxWidth: 340,
+    maxWidth: 320,
     textAlign: 'center',
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 20,
-    justifyContent: 'center',
-    marginTop: space.xxl,
-    width: '100%',
-  },
-  tile: {
-    alignItems: 'center',
-    gap: 8,
-    width: 120,
-  },
-  avatarRing: {
-    alignItems: 'center',
-    borderRadius: 48,
-    height: 96,
-    justifyContent: 'center',
-    padding: 3,
-    width: 96,
-  },
-  avatarInner: {
-    alignItems: 'center',
-    borderRadius: 45,
-    height: 90,
-    justifyContent: 'center',
-    overflow: 'hidden',
-    width: 90,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '700',
   },
   devBtn: {
     alignSelf: 'center',

@@ -6,8 +6,10 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { Moji } from '@/components/orbit/moji/moji';
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PlanAddSheet } from '@/components/orbit/plan/plan-add-sheet';
+import { BuildTripStars } from '@/components/orbit/plan/build-trip-stars';
 import { EmptyDaySparkle } from '@/components/orbit/plan/empty-day-sparkle';
 import { PlanTripsPanel } from '@/components/orbit/plan-trips-panel';
+import { canSuggestTripFromEvents } from '@/lib/calendar/suggest-itinerary';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useTourScroll } from '@/components/orbit/tour/use-tour-scroll';
@@ -176,13 +178,12 @@ export default function PlanScreen() {
     (g) => g.status === 'Missing' || g.status === 'Low'
   ).length;
   const locationEvents = selectedEvents.filter((e) => Boolean(e.location?.trim()));
-  const canBuildTrip =
-    locationEvents.length >= 2 ||
-    (locationEvents.length >= 1 && missingGroceries > 0) ||
-    selectedItems.filter((item) => item.kind === 'homework' || item.category === 'School' || item.category === 'Activity').length >= 1;
+  // Only offer Build trip when calendar events can resolve to real Places addresses
+  // (never invent FreshMart / catalog streets).
+  const canBuildTrip = canSuggestTripFromEvents(household, selectedEvents);
 
   const handleBuildTrip = async () => {
-    if (buildingTrip) return;
+    if (buildingTrip || !canBuildTrip) return;
     setBuildingTrip(true);
     try {
       const created = await suggestPoppinsItinerary({
@@ -190,7 +191,7 @@ export default function PlanScreen() {
         mode: 'efficient',
         eventIds: selectedEvents.map((e) => e.id),
       });
-      if (created) {
+      if (created?.stops?.length) {
         router.push(`/itinerary/${created.id}` as never);
       }
     } finally {
@@ -431,17 +432,25 @@ export default function PlanScreen() {
           </View>
 
           {canBuildTrip ? (
-            <PoppinsCard
-              kind="recommendation"
-              message={
-                missingGroceries > 0 && locationEvents.length >= 1
-                  ? `A trip today could cover ${locationEvents.length === 1 ? 'this stop' : `these ${locationEvents.length} stops`} and pick up ${missingGroceries} missing item${missingGroceries === 1 ? '' : 's'} on the way.`
-                  : `${locationEvents.length >= 2 ? 'These stops line up' : 'This looks like a good day'} for one efficient trip.`
-              }
-              actions={[
-                { label: buildingTrip ? 'Building…' : 'Build trip', onPress: () => void handleBuildTrip() },
-              ]}
-            />
+            <View style={styles.buildTripWrap}>
+              <BuildTripStars color={c.poppinsCyan ?? accentTheme.primary} active={!buildingTrip} />
+              <PoppinsCard
+                kind="recommendation"
+                message={
+                  missingGroceries > 0 && locationEvents.length >= 1
+                    ? `Your calendar stops + a shop from Places — pick up ${missingGroceries} missing item${missingGroceries === 1 ? '' : 's'} on the way.`
+                    : locationEvents.length >= 2
+                      ? 'These calendar stops line up for one efficient trip from your Places.'
+                      : 'Build a trip from today’s calendar using your saved Places.'
+                }
+                actions={[
+                  {
+                    label: buildingTrip ? 'Building…' : 'Build trip',
+                    onPress: () => void handleBuildTrip(),
+                  },
+                ]}
+              />
+            </View>
           ) : null}
 
           {pendingEvents.length > 0 ? (
@@ -764,6 +773,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  buildTripWrap: {
+    overflow: 'hidden',
+    position: 'relative',
   },
   subChip: {
     alignItems: 'center',

@@ -95,7 +95,6 @@ import { usesMemberSettings } from '@/lib/settings/member-settings-model';
 import { HouseholdMembersRoster } from '@/components/orbit/members/household-members-roster';
 import { RewardsXpPanel } from '@/components/orbit/settings/rewards-xp-panel';
 import { SidekickPermissionsPanel } from '@/components/orbit/settings/sidekick-permissions-panel';
-import { applyGroceryPermissionMerge } from '@/lib/household/migrate-grocery-permission';
 import { useMembersLiveRefresh } from '@/lib/refresh/use-members-live-refresh';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import { SettingsGroup, SettingsNavRow } from '@/components/orbit/settings/grouped';
@@ -163,6 +162,7 @@ export default function SettingsScreen() {
     updateMemberAvatar,
     updateNotificationPrefs,
     updateMemberCapabilities,
+    updateMemberCapabilityOverrides,
     updateSidekickGroceryAdd,
     updatePreferredMapsApp,
     actEvents,
@@ -211,28 +211,6 @@ export default function SettingsScreen() {
     lastRequested.current = requestedSection;
     setSection(requestedSection);
   }, [requestedSection]);
-  const groceryMergedRef = useRef(false);
-
-  useEffect(() => {
-    if (groceryMergedRef.current || !permissions.canManageHousehold) return;
-    groceryMergedRef.current = true;
-    const merged = applyGroceryPermissionMerge(household);
-    const caps = resolveMemberCapabilities(household);
-    const groceryChanged = merged.sidekickGroceryAdd !== (household.sidekickGroceryAdd === true);
-    const capsChanged = caps.allowGroceryAdd !== merged.sidekickGroceryAdd;
-    if (groceryChanged) {
-      void updateSidekickGroceryAdd(merged.sidekickGroceryAdd);
-    }
-    if (capsChanged) {
-      updateMemberCapabilities({ allowGroceryAdd: merged.sidekickGroceryAdd });
-    }
-  }, [
-    household,
-    permissions.canManageHousehold,
-    updateMemberCapabilities,
-    updateSidekickGroceryAdd,
-  ]);
-
   useEffect(() => {
     if (section !== 'members' || !permissions.canManageHousehold) return;
 
@@ -730,16 +708,7 @@ export default function SettingsScreen() {
               />
             </SettingsGroup>
 
-            <SettingsGroup header="You">
-              <SettingsNavRow
-                icon="person"
-                iconColor={accentTheme.primary}
-                label="You"
-                subtitle={lookValue}
-                last
-                onPress={() => setSection('you')}
-              />
-            </SettingsGroup>
+            {/* Profile / Day·Night already live on the identity card above — no second "You" row. */}
 
             <SettingsGroup header="Help">
               {isTourEnabledSync() ? (
@@ -1042,8 +1011,10 @@ export default function SettingsScreen() {
             onGrocery={(value) =>
               guardSettingsToggle(() => {
                 updateSidekickGroceryAdd(value);
-                updateMemberCapabilities({ allowGroceryAdd: value });
               })
+            }
+            onMemberCapabilities={(memberId, patch) =>
+              guardSettingsToggle(() => updateMemberCapabilityOverrides(memberId, patch))
             }
           />
         ) : null}

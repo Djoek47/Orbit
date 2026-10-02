@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { isSharedTabletDeviceSession } from '@/lib/device/device-session';
 import { tabFifthSlot } from '@/lib/navigation/tab-fifth-slot';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -29,6 +30,34 @@ assert.equal(tabFifthSlot({ role: 'admin', members, memberId: 'o' }), 'poppins')
 // A Sidekick's own phone: four tabs, no fifth button to nowhere.
 assert.equal(tabFifthSlot({ role: 'child', members, memberId: 'm1' }), 'none');
 
+// Hosted on a shared tablet locally — even when the roster has not linked sharedWithMemberIds yet.
+assert.equal(
+  tabFifthSlot({ role: 'child', members, memberId: 'm1', sharedTabletSession: true }),
+  'switch'
+);
+assert.equal(
+  isSharedTabletDeviceSession({
+    mode: 'shared',
+    hostKind: 'shared-tablet',
+    profileMemberIds: ['m1', 'm2'],
+    activeMemberId: 'm1',
+    needsProfilePick: false,
+    sharedDeviceId: 'd',
+  }),
+  true
+);
+assert.equal(
+  isSharedTabletDeviceSession({
+    mode: 'shared',
+    hostKind: 'sidekick',
+    profileMemberIds: ['m1'],
+    activeMemberId: 'm1',
+    needsProfilePick: false,
+    sharedDeviceId: null,
+  }),
+  false
+);
+
 // On a shared iPad, the fifth button hands it over — for the device and for whoever is on it.
 assert.equal(tabFifthSlot({ role: 'shared-device', members, memberId: 'd' }), 'switch');
 assert.equal(tabFifthSlot({ role: 'child', members, memberId: 'm2' }), 'switch');
@@ -38,7 +67,8 @@ const bar = read('components/orbit/make-tab-bar.tsx');
 assert.match(bar, /fifthSlot !== 'poppins'/, 'the Poppins tab goes when the slot is not it');
 assert.match(bar, /fifthSlot === 'switch'/, 'and the switcher takes its place');
 assert.match(bar, /markNeedsProfilePick/, 'which opens the face picker');
-assert.match(read('app/(tabs)/_layout.tsx'), /tabFifthSlot\(/, 'the layout uses the same rule');
+assert.match(read('app/(tabs)/_layout.tsx'), /useTabFifthSlot\(/, 'the layout uses the same rule');
+assert.match(read('components/orbit/make-tab-bar.tsx'), /useTabFifthSlot\(/, 'the tab bar uses the same hook');
 
 // Live Poppins wears the chosen voice colour, wherever you are.
 assert.match(bar, /poppinsBusy/, 'the bar knows a session is running');

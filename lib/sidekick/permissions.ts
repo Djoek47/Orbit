@@ -45,8 +45,11 @@ export function sidekickForbiddenStatus(role: string | null | undefined, action:
 export function groceryAddAllowedForSidekick(opts: {
   role: string | null | undefined;
   householdAllows: boolean;
+  /** When set, per-member override wins over the household flag. */
+  memberAllows?: boolean | null;
 }): boolean {
   if (!isSidekickRole(opts.role)) return true;
+  if (typeof opts.memberAllows === 'boolean') return opts.memberAllows;
   return opts.householdAllows;
 }
 

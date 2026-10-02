@@ -10,7 +10,7 @@ import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { loadOnboardingPrefs, type OnboardingRole } from '@/lib/onboarding-prefs';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
-import { tabFifthSlot } from '@/lib/navigation/tab-fifth-slot';
+import { useTabFifthSlot } from '@/lib/navigation/use-tab-fifth-slot';
 import { useOrbit } from '@/store/orbit-store';
 
 /** Map household role → onboarding role for tab visibility. */
@@ -55,6 +55,11 @@ export default function TabLayout() {
     () => resolveUiRole(currentMember?.role, onboardingRole, sharedKid),
     [currentMember?.role, onboardingRole, sharedKid],
   );
+  const fifthSlot = useTabFifthSlot({
+    role: currentMember?.role,
+    members: household.members,
+    memberId: currentMember?.id,
+  });
 
   if (isLoading) {
     return null;
@@ -83,12 +88,7 @@ export default function TabLayout() {
   // The fifth slot is Poppins only for an adult on their own device; a shared tablet shows
   // "Switch who's on" there, and a Sidekick gets four tabs.
   const showPoppins =
-    canShowPoppinsTab({ role: currentMember?.role }) &&
-    tabFifthSlot({
-      role: currentMember?.role,
-      members: household.members,
-      memberId: currentMember?.id,
-    }) === 'poppins';
+    canShowPoppinsTab({ role: currentMember?.role }) && fifthSlot === 'poppins';
 
   return (
     <View style={[styles.shell, { backgroundColor: orbitPalette.background }]}>

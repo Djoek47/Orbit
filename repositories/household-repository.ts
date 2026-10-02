@@ -1245,10 +1245,23 @@ export const householdRepository = {
     if (existing) {
       return { ...member, profileInviteCode: normalizeInviteCode(existing) };
     }
+    return this.rotateMemberProfileInviteCode(member, taken, householdId);
+  },
 
+  /**
+   * Mint a fresh `profile_invite_code` (invalidates the previous invite / QR).
+   * Used by Member hub “Generate new QR” and shared-device re-handoff.
+   */
+  async rotateMemberProfileInviteCode(
+    member: HouseholdMember,
+    taken: Iterable<string> = [],
+    householdId?: string | null
+  ): Promise<HouseholdMember> {
     const takenSet = new Set(
       [...taken].map((code) => normalizeInviteCode(code)).filter(Boolean)
     );
+    const current = normalizeInviteCode(member.profileInviteCode ?? '');
+    if (current) takenSet.add(current);
 
     if (isMockMode()) {
       const code = allocateChildInviteCode(member.name, takenSet);
@@ -1263,7 +1276,7 @@ export const householdRepository = {
       return updatedMember;
     }
 
-    const supabase = getConfiguredSupabase('householdRepository.ensureMemberProfileInviteCode');
+    const supabase = getConfiguredSupabase('householdRepository.rotateMemberProfileInviteCode');
     let lastError: { code?: string; message?: string } | null = null;
     for (let attempt = 0; attempt < 24; attempt += 1) {
       const code = allocateChildInviteCode(member.name, takenSet);
@@ -1289,10 +1302,10 @@ export const householdRepository = {
         takenSet.add(code);
         continue;
       }
-      mapDbError('householdRepository.ensureMemberProfileInviteCode', error);
+      mapDbError('householdRepository.rotateMemberProfileInviteCode', error);
     }
-    mapDbError('householdRepository.ensureMemberProfileInviteCode', lastError);
-    throw new Error('householdRepository.ensureMemberProfileInviteCode: invite code retry exhausted.');
+    mapDbError('householdRepository.rotateMemberProfileInviteCode', lastError);
+    throw new Error('householdRepository.rotateMemberProfileInviteCode: invite code retry exhausted.');
   },
 
   async setMemberJoinPreApproved(
@@ -1375,11 +1388,24 @@ export const householdRepository = {
     }
 
     const supabase = getConfiguredSupabase('householdRepository.removeMember');
-    const { error } = await supabase
+    // Soft-remove and require a returned row — a silent 0-row update (RLS) left shared
+    // tablets stuck on People after the local UI thought they were gone.
+    const { data, error } = await supabase
       .from('household_members')
-      .update({ status: 'removed' })
-      .eq('id', memberId);
+      .update({
+        status: 'removed',
+        shared_with_member_ids: [],
+      })
+      .eq('id', memberId)
+      .neq('status', 'removed')
+      .select('id, role, status')
+      .maybeSingle();
     mapDbError('householdRepository.removeMember', error);
+    if (!data) {
+      throw new Error(
+        'Could not remove this person or device. Pull to refresh, then try again.'
+      );
+    }
   },
 
   async refreshInvite(householdId: string): Promise<InviteLinks> {
