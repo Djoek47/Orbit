@@ -508,7 +508,7 @@ export const FAMILY_IPAD_TOUR: TourDefinition = {
         step({
           id: 'ipad.faces',
           targetId: 'selectProfile.faces',
-          title: "Who's using the iPad?",
+          title: "Who's using this device?",
           body: 'Tap your face to start.',
           route: '/select-profile',
           advance: { kind: 'action' },
@@ -517,7 +517,7 @@ export const FAMILY_IPAD_TOUR: TourDefinition = {
           id: 'ipad.switch',
           targetId: 'home.switchProfile',
           title: 'Switching',
-          body: 'Done? Tap your face here to hand the iPad to someone else.',
+          body: 'Done? Tap your face here to hand the device to someone else.',
           route: '/(tabs)',
         }),
       ],
