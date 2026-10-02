@@ -127,9 +127,11 @@ import { isHomeworkCategory } from '@/lib/tasks/homework-subject';
 import { needsProofOnComplete, proofRequiredForHomeworkAssign } from '@/lib/tasks/homework-proof';
 import { canAdminRequestTaskProof } from '@/lib/tasks/proof-eligibility';
 import {
+  clearSidekickSession,
   loadSidekickSession,
   loadSidekickSessionFor,
   listSidekickSessions,
+  removeSidekickSessionFor,
   saveSidekickSession,
   type SidekickSession,
   markSidekickSignedOut,
@@ -139,8 +141,14 @@ import {
 } from '@/lib/sidekick/session';
 import {
   fetchSidekickSync,
+  fetchSidekickSyncDetailed,
   mergeSidekickSyncIntoHousehold,
 } from '@/lib/sidekick/sync-household';
+import {
+  MEMBER_REMOVAL_GRACE_SECONDS,
+  memberRemovalNotice,
+  removalAudienceIds,
+} from '@/lib/household/member-removal-protocol';
 import {
   sidekickCompleteTask,
   sidekickSubmitTaskProof,
@@ -548,6 +556,15 @@ type OrbitContextValue = {
   signIn: (input: SignInInput) => Promise<void>;
   hydrateFromSession: (session: AuthSession) => Promise<HouseholdSnapshot>;
   signOut: () => Promise<void>;
+  /** Active countdown after admin removed this Sidekick / shared profile. */
+  memberRemovalKick: {
+    memberId: string;
+    memberName: string;
+    startedAt: number;
+    secondsLeft: number;
+  } | null;
+  beginMemberRemovalKick: (input: { memberId: string; memberName: string }) => void;
+  finishMemberRemovalKick: () => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ needsConfirmation: boolean; email: string }>;
   suggestedPoppinsQuestions: readonly string[];
   refreshNotifications: () => Promise<void>;
@@ -803,6 +820,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const dismissedNotificationIdsRef = useRef<Set<string>>(new Set());
   notificationsRef.current = notifications;
   dismissedNotificationIdsRef.current = dismissedNotificationIds;
+  const [memberRemovalKick, setMemberRemovalKick] = useState<{
+    memberId: string;
+    memberName: string;
+    startedAt: number;
+    secondsLeft: number;
+  } | null>(null);
+  const memberRemovalKickRef = useRef(memberRemovalKick);
+  memberRemovalKickRef.current = memberRemovalKick;
+  const memberRemovalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentMember = useMemo(() => {
     if (activeMemberId) {
@@ -1243,13 +1269,107 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     []
   );
 
+  const finishMemberRemovalKick = useCallback(async () => {
+    if (memberRemovalTimerRef.current) {
+      clearTimeout(memberRemovalTimerRef.current);
+      memberRemovalTimerRef.current = null;
+    }
+    const kick = memberRemovalKickRef.current;
+    setMemberRemovalKick(null);
+    try {
+      if (kick?.memberId) {
+        await removeSidekickSessionFor(kick.memberId);
+        const { removeHostedProfile, loadDeviceSession, clearDeviceSession } = await import(
+          '@/lib/device/device-session'
+        );
+        const device = await loadDeviceSession();
+        if (device.mode === 'shared' && device.profileMemberIds.includes(kick.memberId)) {
+          const next = await removeHostedProfile(kick.memberId);
+          if (next.profileMemberIds.length === 0) {
+            await clearDeviceSession();
+            await clearSidekickSession();
+          }
+        } else {
+          const remaining = await listSidekickSessions();
+          if (remaining.length === 0) {
+            await clearSidekickSession();
+            await clearDeviceSession();
+          }
+        }
+      } else {
+        await clearSidekickSession();
+        const { clearDeviceSession } = await import('@/lib/device/device-session');
+        await clearDeviceSession();
+      }
+    } catch (error) {
+      console.warn('finishMemberRemovalKick.sessions', error);
+    }
+    try {
+      await authRepository.signOut();
+    } catch {
+      try {
+        const { signOutEverywhere } = await import('@/lib/auth/local-sign-out');
+        await signOutEverywhere();
+      } catch {
+        /* leave locally anyway */
+      }
+    }
+    await clearMockHouseholdSnapshot().catch(() => undefined);
+    clearSignedInState();
+    try {
+      const { resetToGetStarted } = await import('@/lib/navigation/reset-to-get-started');
+      resetToGetStarted();
+    } catch (error) {
+      console.warn('finishMemberRemovalKick.nav', error);
+    }
+  }, []);
+
+  const beginMemberRemovalKick = useCallback(
+    (input: { memberId: string; memberName: string }) => {
+      if (memberRemovalKickRef.current?.memberId === input.memberId) return;
+      if (memberRemovalTimerRef.current) {
+        clearTimeout(memberRemovalTimerRef.current);
+      }
+      const startedAt = Date.now();
+      setMemberRemovalKick({
+        memberId: input.memberId,
+        memberName: input.memberName,
+        startedAt,
+        secondsLeft: MEMBER_REMOVAL_GRACE_SECONDS,
+      });
+      void presentLocalBanner(
+        'Removed from household',
+        `${input.memberName} was removed. Signing out in ${MEMBER_REMOVAL_GRACE_SECONDS}s.`,
+        { kind: 'member_removed', memberId: input.memberId }
+      ).catch(() => undefined);
+      memberRemovalTimerRef.current = setTimeout(() => {
+        void finishMemberRemovalKick();
+      }, MEMBER_REMOVAL_GRACE_SECONDS * 1000);
+    },
+    [finishMemberRemovalKick]
+  );
+
   const reloadSidekickDomains = useCallback(async () => {
     const session = await loadSidekickSession();
     if (!session?.profileInviteCode) return null;
-    const sync = await fetchSidekickSync(session.profileInviteCode);
-    if (!sync) return null;
-    return applySidekickSyncPayload(sync, { announceNewTasks: true });
-  }, [applySidekickSyncPayload]);
+    const result = await fetchSidekickSyncDetailed(session.profileInviteCode);
+    if (result.status === 'removed') {
+      beginMemberRemovalKick({
+        memberId: session.memberId,
+        memberName: session.displayName,
+      });
+      return null;
+    }
+    if (result.status !== 'ok') return null;
+    if (result.sync.member.status === 'removed') {
+      beginMemberRemovalKick({
+        memberId: session.memberId,
+        memberName: session.displayName,
+      });
+      return null;
+    }
+    return applySidekickSyncPayload(result.sync, { announceNewTasks: true });
+  }, [applySidekickSyncPayload, beginMemberRemovalKick]);
 
   const reloadHouseholdDomains = useCallback(async () => {
     // Never treat a leftover Sidekick session as active when the signed-in member is admin/co-admin.
@@ -1258,6 +1378,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (dataMode === 'supabase' && sidekickActive) {
       const synced = await reloadSidekickDomains();
       if (synced) return synced;
+      // When the profile was removed, reloadSidekickDomains already started the kick.
+      if (memberRemovalKickRef.current) return householdRef.current;
       console.warn('reloadHouseholdDomains: sidekick sync failed, keeping in-memory snapshot');
       return householdRef.current;
     }
@@ -1283,6 +1405,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     };
     setHousehold(withExpiry);
     const memberId = currentMemberRef.current?.id;
+    // Mock / roster path: if this Sidekick was soft-removed, start the same kick protocol.
+    if (
+      sidekickActive &&
+      memberId &&
+      !withExpiry.members.some(
+        (member) =>
+          member.id === memberId &&
+          (member.status === 'active' || member.status === 'invited')
+      )
+    ) {
+      beginMemberRemovalKick({
+        memberId,
+        memberName: currentMemberRef.current?.name ?? 'Sidekick',
+      });
+      return withExpiry;
+    }
     const stored =
       withExpiry.id && memberId
         ? await loadDismissedNotificationIds(withExpiry.id, memberId)
@@ -1316,7 +1454,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     return withExpiry;
-  }, []);
+  }, [beginMemberRemovalKick, reloadSidekickDomains]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2027,9 +2165,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     if (dataMode === 'supabase') {
-      const sync = await fetchSidekickSync(normalizedCode);
-      if (!sync) return false;
-      await applySidekickSyncPayload(sync, { announceNewTasks: true });
+      const result = await fetchSidekickSyncDetailed(normalizedCode);
+      if (result.status === 'removed') {
+        await removeSidekickSessionFor(session.memberId);
+        await markSidekickSignedOut();
+        return false;
+      }
+      if (result.status !== 'ok') return false;
+      await applySidekickSyncPayload(result.sync, { announceNewTasks: true });
       registerSidekickPushNotifications(normalizedCode).catch((error) => {
         console.warn('Sidekick push registration skipped', error);
       });
@@ -2383,7 +2526,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const signOut = async () => {
-    const sidekickSigningOut = isSidekickRole(currentMember?.role);
+    const { loadDeviceSession, isSharedTabletDeviceSession, clearDeviceSession } = await import(
+      '@/lib/device/device-session'
+    );
+    const device = await loadDeviceSession();
+    const sharedTablet = isSharedTabletDeviceSession(device);
+    // Personal Sidekick: keep Continue-as. Shared tablet: wipe every hosted face.
+    const sidekickSigningOut = isSidekickRole(currentMember?.role) && !sharedTablet;
     try {
       await authRepository.signOut();
     } catch (error) {
@@ -2400,9 +2549,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     } catch {
       /* never block leaving */
     }
+    if (sharedTablet) {
+      await clearSidekickSession();
+      await clearDeviceSession();
+      await clearMockHouseholdSnapshot();
+      clearSignedInState();
+      return;
+    }
     if (sidekickSigningOut) {
       await touchSidekickSession();
       await markSidekickSignedOut();
+      // Device binding for a personal Sidekick phone should not linger as a "shared tablet".
+      await clearDeviceSession();
     } else {
       await clearMockHouseholdSnapshot();
     }
@@ -6830,6 +6988,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       throw new Error('The household owner cannot be removed.');
     }
 
+    const audienceMemberIds = removalAudienceIds({
+      targetId: target.id,
+      targetRole: target.role,
+      sharedWithMemberIds: target.sharedWithMemberIds,
+    });
+    const notice = memberRemovalNotice({
+      removedName: target.name,
+      removedMemberId: target.id,
+      audienceMemberIds,
+      householdName: household.householdName,
+    });
+
     // Optimistic remove so shared tablets disappear even before the next poll.
     const previous = household.members;
     setHousehold((current) => ({
@@ -6855,6 +7025,33 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       setHousehold((current) => ({ ...current, members: previous }));
       throw error;
     }
+
+    // Notify → their device shows a banner, then a countdown, then a forced sign-out.
+    // Removed status already blocks sidekick-sync / profile-code rejoin.
+    try {
+      if (household.id) {
+        const item = await notificationsRepository.create({
+          householdId: household.id,
+          title: notice.title,
+          body: notice.body,
+          category: notice.category,
+          priority: notice.priority,
+          data: notice.data,
+        });
+        setNotifications((current) => [item, ...current.filter((row) => row.id !== item.id)]);
+        if (dataMode === 'supabase') {
+          dispatchMemberPush(item.id);
+        }
+      }
+    } catch (error) {
+      console.warn('removeMember.notify', error);
+    }
+
+    const selfId = currentMemberRef.current?.id;
+    if (selfId && audienceMemberIds.includes(selfId)) {
+      beginMemberRemovalKick({ memberId: target.id, memberName: target.name });
+    }
+
     await trackAnalytics('member.removed', { memberId }, analyticsContext);
   };
 
@@ -7053,6 +7250,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       signIn,
       hydrateFromSession,
       signOut,
+      memberRemovalKick,
+      beginMemberRemovalKick,
+      finishMemberRemovalKick,
       signUp,
       suggestedPoppinsQuestions,
       refreshNotifications,
@@ -7226,6 +7426,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       declineRewardProposal,
       updateSidekickGroceryAdd,
       updateSidekickPoppinsAi,
+      memberRemovalKick,
+      beginMemberRemovalKick,
+      finishMemberRemovalKick,
     ]
   );
 

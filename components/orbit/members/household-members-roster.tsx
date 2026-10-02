@@ -169,7 +169,7 @@ export function HouseholdMembersRoster({
     }
     orbitAlert(
       `Remove ${member.name}?`,
-      'They lose access to this household on this device.',
+      'They’ll get a notice, then their device signs out. The old invite code stops working.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

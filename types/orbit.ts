@@ -1,6 +1,6 @@
 export type HouseholdRole = 'owner' | 'admin' | 'adult' | 'child' | 'guest' | 'shared-device';
 
-export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive' | 'invited';
+export type HouseholdMemberStatus = 'pending' | 'active' | 'inactive' | 'invited' | 'removed';
 
 /** ChoreMaxx v2: every household is a family. Legacy DB values are normalized to `family`. */
 export type HouseholdType = 'family';

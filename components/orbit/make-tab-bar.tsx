@@ -118,7 +118,11 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
   }, [orbit?.currentMember?.id, fifthSlot]);
   // How many faces share this tablet — drives the Switch glyph (2–6 arrows).
   const switchPeopleCount = useMemo(() => {
-    if (isSharedTabletDeviceSession(deviceSession) && deviceSession.profileMemberIds.length > 0) {
+    if (
+      deviceSession &&
+      isSharedTabletDeviceSession(deviceSession) &&
+      deviceSession.profileMemberIds.length > 0
+    ) {
       return Math.min(6, Math.max(2, deviceSession.profileMemberIds.length));
     }
     const member = orbit?.currentMember;

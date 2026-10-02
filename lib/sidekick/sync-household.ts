@@ -78,20 +78,31 @@ function mapRedemptionRow(row: {
   };
 }
 
-/** Fetch tasks + notifications for a profile invite code (Supabase production path). */
-export async function fetchSidekickSync(profileInviteCode: string): Promise<SidekickSyncResult | null> {
+export type SidekickSyncFetch =
+  | { status: 'ok'; sync: SidekickSyncResult }
+  | { status: 'removed' }
+  | { status: 'unavailable' };
+
+/** Detailed sync so removed profiles can be kicked (vs network blips). */
+export async function fetchSidekickSyncDetailed(
+  profileInviteCode: string
+): Promise<SidekickSyncFetch> {
   if (dataMode !== 'supabase') {
-    return null;
+    return { status: 'unavailable' };
   }
   const supabase = getSupabaseClient();
-  if (!supabase) return null;
+  if (!supabase) return { status: 'unavailable' };
 
   const { data, error } = await supabase.functions.invoke('sidekick-sync', {
     body: { code: profileInviteCode },
   });
   if (error || !data || typeof data !== 'object') {
+    const message = error?.message?.toLowerCase() ?? '';
+    if (message.includes('404') || message.includes('not_found') || message.includes('not found')) {
+      return { status: 'removed' };
+    }
     console.warn('fetchSidekickSync', error?.message ?? 'empty payload');
-    return null;
+    return { status: 'unavailable' };
   }
 
   const payload = data as {
@@ -108,8 +119,14 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
     groceries?: Parameters<typeof mapGroceryRow>[0][];
   };
 
-  if (payload.error || !payload.member || !payload.household?.id) {
-    return null;
+  if (payload.error) {
+    const { isSidekickRemovedSyncError } = await import('@/lib/household/member-removal-protocol');
+    return isSidekickRemovedSyncError(payload)
+      ? { status: 'removed' }
+      : { status: 'unavailable' };
+  }
+  if (!payload.member || !payload.household?.id) {
+    return { status: 'unavailable' };
   }
 
   const member = mapMemberRow(payload.member);
@@ -125,23 +142,32 @@ export async function fetchSidekickSync(profileInviteCode: string): Promise<Side
   const householdPatch = mapHouseholdSettingsFromRow(household);
 
   return {
-    householdId: household.id!,
-    householdName: household.name ?? 'Household',
-    member,
-    members,
-    tasks,
-    events,
-    notifications,
-    rewards,
-    redemptions,
-    groceries,
-    customHouseRules,
-    householdPatch: {
-      ...householdPatch,
-      id: household.id,
+    status: 'ok',
+    sync: {
+      householdId: household.id!,
       householdName: household.name ?? 'Household',
+      member,
+      members,
+      tasks,
+      events,
+      notifications,
+      rewards,
+      redemptions,
+      groceries,
+      customHouseRules,
+      householdPatch: {
+        ...householdPatch,
+        id: household.id,
+        householdName: household.name ?? 'Household',
+      },
     },
   };
+}
+
+/** Fetch tasks + notifications for a profile invite code (Supabase production path). */
+export async function fetchSidekickSync(profileInviteCode: string): Promise<SidekickSyncResult | null> {
+  const result = await fetchSidekickSyncDetailed(profileInviteCode);
+  return result.status === 'ok' ? result.sync : null;
 }
 
 export function mergeSidekickSyncIntoHousehold(
