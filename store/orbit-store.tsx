@@ -1380,8 +1380,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (synced) return synced;
       // When the profile was removed, reloadSidekickDomains already started the kick.
       if (memberRemovalKickRef.current) return householdRef.current;
-      console.warn('reloadHouseholdDomains: sidekick sync failed, keeping in-memory snapshot');
-      return householdRef.current;
+      // Network blip: still flip local expiry so Home does not keep yesterday's open work.
+      console.warn('reloadHouseholdDomains: sidekick sync failed, applying local expiry');
+      const live = householdRef.current;
+      const now = new Date();
+      const nextTasks = refreshStaleDueLabels(
+        applyHouseholdTaskExpiry(live.tasks, live, now),
+        now
+      );
+      if (tasksWithExpiryStatusChange(live.tasks, nextTasks).length > 0) {
+        const next = { ...live, tasks: nextTasks };
+        setHousehold(next);
+        return next;
+      }
+      return live;
     }
 
     const baseHousehold = await householdRepository.getHousehold();
@@ -1582,20 +1594,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           hydratedHousehold.members,
           hydratedHousehold.majordomoProfileId
         );
-        setHousehold({
-          ...hydratedHousehold,
-          greetingName: session.user.name || hydratedHousehold.greetingName,
-          notificationPrefs: mergeNotificationPrefs({
-            server: hydratedHousehold.notificationPrefs,
-            local: prefs,
-          }),
-          accentThemeId: themeId,
-          majordomoProfileId: majordomo.householdProfileId,
-          members: majordomo.members,
-          rooms: hydratedHousehold.rooms?.length
-            ? hydratedHousehold.rooms
-            : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
-        });
+        {
+          const now = new Date();
+          const base = {
+            ...hydratedHousehold,
+            greetingName: session.user.name || hydratedHousehold.greetingName,
+            notificationPrefs: mergeNotificationPrefs({
+              server: hydratedHousehold.notificationPrefs,
+              local: prefs,
+            }),
+            accentThemeId: themeId,
+            majordomoProfileId: majordomo.householdProfileId,
+            members: majordomo.members,
+            rooms: hydratedHousehold.rooms?.length
+              ? hydratedHousehold.rooms
+              : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
+          };
+          setHousehold({
+            ...base,
+            tasks: refreshStaleDueLabels(
+              applyHouseholdTaskExpiry(base.tasks, base, now),
+              now
+            ),
+          });
+        }
         const resumeMemberId =
           mockStored?.activeMemberId ||
           storedMemberId ||
@@ -1733,6 +1755,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
 
+    {
+      const now = new Date();
+      hydratedHousehold = {
+        ...hydratedHousehold,
+        tasks: refreshStaleDueLabels(
+          applyHouseholdTaskExpiry(hydratedHousehold.tasks, hydratedHousehold, now),
+          now
+        ),
+      };
+    }
     setHousehold(hydratedHousehold);
     const pendingSelf = hydratedHousehold.members.find((member) => member.status === 'pending');
     if (isPendingJoinSnapshot(hydratedHousehold)) {
@@ -2152,7 +2184,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (hostedIds.length > 1) {
       await setupSharedDeviceSession({
         profileMemberIds: hostedIds,
-        deviceLabel: 'Family tablet',
+        deviceLabel: 'Family device',
         hostKind: 'shared-tablet',
       });
       await selectDeviceProfile(session.memberId);
@@ -3334,8 +3366,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         }
       })();
     };
-    const id = setInterval(tickExpiry, 30_000);
-    return () => clearInterval(id);
+    // Tighter while the app is open; slow down in background to save battery.
+    let id = setInterval(tickExpiry, AppState.currentState === 'active' ? 10_000 : 30_000);
+    const sub = AppState.addEventListener('change', (state) => {
+      clearInterval(id);
+      id = setInterval(tickExpiry, state === 'active' ? 10_000 : 30_000);
+      if (state === 'active') tickExpiry();
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
   }, []);
 
   useEffect(() => {
