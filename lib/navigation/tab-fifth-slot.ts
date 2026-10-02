@@ -21,13 +21,17 @@ export function tabFifthSlot(input: {
   role: HouseholdMember['role'] | undefined | null;
   members: HouseholdMember[];
   memberId?: string | null;
+  /** Local device binding — roster link is not always present for hosted profiles. */
+  sharedTabletSession?: boolean;
 }): TabFifthSlot {
-  const { role, members, memberId } = input;
+  const { role, members, memberId, sharedTabletSession } = input;
 
-  // The iPad itself, before anyone has tapped a face.
+  if (sharedTabletSession) return 'switch';
+
+  // The shared device shell, before anyone has tapped a face.
   if (isSharedDeviceRole(role)) return 'switch';
 
-  // Someone on a shared iPad: handing it over is the fifth button.
+  // Someone on a shared tablet: handing it over is the fifth button.
   if (memberId && findSharedDeviceForMember(memberId, members)) return 'switch';
 
   // A Sidekick's own phone has no Poppins, so it has no fifth tab either.

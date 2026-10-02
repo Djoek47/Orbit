@@ -62,6 +62,15 @@ export async function clearDeviceSession(): Promise<void> {
   await AsyncStorage.removeItem(KEY);
 }
 
+/** True when this physical device is a multi-profile shared tablet (not a personal Sidekick phone). */
+export function isSharedTabletDeviceSession(session: DeviceSession | null | undefined): boolean {
+  if (!session || session.mode !== 'shared') return false;
+  if (session.hostKind === 'sidekick') return false;
+  if (session.hostKind === 'shared-tablet') return session.profileMemberIds.length > 0;
+  if (session.sharedDeviceId) return true;
+  return session.profileMemberIds.length > 1;
+}
+
 /** Mark that the next cold entry should show Who's watching? */
 export async function markNeedsProfilePick(): Promise<DeviceSession> {
   const current = await loadDeviceSession();

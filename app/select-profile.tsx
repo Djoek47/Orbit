@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -48,8 +48,18 @@ function profilesForSession(
 }
 
 /** Shared iPad — pick a face, then Choremaxx. */
+function profilePickerLayout(count: number): { columns: number; tileWidth: number; ring: number } {
+  const n = Math.min(6, Math.max(2, count || 2));
+  if (n <= 2) return { columns: 2, tileWidth: 148, ring: 108 };
+  if (n === 3) return { columns: 3, tileWidth: 118, ring: 96 };
+  if (n === 4) return { columns: 2, tileWidth: 132, ring: 92 };
+  if (n === 5) return { columns: 3, tileWidth: 108, ring: 84 };
+  return { columns: 3, tileWidth: 102, ring: 78 };
+}
+
 export default function SelectProfileScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { household, isLoading, isSignedIn, orbitPalette, switchPersona } = useOrbit();
   const [session, setSession] = useState<DeviceSession | null>(null);
   const [ready, setReady] = useState(false);
@@ -78,9 +88,15 @@ export default function SelectProfileScreen() {
   );
 
   const deviceLabel =
-    session?.deviceLabel ||
-    findSharedDeviceForMember(profiles[0]?.id, household.members)?.name ||
+    session?.deviceLabel?.replace(/\biPad\b/i, 'device') ||
+    findSharedDeviceForMember(profiles[0]?.id, household.members)?.name?.replace(/\biPad\b/i, 'device') ||
     DEFAULT_SHARED_IPAD_NAME;
+
+  const layout = useMemo(
+    () => profilePickerLayout(profiles.length),
+    [profiles.length]
+  );
+  const gridMaxWidth = Math.min(windowWidth - 48, layout.columns * layout.tileWidth + (layout.columns - 1) * 16);
 
   const enterAsMember = async (member: HouseholdMember) => {
     await selectDeviceProfile(member.id);
@@ -148,40 +164,46 @@ export default function SelectProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ChoremaxxBadge size="lg" />
         <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
-        <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this iPad?</Text>
+        <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s on this device?</Text>
         <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-          Tap your face. Switch anytime from the Switch tab.
+          Tap your face. Switch anytime from the Switch tab at the bottom.
         </Text>
 
         <TourTarget id="selectProfile.faces">
-        <View style={styles.grid}>
+        <View style={[styles.grid, { maxWidth: gridMaxWidth, width: '100%' }]}>
           {profiles.map((member) => {
             const theme = getAccentTheme(member.accentThemeId);
             const photo = isAvatarImageUri(member.avatar);
+            const inner = layout.ring - 6;
             return (
               <Pressable
                 key={member.id}
                 onPress={() => void handleSelect(member)}
                 onLongPress={() => handleRemove(member)}
                 delayLongPress={450}
-                style={styles.tile}
+                style={[styles.tile, { width: layout.tileWidth }]}
                 accessibilityRole="button"
-                accessibilityLabel={`Continue as ${member.name}. Long press to remove from this iPad.`}>
+                accessibilityLabel={`Continue as ${member.name}. Long press to remove from this device.`}>
                 <LinearGradient
                   colors={[theme.primary, theme.secondary]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.avatarRing}>
+                  style={[styles.avatarRing, { width: layout.ring, height: layout.ring, borderRadius: layout.ring / 2 }]}>
                   <View
                     style={[
                       styles.avatarInner,
-                      { backgroundColor: orbitPalette.backgroundSoft },
+                      {
+                        backgroundColor: orbitPalette.backgroundSoft,
+                        width: inner,
+                        height: inner,
+                        borderRadius: inner / 2,
+                      },
                     ]}>
                     <Avatar
                       name={member.name}
                       emoji={memberDisplayEmoji(member)}
                       imageUri={photo ? member.avatar : undefined}
-                      size="xl"
+                      size={layout.ring >= 100 ? 'xl' : layout.ring >= 88 ? 'lg' : 'md'}
                     />
                   </View>
                 </LinearGradient>
@@ -231,7 +253,10 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
+    flexGrow: 1,
     gap: space.md,
+    justifyContent: 'center',
+    minHeight: '100%',
     paddingHorizontal: space.xl,
     paddingBottom: 40,
   },
@@ -253,33 +278,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   grid: {
+    alignSelf: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 20,
+    gap: 16,
     justifyContent: 'center',
-    marginTop: space.xxl,
-    width: '100%',
+    marginTop: space.lg,
   },
   tile: {
     alignItems: 'center',
-    gap: 8,
-    width: 120,
+    gap: 10,
   },
   avatarRing: {
     alignItems: 'center',
-    borderRadius: 48,
-    height: 96,
     justifyContent: 'center',
     padding: 3,
-    width: 96,
   },
   avatarInner: {
     alignItems: 'center',
-    borderRadius: 45,
-    height: 90,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 90,
   },
   name: {
     fontSize: 16,
