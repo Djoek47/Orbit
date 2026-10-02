@@ -97,9 +97,6 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
     const choresDone = household.tasks.some(
       (t) => t.category !== 'homework_education' && !/homework/i.test(t.category ?? '')
     );
-    const homeworkDone = household.tasks.some(
-      (t) => t.category === 'homework_education' || /homework/i.test(t.category ?? '')
-    );
     const groceryDone = (household.groceries?.length ?? 0) > 0;
     const eventDone = (household.events?.length ?? 0) > 0;
     const rewardDone = (household.rewards?.length ?? 0) > 0;
@@ -148,15 +145,6 @@ export function GettingStartedCard({ hidden, onHide, onAllDoneSeen }: Props) {
         label: 'Add a Sidekick',
         done: hasChildBeyondOwner,
         onPress: () => router.push('/settings?section=members&add=1' as never),
-      },
-      // Homework is a Sidekick's, so it only makes sense once there is one to give it to.
-      // Without one, this row invites you to add a Sidekick instead of leading to a dead end.
-      {
-        id: 'assign_homework',
-        label: hasChildBeyondOwner ? 'Assign homework' : 'Add a Sidekick to assign homework',
-        done: homeworkDone,
-        onPress: () =>
-          router.push((hasChildBeyondOwner ? '/assign-homework' : '/settings?section=members') as never),
       },
       {
         id: 'see_proof',

@@ -1,5 +1,5 @@
 /**
- * Shopping run: the folding dock, the Lock Screen switch, and ChoreMaxx's own Lock Screen view.
+ * Shopping run: folding dock stays; Lock Screen grocery banner is off in the app for now.
  * Run: npx tsx lib/grocery/shopping-run-ui.test.ts
  */
 import assert from 'node:assert/strict';
@@ -19,72 +19,23 @@ assert.match(dock, /withSpring\(1/, 'open springs out from the +');
 assert.match(dock, /paddingRight: BUTTON/, 'field never shares layout with the +');
 
 const screen = read('app/shopping-mode.tsx');
-assert.match(screen, /loadShoppingBannerEnabled/, 'the Lock Screen switch is remembered');
-assert.match(screen, /!bannerEnabled\) return/, 'off means no banner');
-assert.match(screen, /iconForGroceryName\(item\.name, item\.categoryId\)/, 'items carry their emoji');
-assert.match(screen, /remainingItems/, 'banner rows carry grocery ids');
-assert.match(screen, /drainLockScreenCheckOffs/, 'Lock Screen taps sync into the list');
-assert.match(read('components/orbit/grocery/shopping-run-header.tsx'), /accessibilityRole="switch"/);
+assert.doesNotMatch(screen, /startShoppingBanner/, 'Lock Screen grocery banner is not started');
+assert.doesNotMatch(screen, /updateShoppingBanner/, 'Lock Screen grocery banner is not updated');
+assert.doesNotMatch(screen, /loadShoppingBannerEnabled/, 'no Lock Screen switch pref');
+assert.doesNotMatch(screen, /drainLockScreenCheckOffs/, 'no Lock Screen check-off drain');
+assert.match(screen, /stopShoppingBanner/, 'leftover banners from older builds are cleared');
+assert.match(screen, /showEndRun/, 'End run stays in-app');
 
-const view = read('plugins/live-activity/LiveActivityView.swift');
-assert.match(view, /struct LiveActivityView: View/, 'same view name the widget uses');
-assert.match(view, /let contentState: LiveActivityAttributes\.ContentState/, 'same inputs');
-assert.match(view, /Image\("choremaxx_mark"\)/, 'the logo');
-assert.match(view, /ShoppingBannerPageIntent/, 'Next/Previous flip pages without opening the app');
-assert.match(view, /ShoppingBannerCheckOffIntent/, 'row tap checks off without opening the app');
-assert.match(view, /ShoppingBannerStore\.enqueueCheckOff/, 'check-off writes the App Group queue');
-assert.match(view, /enum ShoppingBannerStore/, 'store is in LiveActivityView (widget Compile Sources)');
-assert.match(view, /pageSize = 2/, 'compact pages so branding still fits');
-assert.match(view, /rowHeight: CGFloat = 34/, 'tight row rhythm for Lock Screen');
-assert.match(view, /Text\("ChoreMaxx"\)/, 'brand wordmark on the banner');
-assert.doesNotMatch(view, /LazyVGrid/, 'no cramped two-column grid');
-assert.doesNotMatch(view, /Color\.clear\.frame\(height: CMX\.rowHeight\)/, 'no empty spacer rows that inflate height');
-assert.ok(existsSync(join(process.cwd(), 'assets/liveActivity/choremaxx_mark.png')), 'logo asset');
+const header = read('components/orbit/grocery/shopping-run-header.tsx');
+assert.doesNotMatch(header, /lockScreen/, 'no Lock Screen switch in the header');
+assert.doesNotMatch(header, /accessibilityRole="switch"/, 'no Lock Screen toggle');
+assert.match(header, /showEndRun/, 'End run is driven by the in-app list');
+
+// Native stubs may remain for a future re-enable / trip Live Activity shared widget —
+// but the shopping app path must not wire them.
 assert.ok(
-  existsSync(join(process.cwd(), 'modules/shopping-banner-bridge/ios/ShoppingBannerStore.swift')),
-  'main-app bridge has the same App Group store'
+  existsSync(join(process.cwd(), 'lib/grocery/shopping-live-activity.ts')),
+  'stop helper kept so older activities can be dismissed'
 );
-
-const widget = read('plugins/live-activity/LiveActivityWidget.swift');
-assert.match(widget, /LiveActivityView\(contentState/, 'lock screen hosts our view');
-assert.match(
-  widget,
-  /return DynamicIsland/,
-  'explicit return — let bindings break single-expression DynamicIsland inference'
-);
-const lockScreenBlock = widget.slice(
-  widget.indexOf('ActivityConfiguration'),
-  widget.indexOf('} dynamicIsland:')
-);
-assert.doesNotMatch(
-  lockScreenBlock,
-  /\.applyWidgetURL/,
-  'the whole banner is not a deep link — that swallowed every tap'
-);
-assert.match(widget, /compactTrailing/, 'Dynamic Island shows the left count');
-
-const appJson = read('app.json');
-assert.ok(
-  appJson.indexOf('"expo-live-activity"') < appJson.indexOf('with-shopping-live-activity'),
-  'our view is copied in after the library'
-);
-assert.doesNotMatch(
-  appJson,
-  /com\.apple\.security\.application-groups/,
-  'main app App Group waits for refreshed App Store profile (see testflight-setup)'
-);
-assert.match(read('plugins/with-shopping-live-activity.js'), /LiveActivityWidget\.swift/);
-assert.doesNotMatch(
-  read('plugins/with-shopping-live-activity.js'),
-  /ShoppingBannerStore\.swift/,
-  'do not copy an orphan .swift the widget target never compiles'
-);
-assert.match(read('plugins/with-shopping-live-activity.js'), /withFinalizedMod/);
-assert.match(read('plugins/with-shopping-live-activity.js'), /group\.app\.choremaxx\.household/);
-assert.match(read('lib/grocery/shopping-banner-copy.ts'), /#p\$\{/, 'page marker for the native pager');
-assert.match(read('lib/grocery/shopping-banner-copy.ts'), /#id:/, 'item ids packed for check-off');
-
-const bridge = read('modules/shopping-banner-bridge/index.ts');
-assert.match(bridge, /ShoppingBannerBridge/, 'Expo module drains the App Group queue');
 
 console.log('shopping-run-ui: ok');

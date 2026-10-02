@@ -8,8 +8,6 @@ import * as Haptics from 'expo-haptics';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   AccessibilityInfo,
-  Alert,
-  AppState,
   LayoutAnimation,
   Platform,
   StyleSheet,
@@ -35,15 +33,7 @@ import {
   shoppingRunLabel,
   type ShoppingListItem,
 } from '@/lib/grocery/shopping-palette';
-import {
-  shoppingBannerAvailable,
-  startShoppingBanner,
-  stopShoppingBanner,
-  updateShoppingBanner,
-} from '@/lib/grocery/shopping-live-activity';
-import { drainLockScreenCheckOffs } from '@/modules/shopping-banner-bridge';
-import { iconForGroceryName } from '@/lib/grocery/catalog';
-import { loadShoppingBannerEnabled, saveShoppingBannerEnabled } from '@/lib/grocery/shopping-banner-pref';
+import { stopShoppingBanner } from '@/lib/grocery/shopping-live-activity';
 import { ShoppingAmbient } from '@/components/orbit/grocery/shopping-ambient';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -165,30 +155,6 @@ export default function ShoppingModeScreen() {
     [listItems, markGroceryMissing, markGroceryPurchased, reduceMotion, clearToast, showToast]
   );
 
-  // Lock Screen check-offs land in the App Group; pull them into the grocery list when the
-  // run is open or the app comes back to the foreground.
-  const applyLockScreenCheckOffs = useCallback(() => {
-    const ids = drainLockScreenCheckOffs();
-    if (!ids.length) return;
-    for (const id of ids) {
-      const item = listItems.find((row) => row.id === id);
-      if (!item || item.done) continue;
-      void markGroceryPurchased(id);
-    }
-  }, [listItems, markGroceryPurchased]);
-
-  useEffect(() => {
-    applyLockScreenCheckOffs();
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') applyLockScreenCheckOffs();
-    });
-    const tick = setInterval(applyLockScreenCheckOffs, 2500);
-    return () => {
-      sub.remove();
-      clearInterval(tick);
-    };
-  }, [applyLockScreenCheckOffs]);
-
   const undo = useCallback(() => {
     const id = lastToggled.current;
     if (!id) return;
@@ -215,76 +181,16 @@ export default function ShoppingModeScreen() {
     }
   }, [addMissingGrocery, canAddGroceryWishlist, draft, reduceMotion]);
 
-  // The Lock Screen / Dynamic Island banner: the same list, in the same order, that stays
-  // put when you leave the app so it's there at the store. It ends when the run does, or
-  // when you tap End run.
-  const nextAisle = aisles.find((aisle) => aisle.items.some((item) => !item.done))?.categoryName;
-  // Each line leads with the item's emoji, the same one the list shows — and carries the
-  // grocery id so a Lock Screen tap can check it off without opening the app.
-  const remainingItems = useMemo(
-    () =>
-      aisles.flatMap((aisle) =>
-        aisle.items
-          .filter((item) => !item.done)
-          .map((item) => ({
-            id: item.id,
-            label: `${iconForGroceryName(item.name, item.categoryId)} ${item.name}`,
-          }))
-      ),
-    [aisles]
-  );
-  const bannerRun = useMemo(
-    () => ({
-      done: progress.done,
-      total: progress.total,
-      nextAisle,
-      runLabel,
-      remainingItems,
-    }),
-    [progress.done, progress.total, nextAisle, runLabel, remainingItems]
-  );
-  const started = useRef(false);
-  // The Lock Screen switch. Off means no banner at all for this run and the next.
-  const [bannerEnabled, setBannerEnabled] = useState(true);
+  // Grocery Lock Screen Live Activity is off for now — clear any leftover banner from
+  // older builds when opening or leaving shopping mode. In-app aisle list stays.
   useEffect(() => {
-    void loadShoppingBannerEnabled().then(setBannerEnabled);
+    stopShoppingBanner();
   }, []);
-  const toggleBanner = useCallback(() => {
-    setBannerEnabled((on) => {
-      const next = !on;
-      void saveShoppingBannerEnabled(next);
-      if (!next && started.current) {
-        stopShoppingBanner();
-        started.current = false;
-      }
-      void Haptics.selectionAsync();
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (bannerRun.total === 0 || !bannerEnabled) return;
-    if (!started.current) {
-      started.current = true;
-      startShoppingBanner(bannerRun, palette.accent);
-      return;
-    }
-    updateShoppingBanner(bannerRun);
-  }, [bannerRun, palette.accent, bannerEnabled]);
-
-  // Everything picked up: the banner has done its job.
-  useEffect(() => {
-    if (started.current && progress.total > 0 && progress.done >= progress.total) {
-      stopShoppingBanner(bannerRun);
-      started.current = false;
-    }
-  }, [bannerRun, progress.done, progress.total]);
 
   const endRun = useCallback(() => {
-    stopShoppingBanner(bannerRun);
-    started.current = false;
+    stopShoppingBanner();
     router.back();
-  }, [bannerRun]);
+  }, []);
 
   const dockBottom = Math.max(insets.bottom, 12) + 8;
   const toastBottom = dockBottom + 72;
@@ -304,12 +210,7 @@ export default function ShoppingModeScreen() {
           ratio={progress.ratio}
           onBack={() => router.back()}
           onEndRun={endRun}
-          bannerOn={bannerEnabled && shoppingBannerAvailable() && progress.total > 0}
-          lockScreen={
-            shoppingBannerAvailable()
-              ? { on: bannerEnabled, onToggle: toggleBanner }
-              : undefined
-          }
+          showEndRun={progress.total > 0}
         />
 
         <ScrollView

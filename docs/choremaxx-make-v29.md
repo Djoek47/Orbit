@@ -13,11 +13,11 @@
 | People / Sidekicks | Member hub (QR first), presence, rename/picture/remove; personalize no longer locks app |
 | Sidekick permissions | Sticky grocery toggle; per-kid face chips; edge redeploy |
 | Plan Build trip | Calendar + saved Places only — no FreshMart / fake streets; star card |
-| Lock Screen shopping | Compact Live Activity: ChoreMaxx brand, 2 rows/page, page dots, check-off kept |
+| Lock Screen shopping | **Removed for now** — shopping mode stays in-app only; leftover Live Activities are stopped on open |
 
 ## Lock Screen note
 
-Apple forbids scrolling inside Live Activities. Tall 3-row layouts clipped the logo. v29 shows **2 items + chevron/dot pager** and a visible **ChoreMaxx** wordmark. Tap a row to check off (App Group → app); Open / header deep-links into the run.
+Grocery Lock Screen / Dynamic Island Live Activity is disabled in the app. Native stubs may remain, but `shopping-mode` no longer starts or updates a banner and the Lock Screen switch is gone. Re-enable later when the Lock Screen layout is solid.
 
 ## TestFlight
 
