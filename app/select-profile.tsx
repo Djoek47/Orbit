@@ -203,7 +203,7 @@ export default function SelectProfileScreen() {
                       name={member.name}
                       emoji={memberDisplayEmoji(member)}
                       imageUri={photo ? member.avatar : undefined}
-                      size={layout.ring >= 100 ? 'xl' : layout.ring >= 88 ? 'lg' : 'md'}
+                      size={layout.ring >= 100 ? 'xl' : layout.ring >= 88 ? 'l' : 'm'}
                     />
                   </View>
                 </LinearGradient>
