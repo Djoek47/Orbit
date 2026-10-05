@@ -1,13 +1,9 @@
 /**
  * "How it works" — a pre-recorded demonstration, not a live session.
  *
- * Two Poppins voices talk to each other and the card on screen does what they say: a task,
- * then a handful of groceries on one card, then three appointments, then a trip with real
- * addresses. Rose asks the way a person would; Indigo does it. They are named after their
- * colours on the voice wheel, so the demo also shows what choosing a colour means.
- *
- * Everything here is data. Nothing is sent anywhere, no model is called and nothing is
- * saved — which is what makes it free to watch as often as you like.
+ * Two voices talk like a real chat: Rose is the person asking, Indigo is Poppins
+ * answering. Cards on screen do what they say. Audio is baked once with GPT voice
+ * (see scripts/generate-how-it-works-audio.mjs) and shipped under assets/how-it-works.
  */
 
 export type DemoSpeaker = 'rose' | 'indigo';
@@ -39,10 +35,10 @@ export type DemoBeat = {
   chapter: DemoChapterId;
   /** Who is speaking, or null for a beat where the card moves on its own. */
   speaker: DemoSpeaker | null;
-  /** The spoken line, written the way it is said. */
+  /** The spoken line, written the way a person would actually say it. */
   line: string;
   card: DemoCard;
-  /** How long this beat sits on screen. */
+  /** How long this beat sits on screen — must cover the recorded clip. */
   ms: number;
   /** A quiet aside under the card — the thing the beat is teaching. */
   note?: string;
@@ -76,31 +72,34 @@ const STOPS = [
   { label: 'Groceries', address: 'Marché Ouest, 44 Rue Laval', time: '5:00 PM' },
 ];
 
-/** The whole recording, in order. */
+/**
+ * Natural conversation — Rose asks like a parent, Indigo answers like Poppins.
+ * Lines are full spoken English with punctuation so GPT voice can sound human.
+ */
 export const DEMO_BEATS: DemoBeat[] = [
   // ── A chore ────────────────────────────────────────────────────────────────
   {
     id: 'task-ask',
     chapter: 'task',
     speaker: 'rose',
-    line: 'Give Nero the bins tonight.',
+    line: 'Hey Poppins — can you give Nero the bins tonight?',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 2000,
+    ms: 2800,
     note: 'One sentence. No menus, no form.',
   },
   {
     id: 'task-fill-1',
     chapter: 'task',
     speaker: 'indigo',
-    line: 'Bins — Nero.',
+    line: 'Got it. Taking out the bins, for Nero.',
     card: { kind: 'task', title: 'Take out the bins', assignee: 'Nero', due: 'Tonight', filled: ['title'] },
-    ms: 1100,
+    ms: 2400,
   },
   {
     id: 'task-fill-2',
     chapter: 'task',
     speaker: 'indigo',
-    line: 'Tonight.',
+    line: 'Due tonight.',
     card: {
       kind: 'task',
       title: 'Take out the bins',
@@ -108,7 +107,7 @@ export const DEMO_BEATS: DemoBeat[] = [
       due: 'Tonight',
       filled: ['title', 'assignee'],
     },
-    ms: 1000,
+    ms: 1400,
     note: 'It fills in as you speak — who, what, when.',
   },
   {
@@ -130,9 +129,9 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'task-done',
     chapter: 'task',
     speaker: 'indigo',
-    line: 'Assigned. Nero has it.',
+    line: 'Assigned. Nero has it for tonight.',
     card: { kind: 'done', label: 'Assigned', detail: 'Take out the bins · Nero · tonight' },
-    ms: 1600,
+    ms: 2400,
     note: '1 action.',
   },
 
@@ -141,35 +140,35 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'grocery-ask',
     chapter: 'groceries',
     speaker: 'rose',
-    line: 'Put milk, eggs, sourdough and coffee on the list.',
+    line: 'Add milk, eggs, sourdough, and coffee to the list, please.',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 2400,
+    ms: 3200,
     note: 'Four things in one breath.',
   },
   {
     id: 'grocery-1',
     chapter: 'groceries',
     speaker: 'indigo',
-    line: 'Milk, eggs…',
+    line: 'Milk and eggs…',
     card: { kind: 'groceries', items: GROCERIES.slice(0, 2) },
-    ms: 1100,
+    ms: 1600,
   },
   {
     id: 'grocery-2',
     chapter: 'groceries',
     speaker: 'indigo',
-    line: '…sourdough, coffee.',
+    line: '…sourdough and coffee.',
     card: { kind: 'groceries', items: GROCERIES },
-    ms: 1400,
+    ms: 1800,
     note: 'One card, four items, one confirmation — and the aisles are already right.',
   },
   {
     id: 'grocery-done',
     chapter: 'groceries',
     speaker: 'indigo',
-    line: 'Four on the list.',
+    line: 'That’s four on the list.',
     card: { kind: 'done', label: 'Added', detail: '4 items · Dairy, Bakery, Pantry' },
-    ms: 1600,
+    ms: 2000,
     note: '1 action, not four.',
   },
 
@@ -178,42 +177,42 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'calendar-ask',
     chapter: 'calendar',
     speaker: 'rose',
-    line: 'Nero has the dentist Tuesday at four, parents’ evening is Thursday half six, and Ama swims Saturday at ten.',
+    line: 'Nero has the dentist Tuesday at four. Parents’ evening is Thursday at half past six, and Ama swims Saturday at ten.',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 3200,
+    ms: 5200,
   },
   {
     id: 'calendar-1',
     chapter: 'calendar',
     speaker: 'indigo',
-    line: 'Dentist, Tuesday four.',
+    line: 'Dentist for Nero — Tuesday at four.',
     card: { kind: 'events', events: EVENTS.slice(0, 1) },
-    ms: 1100,
+    ms: 2200,
   },
   {
     id: 'calendar-2',
     chapter: 'calendar',
     speaker: 'indigo',
-    line: 'Thursday, half six.',
+    line: 'Parents’ evening, Thursday at half past six.',
     card: { kind: 'events', events: EVENTS.slice(0, 2) },
-    ms: 1100,
+    ms: 2600,
   },
   {
     id: 'calendar-3',
     chapter: 'calendar',
     speaker: 'indigo',
-    line: 'And Saturday at ten, Ama.',
+    line: 'And Ama’s swimming on Saturday at ten.',
     card: { kind: 'events', events: EVENTS },
-    ms: 1500,
+    ms: 2400,
     note: 'Three appointments from one sentence. Nobody typed a date.',
   },
   {
     id: 'calendar-done',
     chapter: 'calendar',
     speaker: 'indigo',
-    line: 'All three are in.',
+    line: 'All three are on the calendar.',
     card: { kind: 'done', label: 'On the calendar', detail: '3 events this week' },
-    ms: 1600,
+    ms: 2200,
   },
 
   // ── A trip ─────────────────────────────────────────────────────────────────
@@ -221,51 +220,51 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'trip-ask',
     chapter: 'trip',
     speaker: 'rose',
-    line: 'Tuesday I’ll do the dentist, then the pharmacy, then groceries.',
+    line: 'On Tuesday I’ll do the dentist, then the pharmacy, then groceries.',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 2600,
+    ms: 3400,
   },
   {
     id: 'trip-1',
     chapter: 'trip',
     speaker: 'indigo',
-    line: 'Dentist first — 210 Greenway Road.',
+    line: 'Dentist first — two-ten Greenway Road.',
     card: { kind: 'trip', title: 'Tuesday run', stops: STOPS.slice(0, 1) },
-    ms: 1400,
+    ms: 2400,
     note: 'Saved places come with their address already.',
   },
   {
     id: 'trip-2',
     chapter: 'trip',
     speaker: 'indigo',
-    line: 'Pharmacy, 18 Oak Street.',
+    line: 'Then the pharmacy on eighteen Oak Street.',
     card: { kind: 'trip', title: 'Tuesday run', stops: STOPS.slice(0, 2) },
-    ms: 1300,
+    ms: 2400,
   },
   {
     id: 'trip-3',
     chapter: 'trip',
     speaker: 'rose',
-    line: 'The market on Rue Laval.',
+    line: 'And the market on Rue Laval after that.',
     card: { kind: 'trip', title: 'Tuesday run', stops: STOPS },
-    ms: 1600,
+    ms: 2400,
     note: 'A place it doesn’t know yet? Say the address and it keeps it.',
   },
   {
     id: 'trip-done',
     chapter: 'trip',
     speaker: 'indigo',
-    line: 'Three stops, in order, home by half five.',
+    line: 'Three stops, in order. You’ll be home by about half past five.',
     card: { kind: 'done', label: 'Trip planned', detail: '3 stops · 3:45 – 5:30 PM' },
-    ms: 2200,
+    ms: 3600,
     note: 'The grocery list comes along, so you shop once.',
   },
 ];
 
 export const DEMO_SPEAKERS: Record<DemoSpeaker, { label: string; color: string; role: string }> = {
-  // The two ends of the voice wheel, so the demo shows what a colour means.
-  rose: { label: 'Rose', color: '#FF6FA5', role: 'asking' },
-  indigo: { label: 'Indigo', color: '#7A5BE0', role: 'doing' },
+  // Voice-wheel colours: Rose asks like you; Indigo answers as Poppins.
+  rose: { label: 'You', color: '#FF6FA5', role: 'asking' },
+  indigo: { label: 'Poppins', color: '#7A5BE0', role: 'doing' },
 };
 
 export function demoTotalMs(beats: DemoBeat[] = DEMO_BEATS): number {
@@ -282,36 +281,35 @@ export function demoOffsets(beats: DemoBeat[] = DEMO_BEATS): number[] {
   });
 }
 
-/** Which beat is playing at `ms`. Past the end, the last beat holds. */
 export function beatAt(ms: number, beats: DemoBeat[] = DEMO_BEATS): number {
+  if (ms <= 0) return 0;
   const offsets = demoOffsets(beats);
-  let index = 0;
-  for (let i = 0; i < beats.length; i += 1) {
-    if (ms >= offsets[i]!) index = i;
+  for (let i = offsets.length - 1; i >= 0; i -= 1) {
+    if (ms >= offsets[i]!) return i;
   }
-  return index;
-}
-
-/** Where a chapter starts, so its rail button can jump there. */
-export function chapterStartMs(chapter: DemoChapterId, beats: DemoBeat[] = DEMO_BEATS): number {
-  const offsets = demoOffsets(beats);
-  const index = beats.findIndex((beat) => beat.chapter === chapter);
-  return index < 0 ? 0 : offsets[index]!;
+  return 0;
 }
 
 export function chapterOf(index: number, beats: DemoBeat[] = DEMO_BEATS): DemoChapterId {
-  return beats[Math.min(beats.length - 1, Math.max(0, index))]!.chapter;
+  const safe = Math.max(0, Math.min(beats.length - 1, index));
+  return beats[safe]!.chapter;
 }
 
-/** 0 → 1 through the whole recording. */
+export function chapterStartMs(chapter: DemoChapterId, beats: DemoBeat[] = DEMO_BEATS): number {
+  const offsets = demoOffsets(beats);
+  const index = beats.findIndex((beat) => beat.chapter === chapter);
+  return index >= 0 ? offsets[index]! : 0;
+}
+
 export function demoProgress(ms: number, beats: DemoBeat[] = DEMO_BEATS): number {
   const total = demoTotalMs(beats);
   if (total <= 0) return 0;
-  return Math.min(1, Math.max(0, ms / total));
+  return Math.max(0, Math.min(1, ms / total));
 }
 
-/** "1:12" — the runtime, for the caption under the play button. */
 export function formatDemoClock(ms: number): string {
-  const seconds = Math.max(0, Math.round(ms / 1000));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  const safe = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }

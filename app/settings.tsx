@@ -637,7 +637,7 @@ export default function SettingsScreen() {
                       iconColor="#FAC775"
                       label={VOCAB.houseRules}
                       subtitle="Six chapters"
-                      onPress={() => router.replace('/house-rules' as never)}
+                      onPress={() => router.navigate('/house-rules' as never)}
                     />
                   </TourTarget>
                   <SettingsNavRow
@@ -675,7 +675,7 @@ export default function SettingsScreen() {
                   iconColor="#FAC775"
                   label={VOCAB.houseRules}
                   last
-                  onPress={() => router.replace('/house-rules' as never)}
+                  onPress={() => router.navigate('/house-rules' as never)}
                 />
               )}
             </SettingsGroup>

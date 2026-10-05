@@ -1,19 +1,15 @@
 /**
- * Recorded lines for the How it works demo.
+ * Recorded GPT conversational lines for the How it works demo.
  *
- * The phone's own speech is free and works offline, but it reads punctuation poorly and sounds
- * robotic. When real recordings are bundled, the player uses them instead — same script, same
- * timings, just a voice worth listening to.
- *
- * To add them: drop the files in assets/how-it-works (see the README there) and list them
- * below. Metro only bundles what is `require`d, so this list is the wiring. While the list is
- * empty the demo speaks on the phone, exactly as before.
+ * Generate with: OPENAI_API_KEY=sk-... node scripts/generate-how-it-works-audio.mjs
+ * Until clips are committed, the player stays silent on voice (cards + captions still run).
+ * Never use device Speech for this demo.
  */
 
 /**
- * Beat id → bundled audio module. Fill in as recordings land, e.g.
+ * Beat id → bundled audio module. Filled by the generator, e.g.
  *
- *   'chore-1': require('@/assets/how-it-works/chore-1.m4a'),
+ *   'task-ask': require('@/assets/how-it-works/task-ask.m4a'),
  */
 const RECORDINGS: Record<string, number> = {};
 
@@ -22,13 +18,13 @@ export function hasRecordedDemoAudio(): boolean {
   return Object.keys(RECORDINGS).length > 0;
 }
 
-/** The recording for a beat, or null to fall back to the phone's own voice. */
+/** The recording for a beat, or null when that line has no clip yet. */
 export function recordedDemoAudio(beatId: string): number | null {
   return RECORDINGS[beatId] ?? null;
 }
 
-/** Which beats are still missing a recording — used by the test, and handy when adding them. */
+/** Which beats are still missing a recording — used by tests when wiring audio. */
 export function missingDemoRecordings(beatIds: string[]): string[] {
-  if (!hasRecordedDemoAudio()) return [];
+  if (!hasRecordedDemoAudio()) return beatIds;
   return beatIds.filter((id) => RECORDINGS[id] == null);
 }

@@ -20,6 +20,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { PoppinsSetupPanel, type PoppinsSetupValue } from '@/components/orbit/onboarding/poppins-setup-panel';
+import { OrbitBrief } from '@/components/orbit/onboarding/orbit-brief';
 import { SetupMemberWizard } from '@/components/orbit/setup-member-wizard';
 import { RewardPackagePicker } from '@/components/orbit/onboarding/reward-package-picker';
 import { SetupRosterHub, type RosterSidekickInvite } from '@/components/orbit/setup-roster-hub';
@@ -161,6 +162,7 @@ function mapCreatedMemberIdsByDraftId(
 
 type Step =
   | 'splash'
+  | 'orbit-brief'
   | 'motivation'
   | 'reward-system'
   | 'reward-pack'
@@ -408,6 +410,7 @@ export default function WelcomeOnboardingScreen() {
 
   const progressIndex = (() => {
     switch (step) {
+      case 'orbit-brief':
       case 'motivation':
       case 'reward-system':
       case 'reward-pack':
@@ -431,8 +434,11 @@ export default function WelcomeOnboardingScreen() {
   const goBack = () => {
     setError('');
     switch (step) {
-      case 'motivation':
+      case 'orbit-brief':
         setStep('splash');
+        break;
+      case 'motivation':
+        setStep('orbit-brief');
         break;
       case 'reward-system':
         setStep('motivation');
@@ -527,6 +533,11 @@ export default function WelcomeOnboardingScreen() {
   const handleGetStarted = () => {
     setError('');
     setSelectedRole('parent');
+    setStep('orbit-brief');
+  };
+
+  const handleOrbitBriefContinue = () => {
+    setError('');
     setStep('motivation');
   };
 
@@ -1105,6 +1116,16 @@ export default function WelcomeOnboardingScreen() {
 
       {step !== 'splash' ? (
         <Animated.View style={[styles.stepFade, { opacity: stepOpacity }]}>
+          {step === 'orbit-brief' ? (
+            <KeyboardScreen contentContainerStyle={styles.scroll}>
+              <OrbitBrief
+                accent={accent}
+                onBack={goBack}
+                onContinue={handleOrbitBriefContinue}
+              />
+            </KeyboardScreen>
+          ) : null}
+
           {step === 'motivation' ? (
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />

@@ -18,7 +18,7 @@ import {
 assert.equal(new Set(DEMO_BEATS.map((b) => b.id)).size, DEMO_BEATS.length, 'ids are unique');
 for (const beat of DEMO_BEATS) {
   assert.ok(beat.line.trim().length > 0, `${beat.id} has a line`);
-  assert.ok(beat.ms >= 800 && beat.ms <= 4000, `${beat.id} runs ${beat.ms}ms`);
+  assert.ok(beat.ms >= 800 && beat.ms <= 6000, `${beat.id} runs ${beat.ms}ms`);
   assert.ok(beat.card, `${beat.id} draws something`);
   if (beat.speaker) assert.ok(DEMO_SPEAKERS[beat.speaker], `${beat.id} speaker is known`);
 }
@@ -43,12 +43,20 @@ for (const chapter of DEMO_CHAPTERS) {
   assert.equal(beats[beats.length - 1]!.card.kind, 'done', `${chapter.id} lands`);
 }
 
-// Rose asks, Indigo does — and each chapter opens with a question.
+// Rose asks like you; Indigo answers as Poppins.
 for (const chapter of DEMO_CHAPTERS) {
   const first = DEMO_BEATS.find((beat) => beat.chapter === chapter.id)!;
   assert.equal(first.speaker, 'rose', `${chapter.id} opens with the asking voice`);
 }
+assert.equal(DEMO_SPEAKERS.rose.label, 'You');
+assert.equal(DEMO_SPEAKERS.indigo.label, 'Poppins');
 assert.ok(DEMO_BEATS.some((beat) => beat.speaker === 'indigo'));
+// Spoken lines should sound like talk, not telegraphic chips.
+for (const beat of DEMO_BEATS) {
+  if (!beat.speaker) continue;
+  assert.ok(!/^[A-Z][a-z]+ — [A-Z]/.test(beat.line), `${beat.id} is not a label chip`);
+  assert.ok(beat.line.includes(' ') || beat.line.length > 8, `${beat.id} is a spoken phrase`);
+}
 
 // The content the brief asked for is actually in the recording.
 const groceries = DEMO_BEATS.find((b) => b.card.kind === 'groceries' && b.card.items.length > 2);
