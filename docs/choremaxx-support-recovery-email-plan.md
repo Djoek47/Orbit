@@ -42,7 +42,7 @@ flowchart LR
 | **1** | Support v2: categories, select errors, screenshots, HTML ack, diagnostics — **done** | `lib/errors/error-log.ts`, `app/support.tsx`, `send-support-feedback`, `emails/support-received.tsx` |
 | **2** | Subscription + deletion email templates; test harness — **done** | `send-subscription-receipt`, `send-household-deletion-email`, Settings Email tests |
 | **3** | 30-day deletion grace B + reminder cron — **done** | `HOUSEHOLD_DELETION_GRACE_DAYS=30`, `20261005140000_household_deletion_v2.sql`, `household-deletion-cron` |
-| **4** | Recovery route + **hourglass** UI; empty-account gate on welcome | `HouseholdRecoveryHourglass`, `app/household-recovery.tsx` |
+| **4** | Recovery route + hourglass UI — **done** | `HouseholdRecoveryHourglass`, `app/household-recovery.tsx`, welcome empty-account gate |
 | **5** | QR transfer generate/scan/accept edge function | Settings House, `transfer-household`, scanner |
 | **6** | Premium settings + paywall animation + allowance copy fix | `app/settings.tsx`, `premium-paywall.tsx` |
 
@@ -106,12 +106,13 @@ Mock premium trial on `/premium` triggers subscription email.
 
 ---
 
-## Stop 4 — Recovery UI (recoverable only)
+## Stop 4 — Recovery UI (recoverable only) — **done**
 
-- Route when membership has scheduled purge + user is owner/admin + named household.
-- **Not** shown for brand-new users with no history.
+- Route `/household-recovery` when membership has scheduled purge + user is owner/admin + named household.
+- **Not** shown for brand-new users with no history (`listRecoverableDeletions` / `canOpenHouseholdRecovery`).
 - `HouseholdRecoveryHourglass` from [`poppins-hourglass.tsx`](components/orbit/poppins-hourglass.tsx) — breathe, gradient sand, live countdown to purge.
-- Actions: Cancel deletion, Delete permanently now, Opt out of reminder emails.
+- Actions: Cancel deletion, Delete permanently now (24h confirm email), Opt out of reminder emails.
+- Entry points: Settings banner, welcome splash (signed-in recoverable), household switcher, delete done.
 
 **Passes:** countdown matches server; Pass 2 side-by-side with Poppins settings hero.
 

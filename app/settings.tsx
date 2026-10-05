@@ -695,18 +695,37 @@ export default function SettingsScreen() {
                     borderColor: '#FBBF2444',
                   },
                 ]}>
-                <MaterialIcons name="hourglass-top" size={18} color="#FBBF24" />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: c.text }]}>
-                    Deletion scheduled
-                  </Text>
-                  <Text style={[styles.caption, { color: c.textMuted }]}>
-                    {household.householdName} will be permanently deleted on{' '}
-                    {formatHouseholdDeletionDate(household.deletionScheduledFor)} (
-                    {householdDeletionDaysRemaining(household.deletionScheduledFor)} days left).{' '}
-                    Reminder emails start in the final week (7d → 3d → 24h → ~1h).
-                  </Text>
-                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Open household recovery"
+                  onPress={() => {
+                    if (currentMember?.role === 'owner' || currentMember?.role === 'admin') {
+                      router.push('/household-recovery' as never);
+                    }
+                  }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                  <MaterialIcons name="hourglass-top" size={18} color="#FBBF24" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.memberName, { color: c.text }]}>
+                      Deletion scheduled
+                    </Text>
+                    <Text style={[styles.caption, { color: c.textMuted }]}>
+                      {household.householdName} will be permanently deleted on{' '}
+                      {formatHouseholdDeletionDate(household.deletionScheduledFor)} (
+                      {householdDeletionDaysRemaining(household.deletionScheduledFor)} days left).{' '}
+                      Reminder emails start in the final week (7d → 3d → 24h → ~1h).
+                    </Text>
+                    {currentMember?.role === 'owner' || currentMember?.role === 'admin' ? (
+                      <Text
+                        style={[
+                          styles.caption,
+                          { color: '#FBBF24', fontWeight: '700', marginTop: 4 },
+                        ]}>
+                        Tap to recover · countdown and options
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
                 {currentMember?.role === 'owner' || currentMember?.role === 'admin' ? (
                   <Pressable
                     onPress={() => void cancelHouseholdDeletion()}

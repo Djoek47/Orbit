@@ -99,6 +99,10 @@ export default function RootLayout() {
                     name="delete-household"
                     options={{ presentation: 'modal', headerShown: false, title: 'Delete Household' }}
                   />
+                  <Stack.Screen
+                    name="household-recovery"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Recover household' }}
+                  />
                   <Stack.Screen name="premium" options={{ headerShown: false, title: 'Premium' }} />
                   <Stack.Screen
                     name="auth/callback"

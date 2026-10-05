@@ -255,6 +255,12 @@ export default function DeleteHouseholdScreen() {
               }}>
               Cancel deletion
             </OrbitButton>
+            <Pressable
+              onPress={() => router.push('/household-recovery' as never)}
+              hitSlop={12}
+              style={styles.keep}>
+              <Text style={[styles.keepText, { color: '#FBBF24' }]}>Open recovery countdown</Text>
+            </Pressable>
             <OrbitButton
               tone="danger"
               disabled={busy}

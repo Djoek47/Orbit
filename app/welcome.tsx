@@ -90,6 +90,7 @@ import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { classifyInviteCode, inviteHref, nextInviteDestination } from '@/lib/invites/invite-intent';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
+import { listRecoverableDeletions } from '@/lib/household/household-recovery';
 import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { shareInvite } from '@/lib/invites/share-invite';
 import {
@@ -199,6 +200,7 @@ export default function WelcomeOnboardingScreen() {
     currentUser,
     hasHousehold,
     household,
+    householdMemberships,
     isLoading,
     isSignedIn,
     hydrateFromSession,
@@ -216,6 +218,11 @@ export default function WelcomeOnboardingScreen() {
   const accent = accentTheme.primary;
   const ink = orbitPalette.ink;
   const bg = orbitPalette.background;
+
+  const recoverableHouseholds = useMemo(
+    () => listRecoverableDeletions(householdMemberships),
+    [householdMemberships]
+  );
 
   const inviteParams = useLocalSearchParams<{
     invite?: string;
@@ -1097,6 +1104,35 @@ export default function WelcomeOnboardingScreen() {
                   </Text>
                 </>
               ) : null}
+              {isSignedIn && recoverableHouseholds.length > 0 ? (
+                <Pressable
+                  onPress={() => {
+                    const first = recoverableHouseholds[0]!;
+                    router.push(
+                      `/household-recovery?householdId=${encodeURIComponent(first.householdId)}` as never
+                    );
+                  }}
+                  style={[
+                    styles.recoveryCard,
+                    {
+                      backgroundColor: '#FBBF2418',
+                      borderColor: '#FBBF2444',
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Recover a household scheduled for deletion">
+                  <MaterialIcons name="hourglass-top" size={22} color="#FBBF24" />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[typography.subheadline, { color: orbitPalette.text, fontWeight: '700' }]}>
+                      Recover {recoverableHouseholds[0]!.householdName}
+                    </Text>
+                    <Text style={[typography.footnote, { color: orbitPalette.textMuted, lineHeight: 18 }]}>
+                      Scheduled for deletion — cancel, opt out of emails, or delete sooner.
+                    </Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#FBBF24" />
+                </Pressable>
+              ) : null}
               <OrbitButton onPress={handleGetStarted}>Get Started</OrbitButton>
               <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
                 Scan to join household
@@ -1684,6 +1720,16 @@ const styles = StyleSheet.create({
   splashCtaBlock: {
     alignSelf: 'stretch',
     gap: 14,
+  },
+  recoveryCard: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
   splashLegal: {
     alignItems: 'center',

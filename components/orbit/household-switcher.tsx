@@ -1,13 +1,16 @@
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ACCENT_THEMES } from '@/constants/accent-themes';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import {
+  canManageHouseholdDeletion,
   formatHouseholdDeletionDate,
   householdDeletionDaysRemaining,
   isHouseholdDeletionPending,
 } from '@/lib/household/household-deletion';
+import { isNamedHousehold } from '@/lib/household/household-recovery';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -31,11 +34,21 @@ export function HouseholdSwitcher({ onSwitched }: Props) {
         const active = entry.householdId === household.id;
         const theme = ACCENT_THEMES.find((item) => item.id === entry.accentThemeId);
         const pendingDeletion = Boolean(entry.deletionScheduledFor);
+        const canRecover =
+          pendingDeletion &&
+          canManageHouseholdDeletion(entry.role) &&
+          isNamedHousehold(entry.householdName);
         return (
           <Pressable
             key={entry.householdId}
-            disabled={active}
+            disabled={active && !canRecover}
             onPress={() => {
+              if (canRecover) {
+                router.push(
+                  `/household-recovery?householdId=${encodeURIComponent(entry.householdId)}` as never
+                );
+                return;
+              }
               void switchHousehold(entry.householdId).then(() => onSwitched?.());
             }}
             style={[
@@ -55,6 +68,7 @@ export function HouseholdSwitcher({ onSwitched }: Props) {
               </Text>
               {pendingDeletion && entry.deletionScheduledFor ? (
                 <Text style={[typography.caption2, { color: '#FBBF24', marginTop: 2 }]}>
+                  {canRecover ? 'Tap to recover · ' : ''}
                   Deleting in {householdDeletionDaysRemaining(entry.deletionScheduledFor)} days
                 </Text>
               ) : null}
