@@ -37,7 +37,15 @@ void notifyTaskAssigned(
   true
 ).then(() => {
   assert.equal(pushes.length, 1);
-  assert.equal((pushes[0]?.data as { audienceMemberIds?: string[] })?.audienceMemberIds?.[0], 'child-1');
-  assert.equal((pushes[0]?.data as { kind?: string })?.kind, 'task_assigned');
+  const data = pushes[0]?.data as {
+    audienceMemberIds?: string[];
+    kind?: string;
+    targetMemberId?: string;
+    mergeKey?: string;
+  };
+  assert.equal(data?.audienceMemberIds?.[0], 'child-1');
+  assert.equal(data?.kind, 'task_assigned');
+  assert.equal(data?.targetMemberId, 'child-1');
+  assert.match(data?.mergeKey ?? '', /^digest:tasks:/);
   console.log('notify-task-assigned: ok');
 });

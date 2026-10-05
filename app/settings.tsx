@@ -310,6 +310,8 @@ export default function SettingsScreen() {
         xpFairness: true,
         nearShop: true,
         missingOnTheWay: true,
+        quietHoursEnabled: true,
+        smartDelivery: true,
       },
     [household.notificationPrefs]
   );
@@ -1362,6 +1364,12 @@ export default function SettingsScreen() {
             </Text>
             {(
               [
+                [
+                  'smartDelivery',
+                  'Smart delivery',
+                  'One calm digest for same-day tasks — details stay in Activity. Urgent actions still push.',
+                  '✨',
+                ],
                 ['tasks', 'Tasks & streaks', 'Due tasks, photos, streak risk', '✅'],
                 ['rewards', 'Rewards & allowance', 'Claims, approvals, paid allowance', '🎁'],
                 ['groceries', 'Groceries', 'List updates that still use this channel', '🛒'],
@@ -1395,8 +1403,8 @@ export default function SettingsScreen() {
                 </View>
                 <Switch
                   value={
-                    key === 'quietHoursEnabled'
-                      ? prefs.quietHoursEnabled !== false
+                    key === 'quietHoursEnabled' || key === 'smartDelivery'
+                      ? prefs[key] !== false
                       : Boolean(prefs[key])
                   }
                   onValueChange={(value) => updateNotificationPrefs({ [key]: value })}
