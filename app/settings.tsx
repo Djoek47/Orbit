@@ -489,7 +489,10 @@ export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
 
   const closeSettings = useCallback(() => {
+    // Tear down nested RN Modals (Make your character) before dismissing Settings —
+    // an orphan BottomSheet over tabs is another invisible touch-blocker.
     setWheelDragging(false);
+    setPersonalizeMemberId(null);
     closeSettingsModal();
   }, []);
 
@@ -503,6 +506,7 @@ export default function SettingsScreen() {
         onPress: () => {
           if (signingOut || isSignOutInFlight()) return;
           setWheelDragging(false);
+          setPersonalizeMemberId(null);
           setSigningOut(true);
           void signOutAndLeave(signOut).finally(() => setSigningOut(false));
         },
