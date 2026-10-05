@@ -40,7 +40,7 @@ flowchart LR
 |------|--------|-----------|
 | **0** | P0 touch fix after delete/switch; mock **credit receipt** email wired — **done** | `app/settings.tsx`, `app/delete-household.tsx`, `send-credit-receipt`, `app/poppins-credits.tsx` |
 | **1** | Support v2: categories, select errors, screenshots, HTML ack, diagnostics — **done** | `lib/errors/error-log.ts`, `app/support.tsx`, `send-support-feedback`, `emails/support-received.tsx` |
-| **2** | Subscription + deletion email templates; test harness | `emails/credit-purchase.tsx`, `send-subscription-receipt`, admin test triggers |
+| **2** | Subscription + deletion email templates; test harness — **done** | `send-subscription-receipt`, `send-household-deletion-email`, Settings Email tests |
 | **3** | **30-day** grace SQL/RPC (admin cancel); reminder cron; delete copy | `lib/household/household-deletion.ts`, migration, `20260828120000_*` successor |
 | **4** | Recovery route + **hourglass** UI; empty-account gate on welcome | `HouseholdRecoveryHourglass`, `app/household-recovery.tsx` |
 | **5** | QR transfer generate/scan/accept edge function | Settings House, `transfer-household`, scanner |
@@ -78,16 +78,17 @@ flowchart LR
 
 ---
 
-## Stop 2 — Transactional email (subscription + deletion stages)
+## Stop 2 — Transactional email (subscription + deletion stages) — **done**
 
 | Edge function | Template |
 |---------------|----------|
-| `send-subscription-receipt` | Extend [`emails/subscription-started.tsx`](emails/subscription-started.tsx) |
-| `send-deletion-reminder` | `emails/household-deletion-reminder.tsx` (stages 7d/3d/24h/1h11m) |
-| `send-deletion-confirmed` | Accelerated purge confirm |
-| `send-deletion-cancelled` | Recovery cancel |
+| `send-subscription-receipt` | [`emails/subscription-started.tsx`](emails/subscription-started.tsx) |
+| `send-household-deletion-email` (`kind=reminder`) | `emails/household-deletion-reminder.tsx` (stages 7d/3d/24h/1h11m) |
+| `send-household-deletion-email` (`kind=confirmed`) | `emails/household-deletion-final.tsx` |
+| `send-household-deletion-email` (`kind=cancelled`) | `emails/household-deletion-cancelled.tsx` |
 
-Admin-only Settings dev row: fire test emails to signed-in user.
+Admin-only Settings **Email tests** row: fire test emails to signed-in user.
+Mock premium trial on `/premium` triggers subscription email.
 
 **Passes:** all four deletion stage templates render; mock premium trial triggers subscription email.
 

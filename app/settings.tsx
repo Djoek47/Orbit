@@ -49,7 +49,9 @@ import {
   formatHouseholdDeletionDate,
   householdDeletionDaysRemaining,
   isHouseholdDeletionPending,
+  scheduleHouseholdDeletionDate,
 } from '@/lib/household/household-deletion';
+import { sendHouseholdDeletionEmail } from '@/lib/household/send-deletion-email';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import {
@@ -72,6 +74,7 @@ import {
 import { registerPushForActor } from '@/lib/notifications/member-push';
 import { loadSidekickSession } from '@/lib/sidekick/session';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
+import { IAP_SUBSCRIPTIONS } from '@/constants/billing';
 import {
   fetchEntitlement,
   IAP_PRODUCTS,
@@ -79,6 +82,8 @@ import {
   restorePurchases,
   type EntitlementState,
 } from '@/lib/billing/iap';
+import { sendSubscriptionReceiptEmail } from '@/lib/billing/send-subscription-receipt';
+import { formatPrice } from '@/lib/billing/topup-receipt';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { MemberInvite } from '@/lib/household/member-invites';
@@ -278,6 +283,8 @@ export default function SettingsScreen() {
     DEFAULT_POPPINS_INTERACTION_PREFS
   );
   const [errorCount, setErrorCount] = useState(0);
+  const [emailTestBusy, setEmailTestBusy] = useState(false);
+  const [emailTestStatus, setEmailTestStatus] = useState<string | null>(null);
   const poppinsPrefsReadOnly = !permissions.canManageHousehold;
 
   useEffect(() => {
@@ -478,6 +485,123 @@ export default function SettingsScreen() {
   const handleDelete = () => {
     router.push('/delete-account' as never);
   };
+
+  const fireTestEmail = useCallback(
+    (
+      kind:
+        | 'subscription'
+        | 'deletion-7d'
+        | 'deletion-3d'
+        | 'deletion-24h'
+        | 'deletion-1h11m'
+        | 'deletion-confirmed'
+        | 'deletion-cancelled'
+    ) => {
+      if (emailTestBusy) return;
+      setEmailTestBusy(true);
+      setEmailTestStatus(null);
+      void (async () => {
+        try {
+          const to = currentUser?.email || undefined;
+          const name = currentMember?.name ?? currentUser?.name ?? undefined;
+          const householdName = household.householdName || 'your household';
+          if (kind === 'subscription') {
+            const catalog = IAP_SUBSCRIPTIONS.yearly;
+            const mailed = await sendSubscriptionReceiptEmail({
+              to,
+              name,
+              plan: `Choremaxx ${catalog.label}`,
+              price: `${formatPrice(catalog.priceUsd)}/year`,
+              renewalDate: new Date(
+                Date.now() + catalog.trialDays * 24 * 60 * 60 * 1000
+              ).toLocaleDateString(undefined, {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              }),
+              inTrial: true,
+              mock: true,
+              householdId: household.id ?? undefined,
+            });
+            setEmailTestStatus(
+              mailed.ok
+                ? `Subscription test → ${mailed.to}`
+                : mailed.skipped
+                  ? mailed.error
+                  : `Failed: ${mailed.error}`
+            );
+            return;
+          }
+
+          const purgeIso = scheduleHouseholdDeletionDate();
+          const base = {
+            to,
+            name,
+            householdName,
+            householdId: household.id ?? undefined,
+            purgeDate: formatHouseholdDeletionDate(purgeIso),
+            recoverUrl: 'https://www.choremaxx.app',
+            optOutUrl: 'https://www.choremaxx.app',
+            homeUrl: 'https://www.choremaxx.app',
+            confirmUrl: 'https://www.choremaxx.app',
+            cancelUrl: 'https://www.choremaxx.app',
+            confirmBy: '24 hours',
+          };
+
+          const mailed =
+            kind === 'deletion-cancelled'
+              ? await sendHouseholdDeletionEmail({ ...base, kind: 'cancelled' })
+              : kind === 'deletion-confirmed'
+                ? await sendHouseholdDeletionEmail({ ...base, kind: 'confirmed' })
+                : await sendHouseholdDeletionEmail({
+                    ...base,
+                    kind: 'reminder',
+                    stage:
+                      kind === 'deletion-7d'
+                        ? '7d'
+                        : kind === 'deletion-3d'
+                          ? '3d'
+                          : kind === 'deletion-24h'
+                            ? '24h'
+                            : '1h11m',
+                  });
+
+          setEmailTestStatus(
+            mailed.ok
+              ? `${mailed.kind} test → ${mailed.to}`
+              : mailed.skipped
+                ? mailed.error
+                : `Failed: ${mailed.error}`
+          );
+        } catch (error) {
+          setEmailTestStatus(error instanceof Error ? error.message : 'Could not send test email.');
+        } finally {
+          setEmailTestBusy(false);
+        }
+      })();
+    },
+    [
+      currentMember?.name,
+      currentUser?.email,
+      currentUser?.name,
+      emailTestBusy,
+      household.householdName,
+      household.id,
+    ]
+  );
+
+  const openEmailTestPicker = useCallback(() => {
+    orbitAlert('Email tests', 'Send a test transactional email to your signed-in address.', [
+      { text: 'Subscription / trial', onPress: () => fireTestEmail('subscription') },
+      { text: 'Deletion · 7 days', onPress: () => fireTestEmail('deletion-7d') },
+      { text: 'Deletion · 3 days', onPress: () => fireTestEmail('deletion-3d') },
+      { text: 'Deletion · 24 hours', onPress: () => fireTestEmail('deletion-24h') },
+      { text: 'Deletion · 1 hour', onPress: () => fireTestEmail('deletion-1h11m') },
+      { text: 'Deletion · confirm now', onPress: () => fireTestEmail('deletion-confirmed') },
+      { text: 'Deletion · cancelled', onPress: () => fireTestEmail('deletion-cancelled') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [fireTestEmail]);
 
   const [signingOut, setSigningOut] = useState(false);
 
@@ -807,11 +931,28 @@ export default function SettingsScreen() {
                     ? `${errorCount} saved error${errorCount === 1 ? '' : 's'} · feedback`
                     : 'Feedback, errors, and help'
                 }
-                last
+                last={!permissions.canManageHousehold}
                 onPress={() => router.push('/support' as never)}
               />
             </SettingsGroup>
-<SettingsGroup header="Choremaxx">
+
+            {permissions.canManageHousehold ? (
+              <SettingsGroup header="Email tests">
+                <SettingsNavRow
+                  icon="outgoing-mail"
+                  iconColor="#38BDF8"
+                  label={emailTestBusy ? 'Sending…' : 'Send test email'}
+                  subtitle={
+                    emailTestStatus ??
+                    'Subscription + deletion stages → your inbox'
+                  }
+                  last
+                  onPress={openEmailTestPicker}
+                />
+              </SettingsGroup>
+            ) : null}
+
+            <SettingsGroup header="Choremaxx">
               <SettingsNavRow
                 icon="workspace-premium"
                 iconColor="#E9B44C"

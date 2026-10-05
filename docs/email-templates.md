@@ -1,6 +1,6 @@
 # ChoreMaxx transactional email templates
 
-15 React Email templates for ChoreMaxx, in `emails/`. Built with
+20 React Email templates for ChoreMaxx, in `emails/`. Built with
 `@react-email/components`, previewable locally, and smoke-tested — see
 [emails/preview/README.md](../emails/preview/README.md).
 
@@ -69,13 +69,18 @@ Live signup still needs Resend secrets + Auth Hook enabled — see
 | 6 | Task Assigned | `emails/task-assigned.tsx` | New task: {title} | TODO — task creation is in-app only |
 | 7 | Task Completed | `emails/task-completed.tsx` | Task complete: {title} | TODO — completion is in-app/push only |
 | 8 | Weekly Household Summary | `emails/weekly-summary.tsx` | Your weekly summary — {household} | TODO — digest exists in-app (`poppins-briefing`), no email dispatch |
-| 9 | Subscription Started | `emails/subscription-started.tsx` | Your {plan} subscription is active | TODO — **no billing/Stripe feature exists** |
-| 10 | Payment Receipt | `emails/payment-receipt.tsx` | Receipt for invoice {number} | TODO — no billing feature exists |
-| 11 | Payment Failed | `emails/payment-failed.tsx` | We couldn't process your ChoreMaxx payment | TODO — no billing feature exists |
-| 12 | Subscription Cancelled | `emails/subscription-cancelled.tsx` | Your {plan} subscription is cancelled | TODO — no billing feature exists |
-| 13 | Trial Ending | `emails/trial-ending.tsx` | Your trial ends in {n} days | TODO — no trial concept exists |
-| 14 | Security Alert | `emails/security-alert.tsx` | New sign-in to your ChoreMaxx account | TODO — no login-anomaly detection exists |
-| 15 | Email Changed | `emails/email-changed.tsx` | Your ChoreMaxx email address changed | **Wired** — Auth Hook, action `email_change` |
+| 9 | Subscription Started | `emails/subscription-started.tsx` | Your {plan} free trial started / subscription is active | **Wired** — `send-subscription-receipt` (mock trial + StoreKit) |
+| 10 | Credit Purchase Receipt | `emails/credit-purchase.tsx` | Your Choremaxx receipt — {n} Poppins actions | **Wired** — `send-credit-receipt` |
+| 11 | Support Received Ack | `emails/support-received.tsx` | We got your message | **Wired** — `send-support-feedback` user ack |
+| 12 | Household Deletion Reminder | `emails/household-deletion-reminder.tsx` | {stage} · {household} | **Wired** — `send-household-deletion-email` kind=`reminder` (cron in Stop 3) |
+| 13 | Household Deletion Confirm | `emails/household-deletion-final.tsx` | Confirm permanent deletion · {household} | **Wired** — kind=`confirmed` |
+| 14 | Household Deletion Cancelled | `emails/household-deletion-cancelled.tsx` | Deletion cancelled · {household} | **Wired** — kind=`cancelled` |
+| 15 | Payment Receipt | `emails/payment-receipt.tsx` | Receipt for invoice {number} | TODO — no billing feature exists |
+| 16 | Payment Failed | `emails/payment-failed.tsx` | We couldn't process your ChoreMaxx payment | TODO — no billing feature exists |
+| 17 | Subscription Cancelled | `emails/subscription-cancelled.tsx` | Your {plan} subscription is cancelled | TODO — no billing feature exists |
+| 18 | Trial Ending | `emails/trial-ending.tsx` | Your trial ends in {n} days | TODO — no trial reminder cron yet |
+| 19 | Security Alert | `emails/security-alert.tsx` | New sign-in to your ChoreMaxx account | TODO — no login-anomaly detection exists |
+| 20 | Email Changed | `emails/email-changed.tsx` | Your ChoreMaxx email address changed | **Wired** — Auth Hook, action `email_change` |
 
 Every template file has a header comment repeating its trigger status and,
 for the TODOs, the concrete next step to unlock it.
@@ -84,7 +89,7 @@ for the TODOs, the concrete next step to unlock it.
 
 ```bash
 npm run email:dev      # http://localhost:3010 — live, hot-reloading preview
-npm run test:emails    # smoke-render all 15 with mock props
+npm run test:emails    # smoke-render all 20 with mock props
 ```
 
 ## Wiring roadmap (do these one at a time, not all at once)

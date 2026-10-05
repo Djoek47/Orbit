@@ -5,6 +5,9 @@
  */
 import * as creditPurchase from './credit-purchase';
 import * as emailChanged from './email-changed';
+import * as householdDeletionCancelled from './household-deletion-cancelled';
+import * as householdDeletionFinal from './household-deletion-final';
+import * as householdDeletionReminder from './household-deletion-reminder';
 import * as householdInvite from './household-invite';
 import * as magicLink from './magic-link';
 import * as paymentFailed from './payment-failed';
@@ -38,7 +41,12 @@ export const EMAIL_REGISTRY: {
   { id: 'task-assigned', name: 'Task Assigned', status: 'todo', module: taskAssigned },
   { id: 'task-completed', name: 'Task Completed', status: 'todo', module: taskCompleted },
   { id: 'weekly-summary', name: 'Weekly Household Summary', status: 'todo', module: weeklySummary },
-  { id: 'subscription-started', name: 'Subscription Started', status: 'todo', module: subscriptionStarted },
+  {
+    id: 'subscription-started',
+    name: 'Subscription Started',
+    status: 'wired',
+    module: subscriptionStarted,
+  },
   {
     id: 'credit-purchase',
     name: 'Credit Purchase Receipt',
@@ -50,6 +58,24 @@ export const EMAIL_REGISTRY: {
     name: 'Support Received Ack',
     status: 'wired',
     module: supportReceived,
+  },
+  {
+    id: 'household-deletion-reminder',
+    name: 'Household Deletion Reminder',
+    status: 'wired',
+    module: householdDeletionReminder,
+  },
+  {
+    id: 'household-deletion-final',
+    name: 'Household Deletion Confirm',
+    status: 'wired',
+    module: householdDeletionFinal,
+  },
+  {
+    id: 'household-deletion-cancelled',
+    name: 'Household Deletion Cancelled',
+    status: 'wired',
+    module: householdDeletionCancelled,
   },
   { id: 'payment-receipt', name: 'Payment Receipt', status: 'todo', module: paymentReceipt },
   { id: 'payment-failed', name: 'Payment Failed', status: 'todo', module: paymentFailed },
@@ -63,3 +89,5 @@ export const EMAIL_REGISTRY: {
   { id: 'security-alert', name: 'Security Alert', status: 'todo', module: securityAlert },
   { id: 'email-changed', name: 'Email Changed', status: 'wired', module: emailChanged },
 ];
+
+export const EMAIL_REGISTRY_COUNT = EMAIL_REGISTRY.length;
