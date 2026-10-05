@@ -25,6 +25,7 @@ export type FactKind =
   | 'allowance_approved'
   | 'allowance_granted'
   | 'task_assigned'
+  | 'smart_digest'
   | 'task_reassigned'
   | 'task_reminder'
   | 'ask_for_info'
@@ -117,6 +118,7 @@ export function laneForKind(kind: string): NotificationLane {
     case 'proof_submitted':
     case 'proof_requested':
     case 'task_assigned':
+    case 'smart_digest':
     case 'task_reminder':
     case 'task_not_done':
     case 'ask_for_info':
@@ -239,6 +241,24 @@ function interruptCopy(fact: HouseholdFact): { title: string; body: string; cta?
         cta: 'Ask Poppins',
         category: 'ai',
       };
+    case 'task_assigned':
+      return {
+        title: 'Poppins · Tasks',
+        body: stripExampleCopy(
+          fact.templateBody || (fact.title ? `${fact.title} was added to your list.` : 'A task was added to your list.')
+        ),
+        cta: 'Open Tasks',
+        category: 'tasks',
+      };
+    case 'smart_digest':
+      return {
+        title: 'Poppins · Today',
+        body: stripExampleCopy(
+          fact.templateBody || 'Tasks are ready on your list. Open Activity to see them.'
+        ),
+        cta: 'Open Activity',
+        category: 'tasks',
+      };
     default:
       return {
         title: stripExampleCopy(fact.templateTitle || 'Poppins'),
@@ -312,6 +332,12 @@ function isSameLocalDay(iso: string, now: number): boolean {
   return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
 }
 
+function assignmentDigestMergeKey(memberId: string | undefined, now: number): string {
+  const d = new Date(now);
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `digest:tasks:${day}:${memberId || 'unknown'}`;
+}
+
 export function coalesceFacts(
   facts: HouseholdFact[],
   options?: {
@@ -319,10 +345,13 @@ export function coalesceFacts(
     existing?: ExistingInboxRow[];
     insightAlreadyToday?: boolean;
     bannerSentMembers?: Set<string>;
+    /** When true, same-day task_assigned facts merge into one digest interrupt. */
+    smartDelivery?: boolean;
   }
 ): ComposeDecision[] {
   const now = options?.now ?? Date.now();
   const existing = options?.existing ?? [];
+  const smartDelivery = options?.smartDelivery !== false;
   const insightAlready =
     options?.insightAlreadyToday ??
     existing.some(
@@ -374,9 +403,54 @@ export function coalesceFacts(
       });
       continue;
     }
+
+    // Smart: same-day assignments for one person → one digest (Activity keeps the rest).
+    if (smartDelivery && fact.kind === 'task_assigned') {
+      const mergeKey =
+        (typeof fact.extra?.mergeKey === 'string' && fact.extra.mergeKey) ||
+        assignmentDigestMergeKey(fact.memberId, now);
+      const priorAssigns = existing.filter(
+        (row) =>
+          !row.isRead &&
+          isSameLocalDay(row.createdAt, now) &&
+          (row.kind === 'task_assigned' || row.kind === 'smart_digest' || row.mergeKey === mergeKey) &&
+          (!fact.memberId || !row.memberId || row.memberId === fact.memberId)
+      );
+      const existingDigest = priorAssigns.find(
+        (row) => row.mergeKey === mergeKey || row.kind === 'smart_digest'
+      );
+      if (existingDigest || priorAssigns.length >= 1) {
+        const count = priorAssigns.length + 1;
+        const name = fact.memberName ?? 'Someone';
+        out.push({
+          decision: existingDigest ? 'merge' : 'send',
+          mergeKey,
+          urgency: 'today',
+          title: 'Poppins · Today',
+          body: stripExampleCopy(
+            `${name}, ${count} tasks are ready on your list. Open Activity to see them.`
+          ),
+          cta: 'Open Activity',
+          category: 'tasks',
+          priority: 'medium',
+          kind: 'smart_digest',
+          factIds: [fact.id],
+          banner: !existingDigest,
+          memberId: fact.memberId,
+        });
+        continue;
+      }
+    }
+
     const copy = interruptCopy(fact);
+    const mergeKey =
+      smartDelivery && fact.kind === 'task_assigned'
+        ? (typeof fact.extra?.mergeKey === 'string' && fact.extra.mergeKey) ||
+          assignmentDigestMergeKey(fact.memberId, now)
+        : undefined;
     out.push({
       decision: 'send',
+      mergeKey,
       urgency: 'needs_action',
       title: copy.title,
       body: copy.body,

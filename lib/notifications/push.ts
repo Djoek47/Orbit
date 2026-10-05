@@ -58,13 +58,14 @@ export async function presentLocalBanner(
   title: string,
   body: string,
   data?: Record<string, unknown>,
-  opts?: { categoryIdentifier?: string }
+  opts?: { categoryIdentifier?: string; identifier?: string }
 ) {
   const permission = await Notifications.getPermissionsAsync();
   if (!isGranted(permission)) {
     return null;
   }
   return Notifications.scheduleNotificationAsync({
+    identifier: opts?.identifier,
     content: {
       title,
       body,

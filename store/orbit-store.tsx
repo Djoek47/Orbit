@@ -1252,6 +1252,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       void touchSidekickSession().catch(() => undefined);
 
       const prefs = merged.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      // Keep refs in sync before announce so concurrent live syncs see a real baseline.
+      householdRef.current = merged;
+      notificationsRef.current = filterOutDismissedIds(sync.notifications, tombstones);
+
+      const { loadAnnounceLedger, recordAnnouncedKeys, ledgerKeySet, toExpoNotificationIdentifier } =
+        await import('@/lib/notifications/announce-ledger');
+      const ledger = householdId
+        ? await loadAnnounceLedger(householdId, memberId)
+        : { entries: [] };
       const banners = diffSidekickAnnouncements({
         announceRequested: Boolean(options?.announceNewTasks),
         announceReady: sidekickAnnounceReadyRef.current,
@@ -1260,11 +1269,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         tasks: sync.tasks,
         notifications: sync.notifications,
         memberName: sync.member.name,
+        targetMemberId: memberId,
         tasksPrefEnabled: prefs.tasks !== false,
+        smartDelivery: prefs.smartDelivery !== false,
+        dismissedNotificationIds: tombstones,
+        announcedKeys: ledgerKeySet(ledger),
         taskMatchesAssignee,
       });
       for (const banner of banners) {
-        void presentLocalBanner(banner.title, banner.body, banner.data).catch(() => undefined);
+        void presentLocalBanner(banner.title, banner.body, banner.data, {
+          identifier: toExpoNotificationIdentifier(banner.key),
+        })
+          .then(() => {
+            if (householdId) {
+              void recordAnnouncedKeys(householdId, memberId, [banner.key]);
+            }
+          })
+          .catch(() => undefined);
       }
       // First successful sync after sign-in/Continue-as arms live announce for later diffs.
       sidekickAnnounceReadyRef.current = true;
@@ -4416,6 +4437,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!household.id) return null;
     if (decision.decision === 'drop' || decision.decision === 'activity_only') return null;
 
+    const targetMemberId =
+      (typeof input.data?.targetMemberId === 'string' && input.data.targetMemberId) ||
+      (typeof input.data?.memberId === 'string' && input.data.memberId) ||
+      decision.memberId ||
+      undefined;
     const data = {
       ...(input.data ?? {}),
       urgency: decision.urgency,
@@ -4423,6 +4449,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       mergeKey: decision.mergeKey,
       factIds: decision.factIds,
       cta: decision.cta,
+      ...(targetMemberId
+        ? { targetMemberId, memberId: (input.data?.memberId as string | undefined) ?? targetMemberId }
+        : {}),
     };
 
     if (decision.decision === 'merge' && decision.mergeKey) {
@@ -4495,11 +4524,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const deferBanner = quietEnabled && isQuietHour(new Date().getHours()) && !urgent;
 
     if (!deferBanner && decision.banner) {
-      void presentLocalBanner(item.title, item.body, {
-        ...(item.data ?? {}),
-        notificationId: item.id,
-        category: item.category,
-      }).catch(() => undefined);
+      const stableKey =
+        (typeof data.mergeKey === 'string' && data.mergeKey) ||
+        (typeof data.taskId === 'string' && `task:${data.taskId}`) ||
+        item.id;
+      void import('@/lib/notifications/announce-ledger').then(({ toExpoNotificationIdentifier }) =>
+        presentLocalBanner(
+          item.title,
+          item.body,
+          {
+            ...(item.data ?? {}),
+            notificationId: item.id,
+            category: item.category,
+          },
+          { identifier: toExpoNotificationIdentifier(String(stableKey)) }
+        ).catch(() => undefined)
+      );
     }
     return item;
   };
@@ -4615,7 +4655,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           undefined,
         memberId: typeof row.data?.memberId === 'string' ? row.data.memberId : undefined,
       }));
-      const [decision] = coalesceFacts([fact], { now: Date.now(), existing });
+      const prefsForSmart = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      const [decision] = coalesceFacts([fact], {
+        now: Date.now(),
+        existing,
+        smartDelivery: prefsForSmart.smartDelivery !== false,
+      });
       if (!decision || decision.decision === 'drop' || decision.decision === 'activity_only') {
         return null;
       }

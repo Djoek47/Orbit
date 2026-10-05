@@ -1,3 +1,4 @@
+import { taskDigestKey } from '@/lib/notifications/smart-digest';
 import { assigneeMemberIdsForTask } from '@/lib/sidekick/task-assigned-notify';
 import type { CreateTaskInput, HouseholdMember, HouseholdSnapshot, HouseholdTask, NotificationItem } from '@/types/orbit';
 
@@ -19,10 +20,12 @@ export async function notifyTaskAssigned(
 ): Promise<void> {
   if (!prefsTasksEnabled) return;
 
+  const smartDelivery = snapshot.notificationPrefs?.smartDelivery !== false;
   const assigneeIds = assigneeMemberIdsForTask(snapshot.members, input, task);
   for (const memberId of assigneeIds) {
     const assignee = snapshot.members.find((member) => member.id === memberId);
     if (!assignee) continue;
+    const digestKey = taskDigestKey(assignee.id);
     await push({
       title: 'Poppins · Tasks',
       body: `${task.title} was added to your list.`,
@@ -34,7 +37,14 @@ export async function notifyTaskAssigned(
         task: task.title,
         memberId: assignee.id,
         memberName: assignee.name,
+        targetMemberId: assignee.id,
         audienceMemberIds: [assignee.id],
+        ...(smartDelivery
+          ? {
+              mergeKey: digestKey,
+              smartDelivery: true,
+            }
+          : {}),
       },
     });
   }

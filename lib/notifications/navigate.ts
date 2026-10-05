@@ -42,6 +42,9 @@ export function getNotificationRoute(item: NotificationItem): string | null {
   if (kind === 'iui_act') {
     return '/(tabs)/poppins';
   }
+  if (kind === 'smart_digest') {
+    return '/notifications?tab=activity';
+  }
   if (item.category === 'ai') {
     return '/(tabs)/poppins';
   }
