@@ -43,7 +43,7 @@ flowchart LR
 | **2** | Subscription + deletion email templates; test harness — **done** | `send-subscription-receipt`, `send-household-deletion-email`, Settings Email tests |
 | **3** | 30-day deletion grace B + reminder cron — **done** | `HOUSEHOLD_DELETION_GRACE_DAYS=30`, `20261005140000_household_deletion_v2.sql`, `household-deletion-cron` |
 | **4** | Recovery route + hourglass UI — **done** | `HouseholdRecoveryHourglass`, `app/household-recovery.tsx`, welcome empty-account gate |
-| **5** | QR transfer generate/scan/accept edge function | Settings House, `transfer-household`, scanner |
+| **5** | QR household transfer — **done** | Settings House, `transfer-household`, `accept-household-transfer`, scanner |
 | **6** | Premium settings + paywall animation + allowance copy fix | `app/settings.tsx`, `premium-paywall.tsx` |
 
 ---
@@ -118,7 +118,7 @@ Mock premium trial on `/premium` triggers subscription email.
 
 ---
 
-## Stop 5 — QR household transfer
+## Stop 5 — QR household transfer — **done**
 
 ```mermaid
 sequenceDiagram
@@ -136,7 +136,7 @@ sequenceDiagram
 ```
 
 - Empty account: zero active memberships OR only recoverable scheduled-delete shell.
-- Post-transfer: source cannot recover; destination single HH.
+- Post-transfer: source demoted to adult (cannot recover); destination becomes owner; deletion schedule cleared.
 - Settings → House → Transfer ownership (owner); scanner `orbit://transfer-household?token=`.
 
 **Passes:** two test accounts; ineligible user sees empty-account message.

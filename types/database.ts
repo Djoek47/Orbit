@@ -726,6 +726,22 @@ export type Database = {
         Args: Record<string, never>;
         Returns: number;
       };
+      account_eligible_for_household_transfer: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
+      create_household_transfer_token: {
+        Args: { p_household_id: string };
+        Returns: {
+          token: string;
+          expires_at: string;
+          household_name: string;
+        }[];
+      };
+      accept_household_transfer: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

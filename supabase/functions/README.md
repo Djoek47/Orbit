@@ -27,6 +27,7 @@ npx supabase functions deploy send-credit-receipt
 npx supabase functions deploy send-subscription-receipt
 npx supabase functions deploy send-household-deletion-email
 npx supabase functions deploy household-deletion-cron --no-verify-jwt
+npx supabase functions deploy transfer-household
 npx supabase secrets set OPENAI_API_KEY=sk-...
 # Optional model overrides (defaults: gpt-realtime-2.1, gpt-5.6-luna)
 # npx supabase secrets set OPENAI_REALTIME_MODEL=gpt-realtime-2.1
@@ -70,6 +71,7 @@ Post-tool spoken response ADR: [docs/adr-poppins-post-tool-response-create.md](.
 | `send-subscription-receipt` | Premium trial / subscription start → Resend (mock + StoreKit) |
 | `send-household-deletion-email` | Deletion reminder / confirm / cancelled → Resend (`kind` + `stage`) |
 | `household-deletion-cron` | Hourly: reminder ladder + `purge_due_households` (service role; deploy `--no-verify-jwt`) |
+| `transfer-household` | Ownership transfer QR create/accept (empty/new accounts only, 15m TTL) |
 
 ## Poppins Monitor cron
 

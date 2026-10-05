@@ -638,6 +638,8 @@ type OrbitContextValue = {
   }>;
   /** Owner or admin — stop reminder emails for a scheduled deletion. */
   optOutHouseholdDeletionReminders: () => Promise<void>;
+  /** Mock / Expo Go: apply ownership transfer after QR accept. */
+  applyMockHouseholdTransfer: (householdId: string) => Promise<void>;
   /**
    * Custom house rules — display only; never alter scoring / XP / allowance.
    */
@@ -2254,6 +2256,58 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (dataMode === 'mock') {
       await persistMockHouseholdSnapshot(next);
     }
+  };
+
+  const applyMockHouseholdTransfer = async (householdId: string) => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id) {
+      throw new Error('Sign in to accept a transfer.');
+    }
+    const snapshot =
+      (await householdRepository.loadHouseholdById(householdId, user.id).catch(() => null)) ??
+      (household.id === householdId ? household : null);
+    if (!snapshot?.id) {
+      throw new Error('Household not found for transfer.');
+    }
+    const previousOwner = snapshot.members.find((m) => m.role === 'owner');
+    let members = snapshot.members.map((m) => {
+      if (previousOwner && m.id === previousOwner.id) {
+        return { ...m, role: 'adult' as const };
+      }
+      if (m.userId === user.id) {
+        return { ...m, role: 'owner' as const, status: 'active' as const };
+      }
+      return m;
+    });
+    if (!members.some((m) => m.userId === user.id)) {
+      members = [
+        ...members,
+        {
+          id: `xfer-${user.id.slice(0, 8)}`,
+          name: user.name || 'Owner',
+          role: 'owner' as const,
+          status: 'active' as const,
+          userId: user.id,
+          avatar: user.avatar ?? user.name?.charAt(0)?.toUpperCase() ?? 'O',
+          xp: 0,
+          loadShare: 1,
+        },
+      ];
+    }
+    const next = {
+      ...snapshot,
+      members,
+      deletionScheduledFor: null,
+      deletedAt: null,
+      deletionReminderStage: null,
+      deletionRemindersOptOut: false,
+    };
+    setHousehold(next);
+    setActiveMemberId(members.find((m) => m.userId === user.id)?.id ?? null);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(next);
+    }
+    await refreshHouseholdMemberships(user.id);
   };
 
   const restoreSidekickFromSession = async (session: SidekickSession): Promise<boolean> => {
@@ -7456,6 +7510,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       cancelHouseholdDeletion,
       requestImmediateHouseholdDeletion,
       optOutHouseholdDeletionReminders,
+      applyMockHouseholdTransfer,
       addCustomHouseRule,
       updateCustomHouseRule,
       removeCustomHouseRule,

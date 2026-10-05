@@ -103,6 +103,14 @@ export default function RootLayout() {
                     name="household-recovery"
                     options={{ presentation: 'modal', headerShown: false, title: 'Recover household' }}
                   />
+                  <Stack.Screen
+                    name="transfer-household"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Transfer ownership' }}
+                  />
+                  <Stack.Screen
+                    name="accept-household-transfer"
+                    options={{ headerShown: false, title: 'Take ownership' }}
+                  />
                   <Stack.Screen name="premium" options={{ headerShown: false, title: 'Premium' }} />
                   <Stack.Screen
                     name="auth/callback"

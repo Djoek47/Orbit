@@ -811,6 +811,15 @@ export default function SettingsScreen() {
                       onPress={() => router.navigate('/house-rules' as never)}
                     />
                   </TourTarget>
+                  {currentMember?.role === 'owner' ? (
+                    <SettingsNavRow
+                      icon="home-work"
+                      iconColor="#FBBF24"
+                      label="House"
+                      subtitle="Transfer ownership · delete"
+                      onPress={() => setSection('house')}
+                    />
+                  ) : null}
                   <SettingsNavRow
                     icon="emoji-events"
                     iconColor="#A78BFA"
@@ -1224,14 +1233,28 @@ export default function SettingsScreen() {
         {section === 'house' ? (
           <>
             {currentMember?.role === 'owner' ? (
-              <Pressable
-                onPress={() => router.push('/delete-household' as never)}
-                style={[styles.accountBtn, { backgroundColor: '#F8717110', marginTop: 8 }]}>
-                <Text style={[styles.accountBtnText, { color: '#F87171', textAlign: 'center' }]}>
-                  Delete household
-                </Text>
-              </Pressable>
-            ) : null}
+              <SettingsGroup header="Ownership">
+                <SettingsNavRow
+                  icon="qr-code-2"
+                  iconColor="#38BDF8"
+                  label="Transfer ownership"
+                  subtitle="15-minute QR · empty account only"
+                  onPress={() => router.push('/transfer-household' as never)}
+                />
+                <SettingsNavRow
+                  icon="delete-forever"
+                  iconColor="#F87171"
+                  label="Delete household"
+                  subtitle="30-day recovery window"
+                  last
+                  onPress={() => router.push('/delete-household' as never)}
+                />
+              </SettingsGroup>
+            ) : (
+              <Text style={[styles.caption, { color: c.textMuted, textAlign: 'center' }]}>
+                Only the household owner can transfer or delete this house.
+              </Text>
+            )}
           </>
         ) : null}
 

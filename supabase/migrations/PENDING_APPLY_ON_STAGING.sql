@@ -92,3 +92,8 @@ where table_schema = 'public' and table_name = 'households'
     'deletion_immediate_token',
     'deletion_immediate_token_expires_at'
   );
+
+-- 9) Household transfer QR (from 20261005150000_household_transfer.sql)
+--    Run FULL file if household_transfer_tokens is missing.
+select table_name from information_schema.tables
+where table_schema = 'public' and table_name = 'household_transfer_tokens';

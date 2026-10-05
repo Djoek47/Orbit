@@ -1588,6 +1588,13 @@ export default function WelcomeOnboardingScreen() {
       <InviteQrScanner
         visible={scannerOpen}
         onClose={() => setScannerOpen(false)}
+        onTransferScanned={(token) => {
+          setScannerOpen(false);
+          setError('');
+          router.replace(
+            `/accept-household-transfer?token=${encodeURIComponent(token)}` as never
+          );
+        }}
         onScanned={(code) => {
           setScannerOpen(false);
           setError('');

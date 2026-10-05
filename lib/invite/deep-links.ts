@@ -32,6 +32,23 @@ export function parseMemberInviteTokenFromUrl(url: string): string | null {
   return null;
 }
 
+/** Ownership transfer: orbit://transfer-household?token= */
+export function parseHouseholdTransferTokenFromUrl(url: string): string | null {
+  if (!url) return null;
+  try {
+    const trimmed = url.trim();
+    const scheme = trimmed.match(
+      /(?:choremaxx|orbit):\/\/transfer-household(?:\?|#|&|\/)?.*?(?:token=)([^&?#]+)/i
+    );
+    if (scheme?.[1]) return decodeURIComponent(scheme[1]);
+    const web = trimmed.match(/\/transfer-household\?[^#]*token=([^&?#]+)/i);
+    if (web?.[1]) return decodeURIComponent(web[1]);
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function parseInviteCodeFromUrl(url: string): string | null {
   if (!url) return null;
 
