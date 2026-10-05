@@ -30,6 +30,7 @@ Apply **in order** if not already on staging. Prefer the full migration files:
 | 1 | `supabase/migrations/20261005120000_support_uploads_storage.sql` |
 | 2 | `supabase/migrations/20261005140000_household_deletion_v2.sql` |
 | 3 | `supabase/migrations/20261005150000_household_transfer.sql` |
+| 4 | `supabase/migrations/20261005160000_member_avatars_storage.sql` |
 
 Also skim `supabase/migrations/PENDING_APPLY_ON_STAGING.sql` for older columns / verify queries.
 
@@ -59,6 +60,7 @@ where table_schema = 'public' and table_name = 'households'
   );
 
 select id from storage.buckets where id = 'support-uploads';
+select id from storage.buckets where id = 'member-avatars';
 ```
 
 ---

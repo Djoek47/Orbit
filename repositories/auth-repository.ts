@@ -298,9 +298,18 @@ export const authRepository = {
     mapDbError('authRepository.createProfile', error);
 
     // Keep the owner's household_members.display_name in sync with the profile.
+    // Local Playground/Photos URIs are not durable — only write avatar_symbol when
+    // it is already emoji/initials/https; cloud upload happens in updateMemberAvatar.
+    const { needsAvatarUpload } = await import('@/lib/profile/avatar-uri');
+    const memberPatch: { display_name: string; avatar_symbol?: string } = {
+      display_name: trimmedName,
+    };
+    if (!needsAvatarUpload(avatar)) {
+      memberPatch.avatar_symbol = avatar;
+    }
     const { error: memberError } = await supabase
       .from('household_members')
-      .update({ display_name: trimmedName, avatar_symbol: avatar })
+      .update(memberPatch)
       .eq('user_id', user.id);
     if (memberError) {
       console.warn('authRepository.createProfile: member name sync skipped', memberError.message);
