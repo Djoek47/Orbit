@@ -175,7 +175,9 @@ No plain gray `SectionCard` buttons where the app uses glass groups.
 
 ---
 
-## PR strategy
+## PR / merge / TestFlight strategy (locked)
 
-- **One PR** on `cursor/fin-credits-advanced-c30d`, updated after each stop (draft until Stop 6 complete, or mark ready after Stop 0 if you want early review).
-- Do **not** split into five feature branches unless product asks — all stops stack on this branch.
+- **Work branch:** `cursor/fin-credits-advanced-c30d` — all stops stack here; update [PR #96](https://github.com/Djoek47/Orbit/pull/96) after each stop.
+- **Merge target:** `cursor/make-v31` — merge **only after Stop 6** is done and three-pass QA is green for every stop, so make-v31 holds the full fin + support + recovery + premium set.
+- **Do not** open parallel feature branches for later stops.
+- **TestFlight / EAS:** **not** until product explicitly says to push a build. No TF submit as part of stop work.
