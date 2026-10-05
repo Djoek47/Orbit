@@ -1,14 +1,17 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { memberDisplayEmoji } from '@/lib/game-levels';
 import {
   buildHomeHealthMetrics,
   resolveHomeHealthRole,
 } from '@/lib/home-health-metrics';
+import {
+  computeCleaningByRoom,
+  computeLiveMemberLoad,
+} from '@/lib/household/health-dashboard';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 import { CompletionBreakdown } from '@/components/orbit/completion/completion-breakdown';
@@ -16,14 +19,14 @@ import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
 
+/**
+ * Home → Household Health: one unified sheet.
+ * Live streak + completion, full task breakdown, member load, cleaning by room.
+ * Tasks → Completed still opens /completed-breakdown (task charts only).
+ */
 export default function HouseholdBalanceScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, household, metrics, currentMember, permissions, orbitPalette } = useOrbit();
-  const [view, setView] = useState<'completion' | 'house'>('completion');
-  const sorted = useMemo(
-    () => [...household.members].sort((a, b) => b.loadShare - a.loadShare),
-    [household.members],
-  );
 
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
@@ -38,29 +41,18 @@ export default function HouseholdBalanceScreen() {
         household,
         currentMember,
       }),
-    [healthRole, metrics, household, currentMember],
+    [healthRole, metrics, household, currentMember]
   );
 
-  const cleaningByRoom = useMemo(() => {
-    const rooms = household.rooms ?? [];
-    return rooms.map((room) => {
-      const roomTasks = household.tasks.filter(
-        (task) =>
-          task.roomId === room.id ||
-          (task.category.toLowerCase().includes('clean') &&
-            task.title.toLowerCase().includes(room.name.split(' ')[0].toLowerCase())),
-      );
-      const overdue = roomTasks.filter((task) => task.status === 'Overdue' || task.status === 'Pending').length;
-      const completed = roomTasks.filter((task) => task.status === 'Completed').length;
-      const lastDone = roomTasks.find((task) => task.status === 'Completed');
-      return {
-        room,
-        overdue,
-        completed,
-        lastTitle: lastDone?.title,
-      };
-    });
-  }, [household.rooms, household.tasks]);
+  const memberLoad = useMemo(
+    () => computeLiveMemberLoad(household.members, household.tasks),
+    [household.members, household.tasks]
+  );
+
+  const cleaningByRoom = useMemo(
+    () => computeCleaningByRoom(household.tasks, household.rooms),
+    [household.tasks, household.rooms]
+  );
 
   const hero = healthItems.map((item) => ({
     key: item.key,
@@ -76,6 +68,57 @@ export default function HouseholdBalanceScreen() {
             : 'Count',
     color: item.color,
   }));
+
+  const openTasks = metrics.openTasks ?? 0;
+  const streakDays =
+    typeof metrics.householdStreak === 'number'
+      ? metrics.householdStreak
+      : Number.parseInt(
+          String(healthItems.find((item) => item.kind === 'streak')?.valueLabel ?? '0').replace(/\D/g, ''),
+          10
+        ) || 0;
+  const liveStreakLabel = `${streakDays}d`;
+
+  const livePulse = !sharedKidMode
+    ? [
+        {
+          key: 'streak',
+          icon: 'local-fire-department' as const,
+          color: '#FB923C',
+          label: `Live streak ${liveStreakLabel}`,
+        },
+        {
+          key: 'open',
+          icon: 'assignment' as const,
+          color: accentTheme.primary,
+          label: `${openTasks} open task${openTasks === 1 ? '' : 's'}`,
+        },
+        {
+          key: 'grocery',
+          icon: 'shopping-cart' as const,
+          color: '#38BDF8',
+          label: `${metrics.groceryReadiness ?? 0}% groceries ready`,
+        },
+        {
+          key: 'missing',
+          icon: 'playlist-add-check' as const,
+          color: '#F472B6',
+          label: `${metrics.missingGroceries ?? 0} missing`,
+        },
+        {
+          key: 'events',
+          icon: 'event' as const,
+          color: '#A78BFA',
+          label: `${metrics.upcomingEvents ?? 0} upcoming`,
+        },
+        {
+          key: 'momentum',
+          icon: 'bolt' as const,
+          color: '#34D399',
+          label: `${metrics.momentum ?? 0} momentum`,
+        },
+      ]
+    : [];
 
   return (
     <View
@@ -100,42 +143,8 @@ export default function HouseholdBalanceScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Tabs: the same breakdown as Completed tasks, then the house's own numbers. */}
-      <View style={[styles.tabs, { backgroundColor: `${accentTheme.primary}14` }]}>
-        {(
-          [
-            { id: 'completion' as const, label: 'Completion' },
-            { id: 'house' as const, label: sharedKidMode ? 'Me' : 'The house' },
-          ] as const
-        ).map((tab) => {
-          const on = view === tab.id;
-          return (
-            <Pressable
-              key={tab.id}
-              onPress={() => setView(tab.id)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-              style={[
-                styles.tab,
-                on && { backgroundColor: `${accentTheme.primary}2E` },
-              ]}>
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: on ? accentTheme.primary : orbitPalette.textMuted },
-                ]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {view === 'completion' ? (
-        <CompletionBreakdown bottomInset={insets.bottom} />
-      ) : (
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 36 }]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.heroRow}>
           {hero.map((item) => (
@@ -147,43 +156,78 @@ export default function HouseholdBalanceScreen() {
           ))}
         </View>
 
+        {livePulse.length > 0 ? (
+          <View style={styles.liveStrip}>
+            {livePulse.map((chip) => (
+              <View
+                key={chip.key}
+                style={[styles.liveChip, { backgroundColor: `${accentTheme.primary}18` }]}>
+                <MaterialIcons name={chip.icon} size={14} color={chip.color} />
+                <Text style={[styles.liveChipText, { color: orbitPalette.text }]}>{chip.label}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <Text style={[styles.section, { color: orbitPalette.textMuted }]}>
+          {sharedKidMode ? 'Your completions' : 'Task breakdown'}
+        </Text>
+        <View style={styles.breakdownWrap}>
+          <CompletionBreakdown embedded bottomInset={0} />
+        </View>
+
         {!sharedKidMode ? (
           <>
             <Text style={[styles.section, { color: orbitPalette.textMuted }]}>Member load</Text>
-            {sorted.map((member) => (
-              <View key={member.id} style={styles.memberCard}>
-                <View style={[styles.avatar, { backgroundColor: `${accentTheme.primary}22` }]}>
-                  <MemberGlyph member={member} size={18} />
-                </View>
-                <View style={styles.memberInfo}>
-                  <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
-                  <Text style={[styles.memberMeta, { color: orbitPalette.textMuted }]}>
-                    {member.role} · {member.xp} XP
-                  </Text>
-                  <View style={styles.loadTrack}>
-                    <View
-                      style={[
-                        styles.loadFill,
-                        {
-                          width: `${Math.min(100, member.loadShare)}%`,
-                          backgroundColor: accentTheme.primary,
-                        },
-                      ]}
-                    />
+            <Text style={[styles.sectionHint, { color: orbitPalette.textSubtle }]}>
+              {memberLoad.some((row) => row.openCount > 0)
+                ? 'Share of open chores right now — updates live as tasks move.'
+                : 'No open chores — bars show this week’s XP so load still reads.'}
+            </Text>
+            {memberLoad.length === 0 ? (
+              <Text style={[styles.emptyHint, { color: orbitPalette.textSubtle }]}>
+                No active members to balance yet.
+              </Text>
+            ) : (
+              memberLoad.map(({ member, loadShare, openCount }) => (
+                <View key={member.id} style={styles.memberCard}>
+                  <View style={[styles.avatar, { backgroundColor: `${accentTheme.primary}22` }]}>
+                    <MemberGlyph member={member} size={18} />
                   </View>
+                  <View style={styles.memberInfo}>
+                    <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
+                    <Text style={[styles.memberMeta, { color: orbitPalette.textMuted }]}>
+                      {member.role} · {member.xp} XP
+                      {openCount > 0 ? ` · ${openCount} open` : ''}
+                    </Text>
+                    <View style={styles.loadTrack}>
+                      <View
+                        style={[
+                          styles.loadFill,
+                          {
+                            width: `${Math.min(100, Math.max(loadShare > 0 ? 4 : 0, loadShare))}%`,
+                            backgroundColor: accentTheme.primary,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                  <Text style={[styles.loadText, { color: accentTheme.primary }]}>{loadShare}%</Text>
                 </View>
-                <Text style={[styles.loadText, { color: accentTheme.primary }]}>{member.loadShare}%</Text>
-              </View>
-            ))}
+              ))
+            )}
 
             <Text style={[styles.section, { color: orbitPalette.textMuted }]}>Cleaning by room</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomStrip}>
-              {cleaningByRoom.map(({ room, overdue, completed, lastTitle }) => (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.roomStrip}>
+              {cleaningByRoom.map(({ room, open, completed, lastTitle }) => (
                 <View key={room.id} style={styles.roomCard}>
                   <Moji emoji={room.emoji} size={18} />
                   <Text style={[styles.roomName, { color: orbitPalette.text }]}>{room.name}</Text>
                   <Text style={[styles.roomMeta, { color: orbitPalette.textMuted }]}>
-                    {completed} done · {overdue} open
+                    {completed} done · {open} open
                   </Text>
                   <Text style={[styles.roomLast, { color: orbitPalette.textSubtle }]} numberOfLines={2}>
                     {lastTitle ? `Last: ${lastTitle}` : 'No completed cleans yet'}
@@ -194,23 +238,12 @@ export default function HouseholdBalanceScreen() {
           </>
         ) : null}
       </ScrollView>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  tabs: {
-    borderRadius: 999,
-    flexDirection: 'row',
-    gap: 4,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    padding: 4,
-  },
-  tab: { alignItems: 'center', borderRadius: 999, flex: 1, paddingVertical: 9 },
-  tabLabel: { fontSize: 14, fontWeight: '700' },
   handle: {
     alignSelf: 'center',
     width: 40,
@@ -256,12 +289,28 @@ const styles = StyleSheet.create({
   heroLabel: { fontSize: 11, fontWeight: '700' },
   heroValue: { fontSize: 22, fontWeight: '800' },
   heroHint: { fontSize: 11 },
+  liveStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  liveChip: {
+    alignItems: 'center',
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  liveChipText: { fontSize: 13, fontWeight: '700' },
   section: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
     marginTop: 8,
     textTransform: 'uppercase',
+  },
+  sectionHint: { fontSize: 12, marginTop: -6 },
+  emptyHint: { fontSize: 13, paddingVertical: 4 },
+  breakdownWrap: {
+    marginHorizontal: -16,
+    // CompletionBreakdown has its own horizontal padding; keep it flush in the sheet.
   },
   memberCard: {
     alignItems: 'center',
@@ -280,7 +329,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 40,
   },
-  avatarEmoji: { fontSize: 18 },
   memberInfo: { flex: 1, gap: 4 },
   memberName: { fontSize: 15, fontWeight: '700' },
   memberMeta: { fontSize: 12 },

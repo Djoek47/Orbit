@@ -53,14 +53,20 @@ for (const said of [
   assert.match(title, /dentist/i, `the thing itself survives: "${title}"`);
 }
 
-// How it works can play real recordings once they exist, and says so when it can't.
+// How it works plays baked GPT conversational audio — never device Speech.
 const audio = read('lib/poppins/how-it-works-audio.ts');
 assert.match(audio, /RECORDINGS/);
-assert.match(read('components/orbit/poppins/how-it-works-player.tsx'), /recordedDemoAudio\(beat\.id\)/);
-assert.match(
-  read('components/orbit/poppins/how-it-works-player.tsx'),
-  /hasRecordedDemoAudio\(\)/,
-  'and tells people which voice they are hearing'
+assert.match(audio, /Do not fall back to device Speech|Never use device Speech/);
+assert.ok(
+  [...audio.matchAll(/'([^']+)':\s*require\(/g)].length >= 8,
+  'RECORDINGS must include baked clips'
 );
+const player = read('components/orbit/poppins/how-it-works-player.tsx');
+assert.match(player, /recordedDemoAudio\(beat\.id\)/);
+assert.match(player, /hasRecordedDemoAudio\(\)/);
+assert.equal(player.includes('expo-speech'), false, 'no Apple Speech fallback');
+assert.equal(player.includes('Speech.speak'), false, 'no Speech.speak');
+assert.match(player, /Never use device Speech|baked GPT conversational/);
+assert.match(read('scripts/generate-how-it-works-audio.mjs'), /gpt-4o-mini-tts/);
 
 console.log('english-only: ok');

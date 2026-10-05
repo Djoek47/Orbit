@@ -78,6 +78,9 @@ export type ExistingInboxRow = {
   createdAt: string;
   mergeKey?: string;
   isRead?: boolean;
+  /** Task / reward id when present — used to drop duplicate interrupts. */
+  subjectId?: string;
+  memberId?: string;
 };
 
 export function parseComposerJson(raw: unknown, fallback: ComposeDecision): ComposeDecision {
@@ -343,6 +346,34 @@ export function coalesceFacts(
   const out: ComposeDecision[] = [];
 
   for (const fact of interrupts) {
+    const subjectId =
+      (typeof fact.extra?.taskId === 'string' && fact.extra.taskId) ||
+      (typeof fact.extra?.rewardId === 'string' && fact.extra.rewardId) ||
+      undefined;
+    // Activity monitor: don't mint a second unread interrupt for the same task/reward.
+    const duplicate = existing.some(
+      (row) =>
+        !row.isRead &&
+        row.kind === fact.kind &&
+        Boolean(subjectId) &&
+        row.subjectId === subjectId &&
+        (!fact.memberId || !row.memberId || row.memberId === fact.memberId)
+    );
+    if (duplicate) {
+      out.push({
+        decision: 'activity_only',
+        urgency: 'activity_only',
+        title: '',
+        body: '',
+        category: 'ai',
+        priority: 'low',
+        kind: fact.kind,
+        factIds: [fact.id],
+        banner: false,
+        memberId: fact.memberId,
+      });
+      continue;
+    }
     const copy = interruptCopy(fact);
     out.push({
       decision: 'send',

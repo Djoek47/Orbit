@@ -42,7 +42,22 @@ const homeworkTask: HouseholdTask = {
   proofRequired: true,
 };
 
-assert.equal(needsProofOnComplete(homeworkTask, childProofOff), false);
+// Per-task flag wins over the member default (Edit / Assign can override).
+assert.equal(needsProofOnComplete(homeworkTask, childProofOff), true);
 assert.equal(needsProofOnComplete(homeworkTask, childProofOn), true);
+assert.equal(
+  needsProofOnComplete({ ...homeworkTask, proofRequired: false }, childProofOn),
+  false,
+  'admin can turn proof off on a homework task'
+);
+assert.equal(
+  needsProofOnComplete({ ...homeworkTask, proofRequired: undefined }, childProofOn),
+  true,
+  'legacy homework without a flag falls back to member default'
+);
+assert.equal(
+  needsProofOnComplete({ ...homeworkTask, proofRequired: undefined }, childProofOff),
+  false
+);
 
 console.log('homework-proof: ok');

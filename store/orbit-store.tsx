@@ -181,6 +181,7 @@ import {
 } from '@/lib/notifications/audience';
 import { registerForPushNotifications, presentLocalBanner, syncAppBadge, scheduleLocalReminder, clearPresentedNotifications } from '@/lib/notifications/push';
 import { dispatchMemberPush, registerSidekickPushNotifications } from '@/lib/notifications/member-push';
+import { diffSidekickAnnouncements } from '@/lib/notifications/sidekick-announce';
 import { isQuietHour } from '@/lib/poppins/notification-batch';
 import { composeWithLuna } from '@/lib/poppins/notification-composer';
 import {
@@ -812,6 +813,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const glanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const glanceBannerMembersRef = useRef<Set<string>>(new Set());
   const notificationsRef = useRef<NotificationItem[]>([]);
+  /** After first Sidekick sync post sign-in; blocks history replay on hydrate. */
+  const sidekickAnnounceReadyRef = useRef(false);
   const monitorKickRef = useRef<string | null>(null);
   const [briefDismissedYmd, setBriefDismissedYmd] = useState<string | null>(null);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(
@@ -829,6 +832,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const memberRemovalKickRef = useRef(memberRemovalKick);
   memberRemovalKickRef.current = memberRemovalKick;
   const memberRemovalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishKickInFlightRef = useRef<Promise<void> | null>(null);
+  /** Wait for the countdown Modal fade before router.dismissAll (iOS nested-modal freeze). */
+  const MEMBER_REMOVAL_MODAL_SETTLE_MS = 400;
 
   const currentMember = useMemo(() => {
     if (activeMemberId) {
@@ -1236,33 +1242,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       void touchSidekickSession().catch(() => undefined);
 
-      if (options?.announceNewTasks) {
-        const prefs = merged.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-        if (prefs.tasks !== false) {
-          const newTasks = sync.tasks.filter(
-            (task) =>
-              !previousTaskIds.has(task.id) &&
-              taskMatchesAssignee(task, sync.member.name) &&
-              task.status !== 'Completed' &&
-              task.status !== 'Cancelled'
-          );
-          for (const task of newTasks.slice(0, 2)) {
-            void presentLocalBanner('New task', `${task.title} was added to your list.`, {
-              taskId: task.id,
-              category: 'tasks',
-              kind: 'task_assigned',
-            }).catch(() => undefined);
-          }
-        }
-        const newNotes = sync.notifications.filter((item) => !previousNotificationIds.has(item.id) && !item.isRead);
-        for (const note of newNotes.slice(0, 2)) {
-          void presentLocalBanner(note.title, note.body, {
-            ...(note.data ?? {}),
-            notificationId: note.id,
-            category: note.category,
-          }).catch(() => undefined);
-        }
+      const prefs = merged.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      const banners = diffSidekickAnnouncements({
+        announceRequested: Boolean(options?.announceNewTasks),
+        announceReady: sidekickAnnounceReadyRef.current,
+        previousTaskIds,
+        previousNotificationIds,
+        tasks: sync.tasks,
+        notifications: sync.notifications,
+        memberName: sync.member.name,
+        tasksPrefEnabled: prefs.tasks !== false,
+        taskMatchesAssignee,
+      });
+      for (const banner of banners) {
+        void presentLocalBanner(banner.title, banner.body, banner.data).catch(() => undefined);
       }
+      // First successful sync after sign-in/Continue-as arms live announce for later diffs.
+      sidekickAnnounceReadyRef.current = true;
 
       return merged;
     },
@@ -1270,57 +1266,72 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   );
 
   const finishMemberRemovalKick = useCallback(async () => {
+    if (finishKickInFlightRef.current) return finishKickInFlightRef.current;
+
     if (memberRemovalTimerRef.current) {
       clearTimeout(memberRemovalTimerRef.current);
       memberRemovalTimerRef.current = null;
     }
     const kick = memberRemovalKickRef.current;
+    // Hide the countdown Modal first; wipe + navigate only after it settles.
     setMemberRemovalKick(null);
-    try {
-      if (kick?.memberId) {
-        await removeSidekickSessionFor(kick.memberId);
-        const { removeHostedProfile, loadDeviceSession, clearDeviceSession } = await import(
-          '@/lib/device/device-session'
-        );
-        const device = await loadDeviceSession();
-        if (device.mode === 'shared' && device.profileMemberIds.includes(kick.memberId)) {
-          const next = await removeHostedProfile(kick.memberId);
-          if (next.profileMemberIds.length === 0) {
-            await clearDeviceSession();
-            await clearSidekickSession();
+
+    finishKickInFlightRef.current = (async () => {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, MEMBER_REMOVAL_MODAL_SETTLE_MS);
+      });
+      try {
+        if (kick?.memberId) {
+          await removeSidekickSessionFor(kick.memberId);
+          const { removeHostedProfile, loadDeviceSession, clearDeviceSession } = await import(
+            '@/lib/device/device-session'
+          );
+          const device = await loadDeviceSession();
+          if (device.mode === 'shared' && device.profileMemberIds.includes(kick.memberId)) {
+            const next = await removeHostedProfile(kick.memberId);
+            if (next.profileMemberIds.length === 0) {
+              await clearDeviceSession();
+              await clearSidekickSession();
+            }
+          } else {
+            const remaining = await listSidekickSessions();
+            if (remaining.length === 0) {
+              await clearSidekickSession();
+              await clearDeviceSession();
+            }
           }
         } else {
-          const remaining = await listSidekickSessions();
-          if (remaining.length === 0) {
-            await clearSidekickSession();
-            await clearDeviceSession();
-          }
+          await clearSidekickSession();
+          const { clearDeviceSession } = await import('@/lib/device/device-session');
+          await clearDeviceSession();
         }
-      } else {
-        await clearSidekickSession();
-        const { clearDeviceSession } = await import('@/lib/device/device-session');
-        await clearDeviceSession();
+      } catch (error) {
+        console.warn('finishMemberRemovalKick.sessions', error);
       }
-    } catch (error) {
-      console.warn('finishMemberRemovalKick.sessions', error);
-    }
-    try {
-      await authRepository.signOut();
-    } catch {
       try {
-        const { signOutEverywhere } = await import('@/lib/auth/local-sign-out');
-        await signOutEverywhere();
+        await authRepository.signOut();
       } catch {
-        /* leave locally anyway */
+        try {
+          const { signOutEverywhere } = await import('@/lib/auth/local-sign-out');
+          await signOutEverywhere();
+        } catch {
+          /* leave locally anyway */
+        }
       }
-    }
-    await clearMockHouseholdSnapshot().catch(() => undefined);
-    clearSignedInState();
+      await clearMockHouseholdSnapshot().catch(() => undefined);
+      clearSignedInState();
+      try {
+        const { resetToGetStarted } = await import('@/lib/navigation/reset-to-get-started');
+        resetToGetStarted();
+      } catch (error) {
+        console.warn('finishMemberRemovalKick.nav', error);
+      }
+    })();
+
     try {
-      const { resetToGetStarted } = await import('@/lib/navigation/reset-to-get-started');
-      resetToGetStarted();
-    } catch (error) {
-      console.warn('finishMemberRemovalKick.nav', error);
+      await finishKickInFlightRef.current;
+    } finally {
+      finishKickInFlightRef.current = null;
     }
   }, []);
 
@@ -1380,8 +1391,20 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (synced) return synced;
       // When the profile was removed, reloadSidekickDomains already started the kick.
       if (memberRemovalKickRef.current) return householdRef.current;
-      console.warn('reloadHouseholdDomains: sidekick sync failed, keeping in-memory snapshot');
-      return householdRef.current;
+      // Network blip: still flip local expiry so Home does not keep yesterday's open work.
+      console.warn('reloadHouseholdDomains: sidekick sync failed, applying local expiry');
+      const live = householdRef.current;
+      const now = new Date();
+      const nextTasks = refreshStaleDueLabels(
+        applyHouseholdTaskExpiry(live.tasks, live, now),
+        now
+      );
+      if (tasksWithExpiryStatusChange(live.tasks, nextTasks).length > 0) {
+        const next = { ...live, tasks: nextTasks };
+        setHousehold(next);
+        return next;
+      }
+      return live;
     }
 
     const baseHousehold = await householdRepository.getHousehold();
@@ -1582,20 +1605,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           hydratedHousehold.members,
           hydratedHousehold.majordomoProfileId
         );
-        setHousehold({
-          ...hydratedHousehold,
-          greetingName: session.user.name || hydratedHousehold.greetingName,
-          notificationPrefs: mergeNotificationPrefs({
-            server: hydratedHousehold.notificationPrefs,
-            local: prefs,
-          }),
-          accentThemeId: themeId,
-          majordomoProfileId: majordomo.householdProfileId,
-          members: majordomo.members,
-          rooms: hydratedHousehold.rooms?.length
-            ? hydratedHousehold.rooms
-            : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
-        });
+        {
+          const now = new Date();
+          const base = {
+            ...hydratedHousehold,
+            greetingName: session.user.name || hydratedHousehold.greetingName,
+            notificationPrefs: mergeNotificationPrefs({
+              server: hydratedHousehold.notificationPrefs,
+              local: prefs,
+            }),
+            accentThemeId: themeId,
+            majordomoProfileId: majordomo.householdProfileId,
+            members: majordomo.members,
+            rooms: hydratedHousehold.rooms?.length
+              ? hydratedHousehold.rooms
+              : DEFAULT_HOUSEHOLD_ROOMS.map((r) => ({ ...r })),
+          };
+          setHousehold({
+            ...base,
+            tasks: refreshStaleDueLabels(
+              applyHouseholdTaskExpiry(base.tasks, base, now),
+              now
+            ),
+          });
+        }
         const resumeMemberId =
           mockStored?.activeMemberId ||
           storedMemberId ||
@@ -1733,6 +1766,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
 
+    {
+      const now = new Date();
+      hydratedHousehold = {
+        ...hydratedHousehold,
+        tasks: refreshStaleDueLabels(
+          applyHouseholdTaskExpiry(hydratedHousehold.tasks, hydratedHousehold, now),
+          now
+        ),
+      };
+    }
     setHousehold(hydratedHousehold);
     const pendingSelf = hydratedHousehold.members.find((member) => member.status === 'pending');
     if (isPendingJoinSnapshot(hydratedHousehold)) {
@@ -2152,7 +2195,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (hostedIds.length > 1) {
       await setupSharedDeviceSession({
         profileMemberIds: hostedIds,
-        deviceLabel: 'Family tablet',
+        deviceLabel: 'Family device',
         hostKind: 'shared-tablet',
       });
       await selectDeviceProfile(session.memberId);
@@ -2172,7 +2215,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         return false;
       }
       if (result.status !== 'ok') return false;
-      await applySidekickSyncPayload(result.sync, { announceNewTasks: true });
+      // Silent hydrate — live sync announces real diffs after ready is armed.
+      await applySidekickSyncPayload(result.sync, { announceNewTasks: false });
       registerSidekickPushNotifications(normalizedCode).catch((error) => {
         console.warn('Sidekick push registration skipped', error);
       });
@@ -2204,6 +2248,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setNotifications(items);
     await persistMockHouseholdSnapshot(hydrated);
     void applyPlannedTasksForMember(session.memberId, session.householdId);
+    // Mock hydrate is silent; arm live announce for later diffs.
+    sidekickAnnounceReadyRef.current = true;
     return true;
   };
 
@@ -2262,7 +2308,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         members: sync?.members.length ? sync.members : [result.member],
       };
       mergedSnapshot = sync
-        ? await applySidekickSyncPayload(sync, { announceNewTasks: true, base })
+        ? await applySidekickSyncPayload(sync, { announceNewTasks: false, base })
         : base;
     } else {
       const snapshot = await householdRepository.loadHouseholdById(result.householdId, user.id).catch(
@@ -2317,6 +2363,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           console.warn('Sidekick push registration skipped', error);
         });
       }
+      // Join hydrate is silent; arm live announce for assignments that arrive later.
+      sidekickAnnounceReadyRef.current = true;
     }
 
     return { status: result.status };
@@ -2517,6 +2565,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setNotifications([]);
     setInviteLinks(null);
     setActiveMemberId(null);
+    sidekickAnnounceReadyRef.current = false;
+    // Drop ghost lock-screen banners so Continue-as cannot stack re-announced history.
+    void clearPresentedNotifications();
+    void syncAppBadge(0);
     // Signing out unbinds the device. It used to keep the binding on a Sidekick sign-out, so
     // the phone still called itself a shared tablet — and the next person to sign in, as an
     // admin, was dropped into "Add a device · 1 of 4" instead of their household.
@@ -2599,11 +2651,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     try {
       const profileAuth = await usesProfileCodeAuth();
       const assigneeMember = assigneeMemberForTask(householdRef.current.members, input);
+      // Homework keeps the Sidekick’s homework-proof default (create forms often pass
+      // proofRequired: false). Chores stay false unless Assign / Edit explicitly opts in.
+      const isHomework = isHomeworkCategory(input.category, input.title);
       const normalizedInput: CreateTaskInput = {
         ...input,
-        proofRequired: isHomeworkCategory(input.category, input.title)
-          ? proofRequiredForHomeworkAssign(input.category, assigneeMember)
-          : false,
+        proofRequired: isHomework
+          ? input.proofRequired === true ||
+            proofRequiredForHomeworkAssign(input.category, assigneeMember)
+          : input.proofRequired === true,
       };
 
       if (profileAuth && allowSelfHomework) {
@@ -2635,7 +2691,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
                     difficulty: input.difficulty ?? 'easy',
                     weight: input.weight ?? 1,
                     repeat: task.repeat,
-                    proofRequired: Boolean(input.proofRequired),
+                    proofRequired: Boolean(normalizedInput.proofRequired),
                     description: task.description,
                     householdScoped: true,
                   },
@@ -2711,8 +2767,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     task: HouseholdTask,
     options?: { scope?: 'this' | 'future' }
   ) => {
-    if (!v2Permissions.canAssignOrEditTask && !permissions.canAssignTask) {
-      return;
+    if (
+      !v2Permissions.canAssignOrEditTask &&
+      !permissions.canAssignTask &&
+      !permissions.canCreateTask
+    ) {
+      throw new Error('You need permission to edit tasks.');
     }
     const live = householdRef.current;
     const current = live.tasks.find((item) => item.id === task.id);
@@ -2747,7 +2807,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         prev.xp !== row.xp ||
         prev.difficulty !== row.difficulty ||
         prev.description !== row.description ||
-        prev.definitionId !== row.definitionId
+        prev.definitionId !== row.definitionId ||
+        Boolean(prev.proofRequired) !== Boolean(row.proofRequired)
       );
     });
 
@@ -3334,8 +3395,17 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         }
       })();
     };
-    const id = setInterval(tickExpiry, 30_000);
-    return () => clearInterval(id);
+    // Tighter while the app is open; slow down in background to save battery.
+    let id = setInterval(tickExpiry, AppState.currentState === 'active' ? 10_000 : 30_000);
+    const sub = AppState.addEventListener('change', (state) => {
+      clearInterval(id);
+      id = setInterval(tickExpiry, state === 'active' ? 10_000 : 30_000);
+      if (state === 'active') tickExpiry();
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -3812,12 +3882,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const awardDailyStreak = async () => {
     if (!currentMember || !household.id) return null;
     if (!isMemberFullyConnected(currentMember)) return null;
-    // Gate on the same today filter as Home counters.
+    // House Rules: only daily / weekday jobs feed the streak (Rev D §1.3.e).
+    const { countsTowardDailyStreak } = await import('@/lib/scoring/counts-toward-daily-streak');
     const mineToday = household.tasks.filter(
       (task) =>
         isTodayTask(task, new Date(), household.timezone) &&
-        taskMatchesAssignee(task, currentMember.name)
+        taskMatchesAssignee(task, currentMember.name) &&
+        countsTowardDailyStreak(task)
     );
+    // Neutral day (no qualifying work) — preserve, don't award.
     if (mineToday.length === 0 || mineToday.some((task) => task.status !== 'Completed')) {
       return null;
     }
@@ -4321,6 +4394,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdAt: row.createdAt,
       mergeKey: typeof row.data?.mergeKey === 'string' ? row.data.mergeKey : undefined,
       isRead: row.isRead,
+      subjectId:
+        (typeof row.data?.taskId === 'string' && row.data.taskId) ||
+        (typeof row.data?.rewardId === 'string' && row.data.rewardId) ||
+        undefined,
+      memberId: typeof row.data?.memberId === 'string' ? row.data.memberId : undefined,
     }));
     const insightAlreadyToday = notificationsRef.current.some((row) => {
       if (row.data?.urgency !== 'insight') return false;
@@ -4387,8 +4465,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     if (lane === 'interrupt') {
       await flushGlanceFacts();
-      const [decision] = coalesceFacts([fact], { now: Date.now() });
-      if (!decision) return null;
+      const existing = notificationsRef.current.map((row) => ({
+        kind: typeof row.data?.kind === 'string' ? row.data.kind : undefined,
+        urgency: typeof row.data?.urgency === 'string' ? row.data.urgency : undefined,
+        createdAt: row.createdAt,
+        mergeKey: typeof row.data?.mergeKey === 'string' ? row.data.mergeKey : undefined,
+        isRead: row.isRead,
+        subjectId:
+          (typeof row.data?.taskId === 'string' && row.data.taskId) ||
+          (typeof row.data?.rewardId === 'string' && row.data.rewardId) ||
+          undefined,
+        memberId: typeof row.data?.memberId === 'string' ? row.data.memberId : undefined,
+      }));
+      const [decision] = coalesceFacts([fact], { now: Date.now(), existing });
+      if (!decision || decision.decision === 'drop' || decision.decision === 'activity_only') {
+        return null;
+      }
       const item = await persistInboxRow(decision, named);
       if (item) maybeRewriteWithLuna(item, [fact], decision);
       return item;

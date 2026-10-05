@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, RefreshControl, StyleSheet, View, type ScrollView } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
-import { Moji } from '@/components/orbit/moji/moji';
 import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { GettingStartedCard } from '@/components/orbit/tour/getting-started-card';
@@ -34,7 +33,6 @@ import {
   resolveHomeHealthRole,
 } from '@/lib/home-health-metrics';
 import {
-  findSharedDeviceForMember,
   isSharedDeviceAccount,
   isSharedDeviceRole,
 } from '@/lib/household/shared-device';
@@ -45,6 +43,7 @@ import {
 } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
+import { useHomeLiveRefresh } from '@/lib/refresh/use-home-live-refresh';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
@@ -73,6 +72,7 @@ export default function HomeScreen() {
   } = useOrbit();
   const tour = useTourControls();
   const { refreshing, onRefresh } = useHouseholdRefresh();
+  useHomeLiveRefresh();
   const majordomoName = useMajordomoName();
   const { c, glass } = useOrbitColors();
   const scrollRef = useRef<ScrollView>(null);
@@ -110,7 +110,6 @@ export default function HomeScreen() {
       ),
     [household.tasks]
   );
-  const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const healthRole = resolveHomeHealthRole(currentMember, {
@@ -312,26 +311,6 @@ export default function HomeScreen() {
               scrollY={scrollY}
               size="compact"
             />
-            {sharedDevice ? (
-              <TourTarget id="home.switchProfile">
-              <Pressable
-                onPress={() => {
-                  void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-                    markNeedsProfilePick().then(() => router.push('/select-profile' as never))
-                  );
-                }}
-                style={[
-                  styles.deviceSwitchChip,
-                  { backgroundColor: `${accentTheme.primary}22`, borderColor: `${accentTheme.primary}66` },
-                ]}>
-                {sharedDevice.avatar ? <Text style={styles.deviceSwitchEmoji}>{sharedDevice.avatar}</Text> : <Moji name="phone" size={16} />}
-                <Text style={[typography.caption1, { color: accentTheme.primary }]}>
-                  Switch · {firstName}
-                </Text>
-                <MaterialIcons name="expand-more" size={16} color={accentTheme.primary} />
-              </Pressable>
-              </TourTarget>
-            ) : null}
           </View>
           <Pressable
             onPress={() => router.push('/settings' as never)}
@@ -481,6 +460,7 @@ export default function HomeScreen() {
             members={household.members}
             currentMember={currentMember}
             accentTheme={accentTheme}
+            timeZone={household.timezone}
             canFocusMembers={permissions.canManageHousehold}
             mineOnly={sharedKidMode}
             streak={currentMember?.streak ?? 0}
@@ -778,18 +758,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  deviceSwitchChip: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: radius.full,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: space.xs,
-    marginTop: space.xs,
-    paddingHorizontal: space.sm,
-    paddingVertical: space.xs,
-  },
-  deviceSwitchEmoji: { fontSize: 16 },
   fullBleed: { alignSelf: 'stretch', width: '100%' },
   todaySection: {
     alignSelf: 'stretch',

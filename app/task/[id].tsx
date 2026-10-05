@@ -11,8 +11,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   View,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MemberGlyph } from '@/components/orbit/member-glyph';
@@ -22,6 +24,9 @@ import {
   TaskProofReplySheet,
   TaskProofRequestSheet,
 } from '@/components/orbit/task-proof-sheets';
+import Icon from '@/components/orbit/design/Icon';
+import type { IconName } from '@/components/orbit/design/icons';
+import { Moji } from '@/components/orbit/moji/moji';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { VOCAB } from '@/constants/vocabulary';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
@@ -44,6 +49,11 @@ import { canFinishTask, taskStateView } from '@/lib/tasks/task-state';
 import { displayDueLabel } from '@/lib/tasks/due-label';
 import { TASK_REPEAT_CHOICES } from '@/lib/tasks/series-edit';
 import { categoryDisplayLabel } from '@/lib/tasks/task-library';
+import {
+  EDIT_CATEGORY_CHIPS,
+  editCategoryChip,
+  resolveSavedCategory,
+} from '@/lib/tasks/edit-category';
 import { isLocalProofUri } from '@/lib/tasks/proof-uri';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
@@ -51,8 +61,28 @@ import type { HouseholdTask } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 
-const categories = ['Cleaning', 'Kitchen', 'Laundry', 'School', 'Homework', 'Groceries', 'Pets', 'Maintenance', 'General'];
+const categories = [...EDIT_CATEGORY_CHIPS];
 const repeats: HouseholdTask['repeat'][] = TASK_REPEAT_CHOICES;
+
+/** Soft chapter colours for edit chips — House Rules energy, same category icons. */
+const CATEGORY_LOOK: Record<string, { color: string; icon: IconName }> = {
+  Cleaning: { color: '#17B9A0', icon: 'floors' },
+  Kitchen: { color: '#FF9F1C', icon: 'kitchen' },
+  Laundry: { color: '#4FA3FF', icon: 'laundry' },
+  School: { color: '#8E7CFF', icon: 'homework' },
+  Homework: { color: '#8E7CFF', icon: 'homework' },
+  Groceries: { color: '#7FC24A', icon: 'groceries' },
+  Pets: { color: '#FF6A3D', icon: 'pets' },
+  Maintenance: { color: '#E9B44C', icon: 'maintenance' },
+  General: { color: '#38BDF8', icon: 'dailyRoutine' },
+};
+
+const PROOF_COLOR = '#4FA3FF';
+const DIFFICULTY_LOOK: Record<string, string> = {
+  easy: '#7FC24A',
+  medium: '#FF9F1C',
+  hard: '#FF6A3D',
+};
 
 function repeatLabel(repeat: HouseholdTask['repeat']) {
   return repeat === 'None' ? 'Doesn’t repeat' : repeat;
@@ -123,10 +153,12 @@ export default function TaskDetailScreen() {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
-  const [category, setCategory] = useState(task?.category ?? categories[0]);
+  /** Chip label (Kitchen), not raw domain id (kitchen_dining). */
+  const [category, setCategory] = useState(editCategoryChip(task?.category ?? categories[0]));
   const [due, setDue] = useState(task?.due ?? '');
   const [xp, setXp] = useState(String(task?.xp ?? 15));
   const [difficulty, setDifficulty] = useState<HouseholdTask['difficulty']>(task?.difficulty ?? 'medium');
+  const [proofRequired, setProofRequired] = useState(Boolean(task?.proofRequired));
   const [busy, setBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
   const [reminderBusy, setReminderBusy] = useState(false);
@@ -188,7 +220,11 @@ export default function TaskDetailScreen() {
   const canAskForPhoto =
     v2Permissions.canRequestProof &&
     canAdminRequestTaskProof(task, assigneeMember ?? null);
-  const canEdit = permissions.canCreateTask || permissions.canAssignTask;
+  // Match updateTask gates so Save never looks successful when the store no-ops.
+  const canEdit =
+    v2Permissions.canAssignOrEditTask ||
+    permissions.canAssignTask ||
+    permissions.canCreateTask;
   const needsProof = Boolean(task.proofRequired);
   const myProofStatus = split ? myShare?.proofStatus : task.proofStatus;
   const proofReady = myProofStatus === 'submitted' || myProofStatus === 'approved';
@@ -361,10 +397,11 @@ export default function TaskDetailScreen() {
         ...task,
         title: title.trim() || task.title,
         description,
-        category,
+        category: resolveSavedCategory(category, task.category),
         due,
         xp: Number(xp) || task.xp,
         difficulty,
+        proofRequired,
       });
       setEditing(false);
     } catch {
@@ -372,6 +409,28 @@ export default function TaskDetailScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const beginEditing = () => {
+    setTitle(task.title);
+    setDescription(task.description ?? '');
+    setCategory(editCategoryChip(task.category));
+    setDue(task.due);
+    setXp(String(task.xp));
+    setDifficulty(task.difficulty ?? 'medium');
+    setProofRequired(Boolean(task.proofRequired));
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setTitle(task.title);
+    setDescription(task.description ?? '');
+    setCategory(editCategoryChip(task.category));
+    setDue(task.due);
+    setXp(String(task.xp));
+    setDifficulty(task.difficulty ?? 'medium');
+    setProofRequired(Boolean(task.proofRequired));
+    setEditing(false);
   };
 
   const applyRepeat = async (next: HouseholdTask['repeat']) => {
@@ -467,7 +526,7 @@ export default function TaskDetailScreen() {
           </Text>
         </View>
         {canEdit && !editing ? (
-          <Pressable onPress={() => setEditing(true)} style={[styles.iconBtn, { backgroundColor: glass(0.06) }]} hitSlop={8}>
+          <Pressable onPress={beginEditing} style={[styles.iconBtn, { backgroundColor: glass(0.06) }]} hitSlop={8}>
             <MaterialIcons name="edit" size={16} color={accentTheme.primary} />
           </Pressable>
         ) : (
@@ -583,58 +642,175 @@ export default function TaskDetailScreen() {
         ) : null}
 
         {editing ? (
-          <View style={[styles.card, { borderColor: glassBorder(0.08), backgroundColor: glass(0.05) }]}>
-            <Text style={[styles.label, { color: c.textMuted }]}>Title</Text>
-            <TextInput value={title} onChangeText={setTitle} style={[styles.input, { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]} placeholderTextColor={c.textSubtle} />
-            <Text style={[styles.label, { color: c.textMuted }]}>Description</Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              style={[styles.input, styles.multiline, { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]}
-              multiline
-              placeholderTextColor={c.textSubtle}
-            />
-            <Text style={[styles.label, { color: c.textMuted }]}>Category</Text>
-            <View style={styles.chipWrap}>
-              {categories.map((item) => {
-                const active = category === item;
-                return (
-                  <Pressable
-                    key={item}
-                    onPress={() => setCategory(item)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Text style={[styles.label, { color: c.textMuted }]}>Due</Text>
-            <TextInput value={due} onChangeText={setDue} style={[styles.input, { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]} placeholderTextColor={c.textSubtle} />
-            <Text style={[styles.label, { color: c.textMuted }]}>XP · slide the wheel</Text>
-            <View style={[styles.xpWheelCard, { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) }]}>
-              <XpWheel
-                value={Number(xp) || 15}
-                onChange={(next) => setXp(String(next))}
-                accent={accentTheme.primary}
+          <Animated.View entering={FadeInDown.duration(280)}>
+            <View
+              style={[
+                styles.editCard,
+                { borderColor: `${(CATEGORY_LOOK[category]?.color ?? accentTheme.primary)}55`, backgroundColor: glass(0.05) },
+              ]}>
+              <View
+                style={[
+                  styles.editStripe,
+                  { backgroundColor: CATEGORY_LOOK[category]?.color ?? accentTheme.primary },
+                ]}
               />
+              <View style={styles.editHero}>
+                <View
+                  style={[
+                    styles.editBadge,
+                    {
+                      backgroundColor: `${CATEGORY_LOOK[category]?.color ?? accentTheme.primary}22`,
+                    },
+                  ]}>
+                  <Icon
+                    name={CATEGORY_LOOK[category]?.icon ?? 'maintenance'}
+                    size={26}
+                  />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.editHeroKicker, { color: c.textMuted }]}>Editing</Text>
+                  <Text style={[styles.editHeroTitle, { color: c.text }]} numberOfLines={1}>
+                    {title.trim() || 'Untitled task'}
+                  </Text>
+                </View>
+                <Moji name="clipboard" size={22} />
+              </View>
+
+              <Text style={[styles.label, { color: c.textMuted }]}>Title</Text>
+              <TextInput
+                value={title}
+                onChangeText={setTitle}
+                style={[
+                  styles.input,
+                  styles.editInput,
+                  { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) },
+                ]}
+                placeholderTextColor={c.textSubtle}
+              />
+              <Text style={[styles.label, { color: c.textMuted }]}>Description</Text>
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                style={[
+                  styles.input,
+                  styles.multiline,
+                  styles.editInput,
+                  { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) },
+                ]}
+                multiline
+                placeholderTextColor={c.textSubtle}
+              />
+              <Text style={[styles.label, { color: c.textMuted }]}>Category</Text>
+              <View style={styles.chipWrap}>
+                {categories.map((item) => {
+                  const active = category === item;
+                  const look = CATEGORY_LOOK[item] ?? { color: accentTheme.primary, icon: 'maintenance' as IconName };
+                  return (
+                    <Pressable
+                      key={item}
+                      onPress={() => setCategory(item)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      style={[
+                        styles.choiceChip,
+                        styles.categoryChip,
+                        {
+                          borderColor: active ? look.color : glassBorder(0.12),
+                          backgroundColor: active ? `${look.color}22` : glass(0.03),
+                        },
+                      ]}>
+                      <Icon name={look.icon} size={16} />
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          { color: active ? look.color : c.textMuted },
+                        ]}>
+                        {item}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={[styles.label, { color: c.textMuted }]}>Due</Text>
+              <TextInput
+                value={due}
+                onChangeText={setDue}
+                style={[
+                  styles.input,
+                  styles.editInput,
+                  { color: c.text, backgroundColor: glass(0.04), borderColor: glassBorder(0.1) },
+                ]}
+                placeholderTextColor={c.textSubtle}
+              />
+              <Text style={[styles.label, { color: c.textMuted }]}>XP · slide the wheel</Text>
+              <View
+                style={[
+                  styles.xpWheelCard,
+                  {
+                    backgroundColor: `${accentTheme.primary}12`,
+                    borderColor: `${accentTheme.primary}44`,
+                  },
+                ]}>
+                <XpWheel
+                  value={Number(xp) || 15}
+                  onChange={(next) => setXp(String(next))}
+                  accent={accentTheme.primary}
+                />
+              </View>
+              <Text style={[styles.label, { color: c.textMuted }]}>Difficulty</Text>
+              <View style={styles.chipWrap}>
+                {difficulties.map((item) => {
+                  const active = difficulty === item;
+                  const color = DIFFICULTY_LOOK[item] ?? accentTheme.primary;
+                  return (
+                    <Pressable
+                      key={item}
+                      onPress={() => setDifficulty(item)}
+                      style={[
+                        styles.choiceChip,
+                        {
+                          borderColor: active ? color : glassBorder(0.12),
+                          backgroundColor: active ? `${color}22` : glass(0.03),
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          { color: active ? color : c.textMuted, textTransform: 'capitalize' },
+                        ]}>
+                        {item}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View
+                style={[
+                  styles.proofToggleCard,
+                  {
+                    backgroundColor: proofRequired ? `${PROOF_COLOR}18` : glass(0.04),
+                    borderColor: proofRequired ? `${PROOF_COLOR}66` : glassBorder(0.1),
+                  },
+                ]}>
+                <View style={[styles.proofToggleIcon, { backgroundColor: `${PROOF_COLOR}28` }]}>
+                  <MaterialIcons name="photo-camera" size={20} color={PROOF_COLOR} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.proofToggleTitle, { color: c.text }]}>Request proof</Text>
+                  <Text style={[typography.footnote, { color: c.textSoft }]}>
+                    Sidekick adds a photo when they mark this done
+                  </Text>
+                </View>
+                <Switch
+                  value={proofRequired}
+                  onValueChange={setProofRequired}
+                  trackColor={{ false: glassBorder(0.14), true: PROOF_COLOR }}
+                  accessibilityLabel="Request proof photo"
+                />
+              </View>
             </View>
-            <Text style={[styles.label, { color: c.textMuted }]}>Difficulty</Text>
-            <View style={styles.chipWrap}>
-              {difficulties.map((item) => {
-                const active = difficulty === item;
-                return (
-                  <Pressable
-                    key={item}
-                    onPress={() => setDifficulty(item)}
-                    style={[styles.choiceChip, { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) }, active && { borderColor: accentTheme.primary, backgroundColor: `${accentTheme.primary}22` }]}>
-                    <Text style={[styles.choiceText, { color: c.textMuted }, active && { color: accentTheme.primary }]}>{item}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          </Animated.View>
         ) : (
           <View style={[styles.card, { borderColor: glassBorder(0.08), backgroundColor: glass(0.05) }]}>
             <View style={styles.detailRow}>
@@ -897,7 +1073,7 @@ export default function TaskDetailScreen() {
               label="Save changes"
               onPress={() => void handleSave()}
             />
-            <DetailAction disabled={busy} label="Cancel" onPress={() => setEditing(false)} />
+            <DetailAction disabled={busy} label="Cancel" onPress={cancelEditing} />
           </View>
         ) : (
           <View style={styles.actionStack}>
@@ -1287,6 +1463,76 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 8,
     paddingVertical: 8,
+  },
+  editCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 10,
+    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingLeft: 18,
+    paddingVertical: 14,
+  },
+  editStripe: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    top: 0,
+    width: 4,
+  },
+  editHero: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 4,
+  },
+  editBadge: {
+    alignItems: 'center',
+    borderRadius: 13,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  editHeroKicker: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  editHeroTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  editInput: {
+    borderRadius: 14,
+  },
+  categoryChip: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  proofToggleCard: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  proofToggleIcon: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  proofToggleTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   handle: {
     alignSelf: 'center',

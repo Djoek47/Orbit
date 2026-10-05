@@ -1,31 +1,28 @@
-# How it works — recorded voices
+# How it works — GPT conversational voices
 
-The demo on **Poppins → How it works** reads its lines aloud. By default it uses the iPhone's
-own speech, which is free and offline but sounds robotic.
+The demo on **Poppins → How it works** plays a saved conversation: you ask, Poppins answers.
+It must **never** use the iPhone’s Speech reader (that sounded French / robotic).
 
-Drop real recordings here and the player uses them instead, with no code change.
+**Shipped:** 18 gpt-4o-mini-tts clips (Rose=`coral`, Poppins=`sage`) are committed here and wired in
+`lib/poppins/how-it-works-audio.ts`. Re-bake only when the script lines change.
 
-## What to add
+## Bake the audio (once)
 
-One file per beat, named after the beat's id in `lib/poppins/how-it-works-script.ts`:
-
-```
-assets/how-it-works/chore-1.m4a
-assets/how-it-works/chore-2.m4a
-…
+```bash
+OPENAI_API_KEY=sk-... node scripts/generate-how-it-works-audio.mjs
 ```
 
-Then list them in `lib/poppins/how-it-works-audio.ts` — the file says exactly where. Metro only
-bundles assets that something `require`s, so the list is the wiring.
+That calls OpenAI **gpt-4o-mini-tts** with conversational instructions (ChatGPT Advanced Voice
+style), writes `assets/how-it-works/<beat-id>.m4a`, and wires `lib/poppins/how-it-works-audio.ts`.
 
-## Making them
+Voices (override with env):
 
-Any good text-to-speech will do (ElevenLabs, OpenAI `tts-1-hd`, Play.ht). Two voices:
+- Rose / You → `coral` (`OPENAI_TTS_ROSE`)
+- Indigo / Poppins → `sage` (`OPENAI_TTS_INDIGO`)
 
-- **Rose** — asking, warmer and a little higher.
-- **Indigo** — doing, calmer and a little lower.
+Then commit the `.m4a` files + the updated audio module.
 
-The lines are the `line` field of each beat in `how-it-works-script.ts`. Keep the ids identical.
-m4a (AAC) or mp3, mono, 44.1 kHz. Aim under 150 KB a line so the app stays small.
+## Or drop your own takes
 
-Nothing here is required: with no files, the demo falls back to the phone's own voice.
+One file per spoken beat id in `lib/poppins/how-it-works-script.ts`, then list them in
+`lib/poppins/how-it-works-audio.ts` the same way the generator does. m4a (AAC) mono 44.1 kHz.

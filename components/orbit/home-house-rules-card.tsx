@@ -10,6 +10,7 @@ import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { resolveHouseRulesPalette } from '@/lib/rules/house-rules-palette';
 import { houseRulesHouseholdView } from '@/lib/rules/household-view';
 import { formatHouseRulesTime, interpolateHouseRulesCopy, resolvedDailyDeadline } from '@/lib/rules/interpolate';
+import { liveStreakDotsModel } from '@/lib/streaks/live-streak-dots';
 import { visibleRules } from '@/lib/rules/visible-rules';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember, HouseholdSnapshot } from '@/types/orbit';
@@ -31,6 +32,10 @@ export function HomeHouseRulesCard({ household, currentMember, accentColor, onPr
   const deadlineHm = resolvedDailyDeadline(doc.constants, view);
   const deadlineLabel = formatHouseRulesTime(deadlineHm, view.use24h);
   const streak = currentMember?.streak ?? 0;
+  const liveDots = liveStreakDotsModel({
+    streakDays: streak,
+    consecutiveMissesToEnd: doc.constants.streak.consecutiveMissesToEnd,
+  });
   const teaserRule =
     groups.find((g) => g.chapter.key === 'deadlines')?.rules[0] ??
     groups[0]?.rules[0] ??
@@ -81,9 +86,14 @@ export function HomeHouseRulesCard({ household, currentMember, accentColor, onPr
         </View>
 
         <View style={styles.visualRow}>
-          <StreakDots constants={doc.constants} palette={palette} voice="sidekick" />
+          <StreakDots
+            constants={doc.constants}
+            palette={palette}
+            voice="sidekick"
+            liveStreakDays={streak}
+          />
           <Text style={[typography.caption2, { color: c.textSubtle, flex: 1 }]}>
-            Tap to open the full guide
+            {liveDots.caption}
           </Text>
         </View>
       </LinearGradient>

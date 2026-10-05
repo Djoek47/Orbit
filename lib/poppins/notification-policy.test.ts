@@ -53,6 +53,34 @@ function fact(partial: Partial<HouseholdFact> & Pick<HouseholdFact, 'id' | 'kind
 {
   const facts: HouseholdFact[] = [
     fact({
+      id: 'assign-again',
+      kind: 'task_assigned',
+      title: 'Take out the garbage',
+      memberId: 'emma',
+      memberName: 'Emma',
+      extra: { taskId: 'task-garbage' },
+    }),
+  ];
+  const out = coalesceFacts(facts, {
+    now: 5_000,
+    existing: [
+      {
+        kind: 'task_assigned',
+        createdAt: new Date(4_000).toISOString(),
+        isRead: false,
+        subjectId: 'task-garbage',
+        memberId: 'emma',
+      },
+    ],
+  });
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.decision, 'activity_only', 'duplicate task_assigned stays in activity, not inbox');
+  pass('interrupt dedupe: same task_assigned dropped to activity_only');
+}
+
+{
+  const facts: HouseholdFact[] = [
+    fact({
       id: 'f1',
       kind: 'task_completed',
       title: 'Load the dishwasher',

@@ -24,6 +24,17 @@ export type CreditLedgerRow = {
   at: string;
 };
 
+/** Friendly ledger label for a stored pack key (`small` / `medium` / …). */
+export function creditPackLabel(pack: string, tokens: number): string {
+  const key = pack.trim().toLowerCase();
+  if (key === 'small' || key === 'tokenssmall') return '200 actions';
+  if (key === 'medium' || key === 'tokensmedium') return '600 actions';
+  if (key === 'large' || key === 'tokenslarge') return '1500 actions';
+  if (/\d+\s*actions?/i.test(pack)) return pack;
+  if (tokens > 0) return `${tokens} actions`;
+  return pack || 'Top-up';
+}
+
 export type CreditSummary = {
   /** Bought and still unspent. Carries over — this never resets. */
   balance: number;
@@ -50,7 +61,7 @@ export function summarizeCredits(
     .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt))
     .map((grant) => ({
       id: grant.id,
-      pack: grant.pack,
+      pack: creditPackLabel(grant.pack, grant.tokens),
       granted: grant.tokens,
       spent: Math.min(grant.tokens, Math.max(0, grant.consumed)),
       left: remaining(grant),

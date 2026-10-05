@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -11,35 +11,68 @@ import {
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
+type Kick = {
+  memberId: string;
+  memberName: string;
+  startedAt: number;
+  secondsLeft: number;
+};
+
 /**
  * Full-screen grace period after an admin removes this Sidekick / shared profile.
  * Counts down, then the store finishes the kick (sessions wiped, back to Get Started).
+ *
+ * Keeps the Modal mounted through the fade-out so iOS does not freeze when the
+ * follow-on sign-out dismisses Settings / tabs.
  */
 export function MemberRemovedCountdown() {
   const orbit = useOrbitOptional();
   const { c, isDark } = useOrbitColors();
   const kick = orbit?.memberRemovalKick ?? null;
   const [left, setLeft] = useState(MEMBER_REMOVAL_GRACE_SECONDS);
+  const [displayKick, setDisplayKick] = useState<Kick | null>(null);
+  const [visible, setVisible] = useState(false);
+  const leaveStartedRef = useRef(false);
 
   useEffect(() => {
-    if (!kick) {
-      setLeft(MEMBER_REMOVAL_GRACE_SECONDS);
-      return;
+    if (kick) {
+      setDisplayKick(kick);
+      setVisible(true);
+      leaveStartedRef.current = false;
+      setLeft(kick.secondsLeft);
+      const id = setInterval(() => {
+        setLeft((n) => Math.max(0, n - 1));
+      }, 1000);
+      return () => clearInterval(id);
     }
-    setLeft(kick.secondsLeft);
-    const id = setInterval(() => {
-      setLeft((n) => Math.max(0, n - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [kick?.memberId, kick?.startedAt]);
+    // Store cleared the kick (timer) — fade out, keep card mounted until onDismiss.
+    setVisible(false);
+    return undefined;
+  }, [kick?.memberId, kick?.startedAt, kick]);
 
-  if (!kick || !orbit) return null;
+  if (!displayKick || !orbit) return null;
 
-  const copy = removalKickCopy(kick.memberName);
+  const copy = removalKickCopy(displayKick.memberName);
   const primary = orbit.accentTheme.primary;
 
+  const requestLeave = () => {
+    if (leaveStartedRef.current) return;
+    leaveStartedRef.current = true;
+    setVisible(false);
+    void orbit.finishMemberRemovalKick();
+  };
+
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      presentationStyle="overFullScreen"
+      onRequestClose={requestLeave}
+      onDismiss={() => {
+        if (!kick) setDisplayKick(null);
+      }}>
       <View style={styles.backdrop}>
         <View
           style={[
@@ -62,7 +95,7 @@ export function MemberRemovedCountdown() {
             {copy.countdownLabel(left)}
           </Text>
           <Pressable
-            onPress={() => void orbit.finishMemberRemovalKick()}
+            onPress={requestLeave}
             style={[styles.btn, { backgroundColor: primary }]}
             accessibilityRole="button"
             accessibilityLabel={copy.leaveLabel}>

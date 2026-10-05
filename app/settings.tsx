@@ -22,7 +22,6 @@ import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet'
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
 import { PoppinsSettingsPanel } from '@/components/orbit/poppins/poppins-settings-panel';
-import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { speakAs } from '@/lib/ai/majordomo-name';
 import {
   getMajordomoProfile,
@@ -42,7 +41,7 @@ import {
   savePoppinsInteractionPrefs,
   type PoppinsInteractionPrefs,
 } from '@/lib/poppins/poppins-prefs';
-import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
+import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
 import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
@@ -148,7 +147,6 @@ export default function SettingsScreen() {
     preferredMapsApp,
     signOut,
     setMemberJoinPreApproved,
-    switchPersona,
     updateAppearanceMode,
     updateHouseholdAccentTheme,
     updateHouseholdRewardSettings,
@@ -255,7 +253,6 @@ export default function SettingsScreen() {
   const [displayNameInput, setDisplayNameInput] = useState(
     currentMember?.name ?? currentUser?.name ?? ''
   );
-  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
   const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
   const [inviteTarget, setInviteTarget] = useState<
@@ -454,6 +451,24 @@ export default function SettingsScreen() {
     router.push('/delete-account' as never);
   };
 
+  const [signingOut, setSigningOut] = useState(false);
+
+  const confirmAdminSignOut = () => {
+    if (signingOut || isSignOutInFlight()) return;
+    orbitAlert('Sign out?', 'You’ll return to Get Started. Your household stays saved on this account.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: () => {
+          if (signingOut || isSignOutInFlight()) return;
+          setSigningOut(true);
+          void signOutAndLeave(signOut).finally(() => setSigningOut(false));
+        },
+      },
+    ]);
+  };
+
   const personalizeMember = useMemo(
     () => household.members.find((member) => member.id === personalizeMemberId) ?? null,
     [household.members, personalizeMemberId]
@@ -622,7 +637,7 @@ export default function SettingsScreen() {
                       iconColor="#FAC775"
                       label={VOCAB.houseRules}
                       subtitle="Six chapters"
-                      onPress={() => router.replace('/house-rules' as never)}
+                      onPress={() => router.navigate('/house-rules' as never)}
                     />
                   </TourTarget>
                   <SettingsNavRow
@@ -660,7 +675,7 @@ export default function SettingsScreen() {
                   iconColor="#FAC775"
                   label={VOCAB.houseRules}
                   last
-                  onPress={() => router.replace('/house-rules' as never)}
+                  onPress={() => router.navigate('/house-rules' as never)}
                 />
               )}
             </SettingsGroup>
@@ -802,18 +817,17 @@ export default function SettingsScreen() {
             </SettingsGroup>
 
             <Pressable
-              style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
-              onPress={async () => {
-                try {
-                  await signOut();
-                } catch (error) {
-                  console.warn('settings.signOut', error);
-                } finally {
-                  resetToGetStarted();
-                }
-              }}>
+              style={[
+                styles.accountBtn,
+                { backgroundColor: glass(0.06), opacity: signingOut ? 0.6 : 1 },
+              ]}
+              disabled={signingOut}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+              accessibilityState={{ busy: signingOut, disabled: signingOut }}
+              onPress={confirmAdminSignOut}>
               <Text style={[styles.accountBtnText, { color: orbitPalette.text, textAlign: 'center' }]}>
-                Sign Out
+                {signingOut ? 'Signing out…' : 'Sign Out'}
               </Text>
             </Pressable>
             <Pressable onPress={handleDelete}>
@@ -1156,7 +1170,11 @@ export default function SettingsScreen() {
             onAddMember={() => setAddMemberOpen(true)}
             onShareInvite={openMemberInvite}
             onPersonalize={setPersonalizeMemberId}
-            onOpenPersonaSwitch={() => setPersonaSwitchOpen(true)}
+            onOpenPersonaSwitch={() => {
+              void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+                markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+              );
+            }}
           />
           {currentMember?.role === 'owner' ? (
             <Pressable
@@ -1281,13 +1299,6 @@ export default function SettingsScreen() {
       </KeyboardScreen>
     </View>
 
-    <PersonaSwitchPopup
-      visible={personaSwitchOpen}
-      onClose={() => setPersonaSwitchOpen(false)}
-      members={household.members}
-      currentMemberId={currentMember?.id ?? ''}
-      onSwitch={switchPersona}
-    />
     <PersonalizeLookSheet
       visible={Boolean(personalizeMember)}
       memberName={personalizeMember?.name ?? 'you'}

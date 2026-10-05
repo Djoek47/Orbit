@@ -18,6 +18,11 @@ export type LibraryAssignOptions = {
   dueAt?: string;
   homeworkSubject?: string;
   assigneeMember?: HouseholdMember | null;
+  /**
+   * Admin opt-in from Assign: require a photo when the Sidekick completes.
+   * When unset, homework still follows the child’s homework-proof default; chores stay false.
+   */
+  proofRequired?: boolean;
 };
 
 /**
@@ -57,6 +62,11 @@ export function buildLibraryAssignInput(
   const dueLabel = options.dueLabel ?? resolved.dueLabel;
   const homeworkSubject = options.homeworkSubject?.trim() || undefined;
   const isHomework = task.domainId === 'homework_education';
+  const defaultProof = isHomework
+    ? proofRequiredForHomeworkAssign(task.domainId, options.assigneeMember ?? null)
+    : false;
+  const proofRequired =
+    typeof options.proofRequired === 'boolean' ? options.proofRequired : defaultProof;
 
   return {
     title: task.name,
@@ -71,9 +81,7 @@ export function buildLibraryAssignInput(
     repeat: mapLibraryRepeat(frequency),
     difficulty: 'medium',
     weight: 1,
-    proofRequired: isHomework
-      ? proofRequiredForHomeworkAssign(task.domainId, options.assigneeMember ?? null)
-      : false,
+    proofRequired,
     homeworkSubject,
     description: isHomework ? formatHomeworkDescription(homeworkSubject) : undefined,
     definitionId: libraryDefinitionId(task.id, assigneeName),

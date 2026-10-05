@@ -193,6 +193,7 @@ export default function AssignTaskScreen() {
   const [domainSheet, setDomainSheet] = useState<TaskDomain | null>(null);
   const [selected, setSelected] = useState<Selected[]>([]);
   const [busy, setBusy] = useState(false);
+  const [requireProof, setRequireProof] = useState(false);
   const [freqPickerTaskId, setFreqPickerTaskId] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [tourSeeded, setTourSeeded] = useState(false);
@@ -280,6 +281,8 @@ export default function AssignTaskScreen() {
             dueTimeLocal: householdDueTimeLocal(household),
             timezone: household.timezone,
             assigneeMember: assignee,
+            // Opt-in from the side proof button; homework still defaults on when unset.
+            ...(requireProof ? { proofRequired: true } : {}),
           })
         );
         if (task) created += 1;
@@ -293,6 +296,14 @@ export default function AssignTaskScreen() {
             : 'Try again.'
         );
         return;
+      }
+      if (failed.length > 0) {
+        orbitAlert(
+          'Partly assigned',
+          `Saved ${created}. Could not save ${failed.slice(0, 3).join(', ')}${
+            failed.length > 3 ? '…' : ''
+          }.`
+        );
       }
       router.back();
     } catch (error) {
@@ -376,6 +387,10 @@ export default function AssignTaskScreen() {
         : selected.length === 1
           ? `Assign to ${assignee.name}`
           : `Assign ${selected.length} to ${assignee.name}`;
+  const ctaWithProof =
+    requireProof && selected.length > 0 && assignee ? `${ctaLabel} · photo` : ctaLabel;
+  const assignReady = selected.length > 0 && Boolean(assignee) && canAssign && !busy;
+  const PROOF_ACCENT = '#4FA3FF';
 
   return (
     <TourTarget id="assign.form" style={{ flex: 1 }}>
@@ -671,28 +686,64 @@ export default function AssignTaskScreen() {
           </View>
         ) : null}
 
-        <Pressable
-          disabled={selected.length === 0 || busy || !canAssign || !assignee}
-          onPress={() => void assign()}
-          style={[
-            styles.assignBtn,
-            {
-              backgroundColor:
-                selected.length === 0 || !assignee ? glass(0.08) : accentTheme.primary,
-              opacity: busy ? 0.65 : 1,
-            },
-          ]}>
-          <Text
+        <View style={styles.assignRow}>
+          <Pressable
+            disabled={!assignReady}
+            onPress={() => void assign()}
+            accessibilityRole="button"
+            accessibilityLabel={ctaWithProof}
             style={[
-              typography.headline,
+              styles.assignBtn,
+              styles.assignMain,
               {
-                color: selected.length === 0 || !assignee ? c.textSubtle : c.ink,
-                fontWeight: '700',
+                backgroundColor: !assignReady ? glass(0.08) : accentTheme.primary,
+                opacity: busy ? 0.65 : 1,
               },
             ]}>
-            {ctaLabel}
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                typography.headline,
+                {
+                  color: !assignReady ? c.textSubtle : c.ink,
+                  fontWeight: '700',
+                },
+              ]}
+              numberOfLines={1}>
+              {ctaWithProof}
+            </Text>
+          </Pressable>
+          <Pressable
+            disabled={!canAssign || busy}
+            onPress={() => setRequireProof((on) => !on)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: requireProof }}
+            accessibilityLabel={
+              requireProof ? 'Photo proof on — tap to turn off' : 'Request photo proof when done'
+            }
+            style={[
+              styles.assignBtn,
+              styles.assignProof,
+              {
+                backgroundColor: requireProof ? PROOF_ACCENT : glass(0.08),
+                borderColor: requireProof ? PROOF_ACCENT : glassBorder(0.14),
+                opacity: busy ? 0.65 : 1,
+              },
+            ]}>
+            <MaterialIcons
+              name="photo-camera"
+              size={22}
+              color={requireProof ? c.ink : PROOF_ACCENT}
+            />
+            <Text
+              style={[
+                styles.proofBtnLabel,
+                { color: requireProof ? c.ink : PROOF_ACCENT },
+              ]}
+              numberOfLines={1}>
+              Proof
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
     </TourTarget>
@@ -883,7 +934,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderCurve: 'continuous',
     borderRadius: radius.card,
+    justifyContent: 'center',
     paddingVertical: 16,
+  },
+  assignRow: {
+    alignItems: 'stretch',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  assignMain: {
+    flex: 3,
+  },
+  assignProof: {
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    gap: 2,
+    minWidth: 72,
+    paddingHorizontal: 8,
+  },
+  proofBtnLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   pickerOverlay: {
     ...StyleSheet.absoluteFill,

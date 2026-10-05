@@ -74,7 +74,8 @@ export default function HouseRulesScreen() {
   const groups = useMemo(() => visibleRules(doc, view), [doc, view]);
   const canEdit = isAdminSession && voice === 'admin';
 
-  const openChapter = params.chapter?.trim() as ChapterKey | undefined;
+  const openChapterRaw = typeof params.chapter === 'string' ? params.chapter.trim() : '';
+  const openChapter = (openChapterRaw || undefined) as ChapterKey | undefined;
   const chapterIndex = openChapter
     ? groups.findIndex((g) => (g.chapter.id ?? g.chapter.key) === openChapter)
     : -1;
@@ -110,13 +111,8 @@ export default function HouseRulesScreen() {
       return;
     }
     const route = SETTING_ROUTES[settingKey ?? ''] ?? '/settings';
-    // House rules is itself a sheet. Pushing Settings on top stacks a second sheet over it
-    // (and Settings can open House rules again, which is how you ended up with two).
-    // Swapping the sheet keeps exactly one on screen; Back inside Settings goes to its root.
-    if (route.startsWith('/settings')) {
-      router.replace(route as never);
-      return;
-    }
+    // Push the editor on top of this single House Rules sheet. Back returns here.
+    // Do not replace — that used to leave a second House Rules under Settings.
     router.push(route as never);
   };
 
@@ -161,7 +157,7 @@ export default function HouseRulesScreen() {
     return (
       <SettingsModalChrome
         backLabel="House rules"
-        onBack={() => router.replace('/house-rules' as never)}
+        onBack={() => router.setParams({ chapter: '' })}
         title={chapterLabel(chapter)}>
         <PersistentScrollView
           style={styles.scroll}
@@ -224,7 +220,7 @@ export default function HouseRulesScreen() {
                 <Pressable
                   key={i}
                   onPress={() =>
-                    router.replace(`/house-rules?chapter=${g.chapter.id ?? g.chapter.key}` as never)
+                    router.setParams({ chapter: g.chapter.id ?? g.chapter.key })
                   }
                   style={[
                     styles.navPill,
@@ -303,7 +299,7 @@ export default function HouseRulesScreen() {
                 entering={FadeInDown.delay(140 + index * 40).duration(280)}
                 style={styles.tileWrap}>
                 <Pressable
-                  onPress={() => router.push(`/house-rules?chapter=${id}` as never)}
+                  onPress={() => router.setParams({ chapter: id })}
                   style={({ pressed }) => [
                     styles.tile,
                     {

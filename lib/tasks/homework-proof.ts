@@ -20,8 +20,12 @@ export function needsProofOnComplete(
   task: HouseholdTask,
   assigneeMember: HouseholdMember | null | undefined
 ): boolean {
+  // Per-task flag wins — baked at assign / Edit (homework defaults from member setting).
+  if (typeof task.proofRequired === 'boolean') {
+    return task.proofRequired;
+  }
   if (isHomeworkCategory(task.category, task.title)) {
     return memberHomeworkProofRequired(assigneeMember);
   }
-  return Boolean(task.proofRequired);
+  return false;
 }

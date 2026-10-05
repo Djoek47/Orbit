@@ -37,7 +37,7 @@ export type HouseholdMember = {
   majordomoProfileId?: string;
   /**
    * Revision C §1 — homework photo required up front for this child.
-   * Default true on creation. Chores never pre-set proofRequired.
+   * Default true on creation. Admins can also opt chores into proof from Assign / Edit.
    */
   homeworkProofRequired?: boolean;
   /** ISO date YYYY-MM-DD — member away / on holiday (Poppins skips nudges). */

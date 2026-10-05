@@ -31,12 +31,12 @@ import { GlassCard } from '@/components/orbit/glass-card';
 import { useTabChromePaddingTop } from '@/components/orbit/global-header-chips';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RefreshIconButton } from '@/components/orbit/refresh-icon-button';
-import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { SearchBar } from '@/components/orbit/search-bar';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { StreakMarker } from '@/components/orbit/streak-marker';
+import { WhosOnSwitcher } from '@/components/orbit/whos-on-switcher';
 import { Moji } from '@/components/orbit/moji/moji';
 import { VOCAB } from '@/constants/vocabulary';
 import { orbitColors, orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
@@ -818,7 +818,6 @@ export default function TasksScreen() {
     requestAnotherProof,
     rewardCapabilities,
     submitProofReply,
-    switchPersona,
     v2Permissions,
   } = useOrbit();
   const { refreshing, onRefresh } = useHouseholdRefresh();
@@ -833,7 +832,6 @@ export default function TasksScreen() {
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [focusMember, setFocusMember] = useState<string | null>(null);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
-  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [proofRequestId, setProofRequestId] = useState<string | null>(null);
   const [proofReplyId, setProofReplyId] = useState<string | null>(null);
@@ -908,9 +906,10 @@ export default function TasksScreen() {
       if (statusTab === 'active' && !isActiveTask(task) && !needsSidekickPhotoReply(task)) return false;
       if (statusTab === 'completed' && !isCompletedTask(task)) return false;
       if (statusTab === 'expired' && !isExpiredVisibleInTab(task)) return false;
-      // Shared-tablet accounts only ever see their own tasks (switch account to see the other person).
+      // Shared / Sidekick: default to own tasks; Who's on can view another face without account switch.
       if (sharedKidMode) {
-        if (!taskMatchesAssignee(task, currentMember?.name)) return false;
+        const viewAs = focusMember ?? currentMember?.name;
+        if (!taskMatchesAssignee(task, viewAs)) return false;
         return true;
       }
       if (focusMember && !taskMatchesAssignee(task, focusMember)) {
@@ -962,7 +961,7 @@ export default function TasksScreen() {
       const homework = isHomework(task);
       if (domainTab === 'homework' ? !homework : homework) return false;
       if (sharedKidMode) {
-        return taskMatchesAssignee(task, currentMember?.name);
+        return taskMatchesAssignee(task, focusMember ?? currentMember?.name);
       }
       if (focusMember && !taskMatchesAssignee(task, focusMember)) return false;
       if (filter === 'mine' && !taskMatchesAssignee(task, currentMember?.name)) return false;
@@ -1133,7 +1132,9 @@ export default function TasksScreen() {
           </PageEyebrow>
           <Text style={[typography.title1, { color: orbitPalette.text }]}>
             {sharedKidMode
-              ? 'My tasks'
+              ? focusMember && focusMember !== currentMember?.name
+                ? `${focusMember.split(' ')[0]}'s tasks`
+                : 'My tasks'
               : focusMember
                 ? `${focusMember}'s tasks`
                 : showByMember
@@ -1141,25 +1142,20 @@ export default function TasksScreen() {
                   : "Today's Work"}
           </Text>
           {sharedDevice ? (
-            <Pressable
-              onPress={() => {
-                void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-                  markNeedsProfilePick().then(() => router.push('/select-profile' as never))
-                );
+            <WhosOnSwitcher
+              members={household.members}
+              currentMemberId={currentMember?.id ?? ''}
+              viewingName={focusMember ?? currentMember?.name ?? null}
+              accentColor={accentTheme.primary}
+              onViewMember={(member) => {
+                if (!member || member.id === currentMember?.id) {
+                  clearFocusMember();
+                  return;
+                }
+                setFocusMember(member.name);
+                router.setParams({ member: member.name } as never);
               }}
-              style={[
-                styles.deviceSwitchChip,
-                {
-                  backgroundColor: `${accentTheme.primary}22`,
-                  borderColor: `${accentTheme.primary}66`,
-                },
-              ]}>
-              {sharedDevice.avatar ? <Text style={{ fontSize: 16 }}>{sharedDevice.avatar}</Text> : <Moji name="phone" size={16} />}
-              <Text style={[styles.deviceSwitchText, { color: accentTheme.primary }]}>
-                Who&apos;s on · {currentMember?.name}
-              </Text>
-              <MaterialIcons name="expand-more" size={18} color={accentTheme.primary} />
-            </Pressable>
+            />
           ) : null}
         </View>
         <View style={styles.headerActions}>
@@ -1340,7 +1336,9 @@ export default function TasksScreen() {
                 : domainTab === 'homework' && sharedKidMode
                   ? 'Nothing due right now. Nice work.'
                   : sharedKidMode
-                    ? 'Ask an adult to assign you something — or switch account if it’s someone else’s turn.'
+                    ? focusMember && focusMember !== currentMember?.name
+                      ? `Nothing on ${focusMember}'s list in this view. Use Who's on to pick someone else, or Switch in the tab bar to sign in as them.`
+                      : "Ask an adult to assign you something — or use Who's on to peek at someone else's list."
                     : permissions.canCreateTask
                       ? domainTab === 'homework'
                         ? 'Assign homework so Sidekicks know what to finish.'
@@ -1349,9 +1347,19 @@ export default function TasksScreen() {
             }
           />
           {statusTab === 'expired' ? null : sharedKidMode ? (
-            <Pressable onPress={() => setPersonaSwitchOpen(true)} style={styles.emptyCta}>
-              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>Switch account</Text>
-            </Pressable>
+            sharedDevice ? (
+              <Pressable
+                onPress={() => {
+                  void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+                    markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+                  );
+                }}
+                style={styles.emptyCta}>
+                <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>
+                  Switch who’s signed in
+                </Text>
+              </Pressable>
+            ) : null
           ) : permissions.canCreateTask ? (
             <Pressable
               onPress={() =>
@@ -1542,13 +1550,6 @@ export default function TasksScreen() {
       }}
     />
 
-    <PersonaSwitchPopup
-      visible={personaSwitchOpen}
-      onClose={() => setPersonaSwitchOpen(false)}
-      members={household.members}
-      currentMemberId={currentMember?.id ?? ''}
-      onSwitch={switchPersona}
-    />
     </>
   );
 }
@@ -1566,21 +1567,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
-  },
-  deviceSwitchChip: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  deviceSwitchText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   assigneeDot: {
     alignItems: 'center',

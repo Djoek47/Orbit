@@ -147,8 +147,9 @@ async function main() {
     assert.ok(repo.includes('signOutEverywhere()'), 'sign-out must wipe local even if remote logout fails');
     assert.equal(repo.includes("mapDbError('authRepository.signOut'"), false);
     const settings = readFileSync(join(root, 'app/settings.tsx'), 'utf8');
-    assert.ok(settings.includes('finally'));
-    assert.ok(settings.includes('resetToGetStarted()'));
+    assert.ok(settings.includes('signOutAndLeave'), 'admin Settings uses one-shot sign-out');
+    const leave = readFileSync(join(root, 'lib/auth/sign-out-and-leave.ts'), 'utf8');
+    assert.ok(leave.includes('resetToGetStarted'));
     const voice = readFileSync(join(root, 'lib/voice/poppins-voice-session.ts'), 'utf8');
     assert.ok(voice.includes('teardownAllPoppinsVoice'));
     const localSignOut = readFileSync(join(root, 'lib/auth/local-sign-out.ts'), 'utf8');

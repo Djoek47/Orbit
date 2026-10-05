@@ -27,6 +27,14 @@ assert.equal(weekly.definitionId, 'lib:load_the_dishwasher:Emma');
 assert.equal(weekly.assignee, 'Emma');
 assert.equal(weekly.difficulty, 'medium');
 assert.equal(weekly.weight, 1);
+assert.equal(weekly.proofRequired, false, 'chores default without proof');
+
+const withProof = buildLibraryAssignInput(task, 'Emma', 'weekly', {
+  now,
+  proofRequired: true,
+});
+assert.equal(withProof.proofRequired, true, 'Assign proof opt-in sticks');
+
 assert.ok(isDueToday({ status: 'Pending', due: weekly.due }), 'Today list must include a fresh assign');
 
 const nextSunday = dueAtForFrequency('weekly', now);

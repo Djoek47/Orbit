@@ -3,12 +3,13 @@
  *
  * Three shapes, one screen:
  *   sidekick        a Sidekick's own phone
- *   shared-account  a person on a shared iPad (they tapped their face)
- *   shared-device   the iPad itself, before anyone has
+ *   shared-account  a person on a shared device (they tapped their face)
+ *   shared-device   the shared device itself, before anyone has
  *
  * Pure, so the rules can be tested without React Native. "Lock app" used to sit here on a
  * personal phone; it only re-showed the face picker on a device with one face, so it is gone.
  */
+import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
 import {
   findSharedDeviceForMember,
   isSharedDeviceRole,
@@ -21,9 +22,9 @@ export type MemberSettingsKind = 'sidekick' | 'shared-account' | 'shared-device'
 
 export type MemberSettingsModel = {
   kind: MemberSettingsKind;
-  /** The iPad's name, when this is one. */
+  /** The shared device's name, when this is one. */
   deviceName?: string;
-  /** Everyone who shares that iPad, in roster order. */
+  /** Everyone who shares that device, in roster order. */
   sharedWith: string[];
   /** Show "Switch who's on". */
   canSwitchProfiles: boolean;
@@ -56,21 +57,22 @@ export function memberSettingsModel(input: {
   const { member, members } = input;
   if (!member) return null;
 
-  // The iPad itself: nobody has tapped a face yet.
+  // The shared device itself: nobody has tapped a face yet.
   if (isSharedDeviceRole(member.role)) {
+    const deviceName = normalizeSharedDeviceLabel(member.name);
     const people = resolveSharedDevicePeople(
       members.find((m) => m.id === member.id),
       members
     ).map((person) => person.name);
     return {
       kind: 'shared-device',
-      deviceName: member.name,
+      deviceName,
       sharedWith: people,
       canSwitchProfiles: true,
       lookNote: 'Colors here are the ones everyone sees until they tap their face.',
       signOut: {
         label: 'Sign this device out',
-        title: `Sign ${member.name} out?`,
+        title: `Sign ${deviceName} out?`,
         body: `This signs the whole device out, for ${listNames(people)}. Everyone's tasks, XP and streaks stay saved, and you will need the household code to set it up again.`,
         confirm: 'Sign the device out',
       },
@@ -79,18 +81,19 @@ export function memberSettingsModel(input: {
 
   const device = findSharedDeviceForMember(member.id, members);
   if (device) {
+    const deviceName = normalizeSharedDeviceLabel(device.name);
     const people = resolveSharedDevicePeople(device, members)
       .map((person) => person.name)
       .filter((name) => name !== member.name);
     return {
       kind: 'shared-account',
-      deviceName: device.name,
+      deviceName,
       sharedWith: people,
       canSwitchProfiles: true,
-      lookNote: `Colors follow your face on ${device.name} — Day and Night included.`,
+      lookNote: `Colors follow your face on ${deviceName} — Day and Night included.`,
       signOut: {
         label: 'Sign this device out',
-        title: `Sign ${device.name} out?`,
+        title: `Sign ${deviceName} out?`,
         body: people.length
           ? `This signs the whole device out, not just you — ${listNames(people)} would be signed out too. To hand it over, use Switch who’s on instead.`
           : 'This signs the whole device out. To hand it over to someone else, use Switch who’s on instead.',

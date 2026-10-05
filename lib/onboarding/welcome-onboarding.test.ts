@@ -16,7 +16,14 @@ function source(rel: string) {
 
 const welcome = source('app/welcome.tsx');
 
+assert.match(welcome, /setStep\('orbit-brief'\)/);
+assert.match(welcome, /OrbitBrief/);
+assert.match(welcome, /handleOrbitBriefContinue/);
 assert.match(welcome, /setStep\('reward-system'\)/);
+// Get Started → orbit brief → motivation → Meritocracy (reward-system).
+assert.match(welcome, /const handleGetStarted[\s\S]*?setStep\('orbit-brief'\)/);
+assert.match(welcome, /const handleOrbitBriefContinue[\s\S]*?setStep\('motivation'\)/);
+assert.match(welcome, /const handleMotivationContinue[\s\S]*?setStep\('reward-system'\)/);
 assert.match(welcome, /REWARD_MODE_COPY/);
 assert.match(welcome, /Meritocracy or Equity/);
 assert.equal(

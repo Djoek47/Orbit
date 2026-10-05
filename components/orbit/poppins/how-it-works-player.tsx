@@ -4,19 +4,13 @@
  * Used by the How it works screen and played inside the tour overlay (never as a screen the tour
  * navigates to — that stacked a second copy of the app behind it).
  *
- * A pre-recorded demonstration. Two Poppins voices — Rose asking the way a person would,
- * Indigo doing it — and the card between them fills in as they speak: a chore, then four
- * groceries on one card, then three appointments, then a trip with addresses.
- *
- * Recorded means recorded: it is a timed script (lib/poppins/how-it-works-script) drawing mock
- * cards. No model is called, no microphone opens, nothing is saved and it costs nothing to
- * watch. The cards are drawn here rather than borrowed from the live stage, so the demo can
- * never wander into real data or leave a half-finished card behind.
+ * A pre-recorded conversation. You ask (Rose), Poppins answers (Indigo), and the card between
+ * them fills in: a chore, groceries, appointments, then a trip. Audio is baked GPT voice
+ * (scripts/generate-how-it-works-audio.mjs) — never device Speech.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
-import * as Speech from 'expo-speech';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInRight, FadeOut } from 'react-native-reanimated';
@@ -60,7 +54,7 @@ export function HowItWorksPlayer({
   const [elapsed, setElapsed] = useState(0);
   const [playing, setPlaying] = useState(true);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  /** The two voices, spoken on the phone itself — free, offline, nothing sent anywhere. */
+  /** The two speakers — mute toggles baked GPT clips only (never device Speech). */
   const [sound, setSound] = useState(true);
   const speakingRef = useRef(false);
   const playerRef = useRef<AudioPlayer | null>(null);
@@ -92,52 +86,47 @@ export function HowItWorksPlayer({
   const beat = DEMO_BEATS[index]!;
 
   /**
-   * Say each line as its beat starts.
-   *
-   * A recorded line is played when one is bundled (lib/poppins/how-it-works-audio); otherwise
-   * the phone reads it — free and offline, but flat. Rose sits a little higher, Indigo lower.
+   * Play the baked GPT conversational clip for this beat.
+   * Never use device Speech here — that is what sounded French / robotic.
+   * If a clip is missing, the card + caption still carry the demo silently.
    */
   useEffect(() => {
-    Speech.stop();
     playerRef.current?.remove();
     playerRef.current = null;
     speakingRef.current = false;
     if (!sound || !playing || !beat.speaker || !beat.line.trim()) return;
 
-    const done = () => {
+    const recorded = recordedDemoAudio(beat.id);
+    if (recorded == null) return;
+
+    speakingRef.current = true;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    try {
+      const player = createAudioPlayer(recorded);
+      playerRef.current = player;
+      player.play();
+      // Hold the timeline at beat-end while the clip is still speaking, then release.
+      poll = setInterval(() => {
+        if (!player.playing && player.currentTime > 0.05) {
+          speakingRef.current = false;
+          if (poll) clearInterval(poll);
+          poll = null;
+        }
+      }, 120);
+    } catch (error) {
+      console.warn('how-it-works recorded audio', error);
+      playerRef.current = null;
+      speakingRef.current = false;
+    }
+    return () => {
+      if (poll) clearInterval(poll);
       speakingRef.current = false;
     };
-    speakingRef.current = true;
-
-    const recorded = recordedDemoAudio(beat.id);
-    if (recorded != null) {
-      try {
-        const player = createAudioPlayer(recorded);
-        playerRef.current = player;
-        player.play();
-        // A recording is cut to its beat's own length, so the script's timing paces it; the
-        // next beat stops this one. Nothing needs to wait.
-        done();
-        return;
-      } catch (error) {
-        console.warn('how-it-works recorded audio', error);
-        playerRef.current = null;
-      }
-    }
-
-    Speech.speak(beat.line, {
-      pitch: beat.speaker === 'rose' ? 1.15 : 0.9,
-      rate: 1.0,
-      onDone: done,
-      onStopped: done,
-      onError: done,
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beat.id, sound, playing]);
 
   useEffect(
     () => () => {
-      void Speech.stop();
       playerRef.current?.remove();
       playerRef.current = null;
     },
@@ -177,9 +166,9 @@ export function HowItWorksPlayer({
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}>
         <Text style={[styles.lede, { color: c.textMuted }]}>
-          A recording, not a live session. Two Poppins voices — one asking, one doing — and the
-          card follows along. Nothing here is saved, and watching it costs nothing.
-          {hasRecordedDemoAudio() ? '' : ' The voices are read by your iPhone.'}
+          {hasRecordedDemoAudio()
+            ? 'A saved conversation — you ask, Poppins does — and the card follows along. Nothing here is saved to your household.'
+            : 'A conversation demo — you ask, Poppins does — and the card follows along. Voice clips aren’t baked yet, so this run is silent captions only (not your phone’s reader).'}
         </Text>
 
         {/* Chapter rail. */}

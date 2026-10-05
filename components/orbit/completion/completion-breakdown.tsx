@@ -35,6 +35,7 @@ import {
   type BreakdownRange,
   type Bucket,
 } from '@/lib/tasks/completion-stats';
+import { healthLoadMembers } from '@/lib/household/health-dashboard';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { taskRepository } from '@/repositories/task-repository';
 import { useOrbit } from '@/store/orbit-store';
@@ -52,9 +53,14 @@ type Props = {
   initialRange?: BreakdownRange;
   /** Extra room under the last card (a screen passes its safe-area inset). */
   bottomInset?: number;
+  /**
+   * When true, render as a block inside a parent ScrollView (Home Household Health)
+   * instead of owning the vertical scroll.
+   */
+  embedded?: boolean;
 };
 
-export function CompletionBreakdown({ initialRange, bottomInset = 24 }: Props) {
+export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded = false }: Props) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const { household, currentMember, permissions } = useOrbit();
   const [range, setRange] = useState<BreakdownRange>(initialRange ?? 'W');
@@ -128,11 +134,11 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24 }: Props) {
       ? `task${(sel ? sel.tasks : breakdown.headline.tasks) === 1 ? '' : 's'}${!sel && breakdown.headline.kind === 'average' ? ' a day' : ''}`
       : `saved${!sel && breakdown.headline.kind === 'average' ? ' a day' : ''}`;
 
-  const people = household.members.filter((m) => m.status !== 'inactive');
+  const people = healthLoadMembers(household.members);
   const barColor = metric === 'tasks' ? undefined : c.success;
 
-  return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomInset + 32 }]}>
+  const body = (
+    <>
         {/* D W M 6M Y */}
         <View style={[styles.rangeBar, { backgroundColor: glass(0.08) }]}>
           {BREAKDOWN_RANGES.map((r) => {
@@ -285,6 +291,16 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24 }: Props) {
           &ldquo;Saved&rdquo; is the part a Sidekick did instead of a grown-up — homework and a
           child&apos;s own routine still show their time, but aren&apos;t counted as saved.
         </Text>
+    </>
+  );
+
+  if (embedded) {
+    return <View style={[styles.content, { paddingBottom: 8 }]}>{body}</View>;
+  }
+
+  return (
+    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomInset + 32 }]}>
+      {body}
     </ScrollView>
   );
 }

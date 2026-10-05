@@ -279,26 +279,28 @@ export async function purchaseTokens(
   if (!pack) throw new Error('unknown_token_pack');
 
   if (!isNativeIapAvailable()) {
-    // Mock grant — Expo Go / unit tests only. Do not import the RN storage path in Node.
-    const grant: TokenGrant = {
-      id: `mock-${packKey}-${Date.now()}`,
-      householdId,
-      pack: 'mock',
-      tokens: 50,
-      consumed: 0,
-      transactionId: `mock-${packKey}-${Date.now()}`,
-      grantedAt: new Date().toISOString(),
-    };
+    // Mock grant — Expo Go / unit tests. Grants the selected pack size and appends
+    // to the existing bank (credits never expire / never replace prior balance).
+    const transactionId = `mock-${packKey}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     try {
       const { grantTokenPack } = await import('@/lib/billing/token-grants');
       return await grantTokenPack({
         householdId,
-        packKey: 'mock',
-        transactionId: grant.transactionId,
+        packKey,
+        transactionId,
+        productId: pack.productId,
         mock: true,
       });
     } catch {
-      return grant;
+      return {
+        id: `mock-${transactionId}`,
+        householdId,
+        pack: pack.pack,
+        tokens: pack.tokens,
+        consumed: 0,
+        transactionId,
+        grantedAt: new Date().toISOString(),
+      };
     }
   }
 

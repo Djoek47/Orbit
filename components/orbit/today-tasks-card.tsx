@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -21,6 +21,7 @@ import { tasksTabHref } from '@/lib/navigation/open-tasks-tab';
 import { needsSidekickPhotoReply } from '@/lib/tasks/proof-eligibility';
 import { taskMatchesAssignee } from '@/lib/tasks/split-assign';
 import { isTodayTask } from '@/lib/tasks/today';
+import { radius } from '@/constants/orbit-theme';
 import type { AccentTheme } from '@/constants/accent-themes';
 import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -30,6 +31,8 @@ type TodayTasksCardProps = {
   members: HouseholdMember[];
   currentMember?: HouseholdMember | null;
   accentTheme: AccentTheme;
+  /** Household IANA timezone — matches expiry / streak day boundaries. */
+  timeZone?: string;
   /** Admin / household managers can open a member’s Tasks view from the chips. */
   canFocusMembers?: boolean;
   mineOnly?: boolean;
@@ -59,15 +62,22 @@ export function TodayTasksCard({
   members,
   currentMember,
   accentTheme,
+  timeZone,
   canFocusMembers = false,
   mineOnly = false,
   streak,
   onAwardDailyStreak,
 }: TodayTasksCardProps) {
   const { c, isDark, glass, glassBorder } = useOrbitColors();
+  // Recompute “today” when the store ticks (poll / expiry) without waiting for midnight remount.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    setNowTick(Date.now());
+  }, [tasks]);
 
   const scoped = useMemo(() => {
-    const today = tasks.filter((task) => isTodayTask(task));
+    const now = new Date(nowTick);
+    const today = tasks.filter((task) => isTodayTask(task, now, timeZone));
     const isAdmin =
       currentMember?.role === 'admin' || currentMember?.role === 'owner';
     const withoutAdminHomework = isAdmin
@@ -87,13 +97,14 @@ export function TodayTasksCard({
       });
     }
     return withoutAdminHomework;
-  }, [currentMember, mineOnly, tasks]);
+  }, [currentMember, mineOnly, nowTick, tasks, timeZone]);
 
   const done = scoped.filter((task) => task.status === 'Completed').length;
+  const openCount = scoped.filter((task) => task.status !== 'Completed').length;
   const total = Math.max(1, scoped.length);
   const pct = Math.round((done / total) * 100);
   const progress = scoped.length === 0 ? 0 : done / scoped.length;
-  const complete = scoped.length > 0 && done === scoped.length;
+  const complete = scoped.length > 0 && done === scoped.length && openCount === 0;
 
   const perPerson = useMemo(() => {
     if (mineOnly) return [];
@@ -118,16 +129,22 @@ export function TodayTasksCard({
       .sort((a, b) => b.done / Math.max(1, b.total) - a.done / Math.max(1, a.total));
   }, [accentTheme.primary, members, mineOnly, scoped]);
 
-  const preview = scoped
-    .filter((task) => needsSidekickPhotoReply(task))
-    .concat(scoped.filter((task) => task.status !== 'Completed' && !needsSidekickPhotoReply(task)))
-    .slice(0, mineOnly ? 6 : 4)
-    .concat(
-      scoped
-        .filter((task) => task.status === 'Completed' && !needsSidekickPhotoReply(task))
-        .slice(0, 2)
-    )
-    .slice(0, mineOnly ? 6 : 5);
+  // Open + photo-needed first; at most one freshly completed row so the card stays live.
+  const preview = useMemo(() => {
+    const photoNeeded = scoped.filter((task) => needsSidekickPhotoReply(task));
+    const open = scoped.filter(
+      (task) => task.status !== 'Completed' && !needsSidekickPhotoReply(task)
+    );
+    const freshlyDone = scoped.filter(
+      (task) => task.status === 'Completed' && !needsSidekickPhotoReply(task)
+    );
+    const limit = mineOnly ? 6 : 5;
+    const head = [...photoNeeded, ...open].slice(0, limit);
+    if (head.length < limit && freshlyDone[0]) {
+      return [...head, freshlyDone[0]].slice(0, limit);
+    }
+    return head;
+  }, [mineOnly, scoped]);
 
   useEffect(() => {
     if (complete && onAwardDailyStreak) {
@@ -138,169 +155,185 @@ export function TodayTasksCard({
   return (
     <View style={styles.wrap}>
       <FireEdgeProgress progress={progress} radius={24}>
-        <GlassCard style={styles.card}>
-          <View style={styles.sectionHead}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionTitle, { color: c.text }]}>
-                {mineOnly ? 'My tasks today' : "Today's Tasks"}
-              </Text>
-              <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
-                {done} of {scoped.length} complete
-                {complete ? ' · daily streak ready' : ''}
-              </Text>
-            </View>
-            <View style={styles.rightMeta}>
-              <View style={[styles.streakChip, complete && styles.streakChipHot]}>
-                <MaterialIcons
-                  name="local-fire-department"
-                  size={14}
-                  color={complete ? '#FB923C' : c.warning}
-                />
-                <Text style={[styles.streakText, { color: complete ? '#FB923C' : c.warning }]}>
-                  {streak}d
+        <LinearGradient
+          colors={[`${accentTheme.primary}22`, `${accentTheme.primary}08`, 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.wash, { borderColor: `${accentTheme.primary}33` }]}>
+          <GlassCard style={styles.card}>
+            <View style={styles.sectionHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: c.text }]}>
+                  {mineOnly ? 'My tasks today' : "Today's Tasks"}
+                </Text>
+                <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
+                  {done} of {scoped.length} complete
+                  {complete ? ' · daily streak ready' : openCount > 0 ? ` · ${openCount} still open` : ''}
                 </Text>
               </View>
-              <View
-                style={[
-                  styles.pctPill,
-                  { backgroundColor: glass(0.08) },
-                ]}>
-                <Text style={[styles.pctPillText, { color: c.textSoft }]}>{pct}%</Text>
+              <View style={styles.rightMeta}>
+                <View style={[styles.streakChip, complete && styles.streakChipHot]}>
+                  <MaterialIcons
+                    name="local-fire-department"
+                    size={14}
+                    color={complete ? '#FB923C' : c.warning}
+                  />
+                  <Text style={[styles.streakText, { color: complete ? '#FB923C' : c.warning }]}>
+                    {streak}d
+                  </Text>
+                </View>
+                <View style={[styles.pctPill, { backgroundColor: glass(0.08) }]}>
+                  <Text style={[styles.pctPillText, { color: c.textSoft }]}>{pct}%</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          <View style={[styles.progressTrack, { backgroundColor: glass(0.08) }]}>
-            <LinearGradient
-              colors={complete ? ['#FB923C', '#FBBF24'] : [accentTheme.primary, accentTheme.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.progressFill, { width: `${pct}%` }]}
-            />
-          </View>
+            <View style={[styles.progressTrack, { backgroundColor: glass(0.08) }]}>
+              <LinearGradient
+                colors={
+                  complete ? ['#FB923C', '#FBBF24'] : [accentTheme.primary, accentTheme.secondary]
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.progressFill, { width: `${pct}%` }]}
+              />
+            </View>
 
-          {!mineOnly && perPerson.length > 0 ? (
-            <View style={styles.personRow}>
-              {perPerson.map((row, index) => {
-                const chip = (
-                  <>
-                    <Avatar
-                      name={row.member.name}
-                      emoji={memberDisplayEmoji(row.member)}
-                      imageUri={
-                        isAvatarImageUri(row.member.avatar) ? row.member.avatar : undefined
-                      }
-                      size="xs"
-                    />
-                    <Text style={[styles.personName, { color: row.color }]} numberOfLines={1}>
-                      {row.member.name}
-                    </Text>
-                    <Text style={[styles.personCount, { color: c.textMuted }]}>
-                      {row.done}/{row.total}
-                    </Text>
-                  </>
-                );
-                return (
-                  <PersonChipEnter key={row.member.id} index={index}>
-                    {canFocusMembers ? (
-                      <Link href={tasksTabHref({ memberName: row.member.name }) as never} asChild>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Open ${row.member.name}'s tasks`}
+            {!mineOnly && perPerson.length > 0 ? (
+              <View style={styles.personRow}>
+                {perPerson.map((row, index) => {
+                  const chip = (
+                    <>
+                      <Avatar
+                        name={row.member.name}
+                        emoji={memberDisplayEmoji(row.member)}
+                        imageUri={
+                          isAvatarImageUri(row.member.avatar) ? row.member.avatar : undefined
+                        }
+                        size="xs"
+                      />
+                      <Text style={[styles.personName, { color: row.color }]} numberOfLines={1}>
+                        {row.member.name}
+                      </Text>
+                      <Text style={[styles.personCount, { color: c.textMuted }]}>
+                        {row.done}/{row.total}
+                      </Text>
+                    </>
+                  );
+                  return (
+                    <PersonChipEnter key={row.member.id} index={index}>
+                      {canFocusMembers ? (
+                        <Link href={tasksTabHref({ memberName: row.member.name }) as never} asChild>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open ${row.member.name}'s tasks`}
+                            style={[
+                              styles.personChip,
+                              styles.personChipPressable,
+                              {
+                                borderColor: `${row.color}88`,
+                                backgroundColor: `${row.color}18`,
+                              },
+                            ]}>
+                            {chip}
+                          </Pressable>
+                        </Link>
+                      ) : (
+                        <View
                           style={[
                             styles.personChip,
-                            styles.personChipPressable,
                             {
-                              borderColor: `${row.color}88`,
-                              backgroundColor: `${row.color}18`,
+                              borderColor: `${row.color}55`,
+                              backgroundColor: glassFill(isDark, 0.04),
                             },
                           ]}>
                           {chip}
-                        </Pressable>
-                      </Link>
-                    ) : (
+                        </View>
+                      )}
+                    </PersonChipEnter>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            {preview.length === 0 ? (
+              <Text style={[styles.eyebrow, { color: c.textSubtle }]}>All clear for today.</Text>
+            ) : (
+              preview.map((task, index) => {
+                const photoNeeded = needsSidekickPhotoReply(task);
+                const finished = task.status === 'Completed' && !photoNeeded;
+                return (
+                  <Animated.View
+                    key={task.id}
+                    entering={FadeInDown.delay(80 + index * 40).springify()}>
+                    <Pressable
+                      style={[
+                        styles.taskRow,
+                        photoNeeded && {
+                          backgroundColor: `${c.warning}14`,
+                          borderRadius: radius.control,
+                          paddingHorizontal: 8,
+                          marginHorizontal: -8,
+                        },
+                      ]}
+                      onPress={() =>
+                        router.push(
+                          (photoNeeded
+                            ? `/task/${task.id}?proof=reply`
+                            : `/task/${task.id}`) as never
+                        )
+                      }>
                       <View
                         style={[
-                          styles.personChip,
-                          {
-                            borderColor: `${row.color}55`,
-                            backgroundColor: glassFill(isDark, 0.04),
-                          },
+                          styles.check,
+                          { borderColor: photoNeeded ? `${c.warning}88` : glassBorder(0.2) },
+                          finished && styles.checkDone,
+                          photoNeeded && { backgroundColor: `${c.warning}22` },
                         ]}>
-                        {chip}
+                        {photoNeeded ? (
+                          <MaterialIcons name="photo-camera" size={12} color={c.warning} />
+                        ) : finished ? (
+                          <MaterialIcons name="check" size={12} color={c.ink} />
+                        ) : null}
                       </View>
-                    )}
-                  </PersonChipEnter>
-                );
-              })}
-            </View>
-          ) : null}
-
-          {preview.length === 0 ? (
-            <Text style={[styles.eyebrow, { color: c.textSubtle }]}>All clear for today.</Text>
-          ) : (
-            preview.map((task, index) => {
-              const photoNeeded = needsSidekickPhotoReply(task);
-              const finished = task.status === 'Completed' && !photoNeeded;
-              return (
-                <Animated.View key={task.id} entering={FadeInDown.delay(80 + index * 40).springify()}>
-                  <Pressable
-                    style={styles.taskRow}
-                    onPress={() =>
-                      router.push(
-                        (photoNeeded ? `/task/${task.id}?proof=reply` : `/task/${task.id}`) as never
-                      )
-                    }>
-                    <View
-                      style={[
-                        styles.check,
-                        { borderColor: photoNeeded ? `${c.warning}88` : glassBorder(0.2) },
-                        finished && styles.checkDone,
-                        photoNeeded && { backgroundColor: `${c.warning}22` },
-                      ]}>
-                      {photoNeeded ? (
-                        <MaterialIcons name="photo-camera" size={12} color={c.warning} />
-                      ) : finished ? (
-                        <MaterialIcons name="check" size={12} color={c.ink} />
-                      ) : null}
-                    </View>
-                    <Text
-                      style={[
-                        styles.taskText,
-                        { color: photoNeeded ? c.text : finished ? c.textSubtle : c.text },
-                        finished && styles.taskDone,
-                      ]}
-                      numberOfLines={1}>
-                      {photoNeeded ? `${task.title} · photo` : task.title}
-                    </Text>
-                    {!mineOnly ? (
-                      <Text style={[styles.assignee, { color: c.textSubtle }]}>
-                        {task.assignee?.[0] ?? '?'}
+                      <Text
+                        style={[
+                          styles.taskText,
+                          { color: photoNeeded ? c.text : finished ? c.textSubtle : c.text },
+                          finished && styles.taskDone,
+                        ]}
+                        numberOfLines={1}>
+                        {photoNeeded ? `${task.title} · photo` : task.title}
                       </Text>
-                    ) : null}
-                  </Pressable>
-                </Animated.View>
-              );
-            })
-          )}
+                      {!mineOnly ? (
+                        <Text style={[styles.assignee, { color: c.textSubtle }]}>
+                          {task.assignee?.[0] ?? '?'}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  </Animated.View>
+                );
+              })
+            )}
 
-          <Link
-            href={tasksTabHref({
-              status: complete ? 'completed' : 'active',
-            }) as never}
-            asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open tasks"
-              hitSlop={12}
-              style={styles.linkBtn}>
-              <Text style={[styles.link, { color: accentTheme.primary, textAlign: 'center' }]}>
-                Open tasks
-              </Text>
-              <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
-            </Pressable>
-          </Link>
-        </GlassCard>
+            <Link
+              href={tasksTabHref({
+                status: complete ? 'completed' : 'active',
+              }) as never}
+              asChild>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open tasks"
+                hitSlop={12}
+                style={styles.linkBtn}>
+                <Text style={[styles.link, { color: accentTheme.primary, textAlign: 'center' }]}>
+                  Open tasks
+                </Text>
+                <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
+              </Pressable>
+            </Link>
+          </GlassCard>
+        </LinearGradient>
       </FireEdgeProgress>
     </View>
   );
@@ -308,7 +341,12 @@ export function TodayTasksCard({
 
 const styles = StyleSheet.create({
   wrap: { alignSelf: 'stretch', width: '100%' },
-  card: { gap: 8, paddingBottom: 10 },
+  wash: {
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  card: { gap: 8, paddingBottom: 10, backgroundColor: 'transparent' },
   sectionHead: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -371,13 +409,13 @@ const styles = StyleSheet.create({
   personChipPressable: {
     minHeight: 32,
   },
-  personEmoji: { fontSize: 14 },
   personName: { fontSize: 12, fontWeight: '700', maxWidth: 72 },
   personCount: { fontSize: 11, fontWeight: '700' },
   taskRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
+    minHeight: 36,
     paddingVertical: 4,
   },
   check: {

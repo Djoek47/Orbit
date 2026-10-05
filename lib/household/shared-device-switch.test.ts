@@ -115,8 +115,12 @@ const maya: SidekickSession = {
   const pushTs = readFileSync(join(root, 'lib/notifications/push.ts'), 'utf8');
   assert.match(pushTs, /onConflict:\s*'token,member_id'/);
 
-  const popup = readFileSync(join(root, 'components/orbit/persona-switch-popup.tsx'), 'utf8');
-  assert.match(popup, /IuiFaces/);
+  const whosOn = readFileSync(join(root, 'components/orbit/whos-on-switcher.tsx'), 'utf8');
+  assert.match(whosOn, /Who's on|Who&apos;s on/);
+  assert.match(whosOn, /Does not switch the signed-in account/);
+  const tabBar = readFileSync(join(root, 'components/orbit/make-tab-bar.tsx'), 'utf8');
+  assert.match(tabBar, /select-profile/);
+  assert.match(tabBar, /tabbar\.switch/);
 }
 
 console.log('PASS shared-device two-profile switch (A7)');
