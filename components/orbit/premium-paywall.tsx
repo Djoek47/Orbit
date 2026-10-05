@@ -1,24 +1,28 @@
 /**
- * Apple-caliber Premium subscription sheet — annual lead, token allowance plain.
+ * Apple-caliber Premium subscription sheet — Monthly/Yearly segment + price crossfade.
  * Presentation only; purchase logic lives in the screen / facade.
  */
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInUp,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
+import { SegmentedControl } from '@/components/orbit/segmented-control';
 import {
   BILLING_TRIAL_DAYS,
   IAP_PRODUCTS,
   PREMIUM_ALLOWANCE_COPY,
+  type IapProductKey,
 } from '@/constants/billing';
 import { motion } from '@/constants/motion-tokens';
 import { radius, space, typography } from '@/constants/orbit-theme';
@@ -42,14 +46,19 @@ export type PremiumPaywallProps = {
   statusMessage?: string | null;
   errorMessage?: string | null;
   usage?: PremiumUsagePanel | null;
-  onStartTrial: () => void;
-  onStartMonthly?: () => void;
+  /** Start trial for the selected billing period */
+  onStartTrial: (period: IapProductKey) => void;
   onRestore: () => void;
   onContinue: () => void;
   onDismiss: () => void;
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const PERIOD_OPTIONS: { value: IapProductKey; label: string }[] = [
+  { value: 'yearly', label: 'Yearly' },
+  { value: 'monthly', label: 'Monthly' },
+];
 
 export function PremiumPaywall({
   variant,
@@ -59,7 +68,6 @@ export function PremiumPaywall({
   errorMessage,
   usage = null,
   onStartTrial,
-  onStartMonthly,
   onRestore,
   onContinue,
   onDismiss,
@@ -68,6 +76,8 @@ export function PremiumPaywall({
   const { accentTheme, orbitPalette } = useOrbit();
   const { c, isDark } = useOrbitColors();
   const press = useSharedValue(1);
+  const priceOpacity = useSharedValue(1);
+  const [period, setPeriod] = useState<IapProductKey>('yearly');
 
   useEffect(() => {
     press.value = 1;
@@ -77,10 +87,35 @@ export function PremiumPaywall({
     transform: [{ scale: press.value }],
   }));
 
+  const priceStyle = useAnimatedStyle(() => ({
+    opacity: priceOpacity.value,
+  }));
+
+  const revealPeriod = useCallback((next: IapProductKey) => {
+    setPeriod(next);
+    priceOpacity.value = withTiming(1, { duration: 180 });
+  }, [priceOpacity]);
+
+  const onPeriodChange = useCallback(
+    (next: IapProductKey) => {
+      if (next === period || busy) return;
+      priceOpacity.value = withTiming(0, { duration: 120 }, (finished) => {
+        if (finished) runOnJS(revealPeriod)(next);
+      });
+    },
+    [busy, period, priceOpacity, revealPeriod]
+  );
+
   const yearly = IAP_PRODUCTS.yearly;
   const monthly = IAP_PRODUCTS.monthly;
+  const selected = period === 'yearly' ? yearly : monthly;
   const yearlyPerMonth = (yearly.priceUsd / 12).toFixed(2);
   const secondaryLabel = variant === 'onboarding' ? 'Not now' : 'Close';
+  const ctaLabel = alreadyPremium
+    ? 'Continue'
+    : period === 'yearly'
+      ? 'Start yearly free trial'
+      : 'Start monthly free trial';
 
   return (
     <View
@@ -104,19 +139,37 @@ export function PremiumPaywall({
           </Text>
         </Animated.View>
 
+        {!alreadyPremium ? (
+          <Animated.View entering={FadeInUp.delay(100).duration(420)} style={styles.segmentWrap}>
+            <SegmentedControl
+              options={PERIOD_OPTIONS}
+              value={period}
+              onChange={onPeriodChange}
+              disabled={busy}
+            />
+          </Animated.View>
+        ) : null}
+
         <Animated.View entering={FadeInUp.delay(120).duration(480)} style={styles.priceBlock}>
           <View style={[styles.trialPill, { backgroundColor: `${accentTheme.primary}18` }]}>
             <Text style={[styles.trialText, { color: accentTheme.primary }]}>
-              Free for {BILLING_TRIAL_DAYS} days · {yearly.savingsLabel}
+              Free for {BILLING_TRIAL_DAYS} days
+              {period === 'yearly' ? ` · ${yearly.savingsLabel}` : ''}
             </Text>
           </View>
-          <Text style={[styles.priceLine, { color: c.text }]}>
-            ${yearly.priceUsd}
-            <Text style={[styles.pricePeriod, { color: c.textMuted }]}> / year</Text>
-          </Text>
-          <Text style={[styles.subPrice, { color: c.textMuted }]}>
-            About ${yearlyPerMonth}/mo · or ${monthly.priceUsd}/month
-          </Text>
+          <Animated.View style={[styles.priceCrossfade, priceStyle]}>
+            <Text style={[styles.priceLine, { color: c.text }]}>
+              ${selected.priceUsd}
+              <Text style={[styles.pricePeriod, { color: c.textMuted }]}>
+                {period === 'yearly' ? ' / year' : ' / month'}
+              </Text>
+            </Text>
+            <Text style={[styles.subPrice, { color: c.textMuted }]}>
+              {period === 'yearly'
+                ? `About $${yearlyPerMonth}/mo · billed annually`
+                : `Or $${yearly.priceUsd}/year (${yearly.savingsLabel})`}
+            </Text>
+          </Animated.View>
         </Animated.View>
 
         {alreadyPremium && usage ? (
@@ -158,7 +211,7 @@ export function PremiumPaywall({
           }}
           onPress={() => {
             if (alreadyPremium) onContinue();
-            else onStartTrial();
+            else onStartTrial(period);
           }}
           style={[
             styles.cta,
@@ -169,19 +222,11 @@ export function PremiumPaywall({
             },
           ]}
           accessibilityRole="button"
-          accessibilityLabel={alreadyPremium ? 'Continue' : 'Start yearly free trial'}>
+          accessibilityLabel={ctaLabel}>
           <Text style={[styles.ctaLabel, { color: isDark ? '#0A1018' : '#FFFFFF' }]}>
             {busy ? 'Please wait…' : alreadyPremium ? 'Continue' : 'Start Free Trial'}
           </Text>
         </AnimatedPressable>
-
-        {!alreadyPremium && onStartMonthly ? (
-          <Pressable onPress={onStartMonthly} disabled={busy} hitSlop={10}>
-            <Text style={[styles.monthlyAlt, { color: c.textMuted }]}>
-              Or ${monthly.priceUsd}/month after trial
-            </Text>
-          </Pressable>
-        ) : null}
 
         <Text style={[styles.legal, { color: c.textSubtle }]}>
           Payment is charged to your Apple ID after the trial unless you cancel at least 24 hours
@@ -231,9 +276,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: space.sm,
   },
+  segmentWrap: {
+    alignSelf: 'stretch',
+  },
   priceBlock: {
     alignItems: 'center',
     gap: 10,
+    minHeight: 88,
+  },
+  priceCrossfade: {
+    alignItems: 'center',
+    gap: 8,
   },
   trialPill: {
     borderRadius: 999,
@@ -300,11 +353,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     letterSpacing: -0.2,
-  },
-  monthlyAlt: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
   },
   legal: {
     fontSize: 11,

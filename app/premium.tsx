@@ -260,8 +260,7 @@ export default function PremiumScreen() {
       statusMessage={statusMessage}
       errorMessage={errorMessage}
       usage={usagePanel}
-      onStartTrial={() => void startTrial('yearly')}
-      onStartMonthly={() => void startTrial('monthly')}
+      onStartTrial={(period) => void startTrial(period)}
       onRestore={() => void restore()}
       onContinue={() => void leave('started')}
       onDismiss={() => void leave(fromOnboarding ? 'deferred' : 'skipped')}

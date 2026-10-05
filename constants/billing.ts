@@ -133,7 +133,23 @@ export function tokenPackForProductId(
   return null;
 }
 
-export const PREMIUM_ALLOWANCE_COPY = `${TOKENS_PER_MONTH} Poppins actions a month, ${TOKENS_PER_DAY} a day.`;
+/**
+ * Paywall / Settings allowance line.
+ * When the soft daily cap equals (or exceeds) the monthly pool, saying both
+ * "300 a month, 300 a day" reads like a double allotment — only mention the
+ * daily soft cap when it actually paces the month.
+ */
+export function premiumAllowanceCopy(
+  monthly: number = TOKENS_PER_MONTH,
+  daily: number = TOKENS_PER_DAY
+): string {
+  if (daily >= monthly) {
+    return `${monthly} Poppins actions a month.`;
+  }
+  return `${monthly} Poppins actions a month · up to ${daily} a day.`;
+}
+
+export const PREMIUM_ALLOWANCE_COPY = premiumAllowanceCopy();
 
 export const ASC_IAP_SETUP_NOTES = [
   'ASC Premium group — monthly + yearly products (confirm price points in App Store Connect)',

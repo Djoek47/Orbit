@@ -7,6 +7,7 @@ import {  AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { orbitAlert } from '@/components/orbit/orbit-alert';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import {
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
@@ -74,10 +75,14 @@ import {
 import { registerPushForActor } from '@/lib/notifications/member-push';
 import { loadSidekickSession } from '@/lib/sidekick/session';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
-import { IAP_SUBSCRIPTIONS } from '@/constants/billing';
+import {
+  BILLING_TRIAL_DAYS,
+  IAP_SUBSCRIPTIONS,
+  PREMIUM_ALLOWANCE_COPY,
+} from '@/constants/billing';
 import {
   fetchEntitlement,
-  IAP_PRODUCTS,
+  isPremiumActive,
   premiumCopy,
   restorePurchases,
   type EntitlementState,
@@ -111,6 +116,7 @@ import {
   meterCaption,
 } from '@/lib/ai/credits';
 import { personalActTokens, summarizeActUsage } from '@/lib/ai/act-events';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const SECTIONS = [
   'main',
@@ -1334,42 +1340,59 @@ export default function SettingsScreen() {
 
         {section === 'premium' ? (
           <>
-            <SectionCard title="Premium">
-              <Text style={[styles.caption, { color: c.textSoft, marginBottom: 10 }]}>
-                {entitlement ? premiumCopy(entitlement) : 'Loading…'}
-              </Text>
-              <Text style={[styles.caption, { color: c.textSubtle, marginBottom: 12 }]}>
-                7-day free trial, then ${IAP_PRODUCTS.monthly.priceUsd}/mo via Apple.
-              </Text>
-              <Pressable
-                style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
+            <Animated.View entering={FadeInDown.duration(260)} style={styles.premiumStack}>
+              <LinearGradient
+                colors={['#E9B44C3D', '#E9B44C0F']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.premiumHero, { borderColor: '#E9B44C55' }]}>
+                <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
+                  <Text style={[styles.premiumHeroEyebrow, { color: '#E9B44C' }]}>Premium</Text>
+                  <Text style={[styles.premiumHeroTitle, { color: c.text }]} numberOfLines={2}>
+                    {entitlement ? premiumCopy(entitlement) : 'Loading…'}
+                  </Text>
+                  <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
+                    {PREMIUM_ALLOWANCE_COPY}
+                  </Text>
+                  <Text style={[styles.premiumHeroSub, { color: c.textSubtle }]}>
+                    {BILLING_TRIAL_DAYS}-day free trial · then billed via Apple
+                  </Text>
+                </View>
+                <View style={[styles.premiumHeroMoji, { backgroundColor: '#E9B44C2E' }]}>
+                  <MaterialIcons name="workspace-premium" size={32} color="#E9B44C" />
+                </View>
+              </LinearGradient>
+
+              <OrbitButton
+                loading={billingBusy}
                 onPress={() =>
                   router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
                 }>
-                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
-                  Open Premium
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.accountBtn,
-                  { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 },
-                ]}
-                disabled={billingBusy}
-                onPress={() => {
-                  setBillingBusy(true);
-                  void restorePurchases()
-                    .then((next) => {
-                      setEntitlement(next);
-                      orbitAlert('Restore', premiumCopy(next));
-                    })
-                    .finally(() => setBillingBusy(false));
-                }}>
-                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
-                  Restore purchases
-                </Text>
-              </Pressable>
-            </SectionCard>
+                {entitlement && isPremiumActive(entitlement)
+                  ? 'Manage Premium'
+                  : 'Start free trial'}
+              </OrbitButton>
+
+              <SettingsGroup>
+                <SettingsNavRow
+                  icon="restore"
+                  iconColor="#E9B44C"
+                  label="Restore purchases"
+                  subtitle="Bring back an Apple subscription on this device"
+                  last
+                  onPress={() => {
+                    if (billingBusy) return;
+                    setBillingBusy(true);
+                    void restorePurchases()
+                      .then((next) => {
+                        setEntitlement(next);
+                        orbitAlert('Restore', premiumCopy(next));
+                      })
+                      .finally(() => setBillingBusy(false));
+                  }}
+                />
+              </SettingsGroup>
+            </Animated.View>
           </>
         ) : null}
 
@@ -1650,6 +1673,40 @@ const styles = StyleSheet.create({
     width: 32,
   },
   title: { fontSize: 18, fontWeight: '700' },
+  premiumStack: { gap: 16 },
+  premiumHero: {
+    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  premiumHeroEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  premiumHeroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    lineHeight: 28,
+  },
+  premiumHeroSub: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  premiumHeroMoji: {
+    alignItems: 'center',
+    borderRadius: 24,
+    height: 72,
+    justifyContent: 'center',
+    width: 72,
+  },
   sectionHeading: {
     fontSize: 28,
     fontWeight: '600',

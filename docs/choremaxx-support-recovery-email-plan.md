@@ -44,7 +44,7 @@ flowchart LR
 | **3** | 30-day deletion grace B + reminder cron — **done** | `HOUSEHOLD_DELETION_GRACE_DAYS=30`, `20261005140000_household_deletion_v2.sql`, `household-deletion-cron` |
 | **4** | Recovery route + hourglass UI — **done** | `HouseholdRecoveryHourglass`, `app/household-recovery.tsx`, welcome empty-account gate |
 | **5** | QR household transfer — **done** | Settings House, `transfer-household`, `accept-household-transfer`, scanner |
-| **6** | Premium settings + paywall animation + allowance copy fix | `app/settings.tsx`, `premium-paywall.tsx` |
+| **6** | Premium settings + paywall animation + allowance copy fix — **done** | `app/settings.tsx`, `premium-paywall.tsx` |
 
 ---
 
@@ -143,12 +143,12 @@ sequenceDiagram
 
 ---
 
-## Stop 6 — Premium UI polish
+## Stop 6 — Premium UI polish — **done**
 
 - Redo `section === 'premium'` in [`app/settings.tsx`](app/settings.tsx) — glass hero, one primary CTA, restore as secondary row (no gray blocks).
 - [`premium-paywall.tsx`](components/orbit/premium-paywall.tsx): Monthly/Yearly segmented control + Reanimated price crossfade; fix allowance copy via `PREMIUM_ALLOWANCE_COPY` / daily cap.
 
-**Passes:** onboarding + settings entry both on-brand; animation smooth on device.
+**Passes:** onboarding + settings entry both on-brand; animation smooth on device; `premium-ui.test.ts` + `test:billing`.
 
 ---
 
