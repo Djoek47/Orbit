@@ -213,8 +213,9 @@ function PoppinsCreditsScreenInner() {
               </View>
 
               <Text style={[styles.mockNote, { color: c.textSubtle }]}>
-                Test purchases. Nothing is charged; the actions and receipts are real so the flow
-                can be checked before the card reader is wired up.
+                Test purchases. Nothing is charged. Each buy adds to your credit bank — leftovers
+                carry month to month and never expire. Receipts are real so the flow can be checked
+                before StoreKit is wired up.
               </Text>
             </Animated.View>
 

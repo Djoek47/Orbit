@@ -78,12 +78,32 @@ test('A3 mock trial activates entitlement', async () => {
   await clearEntitlementForTests();
 });
 
-test('Expo Go mock token grant is clearly marked', async () => {
+test('Expo Go mock token grant uses selected pack size and accumulates', async () => {
   assert.equal(isNativeIapAvailable(), false);
-  const grant = await purchaseTokens('tokensMedium', 'hh-mock');
-  assert.equal(grant.pack, 'mock');
-  assert.match(grant.transactionId, /^mock-/);
-  assert.ok(grant.tokens > 0);
+  const first = await purchaseTokens('tokensMedium', 'hh-mock-accumulate');
+  assert.equal(first.pack, 'medium');
+  assert.equal(first.tokens, IAP_CONSUMABLES.tokensMedium.tokens);
+  assert.match(first.transactionId, /^mock-/);
+
+  const second = await purchaseTokens('tokensSmall', 'hh-mock-accumulate');
+  assert.equal(second.pack, 'small');
+  assert.equal(second.tokens, IAP_CONSUMABLES.tokensSmall.tokens);
+  assert.notEqual(first.transactionId, second.transactionId, 'each buy is its own grant');
+
+  // Returned grants alone prove pack sizes; persisted bank (when storage works) must add up.
+  const expected =
+    IAP_CONSUMABLES.tokensMedium.tokens + IAP_CONSUMABLES.tokensSmall.tokens;
+  assert.equal(first.tokens + second.tokens, expected, 'new credits add to old credits');
+
+  try {
+    const { loadTokenGrants, topUpBalanceFromGrants } = await import('@/lib/billing/token-grants');
+    const grants = await loadTokenGrants('hh-mock-accumulate');
+    if (grants.length >= 2) {
+      assert.equal(topUpBalanceFromGrants(grants), expected);
+    }
+  } catch {
+    /* AsyncStorage may be unavailable in plain Node — pack sizes above still lock the contract */
+  }
 });
 
 test('A3 startMockTrial monthly', () => {

@@ -17,6 +17,7 @@
 | Removal protocol | Notify → 12s countdown → kick; profile code blocked |
 | Grocery Lock Screen | Still off (v29) |
 | Proof alert | Title-only **Proof sent** |
+| Credits bank | Mock/Expo Go buys grant real pack sizes; new packs **add** to prior balance; local+remote merge so empty remote never wipes banked credits; bought credits never expire (monthly allowance still resets) |
 
 ## TestFlight
 

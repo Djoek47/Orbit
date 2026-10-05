@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  creditPackLabel,
   formatResetDate,
   nextAllowanceReset,
   spendsFrom,
@@ -41,6 +42,28 @@ assert.equal(s.balance, 1950, 'everything unspent stays, however old');
 assert.equal(s.monthlyLeft, 0, 'the allowance is gone this month');
 assert.equal(s.totalAvailable, 1950, 'but the credits are still there');
 assert.equal(spendsFrom(s), 'credits', 'the allowance pays first, then credits');
+
+// Buying again adds to the bank — it does not replace prior months.
+{
+  const prior = summarizeCredits(
+    [grant('old', 600, 0, '2026-06-01T10:00:00Z')],
+    0
+  );
+  assert.equal(prior.balance, 600);
+  const afterBuy = summarizeCredits(
+    [
+      grant('old', 600, 0, '2026-06-01T10:00:00Z'),
+      grant('new', 200, 0, '2026-10-01T10:00:00Z'),
+    ],
+    0
+  );
+  assert.equal(afterBuy.balance, 800, '200 new + 600 old');
+  assert.equal(afterBuy.lifetimePurchased, 800);
+}
+
+assert.equal(creditPackLabel('medium', 600), '600 actions');
+assert.equal(creditPackLabel('small', 200), '200 actions');
+assert.equal(creditPackLabel('1500 actions', 1500), '1500 actions');
 
 // Newest purchase first, and each row balances.
 assert.deepEqual(s.rows.map((r) => r.id), ['c', 'b', 'a']);

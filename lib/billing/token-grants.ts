@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IAP_CONSUMABLES, type IapTokenPackKey } from '@/constants/billing';
 import {
   applyTopUpConsumption,
+  mergeTokenGrants,
   topUpBalanceFromGrants,
   type TokenGrantBalance,
 } from '@/lib/billing/token-grants-math';
@@ -14,7 +15,7 @@ import { isPersistedHouseholdId } from '@/lib/household/persisted-household-id';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 export type TokenGrant = TokenGrantBalance;
-export { applyTopUpConsumption, topUpBalanceFromGrants };
+export { applyTopUpConsumption, mergeTokenGrants, topUpBalanceFromGrants };
 
 const keyFor = (householdId: string) => `orbit.token-grants.${householdId}`;
 
@@ -25,8 +26,10 @@ export async function loadTokenGrants(
   if (!isPersistedHouseholdId(householdId)) return local;
   const remote = await loadRemote(householdId!);
   if (!remote) return local;
-  await saveLocal(householdId!, remote);
-  return remote;
+  // Merge — never replace local banked credits with an empty/partial remote list.
+  const merged = mergeTokenGrants(local, remote);
+  await saveLocal(householdId!, merged);
+  return merged;
 }
 
 export async function saveTokenGrants(
@@ -133,7 +136,7 @@ export type GrantTokenPackInput = {
 export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenGrant> {
   const pack =
     input.packKey === 'mock'
-      ? { pack: 'mock' as const, tokens: 50, productId: 'mock' }
+      ? { pack: 'mock' as const, tokens: 50, productId: 'mock', label: '50 actions' }
       : IAP_CONSUMABLES[input.packKey];
 
   if (input.productId && input.packKey !== 'mock') {
@@ -143,11 +146,12 @@ export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenG
   }
 
   if (input.mock || input.packKey === 'mock') {
-    // Expo Go / unit tests only — never trust this path in a production binary.
+    // Expo Go / Credits test buy — mints the real pack size and appends to the bank.
+    // Credits never expire; each buy adds to whatever is already left.
     const grant: TokenGrant = {
       id: `mock-${input.transactionId}`,
       householdId: input.householdId,
-      pack: 'mock',
+      pack: pack.pack,
       tokens: pack.tokens,
       consumed: 0,
       transactionId: input.transactionId,
