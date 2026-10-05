@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { DeviceHostKind } from '@/lib/device/device-host';
+import type { HouseholdMember } from '@/types/orbit';
 
 const KEY = 'orbit.deviceSession.v1';
 
@@ -62,18 +63,124 @@ export async function clearDeviceSession(): Promise<void> {
   await AsyncStorage.removeItem(KEY);
 }
 
-/** True when this physical device is a multi-profile shared tablet (not a personal Sidekick phone). */
+/** True when this device hosts multiple profiles (shared iPad or family Sidekick phone). */
 export function isSharedTabletDeviceSession(session: DeviceSession | null | undefined): boolean {
   if (!session || session.mode !== 'shared') return false;
+  if (session.profileMemberIds.length > 1) return true;
   if (session.hostKind === 'sidekick') return false;
   if (session.hostKind === 'shared-tablet') return session.profileMemberIds.length > 0;
   if (session.sharedDeviceId) return true;
-  return session.profileMemberIds.length > 1;
+  return false;
+}
+
+export function mergeHostedProfileMemberIds(
+  deviceIds: string[],
+  sidekickMemberIds: string[]
+): string[] {
+  return [...new Set([...deviceIds, ...sidekickMemberIds].filter(Boolean))];
+}
+
+/**
+ * Keep DeviceSession.profileMemberIds aligned with Sidekick v2 and the
+ * shared-tablet roster from Settings (Emma + Jack, not just whoever is active).
+ */
+export async function reconcileHostedDeviceSession(
+  members?: HouseholdMember[]
+): Promise<DeviceSession> {
+  const current = await loadDeviceSession();
+  const { listSidekickSessions } = await import('@/lib/sidekick/session');
+  const sidekickIds = (await listSidekickSessions()).map((item) => item.memberId);
+  let merged = mergeHostedProfileMemberIds(current.profileMemberIds, sidekickIds);
+
+  let rosterSharedDeviceId = current.sharedDeviceId ?? null;
+  let rosterLabel = current.deviceLabel;
+  if (members && members.length > 0) {
+    const { profilesForSharedDeviceSwitch, resolveSwitchDeviceShell } = await import(
+      '@/lib/device/profiles-for-switch'
+    );
+    const probe: DeviceSession = {
+      ...current,
+      profileMemberIds: merged.length ? merged : current.profileMemberIds,
+    };
+    const shell = resolveSwitchDeviceShell(probe, members);
+    const rosterIds = profilesForSharedDeviceSwitch(probe, members).map((person) => person.id);
+    if (rosterIds.length > 0) {
+      merged = mergeHostedProfileMemberIds(merged, rosterIds);
+    }
+    if (shell) {
+      rosterSharedDeviceId = current.sharedDeviceId ?? shell.id;
+      rosterLabel = current.deviceLabel?.trim() || shell.name;
+    }
+  }
+
+  if (merged.length === 0) {
+    return current;
+  }
+
+  const preserveActive =
+    Boolean(current.activeMemberId) &&
+    merged.includes(current.activeMemberId!) &&
+    !current.needsProfilePick;
+
+  if (merged.length === 1) {
+    const sole = merged[0]!;
+    const unchanged =
+      current.mode === 'shared' &&
+      current.profileMemberIds.length === 1 &&
+      current.profileMemberIds[0] === sole &&
+      current.hostKind !== 'shared-tablet';
+    if (unchanged) return current;
+    const next: DeviceSession = {
+      ...current,
+      mode: 'shared',
+      hostKind: current.hostKind ?? 'sidekick',
+      profileMemberIds: [sole],
+      needsProfilePick: current.needsProfilePick && current.profileMemberIds.includes(sole),
+    };
+    await saveDeviceSession(next);
+    return next;
+  }
+
+  const sameIds =
+    current.profileMemberIds.length === merged.length &&
+    merged.every((id) => current.profileMemberIds.includes(id));
+  if (
+    sameIds &&
+    current.mode === 'shared' &&
+    current.hostKind === 'shared-tablet' &&
+    (current.sharedDeviceId ?? null) === (rosterSharedDeviceId ?? null)
+  ) {
+    return current;
+  }
+
+  await setupSharedDeviceSession({
+    profileMemberIds: merged,
+    deviceLabel: rosterLabel?.trim() || 'Family device',
+    hostKind: 'shared-tablet',
+    sharedDeviceId: rosterSharedDeviceId,
+  });
+  if (current.needsProfilePick) {
+    const withPick: DeviceSession = {
+      ...(await loadDeviceSession()),
+      activeMemberId: null,
+      needsProfilePick: true,
+    };
+    await saveDeviceSession(withPick);
+    return withPick;
+  }
+  if (preserveActive) {
+    return selectDeviceProfile(current.activeMemberId!);
+  }
+  return loadDeviceSession();
 }
 
 /** Mark that the next cold entry should show Who's watching? */
-export async function markNeedsProfilePick(): Promise<DeviceSession> {
-  const current = await loadDeviceSession();
+export async function markNeedsProfilePick(
+  members?: HouseholdMember[]
+): Promise<DeviceSession> {
+  const current = members?.length
+    ? await reconcileHostedDeviceSession(members)
+    : await loadDeviceSession();
   if (current.mode !== 'shared' || current.profileMemberIds.length === 0) {
     return current;
   }
@@ -133,7 +240,7 @@ export async function setupSharedDeviceSession(input: {
     hostKind,
     profileMemberIds: unique,
     activeMemberId: null,
-    needsProfilePick: isSidekickHost ? false : unique.length > 0,
+    needsProfilePick: unique.length > 1 ? true : isSidekickHost ? false : unique.length > 0,
     deviceLabel: input.deviceLabel?.trim() || (isSidekickHost ? 'Sidekick device' : 'Shared device'),
     sharedDeviceId: input.sharedDeviceId ?? null,
   };
@@ -153,13 +260,15 @@ export async function hostProfileOnDevice(input: {
 }): Promise<DeviceSession> {
   const current = await loadDeviceSession();
   if (current.mode === 'shared' && current.profileMemberIds.length > 0) {
-    return selectDeviceProfile(input.memberId);
+    await selectDeviceProfile(input.memberId);
+  } else {
+    await setupSharedDeviceSession({
+      profileMemberIds: [input.memberId],
+      deviceLabel: input.deviceLabel,
+      hostKind: input.hostKind ?? 'sidekick',
+      sharedDeviceId: input.sharedDeviceId,
+    });
+    await selectDeviceProfile(input.memberId);
   }
-  await setupSharedDeviceSession({
-    profileMemberIds: [input.memberId],
-    deviceLabel: input.deviceLabel,
-    hostKind: input.hostKind ?? 'sidekick',
-    sharedDeviceId: input.sharedDeviceId,
-  });
-  return selectDeviceProfile(input.memberId);
+  return reconcileHostedDeviceSession();
 }

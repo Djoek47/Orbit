@@ -30,10 +30,11 @@ import { useOrbitOptional } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 import {
   isSharedTabletDeviceSession,
-  loadDeviceSession,
   markNeedsProfilePick,
+  reconcileHostedDeviceSession,
   type DeviceSession,
 } from '@/lib/device/device-session';
+import { profilesForSharedDeviceSwitch } from '@/lib/device/profiles-for-switch';
 import { useTabFifthSlot } from '@/lib/navigation/use-tab-fifth-slot';
 import type { TourTargetId } from '@/lib/tour/tour-types';
 
@@ -107,17 +108,26 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     memberId: orbit?.currentMember?.id,
   });
   const [deviceSession, setDeviceSession] = useState<DeviceSession | null>(null);
+  const rosterKey = members
+    .filter((m) => m.role === 'shared-device')
+    .map((m) => `${m.id}:${(m.sharedWithMemberIds ?? []).join(',')}`)
+    .join('|');
   useEffect(() => {
     let mounted = true;
-    void loadDeviceSession().then((next) => {
+    void reconcileHostedDeviceSession(members).then((next) => {
       if (mounted) setDeviceSession(next);
     });
     return () => {
       mounted = false;
     };
-  }, [orbit?.currentMember?.id, fifthSlot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orbit?.currentMember?.id, fifthSlot, rosterKey]);
   // How many faces share this tablet — drives the Switch glyph (2–6 arrows).
   const switchPeopleCount = useMemo(() => {
+    const rosterPeople = profilesForSharedDeviceSwitch(deviceSession, members);
+    if (rosterPeople.length >= 2) {
+      return Math.min(6, rosterPeople.length);
+    }
     if (
       deviceSession &&
       isSharedTabletDeviceSession(deviceSession) &&
@@ -472,7 +482,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
               accessibilityLabel={`Switch who's on — ${switchPeopleCount} people`}
               onPress={() => {
                 if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
-                void markNeedsProfilePick().then(() =>
+                void markNeedsProfilePick(members).then(() =>
                   router.replace('/select-profile' as never)
                 );
               }}
