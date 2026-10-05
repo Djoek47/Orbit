@@ -189,7 +189,10 @@ function main() {
     );
     const settings = readFileSync(join(root, 'app/settings.tsx'), 'utf8');
     const del = readFileSync(join(root, 'app/delete-account.tsx'), 'utf8');
-    assert.ok(settings.includes('resetToGetStarted()'));
+    assert.ok(
+      settings.includes('signOutAndLeave') || settings.includes('resetToGetStarted()'),
+      'Settings must leave Get Started after sign-out'
+    );
     assert.ok(settings.includes('finally'));
     assert.ok(del.includes('resetToGetStarted()'));
     const reset = readFileSync(join(root, 'lib/navigation/reset-to-get-started.ts'), 'utf8');

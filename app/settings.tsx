@@ -41,7 +41,7 @@ import {
   savePoppinsInteractionPrefs,
   type PoppinsInteractionPrefs,
 } from '@/lib/poppins/poppins-prefs';
-import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
+import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
 import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
@@ -451,6 +451,24 @@ export default function SettingsScreen() {
     router.push('/delete-account' as never);
   };
 
+  const [signingOut, setSigningOut] = useState(false);
+
+  const confirmAdminSignOut = () => {
+    if (signingOut || isSignOutInFlight()) return;
+    orbitAlert('Sign out?', 'You’ll return to Get Started. Your household stays saved on this account.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: () => {
+          if (signingOut || isSignOutInFlight()) return;
+          setSigningOut(true);
+          void signOutAndLeave(signOut).finally(() => setSigningOut(false));
+        },
+      },
+    ]);
+  };
+
   const personalizeMember = useMemo(
     () => household.members.find((member) => member.id === personalizeMemberId) ?? null,
     [household.members, personalizeMemberId]
@@ -799,18 +817,17 @@ export default function SettingsScreen() {
             </SettingsGroup>
 
             <Pressable
-              style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
-              onPress={async () => {
-                try {
-                  await signOut();
-                } catch (error) {
-                  console.warn('settings.signOut', error);
-                } finally {
-                  resetToGetStarted();
-                }
-              }}>
+              style={[
+                styles.accountBtn,
+                { backgroundColor: glass(0.06), opacity: signingOut ? 0.6 : 1 },
+              ]}
+              disabled={signingOut}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+              accessibilityState={{ busy: signingOut, disabled: signingOut }}
+              onPress={confirmAdminSignOut}>
               <Text style={[styles.accountBtnText, { color: orbitPalette.text, textAlign: 'center' }]}>
-                Sign Out
+                {signingOut ? 'Signing out…' : 'Sign Out'}
               </Text>
             </Pressable>
             <Pressable onPress={handleDelete}>

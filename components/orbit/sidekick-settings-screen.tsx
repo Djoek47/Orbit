@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -18,8 +18,8 @@ import { VOCAB } from '@/constants/vocabulary';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
+import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { memberSettingsModel } from '@/lib/settings/member-settings-model';
-import { resetToGetStarted } from '@/lib/navigation/reset-to-get-started';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -51,6 +51,7 @@ export function SidekickSettingsScreen() {
   } = useOrbit();
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const [personalizeOpen, setPersonalizeOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const model = useMemo(
     () => memberSettingsModel({ member: currentMember, members: household.members }),
@@ -58,6 +59,12 @@ export function SidekickSettingsScreen() {
   );
 
   if (!currentMember || !model) return null;
+
+  const runSignOut = () => {
+    if (signingOut || isSignOutInFlight()) return;
+    setSigningOut(true);
+    void signOutAndLeave(signOut).finally(() => setSigningOut(false));
+  };
 
   return (
     <>
@@ -206,33 +213,26 @@ export function SidekickSettingsScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={model.signOut.label}
-            style={[styles.signOutBtn, { backgroundColor: glass(0.06) }]}
+            accessibilityState={{ busy: signingOut, disabled: signingOut }}
+            disabled={signingOut}
+            style={[
+              styles.signOutBtn,
+              { backgroundColor: glass(0.06), opacity: signingOut ? 0.6 : 1 },
+            ]}
             onPress={() => {
-              orbitAlert(
-                model.signOut.title,
-                model.signOut.body,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: model.signOut.confirm,
-                    style: 'destructive',
-                    onPress: () => {
-                      void (async () => {
-                        try {
-                          await signOut();
-                        } catch (error) {
-                          console.warn('sidekickSettings.signOut', error);
-                        } finally {
-                          resetToGetStarted();
-                        }
-                      })();
-                    },
-                  },
-                ]
-              );
+              if (signingOut || isSignOutInFlight()) return;
+              orbitAlert(model.signOut.title, model.signOut.body, [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: model.signOut.confirm,
+                  style: 'destructive',
+                  // orbitAlert defers this until the Modal has fully dismissed.
+                  onPress: runSignOut,
+                },
+              ]);
             }}>
             <Text style={[styles.signOutText, { color: orbitPalette.text }]}>
-              {model.signOut.label}
+              {signingOut ? 'Signing out…' : model.signOut.label}
             </Text>
           </Pressable>
 

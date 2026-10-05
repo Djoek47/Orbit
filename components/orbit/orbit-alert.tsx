@@ -1,6 +1,10 @@
 /**
  * Themed in-app alerts — replaces system Alert.alert glass boxes.
  * Imperative API mirrors Alert.alert so call sites stay thin.
+ *
+ * Destructive confirms (Sign out, etc.) run their onPress only after the
+ * RN Modal has fully dismissed. Firing navigation / another modal dismiss
+ * during the fade freezes iOS when Settings is already an Expo modal.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +14,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -40,6 +45,9 @@ type HostApi = {
 
 let hostApi: HostApi | null = null;
 let seq = 0;
+
+/** Fade length — Android may not fire onDismiss; fallback matches this. */
+export const ORBIT_ALERT_DISMISS_MS = 320;
 
 export function orbitAlert(
   title: string,
@@ -80,13 +88,16 @@ const OrbitAlertContext = createContext<{ dismiss: () => void } | null>(null);
 
 export function OrbitAlertProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<AlertRequest[]>([]);
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
   const current = queue[0] ?? null;
+  const [visible, setVisible] = useState(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
+  const flushedIdRef = useRef<number | null>(null);
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const primary = c.primary;
 
-  const dismiss = useCallback(() => {
-    setQueue((q) => q.slice(1));
-  }, []);
+  const hasDestructive = Boolean(current?.buttons.some((b) => b.style === 'destructive'));
 
   const present = useCallback((req: Omit<AlertRequest, 'id'>) => {
     setQueue((q) => [...q, { ...req, id: ++seq }]);
@@ -100,22 +111,78 @@ export function OrbitAlertProvider({ children }: { children: ReactNode }) {
     };
   }, [api]);
 
+  // Keep the request mounted while the fade-out runs (do not dequeue on button press).
+  useEffect(() => {
+    if (current) {
+      flushedIdRef.current = null;
+      setVisible(true);
+    }
+  }, [current?.id]);
+
+  const flushAfterDismiss = useCallback(() => {
+    const active = queueRef.current[0];
+    if (!active) return;
+    if (flushedIdRef.current === active.id) return;
+    flushedIdRef.current = active.id;
+
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    setQueue((q) => q.slice(1));
+
+    if (!action) return;
+    // Two frames past native dismiss — safe to dismiss Expo Router modals / navigate.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        try {
+          action();
+        } catch (error) {
+          console.warn('orbitAlert.action', error);
+        }
+      });
+    });
+  }, []);
+
+  // Android / some hosts skip onDismiss — still run the confirm after the fade.
+  useEffect(() => {
+    if (visible || !current) return;
+    const handle = setTimeout(flushAfterDismiss, ORBIT_ALERT_DISMISS_MS);
+    return () => clearTimeout(handle);
+  }, [visible, current?.id, flushAfterDismiss]);
+
+  const beginDismiss = useCallback((action?: () => void) => {
+    pendingActionRef.current = action ?? null;
+    setVisible(false);
+  }, []);
+
   const onButton = (btn: OrbitAlertButton) => {
-    dismiss();
-    requestAnimationFrame(() => btn.onPress?.());
+    beginDismiss(btn.onPress);
   };
+
+  const dismiss = useCallback(() => {
+    beginDismiss(undefined);
+  }, [beginDismiss]);
 
   return (
     <OrbitAlertContext.Provider value={{ dismiss }}>
       {children}
       <Modal
-        visible={Boolean(current)}
+        visible={visible && Boolean(current)}
         transparent
         animationType="fade"
         statusBarTranslucent
-        onRequestClose={dismiss}>
-        <View style={styles.backdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} accessibilityLabel="Dismiss" />
+        presentationStyle="overFullScreen"
+        onRequestClose={dismiss}
+        onDismiss={flushAfterDismiss}>
+        <View style={styles.backdrop} pointerEvents="box-none">
+          {hasDestructive ? (
+            <View style={StyleSheet.absoluteFill} />
+          ) : (
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={dismiss}
+              accessibilityLabel="Dismiss"
+            />
+          )}
           {current ? (
             <View
               style={[

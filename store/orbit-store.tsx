@@ -832,6 +832,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const memberRemovalKickRef = useRef(memberRemovalKick);
   memberRemovalKickRef.current = memberRemovalKick;
   const memberRemovalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishKickInFlightRef = useRef<Promise<void> | null>(null);
+  /** Wait for the countdown Modal fade before router.dismissAll (iOS nested-modal freeze). */
+  const MEMBER_REMOVAL_MODAL_SETTLE_MS = 400;
 
   const currentMember = useMemo(() => {
     if (activeMemberId) {
@@ -1263,57 +1266,72 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   );
 
   const finishMemberRemovalKick = useCallback(async () => {
+    if (finishKickInFlightRef.current) return finishKickInFlightRef.current;
+
     if (memberRemovalTimerRef.current) {
       clearTimeout(memberRemovalTimerRef.current);
       memberRemovalTimerRef.current = null;
     }
     const kick = memberRemovalKickRef.current;
+    // Hide the countdown Modal first; wipe + navigate only after it settles.
     setMemberRemovalKick(null);
-    try {
-      if (kick?.memberId) {
-        await removeSidekickSessionFor(kick.memberId);
-        const { removeHostedProfile, loadDeviceSession, clearDeviceSession } = await import(
-          '@/lib/device/device-session'
-        );
-        const device = await loadDeviceSession();
-        if (device.mode === 'shared' && device.profileMemberIds.includes(kick.memberId)) {
-          const next = await removeHostedProfile(kick.memberId);
-          if (next.profileMemberIds.length === 0) {
-            await clearDeviceSession();
-            await clearSidekickSession();
+
+    finishKickInFlightRef.current = (async () => {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, MEMBER_REMOVAL_MODAL_SETTLE_MS);
+      });
+      try {
+        if (kick?.memberId) {
+          await removeSidekickSessionFor(kick.memberId);
+          const { removeHostedProfile, loadDeviceSession, clearDeviceSession } = await import(
+            '@/lib/device/device-session'
+          );
+          const device = await loadDeviceSession();
+          if (device.mode === 'shared' && device.profileMemberIds.includes(kick.memberId)) {
+            const next = await removeHostedProfile(kick.memberId);
+            if (next.profileMemberIds.length === 0) {
+              await clearDeviceSession();
+              await clearSidekickSession();
+            }
+          } else {
+            const remaining = await listSidekickSessions();
+            if (remaining.length === 0) {
+              await clearSidekickSession();
+              await clearDeviceSession();
+            }
           }
         } else {
-          const remaining = await listSidekickSessions();
-          if (remaining.length === 0) {
-            await clearSidekickSession();
-            await clearDeviceSession();
-          }
+          await clearSidekickSession();
+          const { clearDeviceSession } = await import('@/lib/device/device-session');
+          await clearDeviceSession();
         }
-      } else {
-        await clearSidekickSession();
-        const { clearDeviceSession } = await import('@/lib/device/device-session');
-        await clearDeviceSession();
+      } catch (error) {
+        console.warn('finishMemberRemovalKick.sessions', error);
       }
-    } catch (error) {
-      console.warn('finishMemberRemovalKick.sessions', error);
-    }
-    try {
-      await authRepository.signOut();
-    } catch {
       try {
-        const { signOutEverywhere } = await import('@/lib/auth/local-sign-out');
-        await signOutEverywhere();
+        await authRepository.signOut();
       } catch {
-        /* leave locally anyway */
+        try {
+          const { signOutEverywhere } = await import('@/lib/auth/local-sign-out');
+          await signOutEverywhere();
+        } catch {
+          /* leave locally anyway */
+        }
       }
-    }
-    await clearMockHouseholdSnapshot().catch(() => undefined);
-    clearSignedInState();
+      await clearMockHouseholdSnapshot().catch(() => undefined);
+      clearSignedInState();
+      try {
+        const { resetToGetStarted } = await import('@/lib/navigation/reset-to-get-started');
+        resetToGetStarted();
+      } catch (error) {
+        console.warn('finishMemberRemovalKick.nav', error);
+      }
+    })();
+
     try {
-      const { resetToGetStarted } = await import('@/lib/navigation/reset-to-get-started');
-      resetToGetStarted();
-    } catch (error) {
-      console.warn('finishMemberRemovalKick.nav', error);
+      await finishKickInFlightRef.current;
+    } finally {
+      finishKickInFlightRef.current = null;
     }
   }, []);
 
