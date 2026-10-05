@@ -3,6 +3,9 @@
 The demo on **Poppins → How it works** plays a saved conversation: you ask, Poppins answers.
 It must **never** use the iPhone’s Speech reader (that sounded French / robotic).
 
+**Shipped:** 18 gpt-4o-mini-tts clips (Rose=`coral`, Poppins=`sage`) are committed here and wired in
+`lib/poppins/how-it-works-audio.ts`. Re-bake only when the script lines change.
+
 ## Bake the audio (once)
 
 ```bash

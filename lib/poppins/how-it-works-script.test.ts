@@ -18,7 +18,7 @@ import {
 assert.equal(new Set(DEMO_BEATS.map((b) => b.id)).size, DEMO_BEATS.length, 'ids are unique');
 for (const beat of DEMO_BEATS) {
   assert.ok(beat.line.trim().length > 0, `${beat.id} has a line`);
-  assert.ok(beat.ms >= 800 && beat.ms <= 6000, `${beat.id} runs ${beat.ms}ms`);
+  assert.ok(beat.ms >= 800 && beat.ms <= 10_000, `${beat.id} runs ${beat.ms}ms`);
   assert.ok(beat.card, `${beat.id} draws something`);
   if (beat.speaker) assert.ok(DEMO_SPEAKERS[beat.speaker], `${beat.id} speaker is known`);
 }
@@ -91,7 +91,7 @@ assert.equal(
   total,
   DEMO_BEATS.reduce((sum, b) => sum + b.ms, 0)
 );
-assert.ok(total > 20_000 && total < 60_000, `a demo you'll actually watch: ${total}ms`);
+assert.ok(total > 20_000 && total < 120_000, `a demo you'll actually watch: ${total}ms`);
 const offsets = demoOffsets();
 assert.equal(offsets.length, DEMO_BEATS.length);
 assert.equal(offsets[0], 0);

@@ -56,7 +56,11 @@ for (const said of [
 // How it works plays baked GPT conversational audio — never device Speech.
 const audio = read('lib/poppins/how-it-works-audio.ts');
 assert.match(audio, /RECORDINGS/);
-assert.match(audio, /Never use device Speech/);
+assert.match(audio, /Do not fall back to device Speech|Never use device Speech/);
+assert.ok(
+  [...audio.matchAll(/'([^']+)':\s*require\(/g)].length >= 8,
+  'RECORDINGS must include baked clips'
+);
 const player = read('components/orbit/poppins/how-it-works-player.tsx');
 assert.match(player, /recordedDemoAudio\(beat\.id\)/);
 assert.match(player, /hasRecordedDemoAudio\(\)/);

@@ -84,7 +84,8 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'rose',
     line: 'Hey Poppins — can you give Nero the bins tonight?',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 2800,
+    // Slots sized to GPT conversational clips (+~250ms pad).
+    ms: 4300,
     note: 'One sentence. No menus, no form.',
   },
   {
@@ -93,7 +94,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'Got it. Taking out the bins, for Nero.',
     card: { kind: 'task', title: 'Take out the bins', assignee: 'Nero', due: 'Tonight', filled: ['title'] },
-    ms: 2400,
+    ms: 4800,
   },
   {
     id: 'task-fill-2',
@@ -107,7 +108,7 @@ export const DEMO_BEATS: DemoBeat[] = [
       due: 'Tonight',
       filled: ['title', 'assignee'],
     },
-    ms: 1400,
+    ms: 2100,
     note: 'It fills in as you speak — who, what, when.',
   },
   {
@@ -131,7 +132,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'Assigned. Nero has it for tonight.',
     card: { kind: 'done', label: 'Assigned', detail: 'Take out the bins · Nero · tonight' },
-    ms: 2400,
+    ms: 3900,
     note: '1 action.',
   },
 
@@ -142,7 +143,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'rose',
     line: 'Add milk, eggs, sourdough, and coffee to the list, please.',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 3200,
+    ms: 5300,
     note: 'Four things in one breath.',
   },
   {
@@ -151,7 +152,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'Milk and eggs…',
     card: { kind: 'groceries', items: GROCERIES.slice(0, 2) },
-    ms: 1600,
+    ms: 2500,
   },
   {
     id: 'grocery-2',
@@ -159,7 +160,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: '…sourdough and coffee.',
     card: { kind: 'groceries', items: GROCERIES },
-    ms: 1800,
+    ms: 3100,
     note: 'One card, four items, one confirmation — and the aisles are already right.',
   },
   {
@@ -168,7 +169,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'That’s four on the list.',
     card: { kind: 'done', label: 'Added', detail: '4 items · Dairy, Bakery, Pantry' },
-    ms: 2000,
+    ms: 2800,
     note: '1 action, not four.',
   },
 
@@ -179,7 +180,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'rose',
     line: 'Nero has the dentist Tuesday at four. Parents’ evening is Thursday at half past six, and Ama swims Saturday at ten.',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 5200,
+    ms: 8900,
   },
   {
     id: 'calendar-1',
@@ -187,7 +188,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'Dentist for Nero — Tuesday at four.',
     card: { kind: 'events', events: EVENTS.slice(0, 1) },
-    ms: 2200,
+    ms: 3700,
   },
   {
     id: 'calendar-2',
@@ -195,7 +196,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'Parents’ evening, Thursday at half past six.',
     card: { kind: 'events', events: EVENTS.slice(0, 2) },
-    ms: 2600,
+    ms: 4100,
   },
   {
     id: 'calendar-3',
@@ -203,7 +204,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'And Ama’s swimming on Saturday at ten.',
     card: { kind: 'events', events: EVENTS },
-    ms: 2400,
+    ms: 5600,
     note: 'Three appointments from one sentence. Nobody typed a date.',
   },
   {
@@ -212,7 +213,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'All three are on the calendar.',
     card: { kind: 'done', label: 'On the calendar', detail: '3 events this week' },
-    ms: 2200,
+    ms: 3200,
   },
 
   // ── A trip ─────────────────────────────────────────────────────────────────
@@ -222,7 +223,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'rose',
     line: 'On Tuesday I’ll do the dentist, then the pharmacy, then groceries.',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 3400,
+    ms: 4900,
   },
   {
     id: 'trip-1',
@@ -230,7 +231,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'Dentist first — two-ten Greenway Road.',
     card: { kind: 'trip', title: 'Tuesday run', stops: STOPS.slice(0, 1) },
-    ms: 2400,
+    ms: 4400,
     note: 'Saved places come with their address already.',
   },
   {
@@ -239,7 +240,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'Then the pharmacy on eighteen Oak Street.',
     card: { kind: 'trip', title: 'Tuesday run', stops: STOPS.slice(0, 2) },
-    ms: 2400,
+    ms: 4700,
   },
   {
     id: 'trip-3',
@@ -247,7 +248,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'rose',
     line: 'And the market on Rue Laval after that.',
     card: { kind: 'trip', title: 'Tuesday run', stops: STOPS },
-    ms: 2400,
+    ms: 4500,
     note: 'A place it doesn’t know yet? Say the address and it keeps it.',
   },
   {
@@ -256,7 +257,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     speaker: 'indigo',
     line: 'Three stops, in order. You’ll be home by about half past five.',
     card: { kind: 'done', label: 'Trip planned', detail: '3 stops · 3:45 – 5:30 PM' },
-    ms: 3600,
+    ms: 5700,
     note: 'The grocery list comes along, so you shop once.',
   },
 ];
