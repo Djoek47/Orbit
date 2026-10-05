@@ -13,6 +13,7 @@ import {
   formatHouseholdDeletionDate,
   HOUSEHOLD_DELETION_GRACE_DAYS,
 } from '@/lib/household/household-deletion';
+import { leaveModalsToTabs } from '@/lib/navigation/leave-modals-to-tabs';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -231,7 +232,13 @@ export default function DeleteHouseholdScreen() {
             {otherHouseholds.length > 0 ? (
               <OrbitButton
                 onPress={() => {
-                  void switchHousehold(otherHouseholds[0]!.householdId).then(() => router.replace('/(tabs)'));
+                  void switchHousehold(otherHouseholds[0]!.householdId)
+                    .then(() => {
+                      leaveModalsToTabs(router);
+                    })
+                    .catch((err) => {
+                      setError(err instanceof Error ? err.message : 'Could not switch household.');
+                    });
                 }}>
                 Switch to {otherHouseholds[0]!.householdName}
               </OrbitButton>
@@ -243,7 +250,10 @@ export default function DeleteHouseholdScreen() {
               }}>
               Cancel deletion
             </OrbitButton>
-            <Pressable onPress={() => router.back()} hitSlop={12} style={styles.keep}>
+            <Pressable
+              onPress={() => leaveModalsToTabs(router)}
+              hitSlop={12}
+              style={styles.keep}>
               <Text style={[styles.keepText, { color: accentTheme.primary }]}>Done</Text>
             </Pressable>
           </Animated.View>

@@ -209,6 +209,17 @@ export default function SettingsScreen() {
     lastRequested.current = requestedSection;
     setSection(requestedSection);
   }, [requestedSection]);
+
+  // Never leave the sheet touch-locked after leaving Poppins or unmounting.
+  useEffect(() => {
+    if (section !== 'poppins') setWheelDragging(false);
+  }, [section]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => setWheelDragging(false);
+    }, [])
+  );
   useEffect(() => {
     if (section !== 'members' || !permissions.canManageHousehold) return;
 

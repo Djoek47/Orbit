@@ -22,6 +22,9 @@ npx supabase functions deploy sidekick-grocery-action --no-verify-jwt
 npx supabase functions deploy sidekick-event-action --no-verify-jwt
 # Auth emails via Resend (optional if Custom SMTP is enough — see docs/resend-auth-email.md)
 npx supabase functions deploy send-auth-email --no-verify-jwt
+# Support feedback + credit purchase receipts (Resend)
+npx supabase functions deploy send-support-feedback
+npx supabase functions deploy send-credit-receipt
 npx supabase secrets set OPENAI_API_KEY=sk-...
 # Optional model overrides (defaults: gpt-realtime-2.1, gpt-5.6-luna)
 # npx supabase secrets set OPENAI_REALTIME_MODEL=gpt-realtime-2.1
@@ -29,10 +32,11 @@ npx supabase secrets set OPENAI_API_KEY=sk-...
 # npx supabase secrets set POPPINS_VOICE_GRANT_ALL=1
 # Service role required for cron → poppins-monitor
 npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
-# Resend (Send Email Hook path only)
+# Resend (auth hook + support + credit receipts)
 # npx supabase secrets set RESEND_API_KEY=re_...
 # npx supabase secrets set SEND_EMAIL_HOOK_SECRET="v1,whsec_..."
 # npx supabase secrets set RESEND_FROM_EMAIL="Choremaxx <noreply@choremaxx.app>"
+# npx supabase secrets set SUPPORT_INBOX=support@choremaxx.app
 # Expo push (Sidekick + cross-device notifications)
 # npx supabase secrets set EXPO_ACCESS_TOKEN=...
 ```
@@ -57,6 +61,8 @@ Post-tool spoken response ADR: [docs/adr-poppins-post-tool-response-create.md](.
 | `register-sidekick-push` | Register Expo push token for Sidekick devices |
 | `dispatch-member-push` | Send Expo push to audience members after inbox notification |
 | `send-auth-email` | Auth Send Email Hook → Resend (confirm / recovery / magic link); deploy with `--no-verify-jwt` |
+| `send-support-feedback` | In-app Support → Resend inbox (`support@choremaxx.app`) |
+| `send-credit-receipt` | Token pack purchase → Resend receipt to buyer (mock + StoreKit) |
 
 ## Poppins Monitor cron
 

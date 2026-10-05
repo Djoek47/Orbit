@@ -1,8 +1,9 @@
 /**
- * Registry of all 15 ChoreMaxx transactional email templates. Import a
+ * Registry of ChoreMaxx transactional email templates. Import a
  * specific module (e.g. `./verification`) to send; this file exists so the
  * smoke test and future wiring code can iterate every template by name.
  */
+import * as creditPurchase from './credit-purchase';
 import * as emailChanged from './email-changed';
 import * as householdInvite from './household-invite';
 import * as magicLink from './magic-link';
@@ -37,6 +38,12 @@ export const EMAIL_REGISTRY: {
   { id: 'task-completed', name: 'Task Completed', status: 'todo', module: taskCompleted },
   { id: 'weekly-summary', name: 'Weekly Household Summary', status: 'todo', module: weeklySummary },
   { id: 'subscription-started', name: 'Subscription Started', status: 'todo', module: subscriptionStarted },
+  {
+    id: 'credit-purchase',
+    name: 'Credit Purchase Receipt',
+    status: 'wired',
+    module: creditPurchase,
+  },
   { id: 'payment-receipt', name: 'Payment Receipt', status: 'todo', module: paymentReceipt },
   { id: 'payment-failed', name: 'Payment Failed', status: 'todo', module: paymentFailed },
   {

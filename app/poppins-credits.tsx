@@ -29,6 +29,7 @@ import {
   type CreditSummary,
 } from '@/lib/billing/credit-ledger';
 import { isNativeIapAvailable, purchaseTokens } from '@/lib/billing/iap';
+import { sendCreditReceiptEmail } from '@/lib/billing/send-credit-receipt';
 import { loadTokenGrants } from '@/lib/billing/token-grants';
 import { summarizeActUsage } from '@/lib/ai/act-events';
 import {
@@ -52,7 +53,7 @@ const TOPUP_TONE = '#FF9F1C';
 function PoppinsCreditsScreenInner() {
   const insets = useSafeAreaInsets();
   const { c, glassBorder, isDark } = useOrbitColors();
-  const { household, permissions, actEvents } = useOrbit();
+  const { household, permissions, actEvents, currentMember, currentUser } = useOrbit();
   const isAdmin = permissions.canManageHousehold;
 
   const monthUsed = useMemo(() => summarizeActUsage(actEvents).tokensUsedThisPeriod, [actEvents]);
@@ -61,6 +62,7 @@ function PoppinsCreditsScreenInner() {
   const [buying, setBuying] = useState<string | null>(null);
   const [openReceipt, setOpenReceipt] = useState<TopUpReceipt | null>(null);
   const [billingEmail, setBillingEmail] = useState('');
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,6 +140,25 @@ function PoppinsCreditsScreenInner() {
                   if (next) setCredits(next);
                   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   setOpenReceipt(receipt);
+
+                  const mailed = await sendCreditReceiptEmail({
+                    to: billingEmail || currentUser?.email || undefined,
+                    name: currentMember?.name ?? currentUser?.name,
+                    tokens: grant.tokens,
+                    price: formatPrice(pack.priceUsd),
+                    orderId: receipt.orderId,
+                    householdName: household.householdName,
+                    householdId: household.id,
+                    mock: mockBuy,
+                    transactionId: grant.transactionId,
+                  });
+                  if (mailed.ok) {
+                    setEmailStatus(`Receipt emailed to ${mailed.to}`);
+                  } else if (mailed.skipped) {
+                    setEmailStatus('Credits added · receipt saved on this device');
+                  } else {
+                    setEmailStatus(`Credits added · email pending (${mailed.error})`);
+                  }
                 } catch (error) {
                   orbitAlert("That didn't go through", String(error));
                 } finally {
@@ -149,7 +170,16 @@ function PoppinsCreditsScreenInner() {
         ]
       );
     },
-    [billingEmail, household.householdName, household.id, mockBuy, readBalance]
+    [
+      billingEmail,
+      currentMember?.name,
+      currentUser?.email,
+      currentUser?.name,
+      household.householdName,
+      household.id,
+      mockBuy,
+      readBalance,
+    ]
   );
 
   return (
@@ -194,9 +224,18 @@ function PoppinsCreditsScreenInner() {
                 ))}
               </View>
 
-              {mockBuy ? (
+              {emailStatus ? (
+                <View
+                  style={[
+                    styles.emailBanner,
+                    { backgroundColor: `${TOPUP_TONE}18`, borderColor: `${TOPUP_TONE}55` },
+                  ]}>
+                  <Moji name="receipt" size={16} />
+                  <Text style={[styles.emailBannerText, { color: TOPUP_TONE }]}>{emailStatus}</Text>
+                </View>
+              ) : mockBuy ? (
                 <Text style={[styles.mockNote, { color: c.textSubtle }]}>
-                  Test buys · no charge · packs add to your bank
+                  Test buys · no charge · packs add to your bank · receipt emailed when connected
                 </Text>
               ) : null}
             </Animated.View>
@@ -478,6 +517,17 @@ const styles = StyleSheet.create({
   packPrice: { fontSize: 16, fontWeight: '800', marginTop: 6 },
   packEach: { fontSize: 10.5 },
   mockNote: { fontSize: 11.5, lineHeight: 16, paddingHorizontal: 2 },
+  emailBanner: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  emailBannerText: { flex: 1, fontSize: 12.5, fontWeight: '700', lineHeight: 17 },
   card: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
   receiptRow: {
     alignItems: 'center',
