@@ -2651,11 +2651,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     try {
       const profileAuth = await usesProfileCodeAuth();
       const assigneeMember = assigneeMemberForTask(householdRef.current.members, input);
+      // Homework keeps the Sidekick’s homework-proof default (create forms often pass
+      // proofRequired: false). Chores stay false unless Assign / Edit explicitly opts in.
+      const isHomework = isHomeworkCategory(input.category, input.title);
       const normalizedInput: CreateTaskInput = {
         ...input,
-        proofRequired: isHomeworkCategory(input.category, input.title)
-          ? proofRequiredForHomeworkAssign(input.category, assigneeMember)
-          : false,
+        proofRequired: isHomework
+          ? input.proofRequired === true ||
+            proofRequiredForHomeworkAssign(input.category, assigneeMember)
+          : input.proofRequired === true,
       };
 
       if (profileAuth && allowSelfHomework) {
@@ -2799,7 +2803,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         prev.xp !== row.xp ||
         prev.difficulty !== row.difficulty ||
         prev.description !== row.description ||
-        prev.definitionId !== row.definitionId
+        prev.definitionId !== row.definitionId ||
+        Boolean(prev.proofRequired) !== Boolean(row.proofRequired)
       );
     });
 
