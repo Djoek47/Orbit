@@ -13,6 +13,7 @@ import * as passwordReset from './password-reset';
 import * as securityAlert from './security-alert';
 import * as subscriptionCancelled from './subscription-cancelled';
 import * as subscriptionStarted from './subscription-started';
+import * as supportReceived from './support-received';
 import * as taskAssigned from './task-assigned';
 import * as taskCompleted from './task-completed';
 import * as trialEnding from './trial-ending';
@@ -43,6 +44,12 @@ export const EMAIL_REGISTRY: {
     name: 'Credit Purchase Receipt',
     status: 'wired',
     module: creditPurchase,
+  },
+  {
+    id: 'support-received',
+    name: 'Support Received Ack',
+    status: 'wired',
+    module: supportReceived,
   },
   { id: 'payment-receipt', name: 'Payment Receipt', status: 'todo', module: paymentReceipt },
   { id: 'payment-failed', name: 'Payment Failed', status: 'todo', module: paymentFailed },

@@ -53,7 +53,7 @@ export function orbitAlert(
   title: string,
   message?: string,
   buttons?: OrbitAlertButton[],
-  options?: { record?: boolean; source?: string }
+  options?: { record?: boolean; source?: string; category?: import('@/lib/errors/error-category').ErrorCategory }
 ): void {
   const isError = options?.record ?? looksLikeErrorAlert(title, message);
   const displayMessage = isError ? friendlyErrorMessage(message) : message;
@@ -65,6 +65,7 @@ export function orbitAlert(
       title,
       message: message?.trim() || title,
       source: options?.source ?? 'alert',
+      category: options?.category,
     });
   }
 

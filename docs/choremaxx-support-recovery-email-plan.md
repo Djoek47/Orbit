@@ -39,7 +39,7 @@ flowchart LR
 | Stop | Scope | Key paths |
 |------|--------|-----------|
 | **0** | P0 touch fix after delete/switch; mock **credit receipt** email wired — **done** | `app/settings.tsx`, `app/delete-household.tsx`, `send-credit-receipt`, `app/poppins-credits.tsx` |
-| **1** | Support v2: categories, select errors, screenshots, HTML ack, diagnostics | `lib/errors/error-log.ts`, `app/support.tsx`, `send-support-feedback`, `emails/support-received.tsx` |
+| **1** | Support v2: categories, select errors, screenshots, HTML ack, diagnostics — **done** | `lib/errors/error-log.ts`, `app/support.tsx`, `send-support-feedback`, `emails/support-received.tsx` |
 | **2** | Subscription + deletion email templates; test harness | `emails/credit-purchase.tsx`, `send-subscription-receipt`, admin test triggers |
 | **3** | **30-day** grace SQL/RPC (admin cancel); reminder cron; delete copy | `lib/household/household-deletion.ts`, migration, `20260828120000_*` successor |
 | **4** | Recovery route + **hourglass** UI; empty-account gate on welcome | `HouseholdRecoveryHourglass`, `app/household-recovery.tsx` |
