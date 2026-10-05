@@ -1,197 +1,181 @@
-# Support, recovery, email, transfer & premium UI — implementation plan
+# Support, recovery, email, transfer & premium — master plan
 
-Locked from product review (2026-10-05). **Default choices** are stated explicitly; adjust only if product says otherwise.
+**Branch (single):** `cursor/fin-credits-advanced-c30d` → PR base `cursor/make-v31`  
+**Product lock:** 2026-10-05 (+ grace **B** confirmed)
+
+All work lands on **one branch**, in **ordered stops**. Each stop ends with commit + push + **three passes** (function → visual → regression) before the next stop starts.
 
 ---
 
-## Decisions (confirmed)
+## Decisions (locked)
 
 | Topic | Decision |
 |--------|----------|
-| Who can cancel scheduled deletion / recover | **Owner or admin** on that household (not owner-only). |
-| Household transfer | **QR only** (no support-ticket transfer). Recipient must be **new account** or **empty account** (no active household / only recoverable shell). After transfer: **one household mode**, source account **cannot recover** transferred household. |
-| Feedback email | **Resend** → `support@choremaxx.app` (existing `send-support-feedback`). |
-| Purchase / credit receipts | **Resend** to user email — including **mock credit buys in Expo Go** before Apple IAP. |
-| Deletion reminders | Email ladder at **T−7d, T−3d, T−24h, T−1h11m** before purge; user can **opt out of further reminders**; **accelerated permanent delete** requires confirmation email with **up to 24h** delay. |
-| Premium UI | Onboarding paywall (`/premium`) stays directionally good; add **monthly/yearly price animation toggle**. Settings **Premium section** (`section === 'premium'`) **full visual redo** to match Poppins/House rules glass cards. |
-| Support UI | Keep current layout; add **selectable errors**, optional **categories**, **screenshot attach**, richer **non-PII diagnostics** in payload. |
-| Post-delete touch bug | **P0 fix**: after delete/switch/leave flow, app must not leave Settings modal with `wheelDragging` or blocking overlays. |
-| UI quality | **Every new or touched screen** must match current Choremaxx aesthetics (Poppins / House rules / Credits tier). **Three passes** per surface: build → visual polish → functional QA in Expo Go. |
-
-**Open product knob (see bottom):** total grace length from schedule → purge (**7 days** vs **30 days**) while keeping the four reminder offsets relative to purge time.
+| Deletion grace | **B — 30 days** from schedule to permanent purge. Reminder emails only in the **final 7 days**: **T−7d, T−3d, T−24h, T−1h11m** before purge. Opt out of remaining reminders; accelerated delete → confirm email (up to **24h**). |
+| Recover / cancel schedule | **Owner or admin** on that household. |
+| Transfer | **QR only** → **new or empty account** only; after transfer **one household**, source **cannot recover**. |
+| Feedback | Resend → `support@choremaxx.app`; selectable errors + categories + screenshots. |
+| Credits / subs email | Real Resend to user on **mock + real** buys before Apple. |
+| Premium UI | Settings Premium section redo; paywall **monthly/yearly animation**. |
+| Touch bug | **P0** after delete/switch — no Settings modal lock. |
+| UI quality | Poppins / House rules / Credits aesthetics; **3 passes per stop**. |
 
 ---
 
-## Phase 1 — Support & error reporting (extend existing)
+## Delivery map (stops on `cursor/fin-credits-advanced-c30d`)
 
-**Already shipped:** [`app/support.tsx`](../app/support.tsx), [`lib/errors/error-log.ts`](../lib/errors/error-log.ts), [`lib/support/send-feedback.ts`](../lib/support/send-feedback.ts), edge [`send-support-feedback`](../supabase/functions/send-support-feedback/index.ts).
+```mermaid
+flowchart LR
+  S0[Stop0_P0TouchEmail]
+  S1[Stop1_SupportV2]
+  S2[Stop2_TransactionalEmail]
+  S3[Stop3_Deletion30d]
+  S4[Stop4_RecoveryUI]
+  S5[Stop5_QRTransfer]
+  S6[Stop6_PremiumUI]
+  S0 --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
+```
 
-### 1.1 Error taxonomy
-
-- Add `category` to `AppErrorEntry`: `tasks` | `rewards` | `calendar` | `grocery` | `poppins` | `billing` | `settings` | `network` | `unknown`.
-- Map at record time in [`orbit-alert.tsx`](../components/orbit/orbit-alert.tsx), [`friendly-error.ts`](../lib/errors/friendly-error.ts), and store catch sites (task complete, reward claim, etc.).
-- Display category chip on Support cards; filter optional later.
-
-### 1.2 Selective attach + diagnostics
-
-- Support UI: checkbox per saved error (default **newest selected**); send only selected IDs.
-- Extend payload (non-PII): `appVersion`, `platform`, `householdId`, `memberRole`, optional **counts** (open tasks, pending rewards) from store snapshots — **no member names, no task titles, no transcripts**.
-- Optional `contextIds`: hashed or truncated task/reward IDs only when user expanded an error that recorded them.
-
-### 1.3 Screenshots
-
-- `expo-image-picker` (already in stack or add): attach 0–3 images; upload to Supabase Storage `support-uploads/` (RLS: auth user); edge function sends **signed URLs** in Resend body (not attachments if size limits bite).
-
-### 1.4 Resend HTML for support
-
-- New template [`emails/support-received.tsx`](../emails/support-received.tsx) (user auto-reply) + plain-text inbox copy for team.
-- Team email remains `SUPPORT_INBOX`; user gets “We got your note” with ticket ref.
-
----
-
-## Phase 2 — Transactional email (credits, subscription, deletion)
-
-### 2.1 Edge functions (Resend + React Email)
-
-| Function | Trigger | Template |
-|----------|---------|----------|
-| `send-credit-receipt` | After `grantTokenPack` (mock + real) | New `emails/credit-purchase.tsx` — congrats, amount, order id, “never expire” line |
-| `send-subscription-receipt` | After mock/real `purchasePremium` | Extend [`emails/subscription-started.tsx`](../emails/subscription-started.tsx) |
-| `send-deletion-reminder` | Cron / scheduled job | New `emails/household-deletion-reminder.tsx` (stage: 7d / 3d / 24h / 1h11m) |
-| `send-deletion-confirmed` | Accelerated delete confirmed | New `emails/household-deletion-final.tsx` |
-| `send-deletion-cancelled` | Cancel recovery | Short confirmation |
-
-**From addresses:** `Choremaxx <noreply@choremaxx.app>`; **Reply-To** `support@choremaxx.app` for receipts.
-
-### 2.2 Wire credits (mock now)
-
-- [`app/poppins-credits.tsx`](../app/poppins-credits.tsx): after successful `purchaseTokens`, invoke `send-credit-receipt` with pack, tokens, order/receipt id, household name.
-- Keep on-device receipt sheet; email is the real confirmation for testing before StoreKit.
-
-### 2.3 Test harness
-
-- Script or Settings → Developer (admin): “Send test credit / subscription / deletion email” to signed-in user.
-- Document secrets: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `SUPPORT_INBOX`, `BILLING_CC` optional.
+| Stop | Scope | Key paths |
+|------|--------|-----------|
+| **0** | P0 touch fix after delete/switch; mock **credit receipt** email wired | `app/settings.tsx`, `app/delete-household.tsx`, `send-credit-receipt`, `app/poppins-credits.tsx` |
+| **1** | Support v2: categories, select errors, screenshots, HTML ack, diagnostics | `lib/errors/error-log.ts`, `app/support.tsx`, `send-support-feedback`, `emails/support-received.tsx` |
+| **2** | Subscription + deletion email templates; test harness | `emails/credit-purchase.tsx`, `send-subscription-receipt`, admin test triggers |
+| **3** | **30-day** grace SQL/RPC (admin cancel); reminder cron; delete copy | `lib/household/household-deletion.ts`, migration, `20260828120000_*` successor |
+| **4** | Recovery route + **hourglass** UI; empty-account gate on welcome | `HouseholdRecoveryHourglass`, `app/household-recovery.tsx` |
+| **5** | QR transfer generate/scan/accept edge function | Settings House, `transfer-household`, scanner |
+| **6** | Premium settings + paywall animation + allowance copy fix | `app/settings.tsx`, `premium-paywall.tsx` |
 
 ---
 
-## Phase 3 — Household deletion & recovery
+## Stop 0 — P0 + first Resend proof
 
-### 3.1 Policy & SQL
+### Function
+- Fix `wheelDragging` / modal gestures after `switchHousehold` from delete done (`settings.tsx`, store boot).
+- Edge `send-credit-receipt`: React Email congrats + tokens + order id.
+- Invoke from `poppins-credits.tsx` after `purchaseTokens` (mock path included).
 
-- Replace `HOUSEHOLD_DELETION_GRACE_DAYS = 15` with **`HOUSEHOLD_DELETION_GRACE_DAYS = 7`** (default until product confirms 30).
-- `deletion_scheduled_for` = **purge at** (unchanged semantics).
-- New columns: `deletion_reminder_opt_out`, `deletion_accelerated_at`, `deletion_email_stage`.
-- RPC `request_household_deletion`: allow **owner OR admin** (`role IN ('owner','admin')`).
-- RPC `cancel_household_deletion`: same.
-- RPC `request_immediate_household_deletion`: sets accelerated flag; sends confirm email; purge only after token confirm (24h max).
+### Visual (Pass 2)
+- Credits success: brief toast or inline “Receipt emailed to …” matching Credits orange tone.
 
-### 3.2 Reminder job
-
-- Supabase cron or `pg_cron` edge worker: hourly scan households with pending purge; send next stage email; respect opt-out.
-
-### 3.3 Recovery UI (recoverable households only)
-
-- New route **`/household-recovery`** (or welcome branch): shown when membership list has **recoverable** row (scheduled purge, named household) and user is owner/admin.
-- **Not shown** for brand-new users with no history.
-- Hero: [`components/orbit/poppins-hourglass.tsx`](../components/orbit/poppins-hourglass.tsx) adapted → **`HouseholdRecoveryHourglass`** (same motion language as Poppins orb: breathe, gradient sand, live countdown to purge).
-- Actions: **Cancel deletion** (recover), **Delete permanently now** (starts 24h confirm flow), **Opt out of reminder emails**.
-
-### 3.4 Delete flow copy
-
-- Update [`app/delete-household.tsx`](../app/delete-household.tsx) + Settings banner to describe **email ladder** and admin recovery.
-
-### 3.5 P0 — Touch lock after switch/delete
-
-- Audit [`app/settings.tsx`](../app/settings.tsx) `wheelDragging` / modal `gestureEnabled`.
-- After `switchHousehold` from delete done: reset wheel state; `router.replace('/(tabs)')`; refresh store boot.
-- Repro case: schedule delete on HH B, switch from HH A → fix any full-screen pointerEvents trap.
+### Regression (Pass 3)
+- `npm run typecheck`, `test:billing`, `topup-receipt.test.ts`
+- Expo Go: buy mock pack → inbox email; delete HH → switch → tabs respond to touch.
 
 ---
 
-## Phase 4 — QR household transfer
+## Stop 1 — Support & error reporting
 
-### 4.1 Flow
+**Existing:** [`app/support.tsx`](app/support.tsx), [`lib/errors/error-log.ts`](lib/errors/error-log.ts), [`send-support-feedback`](supabase/functions/send-support-feedback/index.ts).
+
+- `category` on `AppErrorEntry`: tasks | rewards | calendar | grocery | poppins | billing | settings | network | unknown.
+- Checkboxes on saved errors; send only selected; default newest checked.
+- Non-PII meta: householdId, memberRole, app build, optional counts (no titles/names).
+- Screenshots: image picker → Storage → signed URLs in Resend body.
+- User auto-reply template `emails/support-received.tsx`.
+
+**Passes:** send 2/5 errors + 1 screenshot; verify support inbox + user ack; Support UI matches Poppins group headers.
+
+---
+
+## Stop 2 — Transactional email (subscription + deletion stages)
+
+| Edge function | Template |
+|---------------|----------|
+| `send-subscription-receipt` | Extend [`emails/subscription-started.tsx`](emails/subscription-started.tsx) |
+| `send-deletion-reminder` | `emails/household-deletion-reminder.tsx` (stages 7d/3d/24h/1h11m) |
+| `send-deletion-confirmed` | Accelerated purge confirm |
+| `send-deletion-cancelled` | Recovery cancel |
+
+Admin-only Settings dev row: fire test emails to signed-in user.
+
+**Passes:** all four deletion stage templates render; mock premium trial triggers subscription email.
+
+---
+
+## Stop 3 — 30-day deletion policy (grace B)
+
+- `HOUSEHOLD_DELETION_GRACE_DAYS = 30`; `deletion_scheduled_for` = purge instant.
+- Reminder cron: only when `now >= purge - 7d` and stage not sent; ladder 7d → 3d → 24h → 1h11m.
+- RPC: `request_household_deletion` / `cancel` for **owner OR admin**.
+- `request_immediate_household_deletion` + 24h confirm token email.
+- Update [`app/delete-household.tsx`](app/delete-household.tsx) + Settings banner copy (30 days + email ladder).
+
+**Passes:** unit tests for days remaining; staging cron with shortened intervals; admin can cancel, owner can cancel.
+
+---
+
+## Stop 4 — Recovery UI (recoverable only)
+
+- Route when membership has scheduled purge + user is owner/admin + named household.
+- **Not** shown for brand-new users with no history.
+- `HouseholdRecoveryHourglass` from [`poppins-hourglass.tsx`](components/orbit/poppins-hourglass.tsx) — breathe, gradient sand, live countdown to purge.
+- Actions: Cancel deletion, Delete permanently now, Opt out of reminder emails.
+
+**Passes:** countdown matches server; Pass 2 side-by-side with Poppins settings hero.
+
+---
+
+## Stop 5 — QR household transfer
 
 ```mermaid
 sequenceDiagram
   participant Owner as SourceOwner
   participant App as ChoreMaxx
-  participant Edge as transfer-household
+  participant Edge as transfer_household
   participant NewUser as EmptyOrNewAccount
 
-  Owner->>App: Generate transfer QR (TTL 15m)
+  Owner->>App: Generate transfer QR TTL 15m
   NewUser->>App: Scan QR
-  App->>App: Require sign-in or sign-up
-  App->>App: Validate empty account
-  NewUser->>Edge: Accept transfer token
-  Edge->>Edge: Move ownership, revoke source recovery
-  NewUser->>App: Create household name OR land in transferred HH
+  App->>App: Sign in or sign up empty account
+  NewUser->>Edge: Accept token
+  Edge->>Edge: Transfer ownership burn source recovery
+  NewUser->>App: Land in HH or create name on welcome
 ```
 
-### 4.2 Empty-account rules
+- Empty account: zero active memberships OR only recoverable scheduled-delete shell.
+- Post-transfer: source cannot recover; destination single HH.
+- Settings → House → Transfer ownership (owner); scanner `orbit://transfer-household?token=`.
 
-- **Eligible:** auth user with **zero active memberships**, OR only membership is **recoverable scheduled-delete** household they own.
-- **Ineligible:** user with a live household → show “Use an empty account” + sign out CTA.
-
-### 4.3 Post-transfer
-
-- Source account: membership removed; **transfer token burned**; no QR recovery.
-- Destination: single active household; normal app.
-
-### 4.4 UI placement
-
-- Settings → House → **Transfer ownership** (owner only), generates QR + share sheet.
-- Scanner: extend [`invite-qr-scanner.tsx`](../components/orbit/invite-qr-scanner.tsx) with `orbit://transfer-household?token=`.
+**Passes:** two test accounts; ineligible user sees empty-account message.
 
 ---
 
-## Phase 5 — Premium & payment placement
+## Stop 6 — Premium UI polish
 
-### 5.1 Settings Premium section redo
+- Redo `section === 'premium'` in [`app/settings.tsx`](app/settings.tsx) — glass hero, one primary CTA, restore as secondary row (no gray blocks).
+- [`premium-paywall.tsx`](components/orbit/premium-paywall.tsx): Monthly/Yearly segmented control + Reanimated price crossfade; fix allowance copy via `PREMIUM_ALLOWANCE_COPY` / daily cap.
 
-- Replace plain `SectionCard` + gray buttons in [`app/settings.tsx`](../app/settings.tsx) `section === 'premium'` with same patterns as Poppins settings: gradient hero, entitlement line, single primary CTA, restore as text row.
-
-### 5.2 Paywall animation
-
-- [`components/orbit/premium-paywall.tsx`](../components/orbit/premium-paywall.tsx): segmented **Monthly / Yearly** with animated price crossfade (Reanimated); fix copy bug “300 a month, 300 a day” → use `PREMIUM_ALLOWANCE_COPY` / daily cap from constants.
-
-### 5.3 Strategic entry points (no duplicate ugly sheets)
-
-| Scenario | Route |
-|----------|--------|
-| Onboarding gate | `/premium?source=onboarding` |
-| Settings | Inline premium section → full `/premium?source=settings` |
-| Out of actions | Existing Poppins paused → Credits + Premium link |
-| Post–credit buy | Success → optional Premium upsell (soft) |
+**Passes:** onboarding + settings entry both on-brand; animation smooth on device.
 
 ---
 
-## Phase 6 — QA passes
+## Design standard (every stop)
 
-1. **Email:** mock credit buy → inbox receipt; deletion stages in staging with shortened cron.
-2. **Support:** select 2 of 5 errors + screenshot → Resend inbox + user ack.
-3. **Recovery:** admin cancels deletion; hourglass countdown matches server time.
-4. **Transfer:** full QR path on two test accounts; source cannot recover.
-5. **Regression:** delete → switch HH → tabs usable; Premium section matches design.
+References: [`docs/design-system/`](docs/design-system/01-product-philosophy.md), Poppins settings panel, House rules, Credits cards.
 
----
+| Pass | Goal |
+|------|------|
+| **1** | Logic, emails, navigation, no touch lock |
+| **2** | Typography, glass, gradients, motion, haptics, empty/busy states |
+| **3** | typecheck + targeted tests + Expo Go admin/member/empty paths |
 
-## Suggested branch split
-
-1. `cursor/support-feedback-v2-c30d` — Phase 1 + support HTML  
-2. `cursor/transactional-email-c30d` — Phase 2  
-3. `cursor/household-recovery-c30d` — Phase 3 + touch fix  
-4. `cursor/household-transfer-qr-c30d` — Phase 4  
-5. `cursor/premium-ui-polish-c30d` — Phase 5  
-
-Base: `cursor/make-v31` (or latest merged make branch).
+No plain gray `SectionCard` buttons where the app uses glass groups.
 
 ---
 
-## One product confirmation
+## Final QA (after Stop 6)
 
-**Total grace from “Schedule deletion” to permanent purge:**
+1. Mock credit + subscription + deletion reminder emails in inbox.  
+2. Support: selected errors + screenshot → Resend.  
+3. 30d schedule → reminders only in last 7d; admin recovers via hourglass.  
+4. QR transfer; source locked out of recovery.  
+5. Premium UI matches household settings vibe.  
+6. Delete → switch HH → full app touch works.
 
-- **Plan default: 7 days**, with reminder emails at **7d, 3d, 24h, and 1h11m before purge** (four emails; first may coincide with schedule if purge is exactly 7d out).
-- If you want **30 days** of recovery with reminders only in the **final 7 days**, say so — SQL constant and cron logic change, not the rest of the plan.
+---
+
+## PR strategy
+
+- **One PR** on `cursor/fin-credits-advanced-c30d`, updated after each stop (draft until Stop 6 complete, or mark ready after Stop 0 if you want early review).
+- Do **not** split into five feature branches unless product asks — all stops stack on this branch.
