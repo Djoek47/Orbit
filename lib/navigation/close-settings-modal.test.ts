@@ -35,6 +35,7 @@ test('admin Settings X uses closeSettingsModal, not router.back alone', () => {
 test('sidekick Settings X uses closeSettingsModal + signing-out overlay', () => {
   const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
   assert.match(sidekick, /closeSettingsModal/);
+  assert.match(sidekick, /closeSidekickSettings|setPersonalizeOpen\(false\)/);
   assert.match(sidekick, /SigningOutOverlay/);
   assert.doesNotMatch(sidekick, /onPress=\{\(\) => router\.back\(\)\}/);
 });
@@ -51,4 +52,17 @@ test('root layout keeps Settings gestures enabled by default', () => {
   assert.match(layout, /name="settings"/);
   assert.match(layout, /gestureEnabled: true/);
   assert.match(layout, /fullScreenGestureEnabled: true/);
+});
+
+test('settings modal chrome dismisses stack without replace(/settings)', () => {
+  const chrome = read('components/orbit/settings/modal-chrome.tsx');
+  assert.match(chrome, /closeSettingsModalStack/);
+  assert.doesNotMatch(chrome, /replace\('\/settings'/);
+});
+
+test('closeSettingsModalStack uses dismissAll not replace tabs', () => {
+  const src = read('lib/navigation/close-settings-modal.ts');
+  assert.match(src, /closeSettingsModalStack/);
+  assert.match(src, /dismissAll/);
+  assert.match(src, /Never `replace\('\/\(tabs\)'\)`/);
 });

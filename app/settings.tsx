@@ -486,10 +486,20 @@ export default function SettingsScreen() {
 
   const [signingOut, setSigningOut] = useState(false);
 
-  const closeSettings = useCallback(() => {
+  /** RN sheets/alerts over Settings must close before dismiss or Sign Out navigates. */
+  const collapseSettingsOverlays = useCallback(() => {
     setWheelDragging(false);
-    closeSettingsModal();
+    setPersonalizeMemberId(null);
+    setDeadlineOpen(false);
+    setInviteTarget(null);
+    setHouseholdSwitchOpen(false);
+    setAddMemberOpen(false);
   }, []);
+
+  const closeSettings = useCallback(() => {
+    collapseSettingsOverlays();
+    closeSettingsModal();
+  }, [collapseSettingsOverlays]);
 
   const confirmAdminSignOut = () => {
     if (signingOut || isSignOutInFlight()) return;
@@ -500,7 +510,7 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: () => {
           if (signingOut || isSignOutInFlight()) return;
-          setWheelDragging(false);
+          collapseSettingsOverlays();
           setSigningOut(true);
           void signOutAndLeave(signOut).finally(() => setSigningOut(false));
         },

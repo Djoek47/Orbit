@@ -29,6 +29,14 @@ assert.equal(own.canSwitchProfiles, false);
 assert.equal(own.deviceName, undefined);
 assert.equal(own.signOut.label, 'Sign out');
 
+const familyPhone = memberSettingsModel({
+  member: jack,
+  members,
+  hostedProfileMemberIds: ['m1', 'm2'],
+})!;
+assert.equal(familyPhone.canSwitchProfiles, true);
+assert.deepEqual(familyPhone.sharedWith, ['Ama']);
+
 // Someone on the shared device: switching is the way out, and sign out warns it takes the others.
 const shared = memberSettingsModel({ member: ama, members })!;
 assert.equal(shared.kind, 'shared-account');

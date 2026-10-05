@@ -51,25 +51,26 @@ export function SidekickUnlockSplash({ member, onComplete }: SidekickUnlockSplas
   };
 
   useEffect(() => {
-    const avatarTimer = setTimeout(() => {
-      avatarOpacity.value = withTiming(1, { duration: 480, easing: Easing.out(Easing.cubic) });
-      avatarY.value = withTiming(0, { duration: 520, easing: Easing.out(Easing.cubic) });
-    }, 1200);
-
+    // Dissolve brand first so "Welcome back" never sits under "Opening your space".
     const dissolveBrandTimer = setTimeout(() => {
-      brandOpacity.value = withTiming(0, { duration: 420, easing: Easing.inOut(Easing.cubic) });
-      brandScale.value = withTiming(0.94, { duration: 420, easing: Easing.inOut(Easing.cubic) });
-    }, 2000);
+      brandOpacity.value = withTiming(0, { duration: 360, easing: Easing.inOut(Easing.cubic) });
+      brandScale.value = withTiming(0.94, { duration: 360, easing: Easing.inOut(Easing.cubic) });
+    }, 1400);
+
+    const avatarTimer = setTimeout(() => {
+      avatarOpacity.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
+      avatarY.value = withTiming(0, { duration: 460, easing: Easing.out(Easing.cubic) });
+    }, 1680);
 
     const exitTimer = setTimeout(() => {
       screenOpacity.value = withTiming(
         0,
-        { duration: 520, easing: Easing.inOut(Easing.cubic) },
+        { duration: 480, easing: Easing.inOut(Easing.cubic) },
         (finished) => {
           if (finished) runOnJS(finish)();
         }
       );
-    }, 2480);
+    }, 2600);
 
     return () => {
       clearTimeout(avatarTimer);
@@ -116,11 +117,12 @@ export function SidekickUnlockSplash({ member, onComplete }: SidekickUnlockSplas
       />
 
       <View style={styles.center}>
-        <Animated.View style={[styles.brandWrap, brandStyle]}>
-          <BrandOpening tagline={`Welcome back, ${firstName}.`} />
+        {/* Brand and avatar phases share the center — never stack both copy lines. */}
+        <Animated.View style={[styles.brandWrap, brandStyle]} pointerEvents="none">
+          <BrandOpening tagline="" />
         </Animated.View>
 
-        <Animated.View style={[styles.avatarBlock, avatarStyle]}>
+        <Animated.View style={[styles.avatarBlock, avatarStyle]} pointerEvents="none">
           <LinearGradient
             colors={[theme.primary, theme.secondary]}
             start={{ x: 0, y: 0 }}
@@ -135,6 +137,7 @@ export function SidekickUnlockSplash({ member, onComplete }: SidekickUnlockSplas
               />
             </View>
           </LinearGradient>
+          <Text style={[styles.welcome, { color: c.text }]}>Welcome back, {firstName}.</Text>
           <Text style={[styles.opening, { color: c.textMuted }]}>Opening your space…</Text>
         </Animated.View>
       </View>
@@ -182,5 +185,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.2,
+  },
+  welcome: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+    textAlign: 'center',
   },
 });

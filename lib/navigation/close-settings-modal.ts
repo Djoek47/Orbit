@@ -39,3 +39,21 @@ export function closeSettingsModal(): void {
     },
   });
 }
+
+/**
+ * Close the whole settings stack (House Rules, Support, Premium, …) back to tabs.
+ * Uses `dismissAll` only — never `replace('/(tabs)')` while modals are up (that
+ * pairing left Home untouchable). Settings’ own X still uses single dismiss via
+ * {@link closeSettingsModal} when only the root sheet is open.
+ */
+export function closeSettingsModalStack(): void {
+  try {
+    if (router.canDismiss()) {
+      router.dismissAll();
+      return;
+    }
+  } catch {
+    /* fall through */
+  }
+  closeSettingsModal();
+}

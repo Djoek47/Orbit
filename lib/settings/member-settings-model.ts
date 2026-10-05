@@ -53,8 +53,10 @@ function listNames(names: string[]): string {
 export function memberSettingsModel(input: {
   member: Pick<HouseholdMember, 'id' | 'name' | 'role'> | null | undefined;
   members: HouseholdMember[];
+  /** Local device binding — multiple Sidekick profiles on one phone. */
+  hostedProfileMemberIds?: string[];
 }): MemberSettingsModel | null {
-  const { member, members } = input;
+  const { member, members, hostedProfileMemberIds } = input;
   if (!member) return null;
 
   // The shared device itself: nobody has tapped a face yet.
@@ -98,6 +100,30 @@ export function memberSettingsModel(input: {
           ? `This signs the whole device out, not just you — ${listNames(people)} would be signed out too. To hand it over, use Switch who’s on instead.`
           : 'This signs the whole device out. To hand it over to someone else, use Switch who’s on instead.',
         confirm: 'Sign the device out',
+      },
+    };
+  }
+
+  const hosted = [...new Set((hostedProfileMemberIds ?? []).filter(Boolean))];
+  if (hosted.length > 1 && isSidekickRole(member.role)) {
+    const siblings = hosted
+      .filter((id) => id !== member.id)
+      .map((id) => members.find((item) => item.id === id)?.name)
+      .filter((name): name is string => Boolean(name));
+    return {
+      kind: 'sidekick',
+      deviceName: 'This device',
+      sharedWith: siblings,
+      canSwitchProfiles: true,
+      lookNote: 'Colors follow you on this device — Day and Night included.',
+      signOut: {
+        label: 'Sign out',
+        title: 'Sign out?',
+        body:
+          siblings.length > 0
+            ? `This signs you out — ${listNames(siblings)} can still use Switch who’s on to open their space. Your streak and tasks stay saved.`
+            : 'You will show as disconnected on the household roster. Tap Continue as you on the welcome screen to come back — your streak and tasks stay saved.',
+        confirm: 'Sign out',
       },
     };
   }

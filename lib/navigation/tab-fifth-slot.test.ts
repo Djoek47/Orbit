@@ -57,6 +57,18 @@ assert.equal(
   }),
   false
 );
+assert.equal(
+  isSharedTabletDeviceSession({
+    mode: 'shared',
+    hostKind: 'sidekick',
+    profileMemberIds: ['m1', 'm2'],
+    activeMemberId: 'm1',
+    needsProfilePick: false,
+    sharedDeviceId: null,
+  }),
+  true,
+  'two hosted Sidekick profiles use Switch UX'
+);
 
 // On a shared iPad, the fifth button hands it over — for the device and for whoever is on it.
 assert.equal(tabFifthSlot({ role: 'shared-device', members, memberId: 'd' }), 'switch');
