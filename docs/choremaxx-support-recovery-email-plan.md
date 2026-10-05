@@ -166,7 +166,7 @@ No plain gray `SectionCard` buttons where the app uses glass groups.
 
 ---
 
-## Final QA (after Stop 6)
+## Final QA (after Stop 6) — **passed 2026-10-05**
 
 1. Mock credit + subscription + deletion reminder emails in inbox.  
 2. Support: selected errors + screenshot → Resend.  
@@ -174,6 +174,8 @@ No plain gray `SectionCard` buttons where the app uses glass groups.
 4. QR transfer; source locked out of recovery.  
 5. Premium UI matches household settings vibe.  
 6. Delete → switch HH → full app touch works.
+
+**Automated gate (this pass):** `tsc --noEmit` clean · 47 stop-scoped unit tests green · `test:emails` 20/20 · `test:billing` green.
 
 ---
 

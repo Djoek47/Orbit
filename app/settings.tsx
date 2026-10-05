@@ -1364,7 +1364,6 @@ export default function SettingsScreen() {
               </LinearGradient>
 
               <OrbitButton
-                loading={billingBusy}
                 onPress={() =>
                   router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
                 }>
@@ -1377,7 +1376,7 @@ export default function SettingsScreen() {
                 <SettingsNavRow
                   icon="restore"
                   iconColor="#E9B44C"
-                  label="Restore purchases"
+                  label={billingBusy ? 'Restoring…' : 'Restore purchases'}
                   subtitle="Bring back an Apple subscription on this device"
                   last
                   onPress={() => {
