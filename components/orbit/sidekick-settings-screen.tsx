@@ -64,8 +64,14 @@ export function SidekickSettingsScreen() {
 
   const runSignOut = () => {
     if (signingOut || isSignOutInFlight()) return;
+    setPersonalizeOpen(false);
     setSigningOut(true);
     void signOutAndLeave(signOut).finally(() => setSigningOut(false));
+  };
+
+  const closeSidekickSettings = () => {
+    setPersonalizeOpen(false);
+    closeSettingsModal();
   };
 
   return (
@@ -87,7 +93,7 @@ export function SidekickSettingsScreen() {
           </View>
           <Pressable
             style={[styles.close, { backgroundColor: glass(0.08) }]}
-            onPress={closeSettingsModal}
+            onPress={closeSidekickSettings}
             accessibilityRole="button"
             accessibilityLabel="Close settings"
             hitSlop={12}>

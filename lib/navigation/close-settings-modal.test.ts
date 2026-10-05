@@ -35,6 +35,7 @@ test('admin Settings X uses closeSettingsModal, not router.back alone', () => {
 test('sidekick Settings X uses closeSettingsModal + signing-out overlay', () => {
   const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
   assert.match(sidekick, /closeSettingsModal/);
+  assert.match(sidekick, /closeSidekickSettings|setPersonalizeOpen\(false\)/);
   assert.match(sidekick, /SigningOutOverlay/);
   assert.doesNotMatch(sidekick, /onPress=\{\(\) => router\.back\(\)\}/);
 });
