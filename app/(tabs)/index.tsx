@@ -18,6 +18,7 @@ import { LargeTitleHeader } from '@/components/orbit/large-title-header';
 import { Leaderboard, type LeaderboardEntry } from '@/components/orbit/leaderboard';
 import { PoppinsCard } from '@/components/orbit/poppins-card';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
+import { SharedDeviceSwitchMenu } from '@/components/orbit/shared-device-switch-menu';
 import { TaskProofRequestSheet } from '@/components/orbit/task-proof-sheets';
 import { StreakRescueSheet } from '@/components/orbit/streak-rescue-sheet';
 import { StreakLostSheet } from '@/components/orbit/streak-lost-sheet';
@@ -69,6 +70,7 @@ export default function HomeScreen() {
     rewardCapabilities,
     v2Permissions,
     orbitPalette,
+    switchPersona,
   } = useOrbit();
   const tour = useTourControls();
   const { refreshing, onRefresh } = useHouseholdRefresh();
@@ -310,6 +312,12 @@ export default function HomeScreen() {
               title={`${greetingWord()}, ${firstName}`}
               scrollY={scrollY}
               size="compact"
+            />
+            <SharedDeviceSwitchMenu
+              members={household.members}
+              currentMember={currentMember}
+              accentColor={accentTheme.primary}
+              onSwitchPersona={switchPersona}
             />
           </View>
           <Pressable

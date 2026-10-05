@@ -1286,7 +1286,9 @@ export default function SettingsScreen() {
             onPersonalize={setPersonalizeMemberId}
             onOpenPersonaSwitch={() => {
               void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-                markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+                markNeedsProfilePick(household.members).then(() =>
+                  router.push('/select-profile' as never)
+                )
               );
             }}
           />

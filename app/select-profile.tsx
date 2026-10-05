@@ -10,39 +10,63 @@ import { SharedDeviceProfilePicker } from '@/components/orbit/shared-device-prof
 import { SidekickUnlockSplash } from '@/components/orbit/sidekick-unlock-splash';
 import { space } from '@/constants/orbit-theme';
 import { isPersonalSidekickDevice } from '@/lib/device/device-host';
+import {
+  profilesForSharedDeviceSwitch,
+  resolveSwitchDeviceShell,
+} from '@/lib/device/profiles-for-switch';
 import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   clearDeviceSession,
-  loadDeviceSession,
+  reconcileHostedDeviceSession,
   removeHostedProfile,
+  saveDeviceSession,
   selectDeviceProfile,
+  setupSharedDeviceSession,
   type DeviceSession,
 } from '@/lib/device/device-session';
-import { findSharedDeviceForMember, resolveSharedDevicePeople } from '@/lib/household/shared-device';
 import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 import { AppText as Text } from '@/components/orbit/app-text';
 
-function profilesForSession(
-  session: DeviceSession | null,
+async function alignSessionWithRoster(
+  session: DeviceSession,
   members: HouseholdMember[]
-): HouseholdMember[] {
-  if (!session || session.mode !== 'shared') {
-    const shell = members.find((m) => m.role === 'shared-device' && m.status === 'active');
-    if (shell) return resolveSharedDevicePeople(shell, members);
-    return [];
+): Promise<DeviceSession> {
+  const profiles = profilesForSharedDeviceSwitch(session, members);
+  if (profiles.length < 2) return session;
+
+  const ids = profiles.map((p) => p.id);
+  const missing = ids.some((id) => !session.profileMemberIds.includes(id));
+  const wrongKind = session.hostKind === 'sidekick' || session.hostKind === undefined;
+  if (!missing && !wrongKind && session.mode === 'shared') return session;
+
+  const shell = resolveSwitchDeviceShell(session, members);
+  const next = await setupSharedDeviceSession({
+    profileMemberIds: ids,
+    deviceLabel:
+      session.deviceLabel?.trim() ||
+      normalizeSharedDeviceLabel(shell?.name) ||
+      'Family device',
+    hostKind: 'shared-tablet',
+    sharedDeviceId: session.sharedDeviceId ?? shell?.id ?? null,
+  });
+
+  if (session.needsProfilePick || next.needsProfilePick) {
+    const withPick: DeviceSession = {
+      ...next,
+      activeMemberId: null,
+      needsProfilePick: true,
+    };
+    await saveDeviceSession(withPick);
+    return withPick;
   }
-  if (session.profileMemberIds.length > 0) {
-    return session.profileMemberIds
-      .map((id) => members.find((m) => m.id === id))
-      .filter((m): m is HouseholdMember => Boolean(m && m.status === 'active'));
+
+  if (session.activeMemberId && ids.includes(session.activeMemberId)) {
+    return selectDeviceProfile(session.activeMemberId);
   }
-  if (session.sharedDeviceId) {
-    const shell = members.find((m) => m.id === session.sharedDeviceId);
-    return resolveSharedDevicePeople(shell, members);
-  }
-  return [];
+
+  return next;
 }
 
 /** Shared device — pick a face (Switch tab or cold start), then Choremaxx. */
@@ -54,31 +78,36 @@ export default function SelectProfileScreen() {
 
   useEffect(() => {
     let mounted = true;
-    loadDeviceSession().then((next) => {
-      if (mounted) {
-        setSession(next);
-        setReady(true);
-      }
-    });
+    void (async () => {
+      const reconciled = await reconcileHostedDeviceSession(household.members);
+      const aligned = await alignSessionWithRoster(reconciled, household.members);
+      if (!mounted) return;
+      setSession(aligned);
+      setReady(true);
+    })();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [household.members]);
 
   const profiles = useMemo(
-    () => profilesForSession(session, household.members),
+    () => profilesForSharedDeviceSwitch(session, household.members),
     [session, household.members]
   );
 
-  const sidekickUnlock = useMemo(
-    () => isPersonalSidekickDevice(session, profiles),
-    [session, profiles]
+  const shell = useMemo(
+    () => resolveSwitchDeviceShell(session, household.members),
+    [session, household.members]
   );
 
-  const deviceLabel = normalizeSharedDeviceLabel(
-    session?.deviceLabel ||
-      findSharedDeviceForMember(profiles[0]?.id, household.members)?.name
-  );
+  // Personal unlock splash only for a true one-person Sidekick phone.
+  const showPersonalSplash =
+    profiles.length === 1 &&
+    !session?.needsProfilePick &&
+    isPersonalSidekickDevice(session, profiles) &&
+    !shell;
+
+  const deviceLabel = normalizeSharedDeviceLabel(session?.deviceLabel || shell?.name);
 
   const enterAsMember = async (member: HouseholdMember) => {
     await selectDeviceProfile(member.id);
@@ -99,7 +128,7 @@ export default function SelectProfileScreen() {
     return null;
   }
 
-  if (sidekickUnlock && profiles.length === 1) {
+  if (showPersonalSplash) {
     return (
       <SidekickUnlockSplash
         member={profiles[0]!}
@@ -122,9 +151,10 @@ export default function SelectProfileScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: () => {
-          void removeHostedProfile(member.id).then((next) => {
-            setSession(next);
-            if (next.profileMemberIds.length === 0) {
+          void removeHostedProfile(member.id).then(async (next) => {
+            const aligned = await alignSessionWithRoster(next, household.members);
+            setSession(aligned);
+            if (profilesForSharedDeviceSwitch(aligned, household.members).length === 0) {
               router.replace('/welcome' as never);
             }
           });
@@ -149,7 +179,7 @@ export default function SelectProfileScreen() {
           <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
           <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this device?</Text>
           <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-            Tap your face. Switch anytime from the Switch tab.
+            Tap your face. Switch anytime from the Switch tab or Switch · name on Home.
           </Text>
         </View>
 

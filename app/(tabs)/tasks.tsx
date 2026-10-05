@@ -1351,7 +1351,9 @@ export default function TasksScreen() {
               <Pressable
                 onPress={() => {
                   void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-                    markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+                    markNeedsProfilePick(household.members).then(() =>
+                      router.push('/select-profile' as never)
+                    )
                   );
                 }}
                 style={styles.emptyCta}>
