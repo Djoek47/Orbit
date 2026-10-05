@@ -1959,6 +1959,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
 
     const createdHousehold = await householdRepository.createHousehold(input, currentUser);
+    let members = createdHousehold.members;
+    const owner = members.find((member) => member.userId === currentUser.id);
+    if (owner && createdHousehold.id && hasChosenAvatar(currentUser.avatar)) {
+      try {
+        const { resolveAvatarUriForSync } = await import('@/lib/profile/upload-avatar');
+        const durable = await resolveAvatarUriForSync({
+          avatar: currentUser.avatar,
+          householdId: createdHousehold.id,
+          memberId: owner.id,
+        });
+        if (durable !== owner.avatar) {
+          const updated = await householdRepository.updateMemberAvatar(owner, durable);
+          members = members.map((member) => (member.id === owner.id ? updated : member));
+          void saveMemberAvatarOverride(createdHousehold.id, owner.id, durable);
+          setCurrentUser((prev) => (prev ? { ...prev, avatar: durable } : prev));
+        }
+      } catch (error) {
+        console.warn('createHousehold: avatar cloud upload failed', error);
+      }
+    }
     const rooms =
       input.rooms && input.rooms.length > 0
         ? input.rooms.map((room) => ({ ...room }))
@@ -1967,6 +1987,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           : DEFAULT_HOUSEHOLD_ROOMS.map((room) => ({ ...room }));
     const createdNext: HouseholdSnapshot = {
       ...createdHousehold,
+      members,
       rooms,
       rewardModel: input.rewardModel ?? createdHousehold.rewardModel ?? DEFAULT_REWARD_MODEL,
       rewardMode: input.rewardMode ?? createdHousehold.rewardMode ?? 'weighted',
@@ -2022,14 +2043,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     }
     const selfMember = nextHousehold.members.find((member) => member.userId === user.id);
     if (selfMember && hasChosenAvatar(user.avatar) && selfMember.avatar !== user.avatar) {
-      const updated = await householdRepository.updateMemberAvatar(selfMember, user.avatar);
+      let durable = user.avatar;
+      if (nextHousehold.id) {
+        try {
+          const { resolveAvatarUriForSync } = await import('@/lib/profile/upload-avatar');
+          durable = await resolveAvatarUriForSync({
+            avatar: user.avatar,
+            householdId: nextHousehold.id,
+            memberId: selfMember.id,
+          });
+        } catch (error) {
+          console.warn('joinHousehold: avatar cloud upload failed', error);
+        }
+      }
+      const updated = await householdRepository.updateMemberAvatar(selfMember, durable);
       nextHousehold = {
         ...joinedHousehold,
         members: joinedHousehold.members.map((member) =>
           member.id === selfMember.id ? updated : member
         ),
       };
-      void saveMemberAvatarOverride(joinedHousehold.id, selfMember.id, user.avatar);
+      void saveMemberAvatarOverride(joinedHousehold.id, selfMember.id, durable);
     }
     if (selfMember && selfMember.name.trim().toLowerCase() !== user.name.trim().toLowerCase()) {
       const renamed = await householdRepository.updateMemberDisplayName(
@@ -5479,14 +5513,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!member) {
       return;
     }
-    const updated = await householdRepository.updateMemberAvatar(member, avatar);
+    let durable = avatar;
+    if (household.id) {
+      try {
+        const { resolveAvatarUriForSync } = await import('@/lib/profile/upload-avatar');
+        durable = await resolveAvatarUriForSync({
+          avatar,
+          householdId: household.id,
+          memberId,
+        });
+      } catch (error) {
+        console.warn('updateMemberAvatar: cloud upload failed, keeping local copy', error);
+      }
+    }
+    const updated = await householdRepository.updateMemberAvatar(member, durable);
     setHousehold((current) => ({
       ...current,
       members: current.members.map((item) => (item.id === memberId ? updated : item)),
     }));
-    void saveMemberAvatarOverride(household.id, memberId, avatar);
+    void saveMemberAvatarOverride(household.id, memberId, durable);
     if (currentUser?.name === member.name) {
-      setCurrentUser((prev) => (prev ? { ...prev, avatar } : prev));
+      setCurrentUser((prev) => (prev ? { ...prev, avatar: durable } : prev));
     }
   };
 
@@ -7668,6 +7715,44 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   return <OrbitContext.Provider value={value}>{children}</OrbitContext.Provider>;
 }
 
+/**
+ * Best-effort: upload any still-local avatar photos to Supabase Storage so they
+ * survive the next app delete. No-ops in mock mode or when the local file is gone.
+ */
+async function migrateLocalMemberAvatars(
+  householdId: string,
+  members: HouseholdMember[]
+): Promise<HouseholdMember[]> {
+  if (isMockMode() || dataMode !== 'supabase' || !householdId) {
+    return members;
+  }
+
+  const { needsAvatarUpload } = await import('@/lib/profile/avatar-uri');
+  const pending = members.filter((member) => needsAvatarUpload(member.avatar));
+  if (pending.length === 0) return members;
+
+  const { resolveAvatarUriForSync } = await import('@/lib/profile/upload-avatar');
+  let next = members;
+
+  for (const member of pending) {
+    try {
+      const durable = await resolveAvatarUriForSync({
+        avatar: member.avatar,
+        householdId,
+        memberId: member.id,
+      });
+      if (!durable || durable === member.avatar) continue;
+      const updated = await householdRepository.updateMemberAvatar(member, durable);
+      void saveMemberAvatarOverride(householdId, member.id, durable);
+      next = next.map((item) => (item.id === member.id ? updated : item));
+    } catch (error) {
+      console.warn('migrateLocalMemberAvatars skipped', member.id, error);
+    }
+  }
+
+  return next;
+}
+
 async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<HouseholdSnapshot> {
   if (isPendingJoinSnapshot(baseHousehold) || !baseHousehold.id) {
     return baseHousehold;
@@ -7690,7 +7775,8 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
   const withAvatars = baseHousehold.members.map((member) =>
     avatarOverrides[member.id] ? { ...member, avatar: avatarOverrides[member.id] } : member,
   );
-  const members = await applyStoredMemberThemes(householdId, withAvatars);
+  const cloudAvatars = await migrateLocalMemberAvatars(householdId, withAvatars);
+  const members = await applyStoredMemberThemes(householdId, cloudAvatars);
   const majordomo = await applyStoredMajordomoProfiles(
     householdId,
     members,
