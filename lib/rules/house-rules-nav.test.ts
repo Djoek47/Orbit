@@ -29,12 +29,12 @@ assert.equal(
   false,
   'must not replace-stack chapter routes either'
 );
-assert.match(src, /router\.push\(route as never\)/, 'Change pushes the editor once');
-assert.equal(
-  src.includes("if (route.startsWith('/settings'))"),
-  false,
-  'no special-case replace that left House Rules under Settings'
+assert.match(
+  src,
+  /route\.startsWith\('\/settings'\)[\s\S]*router\.navigate\(route/,
+  'settings editors navigate — must not push a second Settings modal'
 );
+assert.match(src, /router\.push\(route as never\)/, 'non-settings editors still push once');
 
 const settings = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '../../app/settings.tsx'),

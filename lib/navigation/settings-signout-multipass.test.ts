@@ -60,18 +60,34 @@ test('Pass B1: admin close clears look sheet before dismiss', () => {
   const settings = read('app/settings.tsx');
   assert.match(
     settings,
-    /setPersonalizeMemberId\(null\);\s*closeSettingsModal\(\)/s,
+    /collapseSettingsOverlays\(\);\s*closeSettingsModal\(\)/s,
     'close tears down PersonalizeLookSheet before modal dismiss'
   );
 });
 
 test('Pass B2: admin sign-out clears look sheet before overlay', () => {
   const settings = read('app/settings.tsx');
+  assert.match(settings, /collapseSettingsOverlays/);
   assert.match(
     settings,
-    /setPersonalizeMemberId\(null\);\s*setSigningOut\(true\)/s,
-    'sign-out closes look sheet so RN Modal cannot block Get Started'
+    /collapseSettingsOverlays\(\);\s*setSigningOut\(true\)/s,
+    'sign-out closes sheets so RN Modals cannot block Get Started'
   );
+});
+
+test('Pass B4: house rules Change reuses settings — no push stack', () => {
+  const hr = read('app/house-rules.tsx');
+  assert.match(
+    hr,
+    /route\.startsWith\('\/settings'\)[\s\S]*router\.navigate\(route/,
+    'fin/house-rules menus must not stack a second Settings sheet'
+  );
+});
+
+test('Pass B5: modal chrome X uses dismissAll stack close', () => {
+  const chrome = read('components/orbit/settings/modal-chrome.tsx');
+  assert.match(chrome, /closeSettingsModalStack/);
+  assert.doesNotMatch(chrome, /replace\('\/settings'/);
 });
 
 test('Pass B3: sidekick close + sign-out clear look sheet', () => {

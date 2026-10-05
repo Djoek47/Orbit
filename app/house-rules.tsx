@@ -111,8 +111,13 @@ export default function HouseRulesScreen() {
       return;
     }
     const route = SETTING_ROUTES[settingKey ?? ''] ?? '/settings';
-    // Push the editor on top of this single House Rules sheet. Back returns here.
-    // Do not replace — that used to leave a second House Rules under Settings.
+    // Reuse the Settings modal for in-app editors — pushing /settings again stacked
+    // a second sheet and broke dismiss / Sign Out on the way out.
+    if (route.startsWith('/settings')) {
+      router.navigate(route as never);
+      return;
+    }
+    // Push other editors on top of this House Rules sheet. Back returns here.
     router.push(route as never);
   };
 

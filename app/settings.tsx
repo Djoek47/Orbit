@@ -486,13 +486,20 @@ export default function SettingsScreen() {
 
   const [signingOut, setSigningOut] = useState(false);
 
-  const closeSettings = useCallback(() => {
-    // Tear down nested RN Modals (Make your character) before dismissing Settings —
-    // an orphan BottomSheet over tabs is another invisible touch-blocker.
+  /** RN sheets/alerts over Settings must close before dismiss or Sign Out navigates. */
+  const collapseSettingsOverlays = useCallback(() => {
     setWheelDragging(false);
     setPersonalizeMemberId(null);
-    closeSettingsModal();
+    setDeadlineOpen(false);
+    setInviteTarget(null);
+    setHouseholdSwitchOpen(false);
+    setAddMemberOpen(false);
   }, []);
+
+  const closeSettings = useCallback(() => {
+    collapseSettingsOverlays();
+    closeSettingsModal();
+  }, [collapseSettingsOverlays]);
 
   const confirmAdminSignOut = () => {
     if (signingOut || isSignOutInFlight()) return;
@@ -503,8 +510,7 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: () => {
           if (signingOut || isSignOutInFlight()) return;
-          setWheelDragging(false);
-          setPersonalizeMemberId(null);
+          collapseSettingsOverlays();
           setSigningOut(true);
           void signOutAndLeave(signOut).finally(() => setSigningOut(false));
         },
