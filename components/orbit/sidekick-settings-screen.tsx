@@ -56,15 +56,21 @@ export function SidekickSettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [hostedProfileMemberIds, setHostedProfileMemberIds] = useState<string[]>([]);
 
+  const rosterKey = household.members
+    .filter((m) => m.role === 'shared-device')
+    .map((m) => `${m.id}:${(m.sharedWithMemberIds ?? []).join(',')}`)
+    .join('|');
+
   useEffect(() => {
     let mounted = true;
-    void reconcileHostedDeviceSession().then((session) => {
+    void reconcileHostedDeviceSession(household.members).then((session) => {
       if (mounted) setHostedProfileMemberIds(session.profileMemberIds);
     });
     return () => {
       mounted = false;
     };
-  }, [currentMember?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMember?.id, rosterKey]);
 
   const model = useMemo(
     () =>

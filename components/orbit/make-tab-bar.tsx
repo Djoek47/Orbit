@@ -30,7 +30,7 @@ import { useOrbitOptional } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 import {
   isSharedTabletDeviceSession,
-  loadDeviceSession,
+  reconcileHostedDeviceSession,
   markNeedsProfilePick,
   type DeviceSession,
 } from '@/lib/device/device-session';
@@ -107,17 +107,32 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     memberId: orbit?.currentMember?.id,
   });
   const [deviceSession, setDeviceSession] = useState<DeviceSession | null>(null);
+  const rosterKey = members
+    .filter((m) => m.role === 'shared-device')
+    .map((m) => `${m.id}:${(m.sharedWithMemberIds ?? []).join(',')}`)
+    .join('|');
   useEffect(() => {
     let mounted = true;
-    void loadDeviceSession().then((next) => {
+    void reconcileHostedDeviceSession(members).then((next) => {
       if (mounted) setDeviceSession(next);
     });
     return () => {
       mounted = false;
     };
-  }, [orbit?.currentMember?.id, fifthSlot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orbit?.currentMember?.id, fifthSlot, rosterKey]);
   // How many faces share this tablet — drives the Switch glyph (2–6 arrows).
   const switchPeopleCount = useMemo(() => {
+    const member = orbit?.currentMember;
+    const device = member
+      ? isSharedDeviceRole(member.role)
+        ? member
+        : findSharedDeviceForMember(member.id, members)
+      : undefined;
+    const rosterPeople = resolveSharedDevicePeople(device, members);
+    if (rosterPeople.length >= 2) {
+      return Math.min(6, rosterPeople.length);
+    }
     if (
       deviceSession &&
       isSharedTabletDeviceSession(deviceSession) &&
@@ -125,13 +140,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     ) {
       return Math.min(6, Math.max(2, deviceSession.profileMemberIds.length));
     }
-    const member = orbit?.currentMember;
-    if (!member) return 2;
-    const device = isSharedDeviceRole(member.role)
-      ? member
-      : findSharedDeviceForMember(member.id, members);
-    const people = resolveSharedDevicePeople(device, members);
-    return Math.min(6, Math.max(2, people.length || 2));
+    return Math.min(6, Math.max(2, rosterPeople.length || 2));
   }, [deviceSession, orbit?.currentMember, members]);
   const accentPrimary = orbit?.accentTheme.primary ?? '#38BDF8';
   const accentSecondary = orbit?.accentTheme.secondary ?? '#0EA5E9';

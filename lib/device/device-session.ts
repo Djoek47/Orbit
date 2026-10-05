@@ -155,14 +155,43 @@ export function mergeHostedProfileMemberIds(
 }
 
 /**
- * Keep DeviceSession.profileMemberIds aligned with Sidekick v2 (multi-profile family device).
+ * Keep DeviceSession.profileMemberIds aligned with Sidekick v2 and (when
+ * `members` is passed) the shared-tablet roster from Settings.
  * Call before the face picker and after hosting a profile.
  */
-export async function reconcileHostedDeviceSession(): Promise<DeviceSession> {
+export async function reconcileHostedDeviceSession(
+  members?: import('@/types/orbit').HouseholdMember[]
+): Promise<DeviceSession> {
   const current = await loadDeviceSession();
   const { listSidekickSessions } = await import('@/lib/sidekick/session');
   const sidekickIds = (await listSidekickSessions()).map((item) => item.memberId);
-  const merged = mergeHostedProfileMemberIds(current.profileMemberIds, sidekickIds);
+  let merged = mergeHostedProfileMemberIds(current.profileMemberIds, sidekickIds);
+
+  let rosterSharedDeviceId = current.sharedDeviceId ?? null;
+  let rosterLabel = current.deviceLabel;
+  if (members && members.length > 0) {
+    const { profilesForSharedDeviceSwitch, resolveSwitchDeviceShell } = await import(
+      '@/lib/device/profiles-for-switch'
+    );
+    const shell = resolveSwitchDeviceShell(
+      { ...current, profileMemberIds: merged.length ? merged : current.profileMemberIds },
+      members
+    );
+    const rosterIds = profilesForSharedDeviceSwitch(
+      {
+        ...current,
+        profileMemberIds: merged.length ? merged : current.profileMemberIds,
+      },
+      members
+    ).map((person) => person.id);
+    if (rosterIds.length > 0) {
+      merged = mergeHostedProfileMemberIds(merged, rosterIds);
+    }
+    if (shell) {
+      rosterSharedDeviceId = current.sharedDeviceId ?? shell.id;
+      rosterLabel = current.deviceLabel?.trim() || shell.name;
+    }
+  }
 
   if (merged.length === 0) {
     return current;
@@ -186,18 +215,39 @@ export async function reconcileHostedDeviceSession(): Promise<DeviceSession> {
       mode: 'shared',
       hostKind: current.hostKind ?? 'sidekick',
       profileMemberIds: [sole],
-      needsProfilePick: false,
+      needsProfilePick: current.needsProfilePick && current.profileMemberIds.includes(sole),
     };
     await saveDeviceSession(next);
     return next;
   }
 
+  const sameIds =
+    current.profileMemberIds.length === merged.length &&
+    merged.every((id) => current.profileMemberIds.includes(id));
+  if (
+    sameIds &&
+    current.mode === 'shared' &&
+    current.hostKind === 'shared-tablet' &&
+    (current.sharedDeviceId ?? null) === (rosterSharedDeviceId ?? null)
+  ) {
+    return current;
+  }
+
   await setupSharedDeviceSession({
     profileMemberIds: merged,
-    deviceLabel: current.deviceLabel?.trim() || 'Family device',
+    deviceLabel: rosterLabel?.trim() || 'Family device',
     hostKind: 'shared-tablet',
-    sharedDeviceId: current.sharedDeviceId,
+    sharedDeviceId: rosterSharedDeviceId,
   });
+  if (current.needsProfilePick) {
+    const withPick: DeviceSession = {
+      ...(await loadDeviceSession()),
+      activeMemberId: null,
+      needsProfilePick: true,
+    };
+    await saveDeviceSession(withPick);
+    return withPick;
+  }
   if (preserveActive) {
     return selectDeviceProfile(current.activeMemberId!);
   }

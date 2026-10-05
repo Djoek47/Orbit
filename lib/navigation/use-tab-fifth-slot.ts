@@ -16,10 +16,15 @@ export function useTabFifthSlot(input: {
 }): TabFifthSlot {
   const [session, setSession] = useState<DeviceSession | null>(null);
 
+  const rosterKey = input.members
+    .filter((m) => m.role === 'shared-device')
+    .map((m) => `${m.id}:${(m.sharedWithMemberIds ?? []).join(',')}`)
+    .join('|');
+
   useEffect(() => {
     let mounted = true;
     const refresh = () => {
-      void reconcileHostedDeviceSession().then((next) => {
+      void reconcileHostedDeviceSession(input.members).then((next) => {
         if (mounted) setSession(next);
       });
     };
@@ -31,7 +36,9 @@ export function useTabFifthSlot(input: {
       mounted = false;
       sub.remove();
     };
-  }, [input.memberId]);
+    // members array identity churns; rosterKey captures shared-tablet links.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input.memberId, rosterKey]);
 
   return tabFifthSlot({
     ...input,
