@@ -20,6 +20,7 @@
 | Credits bank | Mock/Expo Go buys grant real pack sizes; new packs **add** to prior balance; local+remote merge so empty remote never wipes banked credits; bought credits never expire (monthly allowance still resets) |
 | Notifications | Sidekick hydrate after sign-out/Continue-as no longer rebroadcasts history; live sync announces only real diffs; interrupt dedupe for same task; tray cleared on sign-out |
 | Live streaks | House Rules teaser dots track real `member.streak` (0 days = all empty); award gate uses daily/weekday only; Inbox → Activity streak strip (admin household / self + shared peers) |
+| Switch UX | Removed deprecated Home/Tasks “Switch account” popup chips; tab-bar **Switch** is the real profile handoff; Tasks **Who's on** is an animated view filter (Jack/Emma… up to 6) without signing out |
 
 ## TestFlight
 

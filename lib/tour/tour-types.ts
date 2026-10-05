@@ -38,6 +38,7 @@ export type TourTargetId =
   | 'tabbar.plan'
   | 'tabbar.rewards'
   | 'tabbar.poppins'
+  | 'tabbar.switch'
   | 'tasks.assignButton'
   | 'tasks.domainSegment'
   | 'tasks.firstRow'

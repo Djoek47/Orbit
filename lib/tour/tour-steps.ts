@@ -515,9 +515,9 @@ export const FAMILY_IPAD_TOUR: TourDefinition = {
         }),
         step({
           id: 'ipad.switch',
-          targetId: 'home.switchProfile',
+          targetId: 'tabbar.switch',
           title: 'Switching',
-          body: 'Done? Tap your face here to hand the device to someone else.',
+          body: 'Done? Tap Switch in the tab bar to hand the device to someone else.',
           route: '/(tabs)',
         }),
       ],

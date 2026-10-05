@@ -466,7 +466,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
 
         {/* Shared tablet fifth button — N double-arrows (not Poppins stars). */}
         {fifthSlot === 'switch' ? (
-          <View style={[styles.tab, styles.poppinsTab]}>
+          <TourTarget id="tabbar.switch" style={[styles.tab, styles.poppinsTab]}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Switch who's on — ${switchPeopleCount} people`}
@@ -498,7 +498,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                 </Text>
               )}
             </Pressable>
-          </View>
+          </TourTarget>
         ) : null}
       </View>
     </View>

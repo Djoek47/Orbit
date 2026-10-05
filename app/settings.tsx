@@ -22,7 +22,6 @@ import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet'
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
 import { MemberInviteSheet } from '@/components/orbit/member-invite-sheet';
 import { PoppinsSettingsPanel } from '@/components/orbit/poppins/poppins-settings-panel';
-import { PersonaSwitchPopup } from '@/components/orbit/persona-switch-popup';
 import { speakAs } from '@/lib/ai/majordomo-name';
 import {
   getMajordomoProfile,
@@ -148,7 +147,6 @@ export default function SettingsScreen() {
     preferredMapsApp,
     signOut,
     setMemberJoinPreApproved,
-    switchPersona,
     updateAppearanceMode,
     updateHouseholdAccentTheme,
     updateHouseholdRewardSettings,
@@ -255,7 +253,6 @@ export default function SettingsScreen() {
   const [displayNameInput, setDisplayNameInput] = useState(
     currentMember?.name ?? currentUser?.name ?? ''
   );
-  const [personaSwitchOpen, setPersonaSwitchOpen] = useState(false);
   const [personalizeMemberId, setPersonalizeMemberId] = useState<string | null>(null);
   const [memberInvites, setMemberInvites] = useState<MemberInvite[]>([]);
   const [inviteTarget, setInviteTarget] = useState<
@@ -1156,7 +1153,11 @@ export default function SettingsScreen() {
             onAddMember={() => setAddMemberOpen(true)}
             onShareInvite={openMemberInvite}
             onPersonalize={setPersonalizeMemberId}
-            onOpenPersonaSwitch={() => setPersonaSwitchOpen(true)}
+            onOpenPersonaSwitch={() => {
+              void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
+                markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+              );
+            }}
           />
           {currentMember?.role === 'owner' ? (
             <Pressable
@@ -1281,13 +1282,6 @@ export default function SettingsScreen() {
       </KeyboardScreen>
     </View>
 
-    <PersonaSwitchPopup
-      visible={personaSwitchOpen}
-      onClose={() => setPersonaSwitchOpen(false)}
-      members={household.members}
-      currentMemberId={currentMember?.id ?? ''}
-      onSwitch={switchPersona}
-    />
     <PersonalizeLookSheet
       visible={Boolean(personalizeMember)}
       memberName={personalizeMember?.name ?? 'you'}
