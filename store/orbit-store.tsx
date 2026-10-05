@@ -4524,9 +4524,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const deferBanner = quietEnabled && isQuietHour(new Date().getHours()) && !urgent;
 
     if (!deferBanner && decision.banner) {
+      const taskIdFromData =
+        typeof item.data?.taskId === 'string'
+          ? item.data.taskId
+          : typeof input.data?.taskId === 'string'
+            ? input.data.taskId
+            : undefined;
       const stableKey =
         (typeof data.mergeKey === 'string' && data.mergeKey) ||
-        (typeof data.taskId === 'string' && `task:${data.taskId}`) ||
+        (taskIdFromData ? `task:${taskIdFromData}` : undefined) ||
         item.id;
       void import('@/lib/notifications/announce-ledger').then(({ toExpoNotificationIdentifier }) =>
         presentLocalBanner(
