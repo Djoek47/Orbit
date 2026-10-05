@@ -55,9 +55,9 @@ test('deletion edge branded HTML covers all kinds', () => {
   assert.match(src, /Deletion cancelled/);
 });
 
-test('settings admin harness can fire deletion and subscription test emails', () => {
+test('settings no longer exposes admin Email tests harness', () => {
   const settings = readFileSync(join(process.cwd(), 'app/settings.tsx'), 'utf8');
-  assert.match(settings, /sendSubscriptionReceiptEmail/);
-  assert.match(settings, /sendHouseholdDeletionEmail/);
-  assert.match(settings, /Email tests/);
+  assert.doesNotMatch(settings, /Email tests/);
+  assert.doesNotMatch(settings, /Send test email/);
+  assert.doesNotMatch(settings, /openEmailTestPicker/);
 });

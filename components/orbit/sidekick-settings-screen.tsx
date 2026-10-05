@@ -18,7 +18,9 @@ import { VOCAB } from '@/constants/vocabulary';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
+import { SigningOutOverlay } from '@/components/orbit/signing-out-overlay';
 import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
+import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { memberSettingsModel } from '@/lib/settings/member-settings-model';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -70,6 +72,7 @@ export function SidekickSettingsScreen() {
     <>
       <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
         <Stack.Screen options={{ headerShown: false }} />
+        <SigningOutOverlay visible={signingOut} />
 
         <View style={styles.handleRow}>
           <View style={[styles.handle, { backgroundColor: glassBorder(0.2) }]} />
@@ -82,7 +85,12 @@ export function SidekickSettingsScreen() {
             </LinearGradient>
             <Text style={[styles.title, { color: orbitPalette.text }]}>Settings</Text>
           </View>
-          <Pressable style={[styles.close, { backgroundColor: glass(0.08) }]} onPress={() => router.back()}>
+          <Pressable
+            style={[styles.close, { backgroundColor: glass(0.08) }]}
+            onPress={closeSettingsModal}
+            accessibilityRole="button"
+            accessibilityLabel="Close settings"
+            hitSlop={12}>
             <MaterialIcons name="close" size={16} color={orbitPalette.textMuted} />
           </Pressable>
         </View>

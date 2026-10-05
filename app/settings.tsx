@@ -5,9 +5,11 @@ import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {  AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import { OrbitButton } from '@/components/orbit/orbit-button';
+import { SigningOutOverlay } from '@/components/orbit/signing-out-overlay';
 import {
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
@@ -50,10 +52,9 @@ import {
   formatHouseholdDeletionDate,
   householdDeletionDaysRemaining,
   isHouseholdDeletionPending,
-  scheduleHouseholdDeletionDate,
 } from '@/lib/household/household-deletion';
-import { sendHouseholdDeletionEmail } from '@/lib/household/send-deletion-email';
 import { formatHouseholdRole } from '@/lib/permissions';
+import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import {
   DEFAULT_REWARD_MODEL,
@@ -75,11 +76,7 @@ import {
 import { registerPushForActor } from '@/lib/notifications/member-push';
 import { loadSidekickSession } from '@/lib/sidekick/session';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
-import {
-  BILLING_TRIAL_DAYS,
-  IAP_SUBSCRIPTIONS,
-  PREMIUM_ALLOWANCE_COPY,
-} from '@/constants/billing';
+import { BILLING_TRIAL_DAYS, PREMIUM_ALLOWANCE_COPY } from '@/constants/billing';
 import {
   fetchEntitlement,
   isPremiumActive,
@@ -87,8 +84,6 @@ import {
   restorePurchases,
   type EntitlementState,
 } from '@/lib/billing/iap';
-import { sendSubscriptionReceiptEmail } from '@/lib/billing/send-subscription-receipt';
-import { formatPrice } from '@/lib/billing/topup-receipt';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { MemberInvite } from '@/lib/household/member-invites';
@@ -116,7 +111,6 @@ import {
   meterCaption,
 } from '@/lib/ai/credits';
 import { personalActTokens, summarizeActUsage } from '@/lib/ai/act-events';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const SECTIONS = [
   'main',
@@ -289,8 +283,6 @@ export default function SettingsScreen() {
     DEFAULT_POPPINS_INTERACTION_PREFS
   );
   const [errorCount, setErrorCount] = useState(0);
-  const [emailTestBusy, setEmailTestBusy] = useState(false);
-  const [emailTestStatus, setEmailTestStatus] = useState<string | null>(null);
   const poppinsPrefsReadOnly = !permissions.canManageHousehold;
 
   useEffect(() => {
@@ -492,124 +484,12 @@ export default function SettingsScreen() {
     router.push('/delete-account' as never);
   };
 
-  const fireTestEmail = useCallback(
-    (
-      kind:
-        | 'subscription'
-        | 'deletion-7d'
-        | 'deletion-3d'
-        | 'deletion-24h'
-        | 'deletion-1h11m'
-        | 'deletion-confirmed'
-        | 'deletion-cancelled'
-    ) => {
-      if (emailTestBusy) return;
-      setEmailTestBusy(true);
-      setEmailTestStatus(null);
-      void (async () => {
-        try {
-          const to = currentUser?.email || undefined;
-          const name = currentMember?.name ?? currentUser?.name ?? undefined;
-          const householdName = household.householdName || 'your household';
-          if (kind === 'subscription') {
-            const catalog = IAP_SUBSCRIPTIONS.yearly;
-            const mailed = await sendSubscriptionReceiptEmail({
-              to,
-              name,
-              plan: `Choremaxx ${catalog.label}`,
-              price: `${formatPrice(catalog.priceUsd)}/year`,
-              renewalDate: new Date(
-                Date.now() + catalog.trialDays * 24 * 60 * 60 * 1000
-              ).toLocaleDateString(undefined, {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              }),
-              inTrial: true,
-              mock: true,
-              householdId: household.id ?? undefined,
-            });
-            setEmailTestStatus(
-              mailed.ok
-                ? `Subscription test → ${mailed.to}`
-                : mailed.skipped
-                  ? mailed.error
-                  : `Failed: ${mailed.error}`
-            );
-            return;
-          }
-
-          const purgeIso = scheduleHouseholdDeletionDate();
-          const base = {
-            to,
-            name,
-            householdName,
-            householdId: household.id ?? undefined,
-            purgeDate: formatHouseholdDeletionDate(purgeIso),
-            recoverUrl: 'https://www.choremaxx.app',
-            optOutUrl: 'https://www.choremaxx.app',
-            homeUrl: 'https://www.choremaxx.app',
-            confirmUrl: 'https://www.choremaxx.app',
-            cancelUrl: 'https://www.choremaxx.app',
-            confirmBy: '24 hours',
-          };
-
-          const mailed =
-            kind === 'deletion-cancelled'
-              ? await sendHouseholdDeletionEmail({ ...base, kind: 'cancelled' })
-              : kind === 'deletion-confirmed'
-                ? await sendHouseholdDeletionEmail({ ...base, kind: 'confirmed' })
-                : await sendHouseholdDeletionEmail({
-                    ...base,
-                    kind: 'reminder',
-                    stage:
-                      kind === 'deletion-7d'
-                        ? '7d'
-                        : kind === 'deletion-3d'
-                          ? '3d'
-                          : kind === 'deletion-24h'
-                            ? '24h'
-                            : '1h11m',
-                  });
-
-          setEmailTestStatus(
-            mailed.ok
-              ? `${mailed.kind} test → ${mailed.to}`
-              : mailed.skipped
-                ? mailed.error
-                : `Failed: ${mailed.error}`
-          );
-        } catch (error) {
-          setEmailTestStatus(error instanceof Error ? error.message : 'Could not send test email.');
-        } finally {
-          setEmailTestBusy(false);
-        }
-      })();
-    },
-    [
-      currentMember?.name,
-      currentUser?.email,
-      currentUser?.name,
-      emailTestBusy,
-      household.householdName,
-      household.id,
-    ]
-  );
-
-  const openEmailTestPicker = useCallback(() => {
-    orbitAlert('Email tests', 'Send a test transactional email to your signed-in address.', [
-      { text: 'Subscription / trial', onPress: () => fireTestEmail('subscription') },
-      { text: 'Deletion · 7 days', onPress: () => fireTestEmail('deletion-7d') },
-      { text: 'Deletion · 3 days', onPress: () => fireTestEmail('deletion-3d') },
-      { text: 'Deletion · 24 hours', onPress: () => fireTestEmail('deletion-24h') },
-      { text: 'Deletion · 1 hour', onPress: () => fireTestEmail('deletion-1h11m') },
-      { text: 'Deletion · confirm now', onPress: () => fireTestEmail('deletion-confirmed') },
-      { text: 'Deletion · cancelled', onPress: () => fireTestEmail('deletion-cancelled') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [fireTestEmail]);
-
   const [signingOut, setSigningOut] = useState(false);
+
+  const closeSettings = useCallback(() => {
+    setWheelDragging(false);
+    closeSettingsModal();
+  }, []);
 
   const confirmAdminSignOut = () => {
     if (signingOut || isSignOutInFlight()) return;
@@ -620,6 +500,7 @@ export default function SettingsScreen() {
         style: 'destructive',
         onPress: () => {
           if (signingOut || isSignOutInFlight()) return;
+          setWheelDragging(false);
           setSigningOut(true);
           void signOutAndLeave(signOut).finally(() => setSigningOut(false));
         },
@@ -645,30 +526,44 @@ export default function SettingsScreen() {
         options={{
           headerShown: false,
           // Poppins voice wheel: horizontal drags must not dismiss the sheet or pop back.
+          // Always allow the close affordance path via leaveModalsToTabs (not gesture).
           gestureEnabled: section !== 'poppins' && !wheelDragging,
           fullScreenGestureEnabled: section !== 'poppins' && !wheelDragging,
         }}
       />
+      <SigningOutOverlay visible={signingOut} />
 
       <View style={styles.handleRow} pointerEvents={wheelDragging ? 'none' : 'auto'}>
         <View style={[styles.handle, { backgroundColor: glassBorder(0.2) }]} />
       </View>
 
-      <View style={styles.header} pointerEvents={wheelDragging ? 'none' : 'auto'}>
+      <View style={styles.header}>
         {section !== 'main' ? (
-          <Pressable style={styles.backRow} onPress={() => setSection('main')}>
+          <Pressable
+            style={styles.backRow}
+            onPress={() => {
+              setWheelDragging(false);
+              setSection('main');
+            }}
+            pointerEvents="auto">
             <Text style={[styles.backChevron, { color: accentTheme.primary }]}>‹</Text>
             <Text style={[styles.backLabel, { color: accentTheme.primary }]}>Settings</Text>
           </Pressable>
         ) : (
-          <View style={styles.titleRow}>
+          <View style={styles.titleRow} pointerEvents="box-none">
             <LinearGradient colors={[accentTheme.primary, accentTheme.secondary]} style={styles.zapBox}>
               <MaterialIcons name="bolt" size={16} color={orbitPalette.ink} />
             </LinearGradient>
             <Text style={[styles.title, { color: orbitPalette.text }]}>Settings</Text>
           </View>
         )}
-        <Pressable style={[styles.close, { backgroundColor: glass(0.08) }]} onPress={() => router.back()}>
+        <Pressable
+          style={[styles.close, { backgroundColor: glass(0.08) }]}
+          onPress={closeSettings}
+          accessibilityRole="button"
+          accessibilityLabel="Close settings"
+          hitSlop={12}
+          pointerEvents="auto">
           <MaterialIcons name="close" size={16} color={orbitPalette.textMuted} />
         </Pressable>
       </View>
@@ -965,26 +860,10 @@ export default function SettingsScreen() {
                     ? `${errorCount} saved error${errorCount === 1 ? '' : 's'} · feedback`
                     : 'Feedback, errors, and help'
                 }
-                last={!permissions.canManageHousehold}
+                last
                 onPress={() => router.push('/support' as never)}
               />
             </SettingsGroup>
-
-            {permissions.canManageHousehold ? (
-              <SettingsGroup header="Email tests">
-                <SettingsNavRow
-                  icon="outgoing-mail"
-                  iconColor="#38BDF8"
-                  label={emailTestBusy ? 'Sending…' : 'Send test email'}
-                  subtitle={
-                    emailTestStatus ??
-                    'Subscription + deletion stages → your inbox'
-                  }
-                  last
-                  onPress={openEmailTestPicker}
-                />
-              </SettingsGroup>
-            ) : null}
 
             <SettingsGroup header="Choremaxx">
               <SettingsNavRow
