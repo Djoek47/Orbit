@@ -44,11 +44,17 @@ const INSTRUCTIONS = {
 /** Pull DEMO_BEATS spoken lines from the TypeScript source without importing RN. */
 function loadBeats() {
   const src = readFileSync(scriptPath, 'utf8');
+  // Scope to DEMO_BEATS only — DEMO_CHAPTERS also has `{ id: 'task' … }` and
+  // would steal the first spoken line from `task-ask` if we scanned the whole file.
+  const start = src.indexOf('export const DEMO_BEATS');
+  if (start < 0) throw new Error('DEMO_BEATS not found in how-it-works-script.ts');
+  const end = src.indexOf('export function', start);
+  const slice = end > start ? src.slice(start, end) : src.slice(start);
   const beats = [];
   const re =
     /\{\s*id:\s*'([^']+)'[\s\S]*?speaker:\s*(null|'rose'|'indigo')[\s\S]*?line:\s*'((?:\\'|[^'])*)'/g;
   let match;
-  while ((match = re.exec(src))) {
+  while ((match = re.exec(slice))) {
     const id = match[1];
     const speakerRaw = match[2];
     const line = match[3].replace(/\\'/g, "'");
@@ -58,6 +64,9 @@ function loadBeats() {
   }
   if (beats.length < 8) {
     throw new Error(`Parsed only ${beats.length} spoken beats — check how-it-works-script.ts`);
+  }
+  if (!beats.some((b) => b.id === 'task-ask')) {
+    throw new Error('Expected spoken beat id task-ask — DEMO_CHAPTERS may have leaked into the parse');
   }
   return beats;
 }
@@ -127,6 +136,13 @@ export function missingDemoRecordings(beatIds: string[]): string[] {
 }
 
 async function main() {
+  try {
+    execFileSync('ffmpeg', ['-version'], { stdio: 'pipe' });
+  } catch {
+    console.error('ffmpeg is required to convert WAV → m4a. Install it, then re-run.');
+    process.exit(1);
+  }
+
   mkdirSync(outDir, { recursive: true });
   const beats = loadBeats();
   console.log(`Baking ${beats.length} GPT voice lines (${model}; rose=${roseVoice}, indigo=${indigoVoice})`);

@@ -100,17 +100,28 @@ export function HowItWorksPlayer({
     if (recorded == null) return;
 
     speakingRef.current = true;
+    let poll: ReturnType<typeof setInterval> | null = null;
     try {
       const player = createAudioPlayer(recorded);
       playerRef.current = player;
       player.play();
-      // Timing comes from the script beat length; the next beat stops this player.
-      speakingRef.current = false;
+      // Hold the timeline at beat-end while the clip is still speaking, then release.
+      poll = setInterval(() => {
+        if (!player.playing && player.currentTime > 0.05) {
+          speakingRef.current = false;
+          if (poll) clearInterval(poll);
+          poll = null;
+        }
+      }, 120);
     } catch (error) {
       console.warn('how-it-works recorded audio', error);
       playerRef.current = null;
       speakingRef.current = false;
     }
+    return () => {
+      if (poll) clearInterval(poll);
+      speakingRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beat.id, sound, playing]);
 
@@ -157,7 +168,7 @@ export function HowItWorksPlayer({
         <Text style={[styles.lede, { color: c.textMuted }]}>
           {hasRecordedDemoAudio()
             ? 'A saved conversation — you ask, Poppins does — and the card follows along. Nothing here is saved to your household.'
-            : 'A conversation demo — you ask, Poppins does — and the card follows along. Voices ship as recorded GPT audio (not your phone’s reader).'}
+            : 'A conversation demo — you ask, Poppins does — and the card follows along. Voice clips aren’t baked yet, so this run is silent captions only (not your phone’s reader).'}
         </Text>
 
         {/* Chapter rail. */}

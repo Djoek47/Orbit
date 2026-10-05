@@ -180,7 +180,9 @@ export default function HouseholdBalanceScreen() {
           <>
             <Text style={[styles.section, { color: orbitPalette.textMuted }]}>Member load</Text>
             <Text style={[styles.sectionHint, { color: orbitPalette.textSubtle }]}>
-              Share of open chores right now — updates live as tasks move.
+              {memberLoad.some((row) => row.openCount > 0)
+                ? 'Share of open chores right now — updates live as tasks move.'
+                : 'No open chores — bars show this week’s XP so load still reads.'}
             </Text>
             {memberLoad.length === 0 ? (
               <Text style={[styles.emptyHint, { color: orbitPalette.textSubtle }]}>

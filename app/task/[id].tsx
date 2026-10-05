@@ -49,6 +49,11 @@ import { canFinishTask, taskStateView } from '@/lib/tasks/task-state';
 import { displayDueLabel } from '@/lib/tasks/due-label';
 import { TASK_REPEAT_CHOICES } from '@/lib/tasks/series-edit';
 import { categoryDisplayLabel } from '@/lib/tasks/task-library';
+import {
+  EDIT_CATEGORY_CHIPS,
+  editCategoryChip,
+  resolveSavedCategory,
+} from '@/lib/tasks/edit-category';
 import { isLocalProofUri } from '@/lib/tasks/proof-uri';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
@@ -56,7 +61,7 @@ import type { HouseholdTask } from '@/types/orbit';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 
 
-const categories = ['Cleaning', 'Kitchen', 'Laundry', 'School', 'Homework', 'Groceries', 'Pets', 'Maintenance', 'General'];
+const categories = [...EDIT_CATEGORY_CHIPS];
 const repeats: HouseholdTask['repeat'][] = TASK_REPEAT_CHOICES;
 
 /** Soft chapter colours for edit chips — House Rules energy, same category icons. */
@@ -148,7 +153,8 @@ export default function TaskDetailScreen() {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
-  const [category, setCategory] = useState(task?.category ?? categories[0]);
+  /** Chip label (Kitchen), not raw domain id (kitchen_dining). */
+  const [category, setCategory] = useState(editCategoryChip(task?.category ?? categories[0]));
   const [due, setDue] = useState(task?.due ?? '');
   const [xp, setXp] = useState(String(task?.xp ?? 15));
   const [difficulty, setDifficulty] = useState<HouseholdTask['difficulty']>(task?.difficulty ?? 'medium');
@@ -214,7 +220,11 @@ export default function TaskDetailScreen() {
   const canAskForPhoto =
     v2Permissions.canRequestProof &&
     canAdminRequestTaskProof(task, assigneeMember ?? null);
-  const canEdit = permissions.canCreateTask || permissions.canAssignTask;
+  // Match updateTask gates so Save never looks successful when the store no-ops.
+  const canEdit =
+    v2Permissions.canAssignOrEditTask ||
+    permissions.canAssignTask ||
+    permissions.canCreateTask;
   const needsProof = Boolean(task.proofRequired);
   const myProofStatus = split ? myShare?.proofStatus : task.proofStatus;
   const proofReady = myProofStatus === 'submitted' || myProofStatus === 'approved';
@@ -387,7 +397,7 @@ export default function TaskDetailScreen() {
         ...task,
         title: title.trim() || task.title,
         description,
-        category,
+        category: resolveSavedCategory(category, task.category),
         due,
         xp: Number(xp) || task.xp,
         difficulty,
@@ -404,7 +414,7 @@ export default function TaskDetailScreen() {
   const beginEditing = () => {
     setTitle(task.title);
     setDescription(task.description ?? '');
-    setCategory(task.category);
+    setCategory(editCategoryChip(task.category));
     setDue(task.due);
     setXp(String(task.xp));
     setDifficulty(task.difficulty ?? 'medium');
@@ -415,7 +425,7 @@ export default function TaskDetailScreen() {
   const cancelEditing = () => {
     setTitle(task.title);
     setDescription(task.description ?? '');
-    setCategory(task.category);
+    setCategory(editCategoryChip(task.category));
     setDue(task.due);
     setXp(String(task.xp));
     setDifficulty(task.difficulty ?? 'medium');

@@ -37,7 +37,7 @@
     "test:revision-d-phase2": "npx --yes tsx lib/scoring/revision-d-phase2.test.ts",
     "test:daily-streak": "npx --yes tsx lib/streaks/daily-streak.test.ts",
     "test:claim-reward": "npx --yes tsx lib/rewards/claim-reward.test.ts",
-    "test:logic": "npm run test:reward-mode && npm run test:streak-engine && npm run test:trophies && npm run test:today && npm run test:completion-xp && npm run test:daily-streak && npm run test:claim-reward && npm run test:task-library && npm run test:task-library-v2 && npm run test:proof-actions && npm run test:recurrence-defaults && npm run test:recurring && npm run test:assign-library && npm run test:cancel-task",
+    "test:logic": "npm run test:reward-mode && npm run test:streak-engine && npm run test:trophies && npm run test:today && npm run test:completion-xp && npm run test:daily-streak && npm run test:claim-reward && npm run test:task-library && npm run test:task-library-v2 && npm run test:proof-actions && npm run test:recurrence-defaults && npm run test:recurring && npm run test:assign-library && npm run test:cancel-task && npm run test:health-dashboard && npm run test:edit-category && npm run test:house-rules-nav && npm run test:how-it-works-parse",
     "test:task-library": "npx --yes tsx scripts/validate-task-library.ts",
     "test:task-library-v2": "npx --yes tsx lib/tasks/task-library.test.ts",
     "test:recurrence-defaults": "npx --yes tsx lib/tasks/recurrence-defaults.test.ts",
@@ -97,7 +97,11 @@
     "test:cancel-task": "npx --yes tsx lib/tasks/cancel-task.test.ts",
     "test:activity-log": "npx --yes tsx lib/activity/activity-log.test.ts",
     "test:member-hub": "npx --yes tsx lib/household/presence-transitions.test.ts && npx --yes tsx lib/household/member-hub-routing.test.ts && npx --yes tsx lib/household/rotate-profile-invite.test.ts",
-    "test:member-caps": "npx --yes tsx lib/member-capabilities.test.ts"
+    "test:member-caps": "npx --yes tsx lib/member-capabilities.test.ts",
+    "test:health-dashboard": "npx --yes tsx lib/household/health-dashboard.test.ts",
+    "test:edit-category": "npx --yes tsx lib/tasks/edit-category.test.ts",
+    "test:how-it-works-parse": "node scripts/how-it-works-audio-parse.test.mjs",
+    "test:house-rules-nav": "npx --yes tsx lib/rules/house-rules-nav.test.ts"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",

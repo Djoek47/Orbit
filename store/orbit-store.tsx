@@ -2691,7 +2691,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
                     difficulty: input.difficulty ?? 'easy',
                     weight: input.weight ?? 1,
                     repeat: task.repeat,
-                    proofRequired: Boolean(input.proofRequired),
+                    proofRequired: Boolean(normalizedInput.proofRequired),
                     description: task.description,
                     householdScoped: true,
                   },
@@ -2767,8 +2767,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     task: HouseholdTask,
     options?: { scope?: 'this' | 'future' }
   ) => {
-    if (!v2Permissions.canAssignOrEditTask && !permissions.canAssignTask) {
-      return;
+    if (
+      !v2Permissions.canAssignOrEditTask &&
+      !permissions.canAssignTask &&
+      !permissions.canCreateTask
+    ) {
+      throw new Error('You need permission to edit tasks.');
     }
     const live = householdRef.current;
     const current = live.tasks.find((item) => item.id === task.id);

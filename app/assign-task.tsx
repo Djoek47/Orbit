@@ -297,6 +297,14 @@ export default function AssignTaskScreen() {
         );
         return;
       }
+      if (failed.length > 0) {
+        orbitAlert(
+          'Partly assigned',
+          `Saved ${created}. Could not save ${failed.slice(0, 3).join(', ')}${
+            failed.length > 3 ? '…' : ''
+          }.`
+        );
+      }
       router.back();
     } catch (error) {
       orbitAlert('Could not assign', assignErrorMessage(error));

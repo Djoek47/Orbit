@@ -35,6 +35,7 @@ import {
   type BreakdownRange,
   type Bucket,
 } from '@/lib/tasks/completion-stats';
+import { healthLoadMembers } from '@/lib/household/health-dashboard';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { taskRepository } from '@/repositories/task-repository';
 import { useOrbit } from '@/store/orbit-store';
@@ -133,7 +134,7 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded =
       ? `task${(sel ? sel.tasks : breakdown.headline.tasks) === 1 ? '' : 's'}${!sel && breakdown.headline.kind === 'average' ? ' a day' : ''}`
       : `saved${!sel && breakdown.headline.kind === 'average' ? ' a day' : ''}`;
 
-  const people = household.members.filter((m) => m.status !== 'inactive');
+  const people = healthLoadMembers(household.members);
   const barColor = metric === 'tasks' ? undefined : c.success;
 
   const body = (
