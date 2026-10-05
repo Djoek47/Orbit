@@ -148,6 +148,13 @@ export default function SupportScreen() {
           </Text>
         </Animated.View>
 
+        <View style={styles.groupHead}>
+          <View style={[styles.groupMoji, { backgroundColor: `${accent}22` }]}>
+            <Moji name="sparkles" size={16} />
+          </View>
+          <Text style={[styles.sectionLabel, { color: accent }]}>Compose</Text>
+        </View>
+
         <Animated.View entering={FadeInDown.delay(40).duration(260)}>
           <LinearGradient
             colors={[`${accent}30`, `${accent}0A`]}
@@ -216,10 +223,15 @@ export default function SupportScreen() {
         </Animated.View>
 
         <View style={styles.sectionHead}>
-          <Text style={[styles.sectionLabel, { color: accent }]}>
-            Saved errors · {entries.length}
-            {selectedIds.size ? ` · ${selectedIds.size} selected` : ''}
-          </Text>
+          <View style={styles.groupHeadInline}>
+            <View style={[styles.groupMoji, { backgroundColor: `${accent}22` }]}>
+              <Moji name="sparkles" size={14} />
+            </View>
+            <Text style={[styles.sectionLabel, { color: accent }]}>
+              Saved errors · {entries.length}
+              {selectedIds.size ? ` · ${selectedIds.size} selected` : ''}
+            </Text>
+          </View>
           <View style={styles.sectionActions}>
             {entries.length > 0 ? (
               <>
@@ -275,101 +287,109 @@ export default function SupportScreen() {
             </Text>
           </View>
         ) : (
-          entries.map((entry, index) => {
-            const open = expandedId === entry.id;
-            const selected = selectedIds.has(entry.id);
-            const preview = friendlyErrorMessage(previewErrorLines(entry, 2));
-            const cat = ERROR_CATEGORY_LABEL[entry.category];
-            return (
-              <Animated.View
-                key={entry.id}
-                entering={FadeInDown.delay(60 + index * 30).duration(220)}
-                style={[
-                  styles.errCard,
-                  {
-                    backgroundColor: selected ? `${accent}14` : glass(0.05),
-                    borderColor: selected ? `${accent}77` : glassBorder(0.1),
-                  },
-                ]}>
-                <View style={styles.errHead}>
-                  <Pressable
-                    onPress={() => toggle(entry.id)}
-                    hitSlop={8}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selected }}
-                    style={[
-                      styles.check,
-                      {
-                        borderColor: selected ? accent : glassBorder(0.22),
-                        backgroundColor: selected ? accent : 'transparent',
-                      },
-                    ]}>
-                    {selected ? <MaterialIcons name="check" size={14} color="#0B1220" /> : null}
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setExpandedId(open ? null : entry.id)}
-                    style={{ flex: 1, gap: 4 }}>
-                    <View style={styles.titleRow}>
-                      <Text
-                        style={[styles.errTitle, { color: isDark ? '#F7F2EC' : c.text, flex: 1 }]}
-                        numberOfLines={open ? 6 : 2}>
-                        {entry.title || 'Error'}
-                      </Text>
-                      <View style={[styles.chip, { backgroundColor: `${accent}22` }]}>
-                        <Text style={[styles.chipText, { color: accent }]}>{cat}</Text>
+          <View
+            style={[
+              styles.errGroup,
+              { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
+            ]}>
+            {entries.map((entry, index) => {
+              const open = expandedId === entry.id;
+              const selected = selectedIds.has(entry.id);
+              const preview = friendlyErrorMessage(previewErrorLines(entry, 2));
+              const cat = ERROR_CATEGORY_LABEL[entry.category];
+              const last = index === entries.length - 1;
+              return (
+                <Animated.View
+                  key={entry.id}
+                  entering={FadeInDown.delay(60 + index * 30).duration(220)}
+                  style={[
+                    styles.errRow,
+                    !last && {
+                      borderBottomColor: glassBorder(0.08),
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                    },
+                    selected && { backgroundColor: `${accent}12` },
+                  ]}>
+                  <View style={styles.errHead}>
+                    <Pressable
+                      onPress={() => toggle(entry.id)}
+                      hitSlop={8}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      style={[
+                        styles.check,
+                        {
+                          borderColor: selected ? accent : glassBorder(0.22),
+                          backgroundColor: selected ? accent : 'transparent',
+                        },
+                      ]}>
+                      {selected ? <MaterialIcons name="check" size={14} color="#0B1220" /> : null}
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setExpandedId(open ? null : entry.id)}
+                      style={{ flex: 1, gap: 4 }}>
+                      <View style={styles.titleRow}>
+                        <Text
+                          style={[styles.errTitle, { color: isDark ? '#F7F2EC' : c.text, flex: 1 }]}
+                          numberOfLines={open ? 6 : 2}>
+                          {entry.title || 'Error'}
+                        </Text>
+                        <View style={[styles.chip, { backgroundColor: `${accent}22` }]}>
+                          <Text style={[styles.chipText, { color: accent }]}>{cat}</Text>
+                        </View>
                       </View>
-                    </View>
-                    <Text
-                      style={[styles.errPreview, { color: c.textMuted }]}
-                      numberOfLines={open ? 8 : 2}>
-                      {preview}
-                    </Text>
-                    <Text style={[styles.errMeta, { color: c.textSubtle }]}>
-                      {entry.at.replace('T', ' ').slice(0, 19)}
-                      {entry.source ? ` · ${entry.source}` : ''}
-                    </Text>
-                  </Pressable>
-                  <MaterialIcons
-                    name={open ? 'expand-less' : 'expand-more'}
-                    size={22}
-                    color={c.textMuted}
-                  />
-                </View>
-                {open ? (
-                  <View style={styles.errActions}>
-                    <Pressable
-                      onPress={() => {
-                        void Clipboard.setStringAsync(formatErrorForCopy(entry));
-                        orbitAlert('Copied', 'This error was copied.', undefined, { record: false });
-                      }}
-                      style={[
-                        styles.miniBtn,
-                        { borderColor: `${accent}55`, backgroundColor: `${accent}18` },
-                      ]}>
-                      <MaterialIcons name="content-copy" size={14} color={accent} />
-                      <Text style={[styles.miniLabel, { color: accent }]}>Copy</Text>
+                      <Text
+                        style={[styles.errPreview, { color: c.textMuted }]}
+                        numberOfLines={open ? 8 : 2}>
+                        {preview}
+                      </Text>
+                      <Text style={[styles.errMeta, { color: c.textSubtle }]}>
+                        {entry.at.replace('T', ' ').slice(0, 19)}
+                        {entry.source ? ` · ${entry.source}` : ''}
+                      </Text>
                     </Pressable>
-                    <Pressable
-                      onPress={() => {
-                        setSelectedIds((prev) => new Set(prev).add(entry.id));
-                        setNote((n) =>
-                          n.trim()
-                            ? n
-                            : `I hit: ${entry.title || 'an error'} — ${friendlyErrorMessage(entry.message)}`
-                        );
-                      }}
-                      style={[
-                        styles.miniBtn,
-                        { borderColor: glassBorder(0.12), backgroundColor: glass(0.06) },
-                      ]}>
-                      <MaterialIcons name="feedback" size={14} color={c.textSoft} />
-                      <Text style={[styles.miniLabel, { color: c.textSoft }]}>Use in note</Text>
-                    </Pressable>
+                    <MaterialIcons
+                      name={open ? 'expand-less' : 'expand-more'}
+                      size={22}
+                      color={c.textMuted}
+                    />
                   </View>
-                ) : null}
-              </Animated.View>
-            );
-          })
+                  {open ? (
+                    <View style={styles.errActions}>
+                      <Pressable
+                        onPress={() => {
+                          void Clipboard.setStringAsync(formatErrorForCopy(entry));
+                          orbitAlert('Copied', 'This error was copied.', undefined, { record: false });
+                        }}
+                        style={[
+                          styles.miniBtn,
+                          { borderColor: `${accent}55`, backgroundColor: `${accent}18` },
+                        ]}>
+                        <MaterialIcons name="content-copy" size={14} color={accent} />
+                        <Text style={[styles.miniLabel, { color: accent }]}>Copy</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          setSelectedIds((prev) => new Set(prev).add(entry.id));
+                          setNote((n) =>
+                            n.trim()
+                              ? n
+                              : `I hit: ${entry.title || 'an error'} — ${friendlyErrorMessage(entry.message)}`
+                          );
+                        }}
+                        style={[
+                          styles.miniBtn,
+                          { borderColor: glassBorder(0.12), backgroundColor: glass(0.06) },
+                        ]}>
+                        <MaterialIcons name="feedback" size={14} color={c.textSoft} />
+                        <Text style={[styles.miniLabel, { color: c.textSoft }]}>Use in note</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </Animated.View>
+              );
+            })}
+          </View>
         )}
       </PersistentScrollView>
       {busy ? (
@@ -443,18 +463,44 @@ const styles = StyleSheet.create({
     minHeight: 36,
   },
   mailLabel: { fontSize: 13, fontWeight: '700' },
+  groupHead: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  groupHeadInline: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minWidth: 0,
+  },
+  groupMoji: {
+    alignItems: 'center',
+    borderRadius: 8,
+    height: 24,
+    justifyContent: 'center',
+    width: 24,
+  },
   sectionHead: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 4,
   },
-  sectionLabel: { flex: 1, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  sectionLabel: { flexShrink: 1, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   sectionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'flex-end' },
   link: { fontSize: 13, fontWeight: '700' },
   empty: { borderCurve: 'continuous', borderRadius: 18, borderWidth: 1, padding: 16 },
   emptyText: { fontSize: 14, lineHeight: 20 },
-  errCard: { borderCurve: 'continuous', borderRadius: 18, borderWidth: 1, padding: 12 },
+  errGroup: {
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  errRow: { padding: 12 },
   errHead: { alignItems: 'flex-start', flexDirection: 'row', gap: 10 },
   check: {
     alignItems: 'center',

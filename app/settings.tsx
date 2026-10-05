@@ -1372,7 +1372,7 @@ export default function SettingsScreen() {
                   : 'Start free trial'}
               </OrbitButton>
 
-              <SettingsGroup>
+              <SettingsGroup header="Purchases">
                 <SettingsNavRow
                   icon="restore"
                   iconColor="#E9B44C"

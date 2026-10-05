@@ -203,33 +203,45 @@ export default function HouseholdRecoveryScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(140).duration(280)} style={styles.actions}>
+          <Text style={[styles.groupLabel, { color: TONE }]}>Actions</Text>
+
           <OrbitButton disabled={busy} onPress={onCancel}>
             {busy ? 'Working…' : 'Cancel deletion'}
           </OrbitButton>
 
-          <Pressable
-            disabled={busy}
-            onPress={onOptOut}
-            style={({ pressed }) => [
-              styles.secondaryRow,
-              {
-                backgroundColor: glassFill(isDark),
-                borderColor: glassBorder(0.1),
-                opacity: pressed || busy ? 0.75 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Stop reminder emails">
-            <MaterialIcons name="notifications-off" size={20} color={TONE} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.secondaryTitle, { color: c.text }]}>
-                {household.deletionRemindersOptOut ? 'Reminders already off' : 'Stop reminder emails'}
-              </Text>
-              <Text style={[styles.secondarySub, { color: c.textMuted }]}>
-                Keep the countdown — skip the inbox ladder
-              </Text>
-            </View>
-          </Pressable>
+          <View
+            style={[
+              styles.actionGroup,
+              { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
+            ]}>
+            <Pressable
+              disabled={busy}
+              onPress={onOptOut}
+              style={({ pressed }) => [
+                styles.secondaryRow,
+                {
+                  opacity: pressed || busy ? 0.75 : 1,
+                  borderBottomColor: glassBorder(0.08),
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Stop reminder emails">
+              <View style={[styles.rowIcon, { backgroundColor: `${TONE}22` }]}>
+                <MaterialIcons name="notifications-off" size={18} color={TONE} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.secondaryTitle, { color: c.text }]}>
+                  {household.deletionRemindersOptOut
+                    ? 'Reminders already off'
+                    : 'Stop reminder emails'}
+                </Text>
+                <Text style={[styles.secondarySub, { color: c.textMuted }]}>
+                  Keep the countdown — skip the inbox ladder
+                </Text>
+              </View>
+            </Pressable>
+          </View>
 
           <LinearGradient
             colors={[`${c.danger ?? '#F87171'}22`, `${c.danger ?? '#F87171'}08`]}
@@ -271,15 +283,33 @@ const styles = StyleSheet.create({
   section: { gap: space.sm },
   lead: { lineHeight: 22, textAlign: 'center' },
   actions: { gap: space.md },
-  secondaryRow: {
-    alignItems: 'center',
+  groupLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    paddingHorizontal: 4,
+    textTransform: 'uppercase',
+  },
+  actionGroup: {
     borderCurve: 'continuous',
     borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  secondaryRow: {
+    alignItems: 'center',
     flexDirection: 'row',
     gap: space.md,
     paddingHorizontal: space.md,
     paddingVertical: 14,
+  },
+  rowIcon: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 8,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
   },
   secondaryTitle: { fontSize: 16, fontWeight: '700' },
   secondarySub: { fontSize: 13, lineHeight: 18, marginTop: 2 },

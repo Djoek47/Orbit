@@ -26,7 +26,7 @@ import {
 } from '@/constants/billing';
 import { motion } from '@/constants/motion-tokens';
 import { radius, space, typography } from '@/constants/orbit-theme';
-import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export type PremiumUsagePanel = {
@@ -175,7 +175,13 @@ export function PremiumPaywall({
         {alreadyPremium && usage ? (
           <Animated.View
             entering={FadeInUp.delay(160).duration(420)}
-            style={[styles.usageCard, { backgroundColor: orbitPalette.cardMuted }]}>
+            style={[
+              styles.usageCard,
+              {
+                backgroundColor: glassFill(isDark),
+                borderColor: `${accentTheme.primary}44`,
+              },
+            ]}>
             <Text style={[styles.usageTitle, { color: c.text }]}>Your actions</Text>
             <Text style={[styles.usageLine, { color: c.textMuted }]}>
               {usage.tokensUsedThisPeriod} of {usage.tokensPerMonth} this period
@@ -312,7 +318,9 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   usageCard: {
+    borderCurve: 'continuous',
     borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
     gap: space.xxs,
     paddingHorizontal: space.md,
     paddingVertical: space.sm + 2,
