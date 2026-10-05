@@ -2359,25 +2359,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await authRepository.persistLocalSession(user, session.memberId);
     await clearSidekickSignedOut();
 
-    const { hostProfileOnDevice, setupSharedDeviceSession, selectDeviceProfile } = await import(
-      '@/lib/device/device-session'
-    );
+    const { hostProfileOnDevice } = await import('@/lib/device/device-session');
     const hosted = await listSidekickSessions();
     const hostedIds = [...new Set(hosted.map((item) => item.memberId).concat(session.memberId))];
-    if (hostedIds.length > 1) {
-      await setupSharedDeviceSession({
-        profileMemberIds: hostedIds,
-        deviceLabel: 'Family device',
-        hostKind: 'shared-tablet',
-      });
-      await selectDeviceProfile(session.memberId);
-    } else {
-      await hostProfileOnDevice({
-        memberId: session.memberId,
-        deviceLabel: `${session.displayName}'s device`,
-        hostKind: 'sidekick',
-      });
-    }
+    await hostProfileOnDevice({
+      memberId: session.memberId,
+      deviceLabel: hostedIds.length > 1 ? 'Family device' : `${session.displayName}'s device`,
+      hostKind: hostedIds.length > 1 ? 'shared-tablet' : 'sidekick',
+    });
 
     if (dataMode === 'supabase') {
       const result = await fetchSidekickSyncDetailed(normalizedCode);

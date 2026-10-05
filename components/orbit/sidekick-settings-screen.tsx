@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,7 +17,7 @@ import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { VOCAB } from '@/constants/vocabulary';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
-import { markNeedsProfilePick } from '@/lib/device/device-session';
+import { markNeedsProfilePick, reconcileHostedDeviceSession } from '@/lib/device/device-session';
 import { SigningOutOverlay } from '@/components/orbit/signing-out-overlay';
 import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
@@ -54,10 +54,26 @@ export function SidekickSettingsScreen() {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const [personalizeOpen, setPersonalizeOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [hostedProfileMemberIds, setHostedProfileMemberIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    void reconcileHostedDeviceSession().then((session) => {
+      if (mounted) setHostedProfileMemberIds(session.profileMemberIds);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [currentMember?.id]);
 
   const model = useMemo(
-    () => memberSettingsModel({ member: currentMember, members: household.members }),
-    [currentMember, household.members]
+    () =>
+      memberSettingsModel({
+        member: currentMember,
+        members: household.members,
+        hostedProfileMemberIds,
+      }),
+    [currentMember, household.members, hostedProfileMemberIds]
   );
 
   if (!currentMember || !model) return null;

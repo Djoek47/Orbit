@@ -14,6 +14,8 @@ const child: HouseholdMember = {
   loadShare: 0,
 };
 
+const child2: HouseholdMember = { ...child, id: 'm2', name: 'Emma' };
+
 {
   const session: DeviceSession = {
     mode: 'shared',
@@ -24,6 +26,18 @@ const child: HouseholdMember = {
     deviceLabel: "Cisse's device",
   };
   assert.equal(isPersonalSidekickDevice(session, [child]), true);
+}
+
+{
+  const session: DeviceSession = {
+    mode: 'shared',
+    hostKind: 'sidekick',
+    profileMemberIds: ['m1', 'm2'],
+    activeMemberId: null,
+    needsProfilePick: true,
+    deviceLabel: 'Family device',
+  };
+  assert.equal(isPersonalSidekickDevice(session, [child, child2]), false);
 }
 
 {

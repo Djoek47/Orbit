@@ -14,7 +14,7 @@ import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   clearDeviceSession,
-  loadDeviceSession,
+  reconcileHostedDeviceSession,
   removeHostedProfile,
   selectDeviceProfile,
   type DeviceSession,
@@ -54,7 +54,7 @@ export default function SelectProfileScreen() {
 
   useEffect(() => {
     let mounted = true;
-    loadDeviceSession().then((next) => {
+    reconcileHostedDeviceSession().then((next) => {
       if (mounted) {
         setSession(next);
         setReady(true);

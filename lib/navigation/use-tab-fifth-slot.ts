@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 
 import {
   isSharedTabletDeviceSession,
-  loadDeviceSession,
+  reconcileHostedDeviceSession,
   type DeviceSession,
 } from '@/lib/device/device-session';
 import { tabFifthSlot, type TabFifthSlot } from '@/lib/navigation/tab-fifth-slot';
@@ -19,7 +19,7 @@ export function useTabFifthSlot(input: {
   useEffect(() => {
     let mounted = true;
     const refresh = () => {
-      void loadDeviceSession().then((next) => {
+      void reconcileHostedDeviceSession().then((next) => {
         if (mounted) setSession(next);
       });
     };

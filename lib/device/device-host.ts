@@ -9,6 +9,7 @@ export function isPersonalSidekickDevice(
   profiles: HouseholdMember[]
 ): boolean {
   if (!session) return false;
+  if (profiles.length > 1) return false;
   if (session.hostKind === 'sidekick') return true;
   if (session.hostKind === 'shared-tablet') return false;
   if (profiles.length !== 1) return false;
