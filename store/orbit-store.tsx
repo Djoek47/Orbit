@@ -181,6 +181,7 @@ import {
 } from '@/lib/notifications/audience';
 import { registerForPushNotifications, presentLocalBanner, syncAppBadge, scheduleLocalReminder, clearPresentedNotifications } from '@/lib/notifications/push';
 import { dispatchMemberPush, registerSidekickPushNotifications } from '@/lib/notifications/member-push';
+import { diffSidekickAnnouncements } from '@/lib/notifications/sidekick-announce';
 import { isQuietHour } from '@/lib/poppins/notification-batch';
 import { composeWithLuna } from '@/lib/poppins/notification-composer';
 import {
@@ -812,6 +813,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const glanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const glanceBannerMembersRef = useRef<Set<string>>(new Set());
   const notificationsRef = useRef<NotificationItem[]>([]);
+  /** After first Sidekick sync post sign-in; blocks history replay on hydrate. */
+  const sidekickAnnounceReadyRef = useRef(false);
   const monitorKickRef = useRef<string | null>(null);
   const [briefDismissedYmd, setBriefDismissedYmd] = useState<string | null>(null);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(
@@ -1236,33 +1239,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       void touchSidekickSession().catch(() => undefined);
 
-      if (options?.announceNewTasks) {
-        const prefs = merged.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
-        if (prefs.tasks !== false) {
-          const newTasks = sync.tasks.filter(
-            (task) =>
-              !previousTaskIds.has(task.id) &&
-              taskMatchesAssignee(task, sync.member.name) &&
-              task.status !== 'Completed' &&
-              task.status !== 'Cancelled'
-          );
-          for (const task of newTasks.slice(0, 2)) {
-            void presentLocalBanner('New task', `${task.title} was added to your list.`, {
-              taskId: task.id,
-              category: 'tasks',
-              kind: 'task_assigned',
-            }).catch(() => undefined);
-          }
-        }
-        const newNotes = sync.notifications.filter((item) => !previousNotificationIds.has(item.id) && !item.isRead);
-        for (const note of newNotes.slice(0, 2)) {
-          void presentLocalBanner(note.title, note.body, {
-            ...(note.data ?? {}),
-            notificationId: note.id,
-            category: note.category,
-          }).catch(() => undefined);
-        }
+      const prefs = merged.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      const banners = diffSidekickAnnouncements({
+        announceRequested: Boolean(options?.announceNewTasks),
+        announceReady: sidekickAnnounceReadyRef.current,
+        previousTaskIds,
+        previousNotificationIds,
+        tasks: sync.tasks,
+        notifications: sync.notifications,
+        memberName: sync.member.name,
+        tasksPrefEnabled: prefs.tasks !== false,
+        taskMatchesAssignee,
+      });
+      for (const banner of banners) {
+        void presentLocalBanner(banner.title, banner.body, banner.data).catch(() => undefined);
       }
+      // First successful sync after sign-in/Continue-as arms live announce for later diffs.
+      sidekickAnnounceReadyRef.current = true;
 
       return merged;
     },
@@ -2204,7 +2197,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         return false;
       }
       if (result.status !== 'ok') return false;
-      await applySidekickSyncPayload(result.sync, { announceNewTasks: true });
+      // Silent hydrate — live sync announces real diffs after ready is armed.
+      await applySidekickSyncPayload(result.sync, { announceNewTasks: false });
       registerSidekickPushNotifications(normalizedCode).catch((error) => {
         console.warn('Sidekick push registration skipped', error);
       });
@@ -2236,6 +2230,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setNotifications(items);
     await persistMockHouseholdSnapshot(hydrated);
     void applyPlannedTasksForMember(session.memberId, session.householdId);
+    // Mock hydrate is silent; arm live announce for later diffs.
+    sidekickAnnounceReadyRef.current = true;
     return true;
   };
 
@@ -2294,7 +2290,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         members: sync?.members.length ? sync.members : [result.member],
       };
       mergedSnapshot = sync
-        ? await applySidekickSyncPayload(sync, { announceNewTasks: true, base })
+        ? await applySidekickSyncPayload(sync, { announceNewTasks: false, base })
         : base;
     } else {
       const snapshot = await householdRepository.loadHouseholdById(result.householdId, user.id).catch(
@@ -2349,6 +2345,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           console.warn('Sidekick push registration skipped', error);
         });
       }
+      // Join hydrate is silent; arm live announce for assignments that arrive later.
+      sidekickAnnounceReadyRef.current = true;
     }
 
     return { status: result.status };
@@ -2549,6 +2547,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     setNotifications([]);
     setInviteLinks(null);
     setActiveMemberId(null);
+    sidekickAnnounceReadyRef.current = false;
+    // Drop ghost lock-screen banners so Continue-as cannot stack re-announced history.
+    void clearPresentedNotifications();
+    void syncAppBadge(0);
     // Signing out unbinds the device. It used to keep the binding on a Sidekick sign-out, so
     // the phone still called itself a shared tablet — and the next person to sign in, as an
     // admin, was dropped into "Add a device · 1 of 4" instead of their household.
@@ -4362,6 +4364,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       createdAt: row.createdAt,
       mergeKey: typeof row.data?.mergeKey === 'string' ? row.data.mergeKey : undefined,
       isRead: row.isRead,
+      subjectId:
+        (typeof row.data?.taskId === 'string' && row.data.taskId) ||
+        (typeof row.data?.rewardId === 'string' && row.data.rewardId) ||
+        undefined,
+      memberId: typeof row.data?.memberId === 'string' ? row.data.memberId : undefined,
     }));
     const insightAlreadyToday = notificationsRef.current.some((row) => {
       if (row.data?.urgency !== 'insight') return false;
@@ -4428,8 +4435,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     if (lane === 'interrupt') {
       await flushGlanceFacts();
-      const [decision] = coalesceFacts([fact], { now: Date.now() });
-      if (!decision) return null;
+      const existing = notificationsRef.current.map((row) => ({
+        kind: typeof row.data?.kind === 'string' ? row.data.kind : undefined,
+        urgency: typeof row.data?.urgency === 'string' ? row.data.urgency : undefined,
+        createdAt: row.createdAt,
+        mergeKey: typeof row.data?.mergeKey === 'string' ? row.data.mergeKey : undefined,
+        isRead: row.isRead,
+        subjectId:
+          (typeof row.data?.taskId === 'string' && row.data.taskId) ||
+          (typeof row.data?.rewardId === 'string' && row.data.rewardId) ||
+          undefined,
+        memberId: typeof row.data?.memberId === 'string' ? row.data.memberId : undefined,
+      }));
+      const [decision] = coalesceFacts([fact], { now: Date.now(), existing });
+      if (!decision || decision.decision === 'drop' || decision.decision === 'activity_only') {
+        return null;
+      }
       const item = await persistInboxRow(decision, named);
       if (item) maybeRewriteWithLuna(item, [fact], decision);
       return item;
