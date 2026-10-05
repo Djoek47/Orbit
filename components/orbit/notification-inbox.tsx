@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/orbit/empty-state';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
+import { StreakStrip } from '@/components/orbit/streak-strip';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   buildInboxSections,
@@ -28,6 +29,8 @@ import {
 import { factToActivityItem } from '@/lib/poppins/notification-policy';
 import { speakAs } from '@/lib/ai/majordomo-name';
 import { isAdminRole } from '@/lib/household/admins';
+import { findSharedDeviceForMember } from '@/lib/household/shared-device';
+import { memberStreakRows, type MemberStreakRow } from '@/lib/streaks/member-streak-rows';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -112,6 +115,15 @@ export function NotificationInbox({
   } = useOrbit();
 
   const isAdmin = Boolean(currentMember && isAdminRole(currentMember.role));
+  const streakRows = useMemo(() => {
+    const sharedDevice = findSharedDeviceForMember(currentMember?.id, household.members);
+    return memberStreakRows({
+      members: household.members,
+      viewerId: currentMember?.id,
+      viewerIsAdmin: isAdmin,
+      sharedPeerIds: sharedDevice?.sharedWithMemberIds ?? [],
+    });
+  }, [currentMember?.id, household.members, isAdmin]);
   const [segment, setSegment] = useState<InboxSegment>(initialSegment);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [clearing, setClearing] = useState(false);
@@ -314,6 +326,8 @@ export function NotificationInbox({
             metrics={metrics}
             weekly={poppinsWeeklyBriefing}
             taskCompletedFallback={household.tasks.filter((task) => task.status === 'Completed').length}
+            streakRows={streakRows}
+            accentColor={accentTheme.primary}
           />
         )}
       </ScrollView>
@@ -494,12 +508,16 @@ function ActivityFeed({
   metrics,
   taskCompletedFallback,
   weekly,
+  streakRows,
+  accentColor,
 }: {
   isAdmin: boolean;
   items: ActivityItem[];
   metrics?: OrbitMetrics | null;
   taskCompletedFallback: number;
   weekly: PoppinsWeeklyBriefing;
+  streakRows: MemberStreakRow[];
+  accentColor: string;
 }) {
   const { c, glass, glassBorder } = useOrbitColors();
   const majordomoName = useMajordomoName();
@@ -519,9 +537,18 @@ function ActivityFeed({
     },
   ];
 
+  const streakBlock = (
+    <StreakStrip
+      rows={streakRows}
+      mode={isAdmin ? 'household' : 'personal'}
+      accentColor={accentColor}
+    />
+  );
+
   if (items.length === 0) {
     return (
       <View style={styles.feed}>
+        {streakBlock}
         {isAdmin ? <HistoryLogEntry /> : null}
         <View style={[styles.liveBar, { backgroundColor: 'rgba(45,212,191,0.06)', borderColor: 'rgba(45,212,191,0.16)' }]}>
           <PoppinsHourglass size={16} color="#2DD4BF" active />
@@ -546,6 +573,7 @@ function ActivityFeed({
 
   return (
     <Animated.View entering={FadeIn.duration(180)} style={styles.feed}>
+      {streakBlock}
       {isAdmin ? <HistoryLogEntry /> : null}
       <View style={[styles.liveBar, { backgroundColor: 'rgba(45,212,191,0.06)', borderColor: 'rgba(45,212,191,0.16)' }]}>
         <PoppinsHourglass size={16} color="#2DD4BF" active />

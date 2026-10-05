@@ -12,6 +12,11 @@ export type VisualWidgetProps = {
   activeRewardModel?: string;
   dailyDeadline?: string;
   use24h?: boolean;
+  /**
+   * When set (Home teaser / Activity), paint live wins instead of the chapter’s
+   * static “almost lost” educational fill.
+   */
+  liveStreakDays?: number;
   /** Admins can change the reward model straight from the rule (ModelList). */
   onSelectRewardModel?: (key: string) => void;
 };

@@ -19,6 +19,7 @@
 | Proof alert | Title-only **Proof sent** |
 | Credits bank | Mock/Expo Go buys grant real pack sizes; new packs **add** to prior balance; local+remote merge so empty remote never wipes banked credits; bought credits never expire (monthly allowance still resets) |
 | Notifications | Sidekick hydrate after sign-out/Continue-as no longer rebroadcasts history; live sync announces only real diffs; interrupt dedupe for same task; tray cleared on sign-out |
+| Live streaks | House Rules teaser dots track real `member.streak` (0 days = all empty); award gate uses daily/weekday only; Inbox → Activity streak strip (admin household / self + shared peers) |
 
 ## TestFlight
 

@@ -25,6 +25,7 @@ import { EmptyState } from '@/components/orbit/empty-state';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
+import { StreakStrip } from '@/components/orbit/streak-strip';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   ASSISTANT_KINDS,
@@ -37,6 +38,7 @@ import {
   summarizeNotifications,
   type NotificationActivitySummary,
 } from '@/lib/activity/activity-timeline';
+import { memberStreakRows } from '@/lib/streaks/member-streak-rows';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -48,13 +50,22 @@ type Filter = 'notifications' | 'assistant';
  */
 export default function ActivityLogScreen() {
   const insets = useSafeAreaInsets();
-  const { household } = useOrbit();
+  const { accentTheme, currentMember, household } = useOrbit();
   const { c } = useOrbitColors();
   const isAdmin = useIsHouseholdAdmin();
   const [filter, setFilter] = useState<Filter>('notifications');
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const streakRows = useMemo(
+    () =>
+      memberStreakRows({
+        members: household.members,
+        viewerId: currentMember?.id,
+        viewerIsAdmin: true,
+      }),
+    [currentMember?.id, household.members]
+  );
 
   const load = useCallback(async () => {
     if (!isAdmin || !household.id) {
@@ -112,6 +123,12 @@ export default function ActivityLogScreen() {
         <AdminOnlyNotice />
       ) : (
         <>
+          <StreakStrip
+            rows={streakRows}
+            mode="household"
+            accentColor={accentTheme.primary}
+          />
+
           <SegmentedControl
             options={[
               { value: 'notifications' as const, label: 'Notifications' },

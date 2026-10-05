@@ -3855,12 +3855,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const awardDailyStreak = async () => {
     if (!currentMember || !household.id) return null;
     if (!isMemberFullyConnected(currentMember)) return null;
-    // Gate on the same today filter as Home counters.
+    // House Rules: only daily / weekday jobs feed the streak (Rev D §1.3.e).
+    const { countsTowardDailyStreak } = await import('@/lib/scoring/counts-toward-daily-streak');
     const mineToday = household.tasks.filter(
       (task) =>
         isTodayTask(task, new Date(), household.timezone) &&
-        taskMatchesAssignee(task, currentMember.name)
+        taskMatchesAssignee(task, currentMember.name) &&
+        countsTowardDailyStreak(task)
     );
+    // Neutral day (no qualifying work) — preserve, don't award.
     if (mineToday.length === 0 || mineToday.some((task) => task.status !== 'Completed')) {
       return null;
     }
