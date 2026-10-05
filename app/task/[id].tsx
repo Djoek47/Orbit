@@ -54,6 +54,7 @@ import {
   editCategoryChip,
   resolveSavedCategory,
 } from '@/lib/tasks/edit-category';
+import { needsProofOnComplete } from '@/lib/tasks/homework-proof';
 import { isLocalProofUri } from '@/lib/tasks/proof-uri';
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { useOrbit } from '@/store/orbit-store';
@@ -69,7 +70,6 @@ const CATEGORY_LOOK: Record<string, { color: string; icon: IconName }> = {
   Cleaning: { color: '#17B9A0', icon: 'floors' },
   Kitchen: { color: '#FF9F1C', icon: 'kitchen' },
   Laundry: { color: '#4FA3FF', icon: 'laundry' },
-  School: { color: '#8E7CFF', icon: 'homework' },
   Homework: { color: '#8E7CFF', icon: 'homework' },
   Groceries: { color: '#7FC24A', icon: 'groceries' },
   Pets: { color: '#FF6A3D', icon: 'pets' },
@@ -411,25 +411,23 @@ export default function TaskDetailScreen() {
     }
   };
 
-  const beginEditing = () => {
+  const syncEditFields = () => {
     setTitle(task.title);
     setDescription(task.description ?? '');
     setCategory(editCategoryChip(task.category));
     setDue(task.due);
     setXp(String(task.xp));
     setDifficulty(task.difficulty ?? 'medium');
-    setProofRequired(Boolean(task.proofRequired));
+    setProofRequired(needsProofOnComplete(task, assigneeMember ?? null));
+  };
+
+  const beginEditing = () => {
+    syncEditFields();
     setEditing(true);
   };
 
   const cancelEditing = () => {
-    setTitle(task.title);
-    setDescription(task.description ?? '');
-    setCategory(editCategoryChip(task.category));
-    setDue(task.due);
-    setXp(String(task.xp));
-    setDifficulty(task.difficulty ?? 'medium');
-    setProofRequired(Boolean(task.proofRequired));
+    syncEditFields();
     setEditing(false);
   };
 
@@ -785,7 +783,11 @@ export default function TaskDetailScreen() {
                 })}
               </View>
 
-              <View
+              <Pressable
+                onPress={() => setProofRequired((on) => !on)}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: proofRequired }}
+                accessibilityLabel="Request proof photo"
                 style={[
                   styles.proofToggleCard,
                   {
@@ -806,9 +808,10 @@ export default function TaskDetailScreen() {
                   value={proofRequired}
                   onValueChange={setProofRequired}
                   trackColor={{ false: glassBorder(0.14), true: PROOF_COLOR }}
+                  thumbColor="#FFFFFF"
                   accessibilityLabel="Request proof photo"
                 />
-              </View>
+              </Pressable>
             </View>
           </Animated.View>
         ) : (
@@ -1073,7 +1076,7 @@ export default function TaskDetailScreen() {
               label="Save changes"
               onPress={() => void handleSave()}
             />
-            <DetailAction disabled={busy} label="Cancel" onPress={cancelEditing} />
+            <DetailAction disabled={busy} label="Cancel" onPress={cancelEditing} tone="ghost" />
           </View>
         ) : (
           <View style={styles.actionStack}>
@@ -1352,15 +1355,18 @@ function DetailAction({
   onPress,
   disabled = false,
   loading = false,
+  tone = 'primary',
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
+  tone?: 'primary' | 'ghost';
 }) {
   const { accentTheme } = useOrbit();
-  const { c } = useOrbitColors();
+  const { c, glass, glassBorder } = useOrbitColors();
   const inactive = disabled || loading;
+  const ghost = tone === 'ghost';
   return (
     <Pressable
       accessibilityRole="button"
@@ -1369,15 +1375,28 @@ function DetailAction({
       onPress={onPress}
       style={({ pressed }) => [
         styles.detailAction,
-        {
-          backgroundColor: accentTheme.primary,
-          opacity: inactive ? 0.5 : pressed ? 0.88 : 1,
-        },
+        ghost
+          ? {
+              backgroundColor: glass(0.06),
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: glassBorder(0.14),
+              opacity: inactive ? 0.5 : pressed ? 0.88 : 1,
+            }
+          : {
+              backgroundColor: accentTheme.primary,
+              opacity: inactive ? 0.5 : pressed ? 0.88 : 1,
+            },
       ]}>
       {loading ? (
-        <ActivityIndicator color={c.ink} />
+        <ActivityIndicator color={ghost ? c.text : c.ink} />
       ) : (
-        <Text style={[typography.headline, { color: c.ink, fontWeight: '700' }]}>{label}</Text>
+        <Text
+          style={[
+            typography.headline,
+            { color: ghost ? c.text : c.ink, fontWeight: '700' },
+          ]}>
+          {label}
+        </Text>
       )}
     </Pressable>
   );

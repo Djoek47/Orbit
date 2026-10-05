@@ -67,7 +67,7 @@ export function HowItWorksPlayer({
         // While a line is still being said, hold at the end of its beat instead of talking
         // over the next one.
         const beatEnd = offsets[beatAt(ms) + 1] ?? total;
-        if (speakingRef.current && ms + TICK_MS >= beatEnd) return Math.max(ms, beatEnd - 1);
+        if (speakingRef.current && ms + TICK_MS >= beatEnd) return beatEnd - TICK_MS;
         const next = ms + TICK_MS;
         if (next >= total) {
           setPlaying(false);
@@ -88,31 +88,39 @@ export function HowItWorksPlayer({
   /**
    * Play the baked GPT conversational clip for this beat.
    * Never use device Speech here — that is what sounded French / robotic.
-   * If a clip is missing, the card + caption still carry the demo silently.
+   * Pause/resume toggles the same player; only beat/sound changes recreate it.
    */
   useEffect(() => {
     playerRef.current?.remove();
     playerRef.current = null;
     speakingRef.current = false;
-    if (!sound || !playing || !beat.speaker || !beat.line.trim()) return;
+    if (!sound || !beat.speaker || !beat.line.trim()) return;
 
     const recorded = recordedDemoAudio(beat.id);
     if (recorded == null) return;
 
     speakingRef.current = true;
     let poll: ReturnType<typeof setInterval> | null = null;
+    let safety: ReturnType<typeof setTimeout> | null = null;
     try {
       const player = createAudioPlayer(recorded);
       playerRef.current = player;
-      player.play();
+      if (playing) player.play();
+      const release = () => {
+        speakingRef.current = false;
+        if (poll) clearInterval(poll);
+        poll = null;
+        if (safety) clearTimeout(safety);
+        safety = null;
+      };
       // Hold the timeline at beat-end while the clip is still speaking, then release.
       poll = setInterval(() => {
-        if (!player.playing && player.currentTime > 0.05) {
-          speakingRef.current = false;
-          if (poll) clearInterval(poll);
-          poll = null;
-        }
+        const nearEnd =
+          player.duration > 0 && player.currentTime >= Math.max(0, player.duration - 0.08);
+        if ((!player.playing && player.currentTime > 0.05) || nearEnd) release();
       }, 120);
+      // Never freeze the demo if the player never reports progress.
+      safety = setTimeout(release, Math.max(beat.ms + 600, 4_000));
     } catch (error) {
       console.warn('how-it-works recorded audio', error);
       playerRef.current = null;
@@ -120,18 +128,25 @@ export function HowItWorksPlayer({
     }
     return () => {
       if (poll) clearInterval(poll);
+      if (safety) clearTimeout(safety);
       speakingRef.current = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [beat.id, sound, playing]);
-
-  useEffect(
-    () => () => {
       playerRef.current?.remove();
       playerRef.current = null;
-    },
-    []
-  );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beat.id, sound]);
+
+  // Pause / resume without restarting the clip from zero.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !sound) return;
+    try {
+      if (playing) player.play();
+      else player.pause();
+    } catch {
+      /* player may already be torn down */
+    }
+  }, [playing, sound]);
   const chapter = DEMO_CHAPTERS.find((item) => item.id === chapterOf(index))!;
   const finished = elapsed >= total;
   const progress = demoProgress(elapsed);

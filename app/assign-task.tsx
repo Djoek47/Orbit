@@ -379,16 +379,15 @@ export default function AssignTaskScreen() {
     </View>
   );
 
+  const assigneeFirst = assignee?.name.trim().split(/\s+/)[0] || assignee?.name;
   const ctaLabel =
     selected.length === 0
       ? 'Select tasks'
       : !assignee
         ? 'Choose who'
         : selected.length === 1
-          ? `Assign to ${assignee.name}`
-          : `Assign ${selected.length} to ${assignee.name}`;
-  const ctaWithProof =
-    requireProof && selected.length > 0 && assignee ? `${ctaLabel} · photo` : ctaLabel;
+          ? `Assign to ${assigneeFirst}`
+          : `Assign ${selected.length} to ${assigneeFirst}`;
   const assignReady = selected.length > 0 && Boolean(assignee) && canAssign && !busy;
   const PROOF_ACCENT = '#4FA3FF';
 
@@ -691,7 +690,9 @@ export default function AssignTaskScreen() {
             disabled={!assignReady}
             onPress={() => void assign()}
             accessibilityRole="button"
-            accessibilityLabel={ctaWithProof}
+            accessibilityLabel={
+              requireProof && assignReady ? `${ctaLabel}, with photo proof` : ctaLabel
+            }
             style={[
               styles.assignBtn,
               styles.assignMain,
@@ -709,35 +710,48 @@ export default function AssignTaskScreen() {
                 },
               ]}
               numberOfLines={1}>
-              {ctaWithProof}
+              {ctaLabel}
             </Text>
           </Pressable>
           <Pressable
             disabled={!canAssign || busy}
             onPress={() => setRequireProof((on) => !on)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: requireProof }}
-            accessibilityLabel={
-              requireProof ? 'Photo proof on — tap to turn off' : 'Request photo proof when done'
-            }
+            accessibilityRole="switch"
+            accessibilityState={{ checked: requireProof, disabled: !canAssign || busy }}
+            accessibilityLabel="Request photo proof when done"
+            accessibilityHint="Sidekick will attach a photo when they complete"
             style={[
               styles.assignBtn,
               styles.assignProof,
               {
-                backgroundColor: requireProof ? PROOF_ACCENT : glass(0.08),
-                borderColor: requireProof ? PROOF_ACCENT : glassBorder(0.14),
+                backgroundColor:
+                  !canAssign || busy
+                    ? glass(0.06)
+                    : requireProof
+                      ? PROOF_ACCENT
+                      : glass(0.08),
+                borderColor:
+                  !canAssign || busy
+                    ? glassBorder(0.1)
+                    : requireProof
+                      ? PROOF_ACCENT
+                      : glassBorder(0.14),
                 opacity: busy ? 0.65 : 1,
               },
             ]}>
             <MaterialIcons
               name="photo-camera"
               size={22}
-              color={requireProof ? c.ink : PROOF_ACCENT}
+              color={
+                !canAssign || busy ? c.textSubtle : requireProof ? c.ink : PROOF_ACCENT
+              }
             />
             <Text
               style={[
                 styles.proofBtnLabel,
-                { color: requireProof ? c.ink : PROOF_ACCENT },
+                {
+                  color: !canAssign || busy ? c.textSubtle : requireProof ? c.ink : PROOF_ACCENT,
+                },
               ]}
               numberOfLines={1}>
               Proof
@@ -944,6 +958,7 @@ const styles = StyleSheet.create({
   },
   assignMain: {
     flex: 3,
+    paddingHorizontal: 14,
   },
   assignProof: {
     borderWidth: StyleSheet.hairlineWidth,
