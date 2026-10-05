@@ -616,6 +616,11 @@ export type PoppinsNotificationPrefs = {
    * are deferred; deadline reminders still fire.
    */
   quietHoursEnabled?: boolean;
+  /**
+   * Smart delivery (default ON): same-day assignment noise becomes one digest
+   * push; full detail lives in Activity. Urgent interrupts still push.
+   */
+  smartDelivery?: boolean;
 };
 
 /** Activity feed entry from Poppins Monitor Agent. */

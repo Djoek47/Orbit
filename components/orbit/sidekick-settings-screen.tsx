@@ -141,7 +141,9 @@ export function SidekickSettingsScreen() {
                 }
                 last
                 onPress={() => {
-                  void markNeedsProfilePick().then(() => router.replace('/select-profile' as never));
+                  void markNeedsProfilePick(household.members).then(() =>
+                    router.replace('/select-profile' as never)
+                  );
                 }}
               />
             </SettingsGroup>
