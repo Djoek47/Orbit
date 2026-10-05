@@ -525,10 +525,10 @@ export default function SettingsScreen() {
       <Stack.Screen
         options={{
           headerShown: false,
-          // Poppins voice wheel: horizontal drags must not dismiss the sheet or pop back.
-          // Always allow the close affordance path via leaveModalsToTabs (not gesture).
-          gestureEnabled: section !== 'poppins' && !wheelDragging,
-          fullScreenGestureEnabled: section !== 'poppins' && !wheelDragging,
+          // Keep sheet gestures on by default (root layout also sets true).
+          // Only lock while the Poppins voice wheel is actively dragging.
+          gestureEnabled: !wheelDragging,
+          fullScreenGestureEnabled: !wheelDragging,
         }}
       />
       <SigningOutOverlay visible={signingOut} />

@@ -1,9 +1,9 @@
 /**
  * Close the Settings Expo Router modal without leaving a touch-blocking shell.
  *
- * `router.back()` alone can leave Settings still presented (especially after
- * Poppins voice-wheel gesture locks). That invisible modal eats every tap on
- * Home / tabs until the app is force-quit.
+ * Prefer `router.dismiss()` — Settings sits on top of tabs, so dismissing it
+ * reveals Home. Never `replace('/(tabs)')` while the modal can still dismiss:
+ * that remount path left an invisible iOS modal layer that ate every tap.
  */
 import { router } from 'expo-router';
 
@@ -18,12 +18,21 @@ export function closeSettingsModal(): void {
         return false;
       }
     },
+    dismiss: () => {
+      router.dismiss();
+    },
     dismissAll: () => {
+      router.dismissAll();
+    },
+    canGoBack: () => {
       try {
-        router.dismissAll();
+        return Boolean(router.canGoBack());
       } catch {
-        /* nothing presented */
+        return false;
       }
+    },
+    back: () => {
+      router.back();
     },
     replace: (href) => {
       router.replace(href as never);

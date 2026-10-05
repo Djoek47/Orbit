@@ -9,11 +9,17 @@ import { join } from 'node:path';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
-test('closeSettingsModal uses leaveModalsToTabs dismissAll + replace', () => {
+test('closeSettingsModal prefers dismiss, not replace-while-presented', () => {
   const src = read('lib/navigation/close-settings-modal.ts');
   assert.match(src, /leaveModalsToTabs/);
-  assert.match(src, /dismissAll/);
-  assert.match(src, /replace/);
+  assert.match(src, /dismiss:/);
+  assert.match(src, /Never `replace/);
+});
+
+test('leaveModalsToTabs dismisses without replace when possible', () => {
+  const src = read('lib/navigation/leave-modals-to-tabs.ts');
+  assert.match(src, /nav\.dismiss\(\)/);
+  assert.match(src, /invisible presentation/);
 });
 
 test('admin Settings X uses closeSettingsModal, not router.back alone', () => {
@@ -38,4 +44,11 @@ test('signOutAndLeave has hard ceiling so wipe cannot hang forever', () => {
   assert.match(leave, /SIGNOUT_HARD_MS/);
   assert.match(leave, /withHardCeiling/);
   assert.match(leave, /resetToGetStarted/);
+});
+
+test('root layout keeps Settings gestures enabled by default', () => {
+  const layout = read('app/_layout.tsx');
+  assert.match(layout, /name="settings"/);
+  assert.match(layout, /gestureEnabled: true/);
+  assert.match(layout, /fullScreenGestureEnabled: true/);
 });

@@ -29,9 +29,10 @@ assert.match(wheel, /WHEEL_START_DEG/, 'knob worklet uses the shared sweep const
 
 assert.match(settings, /wheelDragging/, 'Settings tracks wheel interaction');
 assert.match(settings, /scrollEnabled=\{!wheelDragging\}/, 'scroll locks while dragging');
-assert.match(settings, /gestureEnabled: section !== 'poppins' && !wheelDragging/);
+assert.match(settings, /gestureEnabled: !wheelDragging/, 'sheet swipe only locks while the dial is dragged');
+assert.match(settings, /fullScreenGestureEnabled: !wheelDragging/);
 assert.match(settings, /onVoiceWheelInteraction=\{setWheelDragging\}/);
-assert.match(settings, /pointerEvents=\{wheelDragging \? 'none' : 'auto'\}/, 'header cannot eat the drag');
+assert.match(settings, /closeSettingsModal/, 'X dismisses the modal without a zombie touch layer');
 
 assert.match(keyboard, /scrollEnabled\?: boolean/, 'KeyboardScreen can lock scroll');
 assert.match(panel, /onVoiceWheelInteraction/, 'panel forwards the drag signal');

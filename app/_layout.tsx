@@ -160,7 +160,16 @@ export default function RootLayout() {
                     name="member/[id]"
                     options={{ presentation: 'modal', headerShown: false, title: 'Member' }}
                   />
-                  <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
+                  <Stack.Screen
+                    name="settings"
+                    options={{
+                      presentation: 'modal',
+                      headerShown: false,
+                      gestureEnabled: true,
+                      fullScreenGestureEnabled: true,
+                      animation: 'slide_from_bottom',
+                    }}
+                  />
                   <Stack.Screen
                     name="support"
                     options={{ presentation: 'modal', headerShown: false, title: 'Support' }}
