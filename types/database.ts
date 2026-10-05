@@ -36,6 +36,10 @@ export type HouseholdRow = {
   deleted_at?: string | null;
   deletion_scheduled_for?: string | null;
   deletion_requested_by?: string | null;
+  deletion_reminder_stage?: '7d' | '3d' | '24h' | '1h11m' | null;
+  deletion_reminders_opt_out?: boolean | null;
+  deletion_immediate_token?: string | null;
+  deletion_immediate_token_expires_at?: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -701,6 +705,26 @@ export type Database = {
       cancel_household_deletion: {
         Args: { p_household_id: string };
         Returns: undefined;
+      };
+      request_immediate_household_deletion: {
+        Args: { p_household_id: string };
+        Returns: {
+          scheduled_for: string;
+          confirm_token: string;
+          confirm_expires_at: string;
+        }[];
+      };
+      confirm_immediate_household_deletion: {
+        Args: { p_token: string };
+        Returns: string;
+      };
+      opt_out_household_deletion_reminders: {
+        Args: { p_household_id: string };
+        Returns: undefined;
+      };
+      purge_due_households: {
+        Args: Record<string, never>;
+        Returns: number;
       };
     };
     Enums: Record<string, never>;

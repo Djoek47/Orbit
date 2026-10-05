@@ -627,10 +627,17 @@ type OrbitContextValue = {
   }[];
   isGuestInActiveHousehold: boolean;
   switchHousehold: (householdId: string) => Promise<void>;
-  /** Owner-only — schedules permanent deletion after a 15-day grace period. */
+  /** Owner or admin — schedules permanent deletion after a 30-day grace period. */
   deleteHousehold: () => Promise<{ scheduledFor: string }>;
-  /** Owner-only — cancels a scheduled household deletion within the grace window. */
+  /** Owner or admin — cancels a scheduled household deletion within the grace window. */
   cancelHouseholdDeletion: () => Promise<void>;
+  /** Owner or admin — accelerate to 24h confirm + email token. */
+  requestImmediateHouseholdDeletion: () => Promise<{
+    scheduledFor: string;
+    confirmToken: string;
+  }>;
+  /** Owner or admin — stop reminder emails for a scheduled deletion. */
+  optOutHouseholdDeletionReminders: () => Promise<void>;
   /**
    * Custom house rules — display only; never alter scoring / XP / allowance.
    */
@@ -2136,11 +2143,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!user?.id || !household.id) {
       throw new Error('No active household to delete.');
     }
-    if (currentMember?.role !== 'owner') {
-      throw new Error('Only the household owner can delete this household.');
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') {
+      throw new Error('Only a household owner or admin can delete this household.');
     }
     const result = await householdRepository.requestHouseholdDeletion(household.id, user.id);
-    const scheduledSnapshot = { ...household, deletionScheduledFor: result.scheduledFor };
+    const scheduledSnapshot = {
+      ...household,
+      deletionScheduledFor: result.scheduledFor,
+      deletionReminderStage: null,
+      deletionRemindersOptOut: false,
+    };
     setHousehold(scheduledSnapshot);
     if (dataMode === 'mock') {
       await persistMockHouseholdSnapshot(scheduledSnapshot);
@@ -2159,17 +2171,89 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!user?.id || !household.id) {
       throw new Error('No active household.');
     }
-    if (currentMember?.role !== 'owner') {
-      throw new Error('Only the household owner can cancel deletion.');
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') {
+      throw new Error('Only a household owner or admin can cancel deletion.');
     }
     await householdRepository.cancelHouseholdDeletion(household.id, user.id);
-    const restored = { ...household, deletionScheduledFor: null, deletedAt: null };
+    const restored = {
+      ...household,
+      deletionScheduledFor: null,
+      deletedAt: null,
+      deletionReminderStage: null,
+      deletionRemindersOptOut: false,
+    };
     setHousehold(restored);
     if (dataMode === 'mock') {
       await persistMockHouseholdSnapshot(restored);
     }
     await refreshHouseholdMemberships(user.id);
     await trackAnalytics('household.deletion_cancelled', {}, { householdId: household.id, userId: user.id });
+    const { sendDeletionCancelledEmail } = await import('@/lib/household/deletion-email-actions');
+    void sendDeletionCancelledEmail({
+      to: user.email || undefined,
+      name: currentMember?.name ?? user.name,
+      householdName: household.householdName,
+      householdId: household.id,
+    });
+  };
+
+  const requestImmediateHouseholdDeletion = async () => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id || !household.id) {
+      throw new Error('No active household.');
+    }
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') {
+      throw new Error('Only a household owner or admin can accelerate deletion.');
+    }
+    const result = await householdRepository.requestImmediateHouseholdDeletion(
+      household.id,
+      user.id
+    );
+    const next = {
+      ...household,
+      deletionScheduledFor: result.scheduledFor,
+      deletionReminderStage: null,
+    };
+    setHousehold(next);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(next);
+    }
+    const { sendImmediateDeletionConfirmEmail } = await import(
+      '@/lib/household/deletion-email-actions'
+    );
+    void sendImmediateDeletionConfirmEmail({
+      to: user.email || undefined,
+      name: currentMember?.name ?? user.name,
+      householdName: household.householdName,
+      householdId: household.id,
+      scheduledFor: result.scheduledFor,
+      confirmToken: result.confirmToken,
+    });
+    await trackAnalytics(
+      'household.deletion_immediate_requested',
+      { scheduledFor: result.scheduledFor },
+      { householdId: household.id, userId: user.id }
+    );
+    return {
+      scheduledFor: result.scheduledFor,
+      confirmToken: result.confirmToken,
+    };
+  };
+
+  const optOutHouseholdDeletionReminders = async () => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id || !household.id) {
+      throw new Error('No active household.');
+    }
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') {
+      throw new Error('Only a household owner or admin can change reminder preferences.');
+    }
+    await householdRepository.optOutHouseholdDeletionReminders(household.id, user.id);
+    const next = { ...household, deletionRemindersOptOut: true };
+    setHousehold(next);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(next);
+    }
   };
 
   const restoreSidekickFromSession = async (session: SidekickSession): Promise<boolean> => {
@@ -7370,6 +7454,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       switchHousehold,
       deleteHousehold,
       cancelHouseholdDeletion,
+      requestImmediateHouseholdDeletion,
+      optOutHouseholdDeletionReminders,
       addCustomHouseRule,
       updateCustomHouseRule,
       removeCustomHouseRule,

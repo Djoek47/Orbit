@@ -10,8 +10,9 @@ import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import {
+  canManageHouseholdDeletion,
   formatHouseholdDeletionDate,
-  HOUSEHOLD_DELETION_GRACE_DAYS,
+  HOUSEHOLD_DELETION_POLICY_COPY,
 } from '@/lib/household/household-deletion';
 import { leaveModalsToTabs } from '@/lib/navigation/leave-modals-to-tabs';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -30,6 +31,7 @@ export default function DeleteHouseholdScreen() {
     deleteHousehold,
     household,
     householdMemberships,
+    requestImmediateHouseholdDeletion,
     switchHousehold,
   } = useOrbit();
 
@@ -39,10 +41,11 @@ export default function DeleteHouseholdScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [scheduledFor, setScheduledFor] = useState<string | null>(null);
+  const [immediateNote, setImmediateNote] = useState<string | null>(null);
 
   const householdName = household.householdName.trim();
   const accountEmail = (currentUser?.email ?? '').trim().toLowerCase();
-  const isOwner = currentMember?.role === 'owner';
+  const canManage = canManageHouseholdDeletion(currentMember?.role);
   const otherHouseholds = householdMemberships.filter((entry) => entry.householdId !== household.id);
 
   const nameMatches = useMemo(
@@ -68,16 +71,16 @@ export default function DeleteHouseholdScreen() {
     }
   };
 
-  if (!isOwner) {
+  if (!canManage) {
     return (
       <View style={[styles.root, { backgroundColor: c.background, paddingTop: insets.top }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.centered}>
           <Text style={[typography.title2, { color: c.text, textAlign: 'center' }]}>
-            Owner only
+            Admin only
           </Text>
           <Text style={[typography.body, { color: c.textMuted, textAlign: 'center' }]}>
-            Only the household owner can delete this household.
+            Only a household owner or admin can delete this household.
           </Text>
           <OrbitButton onPress={() => router.back()}>Go back</OrbitButton>
         </View>
@@ -133,8 +136,7 @@ export default function DeleteHouseholdScreen() {
               ]}>
               <MaterialIcons name="schedule" size={18} color="#FBBF24" />
               <Text style={[typography.footnote, { color: c.text, flex: 1, lineHeight: 20 }]}>
-                Your data is kept for {HOUSEHOLD_DELETION_GRACE_DAYS} days in case this was a
-                mistake. You can cancel anytime before permanent deletion.
+                {HOUSEHOLD_DELETION_POLICY_COPY.overview}
               </Text>
             </View>
             <OrbitButton tone="danger" onPress={() => setStep('confirm_name')}>
@@ -226,9 +228,12 @@ export default function DeleteHouseholdScreen() {
             </Text>
             <Text style={[typography.body, styles.leadCenter, { color: c.textMuted }]}>
               {householdName} will be permanently deleted
-              {scheduledFor ? ` on ${formatHouseholdDeletionDate(scheduledFor)}` : ''}. Your data is
-              kept for {HOUSEHOLD_DELETION_GRACE_DAYS} days — cancel anytime before then.
+              {scheduledFor ? ` on ${formatHouseholdDeletionDate(scheduledFor)}` : ''}.{' '}
+              {HOUSEHOLD_DELETION_POLICY_COPY.scheduled}
             </Text>
+            {immediateNote ? (
+              <Text style={[styles.error, { color: accentTheme.primary }]}>{immediateNote}</Text>
+            ) : null}
             {otherHouseholds.length > 0 ? (
               <OrbitButton
                 onPress={() => {
@@ -249,6 +254,28 @@ export default function DeleteHouseholdScreen() {
                 void cancelHouseholdDeletion().then(() => router.back());
               }}>
               Cancel deletion
+            </OrbitButton>
+            <OrbitButton
+              tone="danger"
+              disabled={busy}
+              onPress={() => {
+                setBusy(true);
+                setImmediateNote(null);
+                void requestImmediateHouseholdDeletion()
+                  .then((result) => {
+                    setScheduledFor(result.scheduledFor);
+                    setImmediateNote(
+                      'Confirm email sent — tap Confirm in your inbox within 24 hours to finish permanent deletion.'
+                    );
+                  })
+                  .catch((err) => {
+                    setError(
+                      err instanceof Error ? err.message : 'Could not accelerate deletion.'
+                    );
+                  })
+                  .finally(() => setBusy(false));
+              }}>
+              {busy ? 'Sending…' : 'Delete sooner (24h confirm)'}
             </OrbitButton>
             <Pressable
               onPress={() => leaveModalsToTabs(router)}

@@ -41,7 +41,7 @@ flowchart LR
 | **0** | P0 touch fix after delete/switch; mock **credit receipt** email wired — **done** | `app/settings.tsx`, `app/delete-household.tsx`, `send-credit-receipt`, `app/poppins-credits.tsx` |
 | **1** | Support v2: categories, select errors, screenshots, HTML ack, diagnostics — **done** | `lib/errors/error-log.ts`, `app/support.tsx`, `send-support-feedback`, `emails/support-received.tsx` |
 | **2** | Subscription + deletion email templates; test harness — **done** | `send-subscription-receipt`, `send-household-deletion-email`, Settings Email tests |
-| **3** | **30-day** grace SQL/RPC (admin cancel); reminder cron; delete copy | `lib/household/household-deletion.ts`, migration, `20260828120000_*` successor |
+| **3** | 30-day deletion grace B + reminder cron — **done** | `HOUSEHOLD_DELETION_GRACE_DAYS=30`, `20261005140000_household_deletion_v2.sql`, `household-deletion-cron` |
 | **4** | Recovery route + **hourglass** UI; empty-account gate on welcome | `HouseholdRecoveryHourglass`, `app/household-recovery.tsx` |
 | **5** | QR transfer generate/scan/accept edge function | Settings House, `transfer-household`, scanner |
 | **6** | Premium settings + paywall animation + allowance copy fix | `app/settings.tsx`, `premium-paywall.tsx` |
@@ -94,15 +94,15 @@ Mock premium trial on `/premium` triggers subscription email.
 
 ---
 
-## Stop 3 — 30-day deletion policy (grace B)
+## Stop 3 — 30-day deletion policy (grace B) — **done**
 
 - `HOUSEHOLD_DELETION_GRACE_DAYS = 30`; `deletion_scheduled_for` = purge instant.
-- Reminder cron: only when `now >= purge - 7d` and stage not sent; ladder 7d → 3d → 24h → 1h11m.
-- RPC: `request_household_deletion` / `cancel` for **owner OR admin**.
-- `request_immediate_household_deletion` + 24h confirm token email.
-- Update [`app/delete-household.tsx`](app/delete-household.tsx) + Settings banner copy (30 days + email ladder).
+- Reminder cron (`household-deletion-cron`): only when `now >= purge - 7d` and stage not sent; ladder 7d → 3d → 24h → 1h11m. Staging: `DELETION_REMINDER_STAGING=1`.
+- RPC: `request_household_deletion` / `cancel_household_deletion` for **owner OR admin**.
+- `request_immediate_household_deletion` + 24h confirm token email; `opt_out_household_deletion_reminders`; `purge_due_households`.
+- Updated [`app/delete-household.tsx`](app/delete-household.tsx) + Settings banner (30 days + email ladder); admins can Undo.
 
-**Passes:** unit tests for days remaining; staging cron with shortened intervals; admin can cancel, owner can cancel.
+**Passes:** unit tests for days remaining + ladder; staging cron with shortened intervals; admin can cancel, owner can cancel.
 
 ---
 

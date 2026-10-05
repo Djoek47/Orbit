@@ -801,13 +801,19 @@ export const householdRepository = {
       if (!snapshot?.id) {
         throw new Error('householdRepository.requestHouseholdDeletion: Household not found.');
       }
-      const owner = snapshot.members.find(
-        (member) => member.userId === userId && member.role === 'owner'
+      const actor = snapshot.members.find(
+        (member) =>
+          member.userId === userId && (member.role === 'owner' || member.role === 'admin')
       );
-      if (!owner) {
-        throw new Error('Only the household owner can delete this household.');
+      if (!actor) {
+        throw new Error('Only a household owner or admin can delete this household.');
       }
-      const next = { ...snapshot, deletionScheduledFor: scheduledFor };
+      const next = {
+        ...snapshot,
+        deletionScheduledFor: scheduledFor,
+        deletionReminderStage: null,
+        deletionRemindersOptOut: false,
+      };
       await upsertMockHouseholdRegistry(next);
       if (mockHousehold.id === householdId) {
         Object.assign(mockHousehold, next);
@@ -836,13 +842,20 @@ export const householdRepository = {
       if (!snapshot?.id) {
         throw new Error('householdRepository.cancelHouseholdDeletion: Household not found.');
       }
-      const owner = snapshot.members.find(
-        (member) => member.userId === userId && member.role === 'owner'
+      const actor = snapshot.members.find(
+        (member) =>
+          member.userId === userId && (member.role === 'owner' || member.role === 'admin')
       );
-      if (!owner) {
-        throw new Error('Only the household owner can cancel deletion.');
+      if (!actor) {
+        throw new Error('Only a household owner or admin can cancel deletion.');
       }
-      const next = { ...snapshot, deletionScheduledFor: null, deletedAt: null };
+      const next = {
+        ...snapshot,
+        deletionScheduledFor: null,
+        deletedAt: null,
+        deletionReminderStage: null,
+        deletionRemindersOptOut: false,
+      };
       await upsertMockHouseholdRegistry(next);
       if (mockHousehold.id === householdId) {
         Object.assign(mockHousehold, next);
@@ -859,6 +872,103 @@ export const householdRepository = {
       p_household_id: householdId,
     });
     mapDbError('householdRepository.cancelHouseholdDeletion', error);
+  },
+
+  async requestImmediateHouseholdDeletion(
+    householdId: string,
+    userId: string
+  ): Promise<{ scheduledFor: string; confirmToken: string; confirmExpiresAt: string }> {
+    if (isMockMode()) {
+      const snapshot =
+        (await getMockHouseholdFromRegistry(householdId)) ??
+        (mockHousehold.id === householdId ? mockHousehold : null) ??
+        ((await loadActiveMockHousehold())?.id === householdId ? await loadActiveMockHousehold() : null);
+      if (!snapshot?.id) {
+        throw new Error('householdRepository.requestImmediateHouseholdDeletion: Household not found.');
+      }
+      const actor = snapshot.members.find(
+        (member) =>
+          member.userId === userId && (member.role === 'owner' || member.role === 'admin')
+      );
+      if (!actor) {
+        throw new Error('Only a household owner or admin can accelerate deletion.');
+      }
+      if (!snapshot.deletionScheduledFor) {
+        throw new Error('Household is not scheduled for deletion.');
+      }
+      const { mintMockImmediateDeletion } = await import('@/lib/household/deletion-email-actions');
+      const minted = mintMockImmediateDeletion();
+      const next = {
+        ...snapshot,
+        deletionScheduledFor: minted.scheduledFor,
+        deletionReminderStage: null,
+        deletionImmediateToken: minted.confirmToken,
+      };
+      await upsertMockHouseholdRegistry(next);
+      if (mockHousehold.id === householdId) {
+        Object.assign(mockHousehold, next);
+      }
+      const active = await loadActiveMockHousehold();
+      if (active?.id === householdId) {
+        await saveActiveMockHousehold(next);
+      }
+      return minted;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.requestImmediateHouseholdDeletion');
+    const { data, error } = await supabase.rpc('request_immediate_household_deletion', {
+      p_household_id: householdId,
+    });
+    mapDbError('householdRepository.requestImmediateHouseholdDeletion', error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row !== 'object') {
+      throw new Error('Could not accelerate deletion.');
+    }
+    const record = row as {
+      scheduled_for?: string;
+      confirm_token?: string;
+      confirm_expires_at?: string;
+    };
+    return {
+      scheduledFor: String(record.scheduled_for ?? ''),
+      confirmToken: String(record.confirm_token ?? ''),
+      confirmExpiresAt: String(record.confirm_expires_at ?? ''),
+    };
+  },
+
+  async optOutHouseholdDeletionReminders(householdId: string, userId: string): Promise<void> {
+    if (isMockMode()) {
+      const snapshot =
+        (await getMockHouseholdFromRegistry(householdId)) ??
+        (mockHousehold.id === householdId ? mockHousehold : null) ??
+        ((await loadActiveMockHousehold())?.id === householdId ? await loadActiveMockHousehold() : null);
+      if (!snapshot?.id) {
+        throw new Error('householdRepository.optOutHouseholdDeletionReminders: Household not found.');
+      }
+      const actor = snapshot.members.find(
+        (member) =>
+          member.userId === userId && (member.role === 'owner' || member.role === 'admin')
+      );
+      if (!actor) {
+        throw new Error('Only a household owner or admin can change reminder preferences.');
+      }
+      const next = { ...snapshot, deletionRemindersOptOut: true };
+      await upsertMockHouseholdRegistry(next);
+      if (mockHousehold.id === householdId) {
+        Object.assign(mockHousehold, next);
+      }
+      const active = await loadActiveMockHousehold();
+      if (active?.id === householdId) {
+        await saveActiveMockHousehold(next);
+      }
+      return;
+    }
+
+    const supabase = getConfiguredSupabase('householdRepository.optOutHouseholdDeletionReminders');
+    const { error } = await supabase.rpc('opt_out_household_deletion_reminders', {
+      p_household_id: householdId,
+    });
+    mapDbError('householdRepository.optOutHouseholdDeletionReminders', error);
   },
 
   async updateMemberRole(member: HouseholdMember, role: HouseholdRole): Promise<HouseholdMember> {
@@ -1644,6 +1754,12 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
         },
     deletionScheduledFor:
       (household as { deletion_scheduled_for?: string | null }).deletion_scheduled_for ?? null,
+    deletionReminderStage:
+      (household as { deletion_reminder_stage?: '7d' | '3d' | '24h' | '1h11m' | null })
+        .deletion_reminder_stage ?? null,
+    deletionRemindersOptOut: Boolean(
+      (household as { deletion_reminders_opt_out?: boolean | null }).deletion_reminders_opt_out
+    ),
     deletedAt: (household as { deleted_at?: string | null }).deleted_at ?? null,
   };
 }

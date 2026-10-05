@@ -703,11 +703,11 @@ export default function SettingsScreen() {
                   <Text style={[styles.caption, { color: c.textMuted }]}>
                     {household.householdName} will be permanently deleted on{' '}
                     {formatHouseholdDeletionDate(household.deletionScheduledFor)} (
-                    {householdDeletionDaysRemaining(household.deletionScheduledFor)} days left). Data
-                    is kept until then.
+                    {householdDeletionDaysRemaining(household.deletionScheduledFor)} days left).{' '}
+                    Reminder emails start in the final week (7d → 3d → 24h → ~1h).
                   </Text>
                 </View>
-                {currentMember?.role === 'owner' ? (
+                {currentMember?.role === 'owner' || currentMember?.role === 'admin' ? (
                   <Pressable
                     onPress={() => void cancelHouseholdDeletion()}
                     style={[styles.adminActionChip, { borderColor: '#FBBF2466' }]}>
