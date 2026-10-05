@@ -27,6 +27,7 @@
 
 | Build | Branch / commit | Notes |
 | --- | --- | --- |
-| **1.3.0 (107)** submitted | `cursor/make-v30` @ `7b442a7` | [build](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2deddfd8-f979-43cb-af1a-40b8edf542b5) finished 2026-10-02 13:37 UTC; [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/19bf326e-92a1-4da6-89c0-0d793f794666) finished 2026-10-02 14:05 UTC (App Store Connect processing may take a few minutes before TestFlight install) |
+| **1.3.0 (108)** building + auto-submit | `cursor/make-v30` @ `98a7daf` | [build](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/61eb61ee-41ed-405e-b002-30175329f702) queued 2026-10-05 04:19 UTC; [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/cf75cee0-e9ad-4e12-87b8-f2ff7112ed10) scheduled — includes first-press sign-out fix |
+| **1.3.0 (107)** submitted | `cursor/make-v30` @ `7b442a7` | [build](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2deddfd8-f979-43cb-af1a-40b8edf542b5) finished 2026-10-02 13:37 UTC; [auto-submit](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/19bf326e-92a1-4da6-89c0-0d793f794666) finished 2026-10-02 14:05 UTC |
 
 Non-interactive EAS uses `EXPO_NO_CAPABILITY_SYNC=1`.
