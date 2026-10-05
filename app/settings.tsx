@@ -385,19 +385,36 @@ export default function SettingsScreen() {
 
   const [topUpBalance, setTopUpBalance] = useState(0);
 
+  const refreshTopUpBalance = useCallback(async () => {
+    const { loadTokenGrants, topUpBalanceFromGrants } = await import(
+      '@/lib/billing/token-grants'
+    );
+    const grants = await loadTokenGrants(household.id);
+    setTopUpBalance(topUpBalanceFromGrants(grants));
+  }, [household.id]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { loadTokenGrants, topUpBalanceFromGrants } = await import(
-        '@/lib/billing/token-grants'
-      );
-      const grants = await loadTokenGrants(household.id);
-      if (!cancelled) setTopUpBalance(topUpBalanceFromGrants(grants));
+      try {
+        await refreshTopUpBalance();
+      } catch {
+        if (!cancelled) setTopUpBalance(0);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [household.id, actEvents]);
+  }, [actEvents, refreshTopUpBalance]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (section !== 'poppins' && section !== 'premium') return;
+      void refreshTopUpBalance().catch((error) => {
+        console.warn('settings.topUpRefresh.focus', error);
+      });
+    }, [refreshTopUpBalance, section])
+  );
 
   const aiSummary = useMemo(
     () =>

@@ -80,7 +80,7 @@ assert.match(body, /The Rivera house/);
 assert.match(body, /\$4\.99/);
 assert.match(body, new RegExp(receipt.orderId));
 assert.match(body, /never expire/);
-assert.match(body, /TEST PURCHASE — no card was charged/, 'it never pretends money moved');
+assert.match(body, /TEST — no charge/, 'it never pretends money moved');
 assert.match(receiptLine(receipt), /600 actions · \$4\.99 · CMX-/);
 
 // An empty household name still reads as a sentence.

@@ -1,25 +1,19 @@
 /**
  * Poppins → Credits.
  *
- * Credits are not the monthly allowance, and this screen exists so the two stop looking alike:
+ * Two pots, kept visually separate:
+ *   allowance   300 actions / month, resets on the 1st
+ *   credits     bought packs that never expire — spent after the month is gone
  *
- *   the allowance  300 actions, back on the 1st, gone if unused
- *   credits        bought, banked, and never expiring — they carry month to month and are only
- *                  drawn on once the allowance is spent
- *
- * Where the month went is its own screen (poppins-actions).
- *
- * Buying is mocked on purpose. No payment system is connected yet, so a purchase mints a
- * transaction, grants the tokens through the real grant path, and writes a receipt you can
- * open — enough to walk the whole flow and see the balance move. Every receipt says plainly
- * that no card was charged.
+ * Buys go through `purchaseTokens` so Expo Go mock and native StoreKit share one path.
+ * Each successful buy appends to the household bank (never replaces prior balance).
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,7 +28,8 @@ import {
   summarizeCredits,
   type CreditSummary,
 } from '@/lib/billing/credit-ledger';
-import { grantTokenPack, loadTokenGrants } from '@/lib/billing/token-grants';
+import { isNativeIapAvailable, purchaseTokens } from '@/lib/billing/iap';
+import { loadTokenGrants } from '@/lib/billing/token-grants';
 import { summarizeActUsage } from '@/lib/ai/act-events';
 import {
   buildTopUpReceipt,
@@ -62,11 +57,9 @@ function PoppinsCreditsScreenInner() {
 
   const monthUsed = useMemo(() => summarizeActUsage(actEvents).tokensUsedThisPeriod, [actEvents]);
   const [credits, setCredits] = useState<CreditSummary>(() => summarizeCredits([], monthUsed));
-  const topUpBalance = credits.balance;
   const [receipts, setReceipts] = useState<TopUpReceipt[]>(() => receiptInbox());
   const [buying, setBuying] = useState<string | null>(null);
   const [openReceipt, setOpenReceipt] = useState<TopUpReceipt | null>(null);
-  // Where a receipt would be sent. Mock mode has no signed-in address, so the receipt says so.
   const [billingEmail, setBillingEmail] = useState('');
 
   useEffect(() => {
@@ -80,7 +73,7 @@ function PoppinsCreditsScreenInner() {
         const email = data.session?.user?.email;
         if (email && !cancelled) setBillingEmail(email);
       } catch {
-        /* mock mode — the placeholder below is used instead */
+        /* mock mode */
       }
     })();
     return () => {
@@ -88,7 +81,6 @@ function PoppinsCreditsScreenInner() {
     };
   }, []);
 
-  // Reads the grants ledger; the caller decides what to do with it.
   const readBalance = useCallback(async () => {
     try {
       const grants = await loadTokenGrants(household.id);
@@ -111,32 +103,35 @@ function PoppinsCreditsScreenInner() {
   }, [readBalance]);
 
   const packs = useMemo(() => topUpPacks(), []);
+  const mockBuy = !isNativeIapAvailable();
 
   const buy = useCallback(
     (pack: TopUpPack) => {
       orbitAlert(
         `${pack.label} · ${formatPrice(pack.priceUsd)}`,
-        'This is a test purchase. No card is charged and no money moves — the actions and the receipt are real so the whole flow can be checked.',
+        mockBuy
+          ? `Adds ${pack.tokens} to your bank. Test buy — no charge.`
+          : `Adds ${pack.tokens} actions to your credit bank.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Buy (test)',
+            text: mockBuy ? 'Buy (test)' : 'Buy',
             onPress: () => {
               setBuying(pack.key);
               void (async () => {
                 try {
-                  const receipt = buildTopUpReceipt({
-                    packKey: pack.key,
-                    to: billingEmail || 'this device (no email on file)',
-                    householdName: household.householdName,
-                  });
                   if (!household.id) throw new Error('no household yet');
-                  await grantTokenPack({
-                    householdId: household.id,
-                    packKey: pack.key,
-                    transactionId: receipt.transactionId,
-                    mock: true,
-                  });
+                  const grant = await purchaseTokens(pack.key, household.id);
+                  const receipt = {
+                    ...buildTopUpReceipt({
+                      packKey: pack.key,
+                      to: billingEmail || 'this device (no email on file)',
+                      householdName: household.householdName,
+                    }),
+                    transactionId: grant.transactionId,
+                    tokens: grant.tokens,
+                    mock: mockBuy,
+                  };
                   fileReceipt(receipt);
                   setReceipts(receiptInbox());
                   const next = await readBalance();
@@ -154,7 +149,7 @@ function PoppinsCreditsScreenInner() {
         ]
       );
     },
-    [billingEmail, household.householdName, household.id, readBalance]
+    [billingEmail, household.householdName, household.id, mockBuy, readBalance]
   );
 
   return (
@@ -187,19 +182,6 @@ function PoppinsCreditsScreenInner() {
                 <Text style={[styles.groupLabel, { color: TOPUP_TONE }]}>Buy more actions</Text>
               </View>
 
-              {topUpBalance > 0 ? (
-                <LinearGradient
-                  colors={[`${TOPUP_TONE}33`, `${TOPUP_TONE}0D`]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.balance, { borderColor: `${TOPUP_TONE}55` }]}>
-                  <Text style={[styles.balanceValue, { color: c.text }]}>{topUpBalance}</Text>
-                  <Text style={[styles.balanceCaption, { color: TOPUP_TONE }]}>
-                    bought and unspent · never expires
-                  </Text>
-                </LinearGradient>
-              ) : null}
-
               <View style={styles.packRow}>
                 {packs.map((pack) => (
                   <PackCard
@@ -212,11 +194,11 @@ function PoppinsCreditsScreenInner() {
                 ))}
               </View>
 
-              <Text style={[styles.mockNote, { color: c.textSubtle }]}>
-                Test purchases. Nothing is charged. Each buy adds to your credit bank — leftovers
-                carry month to month and never expire. Receipts are real so the flow can be checked
-                before StoreKit is wired up.
-              </Text>
+              {mockBuy ? (
+                <Text style={[styles.mockNote, { color: c.textSubtle }]}>
+                  Test buys · no charge · packs add to your bank
+                </Text>
+              ) : null}
             </Animated.View>
 
             {receipts.length > 0 ? (
@@ -296,11 +278,6 @@ function PoppinsCreditsScreenInner() {
   );
 }
 
-
-/**
- * The two pots, side by side, so nobody mistakes one for the other: an allowance that empties
- * every month, and credits that simply sit there until they're used.
- */
 function CreditSummaryCard({ summary }: { summary: CreditSummary }) {
   const { c, glassBorder, isDark } = useOrbitColors();
   const paying = spendsFrom(summary);
@@ -314,9 +291,7 @@ function CreditSummaryCard({ summary }: { summary: CreditSummary }) {
         style={[styles.bank, { borderColor: `${TOPUP_TONE}55` }]}>
         <Text style={[styles.bankLabel, { color: TOPUP_TONE }]}>CREDIT BALANCE</Text>
         <Text style={[styles.bankValue, { color: c.text }]}>{summary.balance}</Text>
-        <Text style={[styles.bankCaption, { color: c.textSoft }]}>
-          Bought and unspent. These never expire — they carry over every month.
-        </Text>
+        <Text style={[styles.bankCaption, { color: c.textSoft }]}>Bought · never expire</Text>
       </LinearGradient>
 
       <View style={styles.potRow}>
@@ -484,15 +459,6 @@ const styles = StyleSheet.create({
     width: 26,
   },
   groupLabel: { fontSize: 12.5, fontWeight: '800', letterSpacing: 0.2 },
-  balance: {
-    alignItems: 'center',
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 2,
-    paddingVertical: 16,
-  },
-  balanceValue: { fontSize: 34, fontWeight: '900', letterSpacing: -1 },
-  balanceCaption: { fontSize: 12.5, fontWeight: '700' },
   packRow: { flexDirection: 'row', gap: 8 },
   pack: {
     alignItems: 'center',
@@ -530,7 +496,7 @@ const styles = StyleSheet.create({
   receiptBody: { fontSize: 12.5, fontVariant: ['tabular-nums'], lineHeight: 19 },
 });
 
-/** Sidekicks never get Poppins — any way in (a link, a notification, a stale tab) lands on Home. */
+/** Sidekicks never get Poppins — any way in lands on Home. */
 export default function PoppinsCreditsScreen() {
   const { currentMember } = useOrbit();
   if (isSidekickRole(currentMember?.role)) {

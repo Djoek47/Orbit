@@ -1,13 +1,8 @@
 /**
  * Poppins → Advanced.
  *
- * This used to be a bottom sheet, and the sheet scrolled past its own content: you could drag
- * the page up behind it and there was no clear way out. It is a screen now, so it scrolls the
- * way every other screen does and Back is always there.
- *
- * "Allow Sidekick AI" lives here, per the brief. It writes the same household setting as the
- * one in Sidekick permissions — one switch, two doors — and the row says so, so nobody thinks
- * there are two of them to keep in step.
+ * Household-facing knobs for how Poppins saves chores, shows replies, and alerts.
+ * Base / Max cost is unchanged by anything here — tuning marks the household Custom.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Redirect, router, Stack } from 'expo-router';
@@ -35,17 +30,19 @@ import { useOrbit } from '@/store/orbit-store';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 
 const TONE = {
-  waiting: '#4FA3FF',
-  writing: '#8E7CFF',
+  save: '#4FA3FF',
+  show: '#8E7CFF',
+  home: '#FF9F1C',
   sidekicks: '#7FC24A',
 } as const;
 
 function PoppinsAdvancedScreenInner() {
   const insets = useSafeAreaInsets();
   const { c, glassBorder, isDark } = useOrbitColors();
-  const { household, permissions, currentMember } = useOrbit();
+  const { household, permissions, updateNotificationPrefs } = useOrbit();
   const [prefs, setPrefs] = useState<PoppinsInteractionPrefs>(DEFAULT_POPPINS_INTERACTION_PREFS);
   const readOnly = !permissions.canManageHousehold;
+  const quietHours = household.notificationPrefs?.quietHoursEnabled !== false;
 
   useEffect(() => {
     void loadPoppinsInteractionPrefs(household.id).then(setPrefs);
@@ -86,30 +83,30 @@ function PoppinsAdvancedScreenInner() {
         <Animated.View
           entering={FadeInDown.duration(240)}
           style={[styles.lede, { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) }]}>
-          <View style={[styles.ledeMoji, { backgroundColor: `${TONE.waiting}22` }]}>
+          <View style={[styles.ledeMoji, { backgroundColor: `${TONE.save}22` }]}>
             <Moji name="tools" size={26} />
           </View>
           <Text style={[styles.ledeText, { color: c.textSoft }]}>
-            How Poppins waits, writes and notifies. None of this changes what Base or Max cost.
-            {tier === 'custom' ? ' This household is Custom because something here left the preset.' : ''}
+            How Poppins saves chores, shows replies, and alerts this house.
+            {tier === 'custom' ? ' Tuned — this household is Custom.' : ''}
           </Text>
         </Animated.View>
 
-        <Group label="Waiting and undoing" moji="timer" tone={TONE.waiting} delay={60}>
-          <Card tone={TONE.waiting}>
+        <Group label="Saving chores" moji="bolt" tone={TONE.save} delay={60}>
+          <Card tone={TONE.save}>
             <ToggleRow
               moji="bolt"
-              tone={TONE.waiting}
-              label="Act immediately"
-              sub="Skips the pause before saving. You can still undo."
+              tone={TONE.save}
+              label="Save right away"
+              sub="Skip the pause before chores and shops land. Undo still works."
               value={prefs.actImmediately}
               disabled={readOnly}
               onChange={(actImmediately) => patch({ actImmediately })}
             />
             <View style={[styles.segment, { borderTopColor: glassBorder(0.08) }]}>
               <SegmentedControl<PoppinsConfirmTime>
-                label="Confirm time"
-                subtitle="How long Poppins waits in silence before it saves."
+                label="Pause before save"
+                subtitle="How long Poppins waits in silence before it commits."
                 disabled={readOnly}
                 options={[
                   { value: 'quick', label: 'Quick' },
@@ -122,8 +119,8 @@ function PoppinsAdvancedScreenInner() {
             </View>
             <View style={[styles.segment, { borderTopColor: glassBorder(0.08) }]}>
               <SegmentedControl<`${PoppinsUndoWindowSec}`>
-                label="Undo window"
-                subtitle="How long Undo stays on screen after something is saved."
+                label="Undo stays"
+                subtitle="How long you can reverse a saved chore or shop."
                 disabled={readOnly}
                 options={[
                   { value: '5', label: '5s' },
@@ -139,22 +136,22 @@ function PoppinsAdvancedScreenInner() {
           </Card>
         </Group>
 
-        <Group label="What you see and hear" moji="sparkles" tone={TONE.writing} delay={120}>
-          <Card tone={TONE.writing}>
+        <Group label="On screen" moji="sparkles" tone={TONE.show} delay={120}>
+          <Card tone={TONE.show}>
             <ToggleRow
               moji="sparkles"
-              tone={TONE.writing}
+              tone={TONE.show}
               label="Show thinking"
-              sub="A short pause on screen while Poppins works it out."
+              sub="A short beat while Poppins figures out the ask."
               value={prefs.showThinking}
               disabled={readOnly}
               onChange={(showThinking) => patch({ showThinking })}
             />
             <ToggleRow
               moji="book"
-              tone={TONE.writing}
-              label="Written replies"
-              sub="Poppins writes its answer on screen. Questions always show."
+              tone={TONE.show}
+              label="Write it down"
+              sub="Show what Poppins did on screen. Questions always appear."
               value={prefs.writtenReplies}
               disabled={readOnly}
               divider
@@ -162,9 +159,9 @@ function PoppinsAdvancedScreenInner() {
             />
             <ToggleRow
               moji="bell"
-              tone={TONE.writing}
-              label="Notification actions"
-              sub="Approve or change what Poppins suggests from the notification itself."
+              tone={TONE.show}
+              label="Act from alerts"
+              sub="Approve or change a chore suggestion right from the notification."
               value={prefs.notificationActions}
               disabled={readOnly}
               divider
@@ -173,12 +170,29 @@ function PoppinsAdvancedScreenInner() {
           </Card>
         </Group>
 
-        <Group label="Sidekicks" moji="teddy" tone={TONE.sidekicks} delay={180}>
+        <Group label="House quiet" moji="moon" tone={TONE.home} delay={160}>
+          <Card tone={TONE.home}>
+            <ToggleRow
+              moji="moon"
+              tone={TONE.home}
+              label="Quiet hours"
+              sub="Hold non-urgent banners 21:00–07:00. Deadlines still fire."
+              value={quietHours}
+              disabled={readOnly}
+              onChange={(value) => {
+                if (readOnly) return;
+                updateNotificationPrefs({ quietHoursEnabled: value });
+              }}
+            />
+          </Card>
+        </Group>
+
+        <Group label="Who uses Poppins" moji="teddy" tone={TONE.sidekicks} delay={200}>
           <Card tone={TONE.sidekicks}>
             <View style={styles.noAiRow}>
               <Moji name="shield" size={16} />
               <Text style={[styles.noAiText, { color: c.textSoft }]}>
-                Poppins is for grown-ups only. Sidekicks never see the Poppins tab, and the AI won’t answer them.
+                Grown-ups only. Sidekicks never see Poppins — chores and rewards stay kid-safe.
               </Text>
             </View>
           </Card>
@@ -333,10 +347,8 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 15, fontWeight: '600' },
   rowSub: { fontSize: 12.5, lineHeight: 17 },
   segment: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 14 },
-  noAiRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  noAiRow: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingHorizontal: 14, paddingVertical: 14 },
   noAiText: { flex: 1, fontSize: 13, lineHeight: 18 },
-  linkRow: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 4, paddingTop: 2 },
-  linkText: { fontSize: 12.5, fontWeight: '700' },
   note: { fontSize: 12.5, lineHeight: 18, paddingHorizontal: 4 },
   reset: {
     alignItems: 'center',
@@ -347,7 +359,7 @@ const styles = StyleSheet.create({
   resetText: { fontSize: 13.5, fontWeight: '600' },
 });
 
-/** Sidekicks never get Poppins — any way in (a link, a notification, a stale tab) lands on Home. */
+/** Sidekicks never get Poppins — any way in lands on Home. */
 export default function PoppinsAdvancedScreen() {
   const { currentMember } = useOrbit();
   if (isSidekickRole(currentMember?.role)) {

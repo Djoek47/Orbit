@@ -101,13 +101,13 @@ async function main() {
     // Short taglines, and a badge that shows which is listening and which is speaking.
     assert.match(tiers, /Listens, writes it down/);
     assert.match(tiers, /Talks back out loud/);
-    assert.match(tiers, /name="mic"/, 'Base shows a mic');
-    assert.match(tiers, /styles\.bars/, 'Max shows a voice');
+    assert.match(tiers, /'mic' : 'micSpeak'/, 'Base listen mic · Max voice mic');
     assert.match(tiers, /costLine/, 'the cost sits above the pips, not beside them');
 
     const advanced = readFileSync(join(root, 'app/poppins-advanced.tsx'), 'utf8');
-    assert.match(advanced, /Act immediately/);
+    assert.match(advanced, /Save right away/);
     assert.match(advanced, /Show thinking/);
+    assert.match(advanced, /Quiet hours/);
     assert.match(advanced, /ScrollView/, 'a screen that scrolls, not a sheet that overshoots');
 
     const welcome = readFileSync(join(root, 'app/welcome.tsx'), 'utf8');
