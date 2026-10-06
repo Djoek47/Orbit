@@ -83,7 +83,7 @@ export function VoiceWheel({
   previewBusy,
   onInteractionChange,
 }: Props) {
-  const { c, glass, glassBorder, isDark } = useOrbitColors();
+  const { c, isDark } = useOrbitColors();
   const selected = poppinsVoice(voiceId);
 
   // Displayed voice (hub + swatches). Follows the finger while dragging, snaps on release.
@@ -426,15 +426,6 @@ export function VoiceWheel({
           ? 'Only an admin can change the voice.'
           : 'Drag round the wheel, or tap a colour. Poppins keeps this voice everywhere it speaks.'}
       </Text>
-
-      <View style={[styles.divider, { backgroundColor: glassBorder(0.08) }]} />
-      <View
-        style={[styles.previewLine, { backgroundColor: glass(0.05), borderColor: `${liveColor}33` }]}>
-        <View style={[styles.previewDot, { backgroundColor: liveColor }]} />
-        <Text style={[styles.previewText, { color: c.textSoft }]}>
-          “Nero still owes the bins. Shall I remind him after dinner?”
-        </Text>
-      </View>
     </View>
   );
 }
@@ -503,16 +494,4 @@ const styles = StyleSheet.create({
   },
   hearText: { fontSize: 14, fontWeight: '700' },
   footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 12, textAlign: 'center' },
-  divider: { height: StyleSheet.hairlineWidth, width: '70%' },
-  previewLine: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  previewDot: { borderRadius: 4, height: 8, width: 8 },
-  previewText: { flex: 1, fontSize: 13.5, fontStyle: 'italic', lineHeight: 19 },
 });
