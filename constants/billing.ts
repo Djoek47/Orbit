@@ -70,6 +70,8 @@ export type IapTokenProductId = (typeof IAP_CONSUMABLES)[IapTokenPackKey]['produ
 export type EntitlementState = {
   active: boolean;
   productId: IapProductId | null;
+  /** ISO — when the current trial/paid period began (optional on older persisted rows). */
+  effectiveAt?: string | null;
   /** ISO — trial or paid period end */
   expiresAt: string | null;
   source: 'mock' | 'storekit' | 'none';
@@ -79,6 +81,7 @@ export type EntitlementState = {
 export const EMPTY_ENTITLEMENT: EntitlementState = {
   active: false,
   productId: null,
+  effectiveAt: null,
   expiresAt: null,
   source: 'none',
   inTrial: false,
@@ -117,6 +120,7 @@ export function startMockTrial(productKey: IapProductKey = 'yearly', now = new D
   return setMockEntitlement({
     active: true,
     productId: product.productId,
+    effectiveAt: now.toISOString(),
     expiresAt: expires.toISOString(),
     source: 'mock',
     inTrial: true,

@@ -83,6 +83,11 @@ import {
   restorePurchases,
   type EntitlementState,
 } from '@/lib/billing/iap';
+import {
+  formatSubscriptionDate,
+  resolveEffectiveAt,
+  subscriptionDatesSubtitle,
+} from '@/lib/billing/subscription-dates';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { MemberInvite } from '@/lib/household/member-invites';
@@ -890,8 +895,15 @@ export default function SettingsScreen() {
               <SettingsNavRow
                 icon="workspace-premium"
                 iconColor="#E9B44C"
-                label="Premium"
-                value={entitlement?.inTrial ? 'Trial' : entitlement?.active ? 'On' : undefined}
+                label="My Subscription"
+                value={
+                  entitlement && isPremiumActive(entitlement)
+                    ? entitlement.inTrial
+                      ? 'Trial'
+                      : 'Active'
+                    : undefined
+                }
+                subtitle={subscriptionDatesSubtitle(entitlement)}
                 onPress={() => setSection('premium')}
               />
               <SettingsNavRow
@@ -1235,15 +1247,29 @@ export default function SettingsScreen() {
                 end={{ x: 1, y: 1 }}
                 style={[styles.premiumHero, { borderColor: '#E9B44C55' }]}>
                 <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
-                  <Text style={[styles.premiumHeroEyebrow, { color: '#E9B44C' }]}>Premium</Text>
+                  <Text style={[styles.premiumHeroEyebrow, { color: '#E9B44C' }]}>
+                    My Subscription
+                  </Text>
                   <Text style={[styles.premiumHeroTitle, { color: c.text }]} numberOfLines={2}>
                     {entitlement ? premiumCopy(entitlement) : 'Loading…'}
                   </Text>
+                  {entitlement && isPremiumActive(entitlement) ? (
+                    <>
+                      <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
+                        Effective date{' '}
+                        {formatSubscriptionDate(resolveEffectiveAt(entitlement))}
+                      </Text>
+                      <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
+                        Expiration date {formatSubscriptionDate(entitlement.expiresAt)}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.premiumHeroSub, { color: c.textSubtle }]}>
+                      {BILLING_TRIAL_DAYS}-day free trial · then billed via Apple
+                    </Text>
+                  )}
                   <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
                     {PREMIUM_ALLOWANCE_COPY}
-                  </Text>
-                  <Text style={[styles.premiumHeroSub, { color: c.textSubtle }]}>
-                    {BILLING_TRIAL_DAYS}-day free trial · then billed via Apple
                   </Text>
                 </View>
                 <View style={[styles.premiumHeroMoji, { backgroundColor: '#E9B44C2E' }]}>
@@ -1256,7 +1282,7 @@ export default function SettingsScreen() {
                   router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
                 }>
                 {entitlement && isPremiumActive(entitlement)
-                  ? 'Manage Premium'
+                  ? 'Manage subscription'
                   : 'Start free trial'}
               </OrbitButton>
 

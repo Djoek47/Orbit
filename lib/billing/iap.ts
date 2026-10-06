@@ -106,19 +106,22 @@ async function withNativeIap<T>(fn: (iap: typeof import('expo-iap')) => Promise<
 function entitlementFromPurchase(opts: {
   productId: string;
   expiresAt?: string | null;
+  effectiveAt?: string | null;
   inTrial?: boolean;
 }): EntitlementState {
   const key = productKeyForId(opts.productId);
   const product = key ? IAP_SUBSCRIPTIONS[key] : IAP_SUBSCRIPTIONS.monthly;
+  const effectiveAt = opts.effectiveAt ?? new Date().toISOString();
   let expiresAt = opts.expiresAt ?? null;
   if (!expiresAt) {
-    const expires = new Date();
+    const expires = new Date(effectiveAt);
     expires.setDate(expires.getDate() + (opts.inTrial ? product.trialDays : 31));
     expiresAt = expires.toISOString();
   }
   return {
     active: true,
     productId: (key ? product.productId : opts.productId) as IapProductId,
+    effectiveAt,
     expiresAt,
     source: 'storekit',
     inTrial: Boolean(opts.inTrial),
