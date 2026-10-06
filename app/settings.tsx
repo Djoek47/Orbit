@@ -861,11 +861,14 @@ export default function SettingsScreen() {
                 }}
               />
               <SettingsNavRow
-                icon="checklist"
+                icon="flag"
                 iconColor="#34D399"
-                label="Show the checklist"
-                subtitle="Getting started on Home"
-                onPress={() => tourControls?.showChecklist()}
+                label="Get Started"
+                subtitle="Opens the checklist on Home"
+                onPress={() => {
+                  collapseSettingsOverlays();
+                  tourControls?.showChecklist();
+                }}
               />
                 </>
               ) : null}
