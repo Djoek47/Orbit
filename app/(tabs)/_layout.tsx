@@ -101,7 +101,8 @@ export default function TabLayout() {
     return <Redirect href={'/select-profile' as never} />;
   }
 
-  const showPlan = true;
+  // Make IA: Sidekicks / shared-tablet faces have no Plan tab.
+  const showPlan = uiRole !== 'child';
   const showRewards = true;
   // The fifth slot is Poppins only for an adult on their own device; a shared tablet shows
   // "Switch who's on" there, and a Sidekick gets four tabs.
