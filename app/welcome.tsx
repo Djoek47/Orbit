@@ -1162,11 +1162,8 @@ export default function WelcomeOnboardingScreen() {
           {step === 'motivation' ? (
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
-              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                How should chores feel?
-              </Text>
-              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Change anytime in Settings.
+              <Text style={[typography.title1, styles.stepTitle, styles.mb, { color: orbitPalette.text }]}>
+                Choose your household reward strategy.
               </Text>
               <View style={styles.motivationGrid}>
                 {REWARD_MODEL_OPTIONS.map((opt) => {
