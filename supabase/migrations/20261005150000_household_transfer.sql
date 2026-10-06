@@ -93,7 +93,7 @@ begin
   where household_id = p_household_id
     and status = 'active';
 
-  v_token := encode(gen_random_bytes(24), 'hex');
+  v_token := encode(extensions.gen_random_bytes(24), 'hex');
   v_expires := now() + interval '15 minutes';
 
   insert into public.household_transfer_tokens (

@@ -21,6 +21,7 @@ import { radius, space, typography } from '@/constants/orbit-theme';
 import { isMockMode } from '@/repositories/repository-utils';
 import { canGenerateHouseholdTransfer, formatTransferCountdown } from '@/lib/household/household-transfer';
 import { createHouseholdTransferToken } from '@/lib/household/send-household-transfer';
+import { showNativeAppError } from '@/lib/errors/show-native-app-error';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -69,6 +70,10 @@ export default function TransferHouseholdScreen() {
         });
         if (!result.ok) {
           setError(result.error);
+          void showNativeAppError('Couldn’t create transfer QR', result.error, {
+            source: 'transfer-household-create',
+            category: 'settings',
+          });
           return;
         }
         setActive({
@@ -80,7 +85,12 @@ export default function TransferHouseholdScreen() {
         });
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not create transfer QR.');
+        const message = err instanceof Error ? err.message : 'Could not create transfer QR.';
+        setError(message);
+        void showNativeAppError('Couldn’t create transfer QR', err, {
+          source: 'transfer-household-create',
+          category: 'settings',
+        });
       } finally {
         setBusy(false);
       }

@@ -25,17 +25,30 @@ export async function edgeErrorMessage(error: unknown, fallback: string): Promis
 export function friendlyTransferError(raw: string): string {
   const text = raw.trim();
   const lower = text.toLowerCase();
-  if (lower.includes('only the household owner')) {
+  if (lower.includes('only the household owner') || lower.includes('transfer_forbidden')) {
     return 'Only the household owner can transfer ownership.';
   }
   if (lower.includes('not authenticated') || lower.includes('unauthorized')) {
     return 'Sign in again, then try the transfer.';
   }
-  if (lower.includes('could not find the function') || lower.includes('404')) {
+  if (
+    lower.includes('gen_random_bytes') ||
+    lower.includes('could not find the function') ||
+    lower.includes('transfer isn’t ready') ||
+    lower.includes('transfer isn\'t ready') ||
+    lower.includes('404')
+  ) {
     return 'Transfer isn’t available on this server yet. Try again after an update.';
+  }
+  if (lower.includes('transfer_create_failed') || lower.includes('could not create the transfer qr')) {
+    return 'Couldn’t create the transfer QR. Try again in a moment.';
   }
   if (lower.includes('non-2xx') || lower.includes('edge function')) {
     return 'Couldn’t create the transfer QR. Check your connection and try again.';
+  }
+  // Never surface raw Postgres / object dumps.
+  if (lower.includes('does not exist') || text === '[object Object]' || text.length > 180) {
+    return 'Couldn’t create the transfer QR. Try again, or send feedback from Support.';
   }
   return text || 'Could not create transfer QR.';
 }

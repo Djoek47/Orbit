@@ -10,8 +10,13 @@ import {
   transferTokenExpiresAt,
   type TransferMembership,
 } from '@/lib/household/household-transfer';
-import { getSupabaseClient } from '@/lib/supabase/client';
 import { edgeErrorMessage, friendlyTransferError } from '@/lib/supabase/edge-error';
+
+/** Lazy — keeps Node unit tests off expo-secure-store. */
+async function supabaseClient() {
+  const { getSupabaseClient } = await import('@/lib/supabase/client');
+  return getSupabaseClient();
+}
 
 export type CreateTransferResult =
   | {
@@ -46,13 +51,24 @@ const mockTokens = new Map<
   }
 >();
 
+/** @internal test helper */
+export function __clearMockTransferTokensForTests(): void {
+  mockTokens.clear();
+}
+
+/** @internal test helper — force-expire a mock token */
+export function __expireMockTransferTokenForTests(token: string): void {
+  const row = mockTokens.get(token);
+  if (row) row.expiresAt = new Date(Date.now() - 1000).toISOString();
+}
+
 export async function createHouseholdTransferToken(input: {
   householdId: string;
   householdName: string;
   userId: string;
   mock?: boolean;
 }): Promise<CreateTransferResult> {
-  if (input.mock || !getSupabaseClient()) {
+  if (input.mock) {
     const minted = mintMockTransferToken();
     mockTokens.set(minted.token, {
       householdId: input.householdId,
@@ -72,9 +88,10 @@ export async function createHouseholdTransferToken(input: {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await supabaseClient();
     if (!supabase) {
-      return { ok: false, error: 'Not connected.' };
+      // No client (Expo Go / tests without env) — fall back to mock mint.
+      return createHouseholdTransferToken({ ...input, mock: true });
     }
     const { data, error } = await supabase.functions.invoke('transfer-household', {
       body: { action: 'create', householdId: input.householdId },
@@ -124,11 +141,11 @@ export async function checkTransferEligibility(input: {
   memberships: TransferMembership[];
   mock?: boolean;
 }): Promise<{ ok: true; eligible: boolean } | { ok: false; error: string }> {
-  if (input.mock || !getSupabaseClient()) {
+  if (input.mock) {
     return { ok: true, eligible: isEmptyAccountForTransfer(input.memberships) };
   }
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await supabaseClient();
     if (!supabase) {
       return { ok: true, eligible: isEmptyAccountForTransfer(input.memberships) };
     }
@@ -169,7 +186,7 @@ export async function acceptHouseholdTransfer(input: {
     return { ok: false, error: 'Missing transfer token.', code: 'other' };
   }
 
-  if (input.mock || !getSupabaseClient()) {
+  if (input.mock) {
     if (!isEmptyAccountForTransfer(input.memberships)) {
       return {
         ok: false,
@@ -207,9 +224,9 @@ export async function acceptHouseholdTransfer(input: {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = await supabaseClient();
     if (!supabase) {
-      return { ok: false, error: 'Not connected.', code: 'other' };
+      return acceptHouseholdTransfer({ ...input, mock: true });
     }
     const { data, error } = await supabase.functions.invoke('transfer-household', {
       body: { action: 'accept', token },

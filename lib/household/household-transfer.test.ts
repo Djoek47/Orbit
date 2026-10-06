@@ -122,6 +122,19 @@ test('transfer UI and migration are wired', () => {
   assert.match(migration, /interval '15 minutes'/);
   assert.match(migration, /TRANSFER_NOT_EMPTY/);
   assert.match(migration, /role = 'adult'/);
+  assert.match(migration, /extensions\.gen_random_bytes/);
+  assert.doesNotMatch(migration, /encode\(gen_random_bytes\(/);
+
+  const fixMig = readFileSync(
+    join(
+      process.cwd(),
+      'supabase/migrations/20261006062055_fix_gen_random_bytes_and_security_advisors.sql'
+    ),
+    'utf8'
+  );
+  assert.match(fixMig, /extensions\.gen_random_bytes/);
+  assert.match(fixMig, /revoke all on function/);
+  assert.match(fixMig, /monitor_cron_cursor_service/);
 
   const edge = readFileSync(
     join(process.cwd(), 'supabase/functions/transfer-household/index.ts'),
@@ -130,8 +143,139 @@ test('transfer UI and migration are wired', () => {
   assert.match(edge, /action === 'create'/);
   assert.match(edge, /action === 'accept'/);
   assert.match(edge, /not_empty/);
+  assert.match(edge, /mapCreateError/);
 
   const send = readFileSync(join(process.cwd(), 'lib/household/send-household-transfer.ts'), 'utf8');
   assert.match(send, /edgeErrorMessage/);
   assert.match(send, /friendlyTransferError/);
+
+  const transferUi = readFileSync(join(process.cwd(), 'app/transfer-household.tsx'), 'utf8');
+  assert.match(transferUi, /showNativeAppError/);
+});
+
+test('Pass mock multipass: create → parse → accept ownership swap', async () => {
+  const {
+    __clearMockTransferTokensForTests,
+    __expireMockTransferTokenForTests,
+    acceptHouseholdTransfer,
+    createHouseholdTransferToken,
+  } = await import('@/lib/household/send-household-transfer');
+  __clearMockTransferTokensForTests();
+
+  const created = await createHouseholdTransferToken({
+    householdId: 'hh-nero',
+    householdName: 'The Nero Home',
+    userId: 'owner-1',
+    mock: true,
+  });
+  assert.equal(created.ok, true);
+  if (!created.ok) return;
+  assert.match(created.token, /^xfer-/);
+  assert.equal(parseHouseholdTransferTokenFromUrl(created.shareLink), created.token);
+
+  let swappedTo: string | null = null;
+  const accepted = await acceptHouseholdTransfer({
+    token: created.token,
+    userId: 'empty-2',
+    memberships: [],
+    mock: true,
+    onMockAccept: async (householdId) => {
+      swappedTo = householdId;
+    },
+  });
+  assert.equal(accepted.ok, true);
+  if (!accepted.ok) return;
+  assert.equal(accepted.householdId, 'hh-nero');
+  assert.equal(swappedTo, 'hh-nero');
+
+  const reused = await acceptHouseholdTransfer({
+    token: created.token,
+    userId: 'empty-3',
+    memberships: [],
+    mock: true,
+  });
+  assert.equal(reused.ok, false);
+  if (reused.ok) return;
+  assert.equal(reused.code, 'used');
+
+  const second = await createHouseholdTransferToken({
+    householdId: 'hh-nero',
+    householdName: 'The Nero Home',
+    userId: 'owner-1',
+    mock: true,
+  });
+  assert.equal(second.ok, true);
+  if (!second.ok) return;
+
+  const self = await acceptHouseholdTransfer({
+    token: second.token,
+    userId: 'owner-1',
+    memberships: [],
+    mock: true,
+  });
+  assert.equal(self.ok, false);
+
+  const blocked = await acceptHouseholdTransfer({
+    token: second.token,
+    userId: 'busy-4',
+    memberships: [
+      {
+        householdId: 'hh-other',
+        householdName: 'Other',
+        role: 'owner',
+        status: 'active',
+      },
+    ],
+    mock: true,
+  });
+  assert.equal(blocked.ok, false);
+  if (blocked.ok) return;
+  assert.equal(blocked.code, 'not_empty');
+
+  const recoveryOk = await acceptHouseholdTransfer({
+    token: second.token,
+    userId: 'recover-5',
+    memberships: [
+      {
+        householdId: 'hh-old',
+        householdName: 'Old',
+        role: 'owner',
+        status: 'active',
+        deletionScheduledFor: new Date(Date.now() + 86400000).toISOString(),
+      },
+    ],
+    mock: true,
+  });
+  assert.equal(recoveryOk.ok, true);
+
+  const third = await createHouseholdTransferToken({
+    householdId: 'hh-nero',
+    householdName: 'The Nero Home',
+    userId: 'owner-1',
+    mock: true,
+  });
+  assert.equal(third.ok, true);
+  if (!third.ok) return;
+  __expireMockTransferTokenForTests(third.token);
+  const expired = await acceptHouseholdTransfer({
+    token: third.token,
+    userId: 'empty-6',
+    memberships: [],
+    mock: true,
+  });
+  assert.equal(expired.ok, false);
+  if (expired.ok) return;
+  assert.equal(expired.code, 'expired');
+});
+
+test('friendlyTransferError hides gen_random_bytes raw text', async () => {
+  const { friendlyTransferError } = await import('@/lib/supabase/edge-error');
+  assert.match(
+    friendlyTransferError('function gen_random_bytes(integer) does not exist'),
+    /isn’t available|isn't available|after an update/i
+  );
+  assert.doesNotMatch(
+    friendlyTransferError('function gen_random_bytes(integer) does not exist'),
+    /gen_random_bytes/
+  );
 });

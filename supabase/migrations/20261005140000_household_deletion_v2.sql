@@ -119,7 +119,7 @@ begin
   end if;
 
   v_scheduled := now() + interval '24 hours';
-  v_token := encode(gen_random_bytes(24), 'hex');
+  v_token := encode(extensions.gen_random_bytes(24), 'hex');
   v_expires := v_scheduled;
 
   update public.households
