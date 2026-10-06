@@ -1315,7 +1315,7 @@ export default function WelcomeOnboardingScreen() {
                 Create your account
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                One account for your household. We&apos;ll confirm by email when needed.
+                One admin account for your household and confirm via email.
               </Text>
               {appleAvailable && Platform.OS === 'ios' ? (
                 <>
