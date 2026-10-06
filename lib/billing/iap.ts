@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   ASC_IAP_SETUP_NOTES,
+  BILLING_TRIAL_DAYS,
   clearMockEntitlement,
   EMPTY_ENTITLEMENT,
   getMockEntitlement,
@@ -405,7 +406,9 @@ export async function clearEntitlementForTests(): Promise<EntitlementState> {
 
 export function premiumCopy(state: EntitlementState): string {
   if (!isPremiumActive(state)) {
-    return 'Start a 7-day free trial — then $6.99/mo or $49.99/yr.';
+    const m = IAP_SUBSCRIPTIONS.monthly.priceUsd.toFixed(2);
+    const y = IAP_SUBSCRIPTIONS.yearly.priceUsd.toFixed(2);
+    return `Start a ${BILLING_TRIAL_DAYS}-day free trial — then $${m}/mo or $${y}/yr (${IAP_SUBSCRIPTIONS.yearly.savingsLabel}).`;
   }
   if (state.inTrial) {
     return 'Premium trial active.';

@@ -13,6 +13,10 @@ import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 
 export const BILLING_TRIAL_DAYS = 7;
 
+/**
+ * Final consumer pricing (USD, before Apple tax):
+ *   $6.99 / month  ·  $49.99 / year at 40% off vs 12 × monthly
+ */
 export const IAP_SUBSCRIPTIONS = {
   monthly: {
     productId: 'app.choremaxx.household.premium.monthly',
@@ -27,10 +31,17 @@ export const IAP_SUBSCRIPTIONS = {
     priceUsd: 49.99,
     period: 'year' as const,
     trialDays: BILLING_TRIAL_DAYS,
-    /** vs 12 × $6.99 = $83.88 */
+    /** vs 12 × $6.99 = $83.88 → ~40% off */
     savingsLabel: '40% off',
   },
 } as const;
+
+/** Canonical Settings / paywall line: "$6.99/mo · $49.99/yr (40% off)". */
+export function subscriptionPriceLine(): string {
+  const m = IAP_SUBSCRIPTIONS.monthly.priceUsd.toFixed(2);
+  const y = IAP_SUBSCRIPTIONS.yearly.priceUsd.toFixed(2);
+  return `$${m}/mo · $${y}/yr (${IAP_SUBSCRIPTIONS.yearly.savingsLabel})`;
+}
 
 /** Consumable token packs — ASC product ids must match before TF ships strings. */
 export const IAP_CONSUMABLES = {

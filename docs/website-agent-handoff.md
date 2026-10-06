@@ -31,7 +31,7 @@
 | AI name | **Poppins** only (not Nova, not “AI Assistant”) |
 | Audience | **Families** — no roommate mode promises |
 | Allowance | Tracker only — “Mark as paid”; never send/pay/transfer money |
-| Pricing | **7-day trial · $4.99/mo · $48/yr** (+ tax via Apple). No Free / $8.99 Family tiers |
+| Pricing | **7-day trial · $6.99/mo · $49.99/yr at 40% off** (+ tax via Apple). No Free / $8.99 Family tiers |
 | App palette | User-chosen in Settings — **do not** tell users the app randomizes |
 | Site palette | **May rotate per browser visit/session** (see §3) |
 | App Store ID | `6796850110` |
@@ -244,7 +244,7 @@ From `docs/weekend-ship-automation.md` + `docs/next-session.md`:
 
 ### B4 — Site payment gates / copy
 
-- [ ] CTAs match IAP: trial + $4.99/mo + $48/yr  
+- [ ] CTAs match IAP: trial + $6.99/mo + $49.99/yr (40% off)  
 - [ ] Zero roommate-mode promises  
 - [ ] Poppins naming everywhere  
 - [ ] No “free forever” / competing price tables  
@@ -361,7 +361,7 @@ Rules:
 1. Use ONLY the official house-mark PNGs (coral/sky/citrus/berry) + split wordmark chore/maxx.
 2. Keep per-visit palette rotation (sessionStorage) — do not remove it.
 3. Canonical host: https://www.choremaxx.app
-4. Product locks: Poppins, families only, 7-day trial / $4.99/mo / $48/yr, allowance = tracker.
+4. Product locks: Poppins, families only, 7-day trial / $6.99/mo / $49.99/yr (40% off), allowance = tracker.
 5. Ship /join/[code] and /auth/callback bridges + AASA paths.
 6. Host /emails/logo-mark.png and /emails/sender-avatar.png from the coral house assets.
 7. Do not use Orbit legacy logos or placeholder logos in chrome.

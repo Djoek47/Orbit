@@ -5,14 +5,13 @@ import {
   BILLING_TRIAL_DAYS,
   IAP_SUBSCRIPTIONS,
   isPremiumActive,
+  subscriptionPriceLine,
   type EntitlementState,
 } from '@/constants/billing';
 
 /** Settings row when there is no active subscription yet. */
 export function subscriptionPricingSubtitle(): string {
-  const m = IAP_SUBSCRIPTIONS.monthly.priceUsd.toFixed(2);
-  const y = IAP_SUBSCRIPTIONS.yearly.priceUsd.toFixed(2);
-  return `$${m}/mo · $${y}/yr (${IAP_SUBSCRIPTIONS.yearly.savingsLabel})`;
+  return subscriptionPriceLine();
 }
 
 /** Short local date for Settings rows (e.g. Oct 6, 2026). */

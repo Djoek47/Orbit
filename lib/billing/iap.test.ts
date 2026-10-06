@@ -7,6 +7,7 @@ import {
   IAP_PRODUCTS,
   isPremiumActive,
   startMockTrial,
+  subscriptionPriceLine,
 } from '@/constants/billing';
 import {
   clearEntitlementForTests,
@@ -31,6 +32,7 @@ test('IAP catalog locks monthly/yearly pricing + trial', () => {
   assert.equal(IAP_PRODUCTS.monthly.productId, 'app.choremaxx.household.premium.monthly');
   assert.equal(IAP_PRODUCTS.yearly.priceUsd, 49.99);
   assert.equal(IAP_PRODUCTS.yearly.savingsLabel, '40% off');
+  assert.equal(subscriptionPriceLine(), '$6.99/mo · $49.99/yr (40% off)');
 });
 
 test('consumable token packs are catalogued', () => {

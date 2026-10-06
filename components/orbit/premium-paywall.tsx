@@ -166,8 +166,8 @@ export function PremiumPaywall({
             </Text>
             <Text style={[styles.subPrice, { color: c.textMuted }]}>
               {period === 'yearly'
-                ? `About $${yearlyPerMonth}/mo · billed annually`
-                : `Or $${yearly.priceUsd}/year (${yearly.savingsLabel})`}
+                ? `About $${yearlyPerMonth}/mo · $${yearly.priceUsd}/year (${yearly.savingsLabel})`
+                : `Or $${yearly.priceUsd}/year at ${yearly.savingsLabel} · $${monthly.priceUsd}/month`}
             </Text>
           </Animated.View>
         </Animated.View>
