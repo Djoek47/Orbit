@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v33`  
 **Data:** staging Supabase (`dejrbyufotcvcillnneo`) — live household data, not mock.  
-**Status:** Code folded and pushed. Voice-preview GPT bake + avatar storage migration must clear before the cut (see blockers below).
+**Status:** Voice-preview GPT clips baked; avatar bucket on staging; internal TestFlight cut authorized.
 
 ---
 
@@ -44,8 +44,8 @@ Reply with: device + iOS version, role tested (admin / Sidekick / tablet face), 
 
 ---
 
-## Blockers before EAS submit (agent checklist)
+## Cut checklist
 
-1. **Valid `OPENAI_API_KEY` (`sk-…`)** — bake `assets/voice-previews/*.m4a` (~$0.005). Current key is rejected by OpenAI TTS.
-2. **Staging SQL** — apply `supabase/migrations/20261005160000_member_avatars_storage.sql` (`member-avatars` bucket was empty on staging when checked).
-3. Then: `npm run testflight:preflight` → `npm run build:ios:testflight` → `npm run submit:ios:testflight` from `cursor/make-v33`.
+1. ~~OpenAI bake~~ — 10 clips in `assets/voice-previews/*.m4a`
+2. ~~Staging avatars~~ — `member-avatars` bucket present
+3. Internal TF: `npm run testflight:preflight` → `npm run build:ios:testflight` → `npm run submit:ios:testflight`
