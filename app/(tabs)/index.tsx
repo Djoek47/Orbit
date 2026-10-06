@@ -112,6 +112,14 @@ export default function HomeScreen() {
       ),
     [household.tasks]
   );
+  // Admin personal login: drop any leftover shared-tablet Switch binding from testing.
+  useEffect(() => {
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') return;
+    void import('@/lib/device/device-session').then(({ demoteSharedSessionForPersonalAdmin }) =>
+      demoteSharedSessionForPersonalAdmin(currentMember.role)
+    );
+  }, [currentMember?.id, currentMember?.role]);
+
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const healthRole = resolveHomeHealthRole(currentMember, {

@@ -83,6 +83,15 @@ assert.match(menu, /onSwitchPersona/, 'switches face without sign-out');
 assert.match(menu, /selectDeviceProfile/, 'updates device session');
 assert.doesNotMatch(menu, /signOut|clearSidekickSession/, 'never signs out on switch');
 
+const deviceSession = readFileSync(join(process.cwd(), 'lib/device/device-session.ts'), 'utf8');
+assert.match(
+  deviceSession,
+  /demoteSharedSessionForPersonalAdmin/,
+  'admin personal login can clear a leaked shared-tablet binding'
+);
+const homeSrc = readFileSync(join(process.cwd(), 'app/(tabs)/index.tsx'), 'utf8');
+assert.match(homeSrc, /demoteSharedSessionForPersonalAdmin/);
+
 const bar = readFileSync(join(process.cwd(), 'components/orbit/make-tab-bar.tsx'), 'utf8');
 assert.match(bar, /markNeedsProfilePick\(members\)/, 'tab Switch expands roster');
 assert.match(bar, /SwitchPeopleIcon count=\{switchPeopleCount\}/);

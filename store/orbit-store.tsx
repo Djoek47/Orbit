@@ -6015,6 +6015,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const member = household.members.find((m) => m.id === memberId);
     if (!member) return;
 
+    // Personal admin never Switch-faces — shared tablet only.
+    if (currentMember?.role === 'owner' || currentMember?.role === 'admin') {
+      return;
+    }
+
     // Shared iPad is a device shell — land on a linked account so XP/redeem work.
     let target = member;
     if (member.role === 'shared-device') {

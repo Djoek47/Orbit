@@ -63,6 +63,27 @@ export async function clearDeviceSession(): Promise<void> {
   await AsyncStorage.removeItem(KEY);
 }
 
+/**
+ * Owner/admin personal phones must never keep a shared-tablet Switch binding
+ * left over from testing. Clears the device session back to personal.
+ */
+export async function demoteSharedSessionForPersonalAdmin(
+  role: HouseholdMember['role'] | undefined | null
+): Promise<DeviceSession> {
+  if (role !== 'owner' && role !== 'admin') {
+    return loadDeviceSession();
+  }
+  const current = await loadDeviceSession();
+  const looksShared =
+    current.mode === 'shared' ||
+    current.hostKind === 'shared-tablet' ||
+    current.profileMemberIds.length > 0 ||
+    Boolean(current.sharedDeviceId);
+  if (!looksShared) return current;
+  await clearDeviceSession();
+  return { ...EMPTY };
+}
+
 /** True when this device hosts multiple profiles (shared iPad or family Sidekick phone). */
 export function isSharedTabletDeviceSession(session: DeviceSession | null | undefined): boolean {
   if (!session || session.mode !== 'shared') return false;
