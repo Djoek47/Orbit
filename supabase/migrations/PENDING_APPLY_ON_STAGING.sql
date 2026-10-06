@@ -98,14 +98,20 @@ where table_schema = 'public' and table_name = 'households'
 select table_name from information_schema.tables
 where table_schema = 'public' and table_name = 'household_transfer_tokens';
 
--- 10) make-v32 CRITICAL RLS (from 20261006013743_security_harden_rls_v32.sql)
---     RUN THE FULL FILE on staging before public launch (strongly recommended before TF).
+-- 10) make-v32 CRITICAL RLS
+--     If you already ran 20261006013743 and got:
+--       ERROR: 42P01: relation "public.xp_ledger_entries" does not exist
+--     → that means CRITICAL parts 1–5 likely applied; Revision D tables are missing (OK).
+--     → RUN INSTEAD: 20261006014806_security_harden_rls_v32_safe.sql (idempotent repair + advisors)
+--
+--     Fresh staging: run BOTH files in order (13743 then 14806), or only 14806 after a failed 13743.
 --     - invites_select: members only (no or true)
 --     - members_insert: admin or bootstrap owner
 --     - role/status lock trigger on household_members
 --     - token_grants: drop client INSERT; consume-only UPDATE trigger
 --     - generate_member_invite: admin gate
---     - RLS on itineraries/stops/templates/xp_ledger/streak/day/recess/crown/monitor_cursor
+--     - RLS on optional tables only if they exist (xp_ledger etc. skipped when absent)
+--     - nova_briefings → security_invoker; profiles policies use (select auth.uid())
 --     Also redeploy Edge function: grant-token-pack (auth + admin check).
 
 -- Verify invites are not world-readable

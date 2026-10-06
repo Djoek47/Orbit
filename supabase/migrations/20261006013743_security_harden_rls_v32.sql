@@ -75,7 +75,12 @@ create trigger household_members_privileged_fields
 -- ---------------------------------------------------------------------------
 -- 4) token_grants: no client INSERT; consume-only client UPDATE
 -- ---------------------------------------------------------------------------
-drop policy if exists token_grants_insert on public.token_grants;
+do $$
+begin
+  if to_regclass('public.token_grants') is not null then
+    drop policy if exists token_grants_insert on public.token_grants;
+  end if;
+end $$;
 -- Inserts only via service role (grant-token-pack edge). No authenticated INSERT policy.
 
 create or replace function public.enforce_token_grants_consume_only()
@@ -99,11 +104,16 @@ begin
 end;
 $$;
 
-drop trigger if exists token_grants_consume_only on public.token_grants;
-create trigger token_grants_consume_only
-  before update on public.token_grants
-  for each row
-  execute function public.enforce_token_grants_consume_only();
+do $$
+begin
+  if to_regclass('public.token_grants') is not null then
+    drop trigger if exists token_grants_consume_only on public.token_grants;
+    create trigger token_grants_consume_only
+      before update on public.token_grants
+      for each row
+      execute function public.enforce_token_grants_consume_only();
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- 5) generate_member_invite: require household admin
@@ -181,78 +191,99 @@ revoke all on function public.generate_member_invite(uuid, text) from public;
 grant execute on function public.generate_member_invite(uuid, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 6) Enable RLS on previously unprotected household tables
+-- 6) Enable RLS on previously unprotected household tables (skip if absent)
+-- Staging may not have Revision D / family-time tables yet. Never hard-fail.
 -- ---------------------------------------------------------------------------
-alter table if exists public.itineraries enable row level security;
-alter table if exists public.itinerary_stops enable row level security;
-alter table if exists public.task_templates enable row level security;
-alter table if exists public.xp_ledger_entries enable row level security;
-alter table if exists public.streak_rescues enable row level security;
-alter table if exists public.day_classifications enable row level security;
-alter table if exists public.recess_periods enable row level security;
-alter table if exists public.crown_awards enable row level security;
-alter table if exists public.monitor_cron_cursor enable row level security;
+do $$
+begin
+  -- itineraries
+  if to_regclass('public.itineraries') is not null then
+    alter table public.itineraries enable row level security;
+    drop policy if exists itineraries_all on public.itineraries;
+    create policy itineraries_all on public.itineraries for all
+      using (public.is_household_member(household_id))
+      with check (public.is_household_member(household_id));
+  end if;
 
--- itineraries
-drop policy if exists itineraries_all on public.itineraries;
-create policy itineraries_all on public.itineraries for all
-  using (public.is_household_member(household_id))
-  with check (public.is_household_member(household_id));
+  -- itinerary_stops (via parent itinerary)
+  if to_regclass('public.itinerary_stops') is not null then
+    alter table public.itinerary_stops enable row level security;
+    drop policy if exists itinerary_stops_all on public.itinerary_stops;
+    create policy itinerary_stops_all on public.itinerary_stops for all
+      using (
+        exists (
+          select 1 from public.itineraries i
+          where i.id = itinerary_id
+            and public.is_household_member(i.household_id)
+        )
+      )
+      with check (
+        exists (
+          select 1 from public.itineraries i
+          where i.id = itinerary_id
+            and public.is_household_member(i.household_id)
+        )
+      );
+  end if;
 
--- itinerary_stops (via parent itinerary)
-drop policy if exists itinerary_stops_all on public.itinerary_stops;
-create policy itinerary_stops_all on public.itinerary_stops for all
-  using (
-    exists (
-      select 1 from public.itineraries i
-      where i.id = itinerary_id
-        and public.is_household_member(i.household_id)
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.itineraries i
-      where i.id = itinerary_id
-        and public.is_household_member(i.household_id)
-    )
-  );
+  -- task_templates
+  if to_regclass('public.task_templates') is not null then
+    alter table public.task_templates enable row level security;
+    drop policy if exists task_templates_all on public.task_templates;
+    create policy task_templates_all on public.task_templates for all
+      using (public.is_household_member(household_id))
+      with check (public.is_household_member(household_id));
+  end if;
 
--- task_templates
-drop policy if exists task_templates_all on public.task_templates;
-create policy task_templates_all on public.task_templates for all
-  using (public.is_household_member(household_id))
-  with check (public.is_household_member(household_id));
+  -- xp_ledger_entries (Revision D — often missing on staging)
+  if to_regclass('public.xp_ledger_entries') is not null then
+    alter table public.xp_ledger_entries enable row level security;
+    drop policy if exists xp_ledger_all on public.xp_ledger_entries;
+    create policy xp_ledger_all on public.xp_ledger_entries for all
+      using (public.is_household_member(household_id))
+      with check (public.is_household_member(household_id));
+  end if;
 
--- xp_ledger_entries
-drop policy if exists xp_ledger_all on public.xp_ledger_entries;
-create policy xp_ledger_all on public.xp_ledger_entries for all
-  using (public.is_household_member(household_id))
-  with check (public.is_household_member(household_id));
+  -- streak_rescues
+  if to_regclass('public.streak_rescues') is not null then
+    alter table public.streak_rescues enable row level security;
+    drop policy if exists streak_rescues_all on public.streak_rescues;
+    create policy streak_rescues_all on public.streak_rescues for all
+      using (public.is_household_member(household_id))
+      with check (public.is_household_member(household_id));
+  end if;
 
--- streak_rescues
-drop policy if exists streak_rescues_all on public.streak_rescues;
-create policy streak_rescues_all on public.streak_rescues for all
-  using (public.is_household_member(household_id))
-  with check (public.is_household_member(household_id));
+  -- day_classifications
+  if to_regclass('public.day_classifications') is not null then
+    alter table public.day_classifications enable row level security;
+    drop policy if exists day_classifications_all on public.day_classifications;
+    create policy day_classifications_all on public.day_classifications for all
+      using (public.is_household_member(household_id))
+      with check (public.is_household_member(household_id));
+  end if;
 
--- day_classifications
-drop policy if exists day_classifications_all on public.day_classifications;
-create policy day_classifications_all on public.day_classifications for all
-  using (public.is_household_member(household_id))
-  with check (public.is_household_member(household_id));
+  -- recess_periods
+  if to_regclass('public.recess_periods') is not null then
+    alter table public.recess_periods enable row level security;
+    drop policy if exists recess_periods_all on public.recess_periods;
+    create policy recess_periods_all on public.recess_periods for all
+      using (public.is_household_member(household_id))
+      with check (public.is_household_member(household_id));
+  end if;
 
--- recess_periods
-drop policy if exists recess_periods_all on public.recess_periods;
-create policy recess_periods_all on public.recess_periods for all
-  using (public.is_household_member(household_id))
-  with check (public.is_household_member(household_id));
+  -- crown_awards
+  if to_regclass('public.crown_awards') is not null then
+    alter table public.crown_awards enable row level security;
+    drop policy if exists crown_awards_all on public.crown_awards;
+    create policy crown_awards_all on public.crown_awards for all
+      using (public.is_household_member(household_id))
+      with check (public.is_household_member(household_id));
+  end if;
 
--- crown_awards
-drop policy if exists crown_awards_all on public.crown_awards;
-create policy crown_awards_all on public.crown_awards for all
-  using (public.is_household_member(household_id))
-  with check (public.is_household_member(household_id));
-
--- monitor_cron_cursor: service-role only (no authenticated policies)
-comment on table public.monitor_cron_cursor is
-  'Single-row cursor for poppins-monitor cron; RLS on, no client policies (service_role only).';
+  -- monitor_cron_cursor: service-role only (no authenticated policies)
+  if to_regclass('public.monitor_cron_cursor') is not null then
+    alter table public.monitor_cron_cursor enable row level security;
+    comment on table public.monitor_cron_cursor is
+      'Single-row cursor for poppins-monitor cron; RLS on, no client policies (service_role only).';
+  end if;
+end $$;
