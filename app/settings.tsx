@@ -807,7 +807,7 @@ export default function SettingsScreen() {
                 label="Places"
                 subtitle={`${(household.savedPlaces ?? []).length} saved · ${
                   preferredMapsApp === 'auto'
-                    ? 'Auto'
+                    ? 'AutoNav'
                     : preferredMapsApp === 'apple'
                       ? 'Apple Maps'
                       : preferredMapsApp === 'google'
@@ -1275,8 +1275,8 @@ export default function SettingsScreen() {
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {(
                   [
-                    { value: 'auto' as const, label: 'Auto' },
-                    { value: 'apple' as const, label: 'Apple' },
+                    { value: 'auto' as const, label: 'AutoNav' },
+                    { value: 'apple' as const, label: 'Plans' },
                     { value: 'google' as const, label: 'Google' },
                     { value: 'waze' as const, label: 'Waze' },
                   ] as const
@@ -1296,7 +1296,7 @@ export default function SettingsScreen() {
                         borderColor: active ? `${accentTheme.primary}66` : glassBorder(0.1),
                         backgroundColor: active ? `${accentTheme.primary}18` : glass(0.04),
                       }}>
-                      <MapsAppMark app={opt.value} size={22} />
+                      <MapsAppMark app={opt.value} size={28} />
                       <Text style={{ fontSize: 11, fontWeight: '600', color: active ? accentTheme.primary : c.textMuted }}>
                         {opt.label}
                       </Text>
