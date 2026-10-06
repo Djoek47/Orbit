@@ -7,9 +7,12 @@ import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+
 import { AppText as Text } from '@/components/orbit/app-text';
 import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
 import { AuthShell } from '@/components/orbit/auth-shell';
+import { FrostedPanel } from '@/components/orbit/frosted-panel';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import {
@@ -145,12 +148,17 @@ export default function AcceptHouseholdTransferScreen() {
     return (
       <AuthShell title="Transfer ownership" subtitle="This QR moves a household to your account.">
         <Stack.Screen options={{ headerShown: false }} />
-        <Text style={[typography.body, { color: c.danger ?? '#F87171', textAlign: 'center' }]}>
-          {error}
-        </Text>
-        <OrbitButton tone="secondary" onPress={() => router.replace('/welcome' as never)}>
-          Back to welcome
-        </OrbitButton>
+        <FrostedPanel borderColor={`${accentTheme.primary}33`} style={styles.errorCard}>
+          <View style={[styles.errorIcon, { backgroundColor: 'rgba(248,113,113,0.14)' }]}>
+            <MaterialIcons name="qr-code-2" size={26} color="#F87171" />
+          </View>
+          <Text style={[typography.title3, { color: c.text, textAlign: 'center' }]}>
+            Couldn’t complete the transfer
+          </Text>
+          <Text style={[typography.body, { color: c.textMuted, textAlign: 'center', lineHeight: 22 }]}>
+            {error}
+          </Text>
+        </FrostedPanel>
         {eligibleLocal ? (
           <OrbitButton
             onPress={() => {
@@ -160,6 +168,9 @@ export default function AcceptHouseholdTransferScreen() {
             Try again
           </OrbitButton>
         ) : null}
+        <OrbitButton tone="secondary" onPress={() => router.replace('/welcome' as never)}>
+          Back to welcome
+        </OrbitButton>
       </AuthShell>
     );
   }
@@ -300,6 +311,20 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  errorCard: {
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+  },
+  errorIcon: {
+    alignItems: 'center',
+    borderRadius: 16,
+    height: 52,
+    justifyContent: 'center',
+    marginBottom: 4,
+    width: 52,
   },
   modeRow: {
     alignItems: 'center',

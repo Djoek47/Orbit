@@ -67,6 +67,9 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
   assert.match(showcase, /heroPair/);
   assert.match(showcase, /Best/);
   assert.match(showcase, /You/);
+  assert.match(showcase, /householdQuiet/, 'zero-state replaces 0 | 0 tiles');
+  assert.match(showcase, /Every streak starts today/);
+  assert.doesNotMatch(showcase, /matches Home/, 'no implementation notes in hero copy');
   assert.doesNotMatch(
     showcase,
     /reduce\(\(sum, r\) => sum \+ Math\.max\(0, r\.streak\)/,

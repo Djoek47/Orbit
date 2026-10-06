@@ -268,6 +268,38 @@ test('Pass mock multipass: create → parse → accept ownership swap', async ()
   assert.equal(expired.code, 'expired');
 });
 
+test('friendlyTransferError never says "create" on the accepting phone', async () => {
+  const { friendlyTransferError } = await import('@/lib/supabase/edge-error');
+  for (const raw of [
+    'Edge Function returned a non-2xx status code',
+    'relation "household_transfer_tokens" does not exist',
+    '[object Object]',
+    '',
+  ]) {
+    const accept = friendlyTransferError(raw, 'accept');
+    assert.doesNotMatch(accept, /create/i, `accept copy for ${JSON.stringify(raw)}`);
+    assert.match(accept, /complete the transfer/i);
+    assert.match(friendlyTransferError(raw, 'create'), /create the transfer QR/i);
+  }
+  assert.equal(
+    friendlyTransferError('This transfer QR was not found.', 'accept'),
+    'This transfer QR was not found.'
+  );
+  assert.doesNotMatch(
+    friendlyTransferError('Edge Function returned 404', 'accept'),
+    /isn’t available on this server/,
+    'a missing token on accept is not a missing server function'
+  );
+
+  const send = readFileSync(join(process.cwd(), 'lib/household/send-household-transfer.ts'), 'utf8');
+  const acceptBody = send.slice(send.indexOf('export async function acceptHouseholdTransfer'));
+  const acceptCalls = acceptBody.split('friendlyTransferError(').slice(1);
+  assert.ok(acceptCalls.length >= 3, 'accept maps edge, body, and thrown errors');
+  for (const call of acceptCalls) {
+    assert.match(call.slice(0, 160), /'accept'/, 'every accept-path mapping passes the accept intent');
+  }
+});
+
 test('friendlyTransferError hides gen_random_bytes raw text', async () => {
   const { friendlyTransferError } = await import('@/lib/supabase/edge-error');
   assert.match(

@@ -44,30 +44,28 @@ Reply with: device + iOS version, role tested (admin / Sidekick / tablet face), 
 
 ---
 
-## Blockers before next TestFlight / App Store push
+## Blockers / follow-ups (not stopping this cut)
 
-Do **not** cut another TF or App Store build until these are cleared:
+Product authorized TestFlight push. Remaining dashboard / ASC follow-ups:
 
-- [ ] **Supabase Auth — Leaked password protection (HaveIBeenPwned)** — **noted; flip later (not blocking today’s code work)**  
-  Staging project `dejrbyufotcvcillnneo` → Dashboard → **Authentication** → **Providers** / **Password** → enable **Leaked password protection**.  
-  Advisor: `auth_leaked_password_protection`. Not settable from SQL.  
-  See `docs/supabase-security-advisors-2026-10-06.md`.
-- [ ] **Credits ↔ Apple StoreKit end-to-end** — packs must be live in ASC so real buys add credits + send receipt email (`docs/asc-iap-setup.md`). Client grant/error paths hardened; wire/verify tomorrow before final push.
-- [ ] Product explicitly says “push TestFlight”
+- [ ] **Supabase Auth — Leaked password protection (HaveIBeenPwned)** — flip later on staging  
+  Dashboard → `dejrbyufotcvcillnneo` → Authentication → Password → Leaked password protection.
+- [ ] **Credits ↔ Apple StoreKit end-to-end** — confirm ASC consumable packs live so sandbox buys add credits + receipt email (`docs/asc-iap-setup.md`). Client paths hardened in this cut.
 
 ## Cut checklist
 
 1. ~~OpenAI bake~~ — 10 clips in `assets/voice-previews/*.m4a`
 2. ~~Staging avatars~~ — `member-avatars` bucket present
-3. ~~Internal TF queued~~ — **1.3.0 (116)** auto-submit
-4. [ ] **Leaked password protection ON** (blocker above) — required before any new push
+3. ~~Prior internal TF~~ — **1.3.0 (116)**
+4. ~~Premium UI multipass~~ — Activity Best/You hero, legal frost sheet, Credits success card, transfer accept error card
+5. ~~Credits / streak / invite security harden~~ — on tip before this cut
+6. [x] **Product said push TestFlight**
 
 | | |
 |--|--|
-| Version | **1.3.0 (116)** |
-| Branch | `cursor/make-v33` @ `92e2498` |
-| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2c539a10-c16a-41f8-83ae-a274342b7d74 |
-| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/d7ddbafc-149d-45d2-81ee-cc8ec2ce6475 |
+| Version | **1.3.0** (EAS autoIncrement build number) |
+| Branch | `cursor/make-v33` |
+| Prior build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2c539a10-c16a-41f8-83ae-a274342b7d74 |
 | ASC | https://appstoreconnect.apple.com/apps/6796850110/testflight/ios |
 
 ## External tester prompt (short — paste as-is)

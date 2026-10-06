@@ -21,10 +21,22 @@ export async function edgeErrorMessage(error: unknown, fallback: string): Promis
   return fallback;
 }
 
-/** Map transfer RPC / edge failures to short owner-facing copy. */
-export function friendlyTransferError(raw: string): string {
+export type TransferErrorIntent = 'create' | 'accept' | 'eligibility';
+
+const TRANSFER_FAILED_LEAD: Record<TransferErrorIntent, string> = {
+  create: 'Couldn’t create the transfer QR.',
+  accept: 'Couldn’t complete the transfer.',
+  eligibility: 'Couldn’t check this account.',
+};
+
+/**
+ * Map transfer RPC / edge failures to short copy for the person on screen.
+ * Accept runs on the receiver's phone — never tell them they failed to "create" a QR.
+ */
+export function friendlyTransferError(raw: string, intent: TransferErrorIntent = 'create'): string {
   const text = raw.trim();
   const lower = text.toLowerCase();
+  const lead = TRANSFER_FAILED_LEAD[intent];
   if (lower.includes('only the household owner') || lower.includes('transfer_forbidden')) {
     return 'Only the household owner can transfer ownership.';
   }
@@ -36,7 +48,7 @@ export function friendlyTransferError(raw: string): string {
     lower.includes('could not find the function') ||
     lower.includes('transfer isn’t ready') ||
     lower.includes('transfer isn\'t ready') ||
-    lower.includes('404')
+    (intent !== 'accept' && lower.includes('404'))
   ) {
     return 'Transfer isn’t available on this server yet. Try again after an update.';
   }
@@ -44,11 +56,11 @@ export function friendlyTransferError(raw: string): string {
     return 'Couldn’t create the transfer QR. Try again in a moment.';
   }
   if (lower.includes('non-2xx') || lower.includes('edge function')) {
-    return 'Couldn’t create the transfer QR. Check your connection and try again.';
+    return `${lead} Check your connection and try again.`;
   }
   // Never surface raw Postgres / object dumps.
   if (lower.includes('does not exist') || text === '[object Object]' || text.length > 180) {
-    return 'Couldn’t create the transfer QR. Try again, or send feedback from Support.';
+    return `${lead} Try again, or send feedback from Support.`;
   }
-  return text || 'Could not create transfer QR.';
+  return text || lead;
 }

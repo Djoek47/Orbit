@@ -9,9 +9,15 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { FrostedPanel, frostedBackdropColor } from '@/components/orbit/frosted-panel';
+import {
+  FrostedPanel,
+  frostedBackdropColor,
+  frostedGroupFill,
+  frostedHairline,
+} from '@/components/orbit/frosted-panel';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { openChoremaxxUrl } from '@/lib/legal/open-choremaxx-url';
@@ -21,15 +27,21 @@ import {
   openLegalLinksSheet,
   subscribeLegalLinksSheet,
 } from '@/lib/ui/legal-links-sheet-controller';
-import { glassBorder, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type Row = {
   icon: keyof typeof MaterialIcons.glyphMap;
   tone: string;
   label: string;
+  external: boolean;
   onPress: () => void;
 };
+
+const ICON_WELL = 32;
+const ROW_PAD_X = 14;
+const ROW_GAP = 12;
+const SEPARATOR_INSET = ROW_PAD_X + ICON_WELL + ROW_GAP;
 
 type PendingAction = (() => void) | null;
 
@@ -41,8 +53,11 @@ export function LegalLinksSheetHost() {
   const pendingAction = useRef<PendingAction>(null);
   const flushedRef = useRef(false);
   const { c, isDark } = useOrbitColors();
+  const insets = useSafeAreaInsets();
   const orbit = useOrbitOptional();
   const primary = orbit?.accentTheme.primary ?? c.primary;
+  const hairline = frostedHairline(isDark);
+  const pressedFill = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(15, 28, 42, 0.05)';
 
   useEffect(() => subscribeLegalLinksSheet(setVisible), []);
 
@@ -90,6 +105,7 @@ export function LegalLinksSheetHost() {
       icon: 'policy',
       tone: '#34D399',
       label: 'Privacy Policy',
+      external: true,
       onPress: () => {
         beginDismiss(() => {
           void openChoremaxxUrl(CHOREMAXX_LEGAL.privacyUrl, 'Privacy Policy');
@@ -100,6 +116,7 @@ export function LegalLinksSheetHost() {
       icon: 'gavel',
       tone: '#38BDF8',
       label: 'Terms of Service',
+      external: true,
       onPress: () => {
         beginDismiss(() => {
           void openChoremaxxUrl(CHOREMAXX_LEGAL.termsUrl, 'Terms of Service');
@@ -110,6 +127,7 @@ export function LegalLinksSheetHost() {
       icon: 'mail-outline',
       tone: '#FF8A3D',
       label: 'Contact support',
+      external: false,
       onPress: () => {
         beginDismiss(() => {
           try {
@@ -139,54 +157,71 @@ export function LegalLinksSheetHost() {
           accessibilityLabel="Dismiss Privacy and legal">
           <Animated.View entering={FadeIn.duration(180)} style={StyleSheet.absoluteFill} />
         </Pressable>
-        <View style={styles.center} pointerEvents="box-none">
-          <Animated.View entering={FadeInDown.duration(260).springify().damping(18)}>
-            <FrostedPanel borderColor={`${primary}66`} style={styles.sheet}>
+        <View
+          style={[styles.center, { paddingBottom: Math.max(insets.bottom, space.md) + space.xs }]}
+          pointerEvents="box-none">
+          <Animated.View
+            entering={FadeInDown.duration(260).springify().damping(18)}
+            style={styles.stack}>
+            <FrostedPanel borderColor={hairline}>
               <LinearGradient
-                colors={[`${primary}33`, 'transparent']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.sheetGlow}
+                colors={[`${primary}14`, 'transparent']}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 0.6 }}
+                style={styles.sheetWash}
                 pointerEvents="none"
               />
               <View style={styles.sheetInner}>
-                <Text style={[typography.headline, { color: c.text }]}>Privacy & legal</Text>
-                <Text style={[styles.sub, { color: c.textMuted }]}>
-                  Privacy and Terms open in your browser. Support opens in the app.
-                </Text>
-                <View style={[styles.group, { borderColor: glassBorder(isDark, 0.14) }]}>
+                <View style={styles.heading}>
+                  <Text style={[typography.title3, { color: c.text }]}>Privacy & legal</Text>
+                  <Text style={[typography.footnote, { color: c.textMuted }]}>
+                    Policies open in your browser. Support stays in the app.
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.group,
+                    { backgroundColor: frostedGroupFill(isDark), borderColor: hairline },
+                  ]}>
                   {rows.map((row, index) => (
-                    <Pressable
-                      key={row.label}
-                      accessibilityRole="button"
-                      onPress={row.onPress}
-                      style={({ pressed }) => [
-                        styles.row,
-                        index > 0 && {
-                          borderTopWidth: StyleSheet.hairlineWidth,
-                          borderTopColor: glassBorder(isDark, 0.1),
-                        },
-                        pressed && { opacity: 0.72 },
-                      ]}>
-                      <View style={[styles.iconWell, { backgroundColor: `${row.tone}22` }]}>
-                        <MaterialIcons name={row.icon} size={18} color={row.tone} />
-                      </View>
-                      <Text style={[styles.rowLabel, { color: c.text }]}>{row.label}</Text>
-                      <MaterialIcons name="chevron-right" size={20} color={c.textSubtle} />
-                    </Pressable>
+                    <View key={row.label}>
+                      {index > 0 ? (
+                        <View style={[styles.separator, { backgroundColor: hairline }]} />
+                      ) : null}
+                      <Pressable
+                        accessibilityRole={row.external ? 'link' : 'button'}
+                        accessibilityHint={row.external ? 'Opens in your browser' : undefined}
+                        onPress={row.onPress}
+                        style={({ pressed }) => [
+                          styles.row,
+                          pressed && { backgroundColor: pressedFill },
+                        ]}>
+                        <View style={[styles.iconWell, { backgroundColor: `${row.tone}22` }]}>
+                          <MaterialIcons name={row.icon} size={18} color={row.tone} />
+                        </View>
+                        <Text style={[styles.rowLabel, { color: c.text }]} numberOfLines={1}>
+                          {row.label}
+                        </Text>
+                        <MaterialIcons
+                          name={row.external ? 'open-in-new' : 'chevron-right'}
+                          size={row.external ? 16 : 20}
+                          color={c.textSubtle}
+                        />
+                      </Pressable>
+                    </View>
                   ))}
                 </View>
-                <Pressable
-                  onPress={dismiss}
-                  accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.cancel,
-                    { backgroundColor: `${primary}22`, borderColor: `${primary}55` },
-                    pressed && { opacity: 0.8 },
-                  ]}>
-                  <Text style={[styles.cancelLabel, { color: c.text }]}>Cancel</Text>
-                </Pressable>
               </View>
+            </FrostedPanel>
+
+            <FrostedPanel borderColor={hairline}>
+              <Pressable
+                onPress={dismiss}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+                style={({ pressed }) => [styles.cancel, pressed && { backgroundColor: pressedFill }]}>
+                <Text style={[styles.cancelLabel, { color: c.text }]}>Cancel</Text>
+              </Pressable>
             </FrostedPanel>
           </Animated.View>
         </View>
@@ -209,66 +244,66 @@ const styles = StyleSheet.create({
   },
   cancel: {
     alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: radius.card,
-    borderWidth: 1,
-    marginTop: space.sm,
-    minHeight: 48,
     justifyContent: 'center',
+    minHeight: 56,
     paddingHorizontal: space.md,
   },
   cancelLabel: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...typography.headline,
+    fontWeight: '700',
   },
   center: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingBottom: 28,
-    paddingHorizontal: 20,
+    paddingHorizontal: space.lg,
   },
   group: {
-    backgroundColor: 'rgba(0,0,0,0.22)',
     borderCurve: 'continuous',
-    borderRadius: radius.card,
-    borderWidth: 1,
-    marginTop: space.sm,
+    borderRadius: radius.control,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+  },
+  heading: {
+    gap: space.xxs,
+    paddingHorizontal: space.xxs,
   },
   iconWell: {
     alignItems: 'center',
+    borderCurve: 'continuous',
     borderRadius: 10,
-    height: 32,
+    height: ICON_WELL,
     justifyContent: 'center',
-    width: 32,
+    width: ICON_WELL,
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    gap: ROW_GAP,
+    minHeight: 56,
+    paddingHorizontal: ROW_PAD_X,
+    paddingVertical: space.sm,
   },
   rowLabel: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  sheet: {
-    // FrostedPanel owns radius/border; keep padding on inner.
-  },
-  sheetGlow: {
-    ...StyleSheet.absoluteFill,
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: SEPARATOR_INSET,
   },
   sheetInner: {
-    gap: 6,
-    paddingBottom: space.md,
-    paddingHorizontal: space.md,
+    gap: space.md,
+    padding: space.md,
     paddingTop: space.lg,
   },
-  sub: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
+  sheetWash: {
+    ...StyleSheet.absoluteFill,
+  },
+  stack: {
+    alignSelf: 'center',
+    gap: space.xs,
+    maxWidth: 520,
+    width: '100%',
   },
 });

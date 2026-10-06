@@ -15,12 +15,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
+  Easing,
   FadeIn,
   FadeInDown,
-  ZoomIn,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -31,7 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
-import { typography } from '@/constants/orbit-theme';
+import { radius, space, typography } from '@/constants/orbit-theme';
 import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import {
   formatResetDate,
@@ -65,6 +65,14 @@ const TOPUP_TONE = '#FF9F1C';
 const TOPUP_DEEP = '#E8780C';
 const TOKEN_GLOW = '#FFD28A';
 
+type ReceiptMail =
+  | { kind: 'sending' }
+  | { kind: 'sent'; to: string }
+  | { kind: 'saved' }
+  | { kind: 'failed' };
+
+type Congrats = { tokens: number; price: string; receipt: TopUpReceipt };
+
 function PoppinsCreditsScreenInner() {
   const insets = useSafeAreaInsets();
   const { c, glassBorder, isDark } = useOrbitColors();
@@ -77,8 +85,16 @@ function PoppinsCreditsScreenInner() {
   const [buying, setBuying] = useState<string | null>(null);
   const [openReceipt, setOpenReceipt] = useState<TopUpReceipt | null>(null);
   const [billingEmail, setBillingEmail] = useState('');
-  const [emailStatus, setEmailStatus] = useState<string | null>(null);
-  const [congrats, setCongrats] = useState<{ tokens: number; price: string } | null>(null);
+  const [receiptMail, setReceiptMail] = useState<ReceiptMail | null>(null);
+  const [congrats, setCongrats] = useState<Congrats | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToReceipt = useRef(false);
+  const purchaseSeq = useRef(0);
+
+  const showReceipt = useCallback((receipt: TopUpReceipt) => {
+    scrollToReceipt.current = true;
+    setOpenReceipt(receipt);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,9 +149,11 @@ function PoppinsCreditsScreenInner() {
 
   const runPurchase = useCallback(
     async (pack: TopUpPack) => {
+      const seq = ++purchaseSeq.current;
       setBuying(pack.key);
       setCongrats(null);
-      setEmailStatus(null);
+      setReceiptMail(null);
+      setOpenReceipt(null);
       try {
         if (!household.id) throw new Error('no household yet');
         const grant = await purchaseTokens(pack.key, household.id);
@@ -155,8 +173,9 @@ function PoppinsCreditsScreenInner() {
         const next = await readBalance();
         if (next) setCredits(next);
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setCongrats({ tokens: grant.tokens, price: formatPrice(pack.priceUsd) });
-        setOpenReceipt(receipt);
+        setCongrats({ tokens: grant.tokens, price: formatPrice(pack.priceUsd), receipt });
+        setReceiptMail({ kind: 'sending' });
+        setBuying(null);
 
         const mailed = await sendCreditReceiptEmail({
           to: billingEmail || currentUser?.email || undefined,
@@ -169,23 +188,26 @@ function PoppinsCreditsScreenInner() {
           mock: mockBuy,
           transactionId: grant.transactionId,
         });
+        if (seq !== purchaseSeq.current) return;
         if (mailed.ok) {
-          setEmailStatus(`Congratulations email sent to ${mailed.to}`);
+          setReceiptMail({ kind: 'sent', to: mailed.to });
         } else if (mailed.skipped) {
-          setEmailStatus('Credits added · receipt saved on this device');
+          setReceiptMail({ kind: 'saved' });
         } else {
-          setEmailStatus(`Credits added · email pending (${mailed.error})`);
+          console.warn('poppins-credits receipt email', mailed.error);
+          setReceiptMail({ kind: 'failed' });
         }
       } catch (error) {
         // Native Alert + feedback loop — never orbitAlert under Settings (touch freeze).
         if (!isUserCancelledPurchase(error)) {
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           await showNativeAppError("That didn't go through", error, {
             source: 'poppins-credits',
             category: 'billing',
           });
         }
       } finally {
-        setBuying(null);
+        if (seq === purchaseSeq.current) setBuying(null);
       }
     },
     [
@@ -240,6 +262,7 @@ function PoppinsCreditsScreenInner() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 48 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
@@ -247,32 +270,63 @@ function PoppinsCreditsScreenInner() {
 
         {congrats ? (
           <Animated.View
-            entering={ZoomIn.duration(320)}
-            style={[styles.congrats, { borderColor: `${TOPUP_TONE}88` }]}>
+            entering={FadeInDown.duration(300).springify().damping(18)}
+            style={[styles.congrats, { borderColor: `${TOPUP_TONE}55` }]}
+            accessibilityLiveRegion="polite">
             <LinearGradient
-              colors={[`${TOPUP_TONE}44`, `${TOPUP_DEEP}22`]}
+              colors={[`${TOPUP_TONE}2E`, `${TOPUP_DEEP}0F`, 'transparent']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
+              pointerEvents="none"
             />
-            <View style={styles.congratsIcon}>
-              <Moji name="sparkles" size={28} />
+            <View style={styles.congratsHead}>
+              <View style={[styles.congratsIcon, { backgroundColor: `${TOPUP_TONE}22` }]}>
+                <Moji name="sparkles" size={22} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={[styles.congratsEyebrow, { color: TOPUP_TONE }]}>
+                  {mockBuy ? 'Test purchase · no charge' : 'Purchase complete'}
+                </Text>
+                <Text style={[typography.title2, { color: c.text }]}>Congratulations!</Text>
+              </View>
             </View>
-            <Text style={[styles.congratsTitle, { color: c.text }]}>Congratulations!</Text>
             <Text style={[styles.congratsBody, { color: c.textSoft }]}>
-              You bought {congrats.tokens.toLocaleString()} actions for {congrats.price}.
-              {mockBuy ? ' Test purchase — no charge.' : ''} They never expire.
+              <Text style={[styles.congratsBodyStrong, { color: c.text }]}>
+                {congrats.tokens.toLocaleString()} actions
+              </Text>{' '}
+              for {congrats.price} are in your bank. They never expire.
             </Text>
-            <Pressable
-              onPress={() => setCongrats(null)}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss congratulations"
-              style={({ pressed }) => [
-                styles.congratsBtn,
-                { backgroundColor: TOPUP_TONE, opacity: pressed ? 0.85 : 1 },
-              ]}>
-              <Text style={styles.congratsBtnText}>Nice</Text>
-            </Pressable>
+            <ReceiptMailRow mail={receiptMail} />
+            <View style={styles.congratsActions}>
+              <Pressable
+                onPress={() => showReceipt(congrats.receipt)}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.congratsBtn,
+                  {
+                    backgroundColor: glassFill(isDark, 0.06),
+                    borderColor: glassBorder(0.14),
+                    opacity: pressed ? 0.75 : 1,
+                  },
+                ]}>
+                <Text style={[styles.congratsBtnText, { color: c.text }]}>View receipt</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setCongrats(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Done, dismiss congratulations"
+                style={({ pressed }) => [
+                  styles.congratsBtn,
+                  {
+                    backgroundColor: TOPUP_TONE,
+                    borderColor: TOPUP_TONE,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}>
+                <Text style={[styles.congratsBtnText, { color: '#1A1006' }]}>Done</Text>
+              </Pressable>
+            </View>
           </Animated.View>
         ) : null}
 
@@ -304,18 +358,9 @@ function PoppinsCreditsScreenInner() {
                 ))}
               </View>
 
-              {emailStatus ? (
-                <View
-                  style={[
-                    styles.emailBanner,
-                    { backgroundColor: `${TOPUP_TONE}18`, borderColor: `${TOPUP_TONE}55` },
-                  ]}>
-                  <Moji name="receipt" size={16} />
-                  <Text style={[styles.emailBannerText, { color: TOPUP_TONE }]}>{emailStatus}</Text>
-                </View>
-              ) : mockBuy ? (
+              {mockBuy ? (
                 <Text style={[styles.mockNote, { color: c.textSubtle }]}>
-                  Test buys · no charge · packs add to your bank · congratulations email when connected
+                  Test mode — buys are free and still add to your bank.
                 </Text>
               ) : null}
             </Animated.View>
@@ -336,7 +381,7 @@ function PoppinsCreditsScreenInner() {
                   {receipts.map((receipt, index) => (
                     <Pressable
                       key={receipt.orderId}
-                      onPress={() => setOpenReceipt(receipt)}
+                      onPress={() => showReceipt(receipt)}
                       accessibilityRole="button"
                       accessibilityLabel={`Receipt ${receipt.orderId}`}
                       style={({ pressed }) => [
@@ -368,14 +413,22 @@ function PoppinsCreditsScreenInner() {
         {openReceipt ? (
           <Animated.View
             entering={FadeInDown.duration(220)}
+            onLayout={(event) => {
+              if (!scrollToReceipt.current) return;
+              scrollToReceipt.current = false;
+              scrollRef.current?.scrollTo({
+                y: Math.max(0, event.nativeEvent.layout.y - space.sm),
+                animated: true,
+              });
+            }}
             style={[
               styles.receiptCard,
-              { backgroundColor: glassFill(isDark), borderColor: `${TOPUP_TONE}55` },
+              { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.14) },
             ]}>
             <View style={styles.receiptHead}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.receiptEyebrow, { color: TOPUP_TONE }]}>
-                  {openReceipt.mock ? 'Saved on device' : `Emailed to ${openReceipt.to}`}
+                <Text style={[styles.receiptEyebrow, { color: TOPUP_TONE }]} numberOfLines={1}>
+                  {openReceipt.mock ? 'Test receipt · on this device' : `For ${openReceipt.to}`}
                 </Text>
                 <Text style={[styles.receiptSubject, { color: c.text }]}>
                   Your ChoreMaxx receipt
@@ -397,11 +450,52 @@ function PoppinsCreditsScreenInner() {
   );
 }
 
+function ReceiptMailRow({ mail }: { mail: ReceiptMail | null }) {
+  const { c, glassBorder, isDark } = useOrbitColors();
+  if (!mail) return null;
+  const label =
+    mail.kind === 'sending'
+      ? 'Sending your receipt…'
+      : mail.kind === 'sent'
+        ? mail.to
+          ? `Receipt sent to ${mail.to}`
+          : 'Receipt sent to your email'
+        : mail.kind === 'saved'
+          ? 'Receipt saved on this device'
+          : 'Receipt saved here · the email didn’t send';
+  const icon: keyof typeof MaterialIcons.glyphMap =
+    mail.kind === 'sent' ? 'mark-email-read' : mail.kind === 'failed' ? 'info-outline' : 'receipt-long';
+  const iconColor = mail.kind === 'sent' ? c.success : mail.kind === 'failed' ? c.warning : c.textMuted;
+  return (
+    <Animated.View
+      key={mail.kind}
+      entering={FadeIn.duration(200)}
+      style={[
+        styles.mailRow,
+        { backgroundColor: glassFill(isDark, 0.05), borderColor: glassBorder(0.1) },
+      ]}
+      accessibilityLiveRegion="polite">
+      {mail.kind === 'sending' ? (
+        <ActivityIndicator size="small" color={c.textMuted} />
+      ) : (
+        <MaterialIcons name={icon} size={16} color={iconColor} />
+      )}
+      <Text style={[styles.mailText, { color: c.textMuted }]} numberOfLines={2}>
+        {label}
+      </Text>
+    </Animated.View>
+  );
+}
+
 function TokenOrb() {
   const pulse = useSharedValue(1);
   useEffect(() => {
+    const ease = Easing.inOut(Easing.quad);
     pulse.value = withRepeat(
-      withSequence(withTiming(1.08, { duration: 900 }), withTiming(1, { duration: 900 })),
+      withSequence(
+        withTiming(1.04, { duration: 1600, easing: ease }),
+        withTiming(1, { duration: 1600, easing: ease })
+      ),
       -1,
       false
     );
@@ -706,44 +800,49 @@ const styles = StyleSheet.create({
   },
   packCtaText: { fontSize: 12, fontWeight: '800' },
   mockNote: { fontSize: 11.5, lineHeight: 16, paddingHorizontal: 2 },
-  emailBanner: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  emailBannerText: { flex: 1, fontSize: 12.5, fontWeight: '700', lineHeight: 17 },
   congrats: {
-    alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    gap: 8,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    gap: space.sm,
     overflow: 'hidden',
-    paddingHorizontal: 18,
-    paddingVertical: 20,
+    padding: space.md,
   },
+  congratsHead: { alignItems: 'center', flexDirection: 'row', gap: space.sm },
   congratsIcon: {
     alignItems: 'center',
-    height: 40,
-    justifyContent: 'center',
-    marginBottom: 2,
-    width: 40,
-  },
-  congratsTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
-  congratsBody: { fontSize: 14, fontWeight: '600', lineHeight: 20, textAlign: 'center' },
-  congratsBtn: {
     borderCurve: 'continuous',
-    borderRadius: 999,
-    marginTop: 6,
-    paddingHorizontal: 28,
+    borderRadius: radius.control,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  congratsEyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
+  congratsBody: { ...typography.subheadline },
+  congratsBodyStrong: { fontVariant: ['tabular-nums'], fontWeight: '700' },
+  congratsActions: { flexDirection: 'row', gap: space.xs, marginTop: space.xxs },
+  congratsBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.full,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: space.md,
+  },
+  congratsBtnText: { fontSize: 15, fontWeight: '700' },
+  mailRow: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.control,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: space.xs,
+    paddingHorizontal: space.sm,
     paddingVertical: 10,
   },
-  congratsBtnText: { color: '#1A1006', fontSize: 15, fontWeight: '800' },
+  mailText: { ...typography.footnote, flex: 1 },
   card: { borderRadius: 20, borderWidth: 1, overflow: 'hidden', paddingHorizontal: 14 },
   receiptRow: {
     alignItems: 'center',

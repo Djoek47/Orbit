@@ -100,14 +100,15 @@ export async function createHouseholdTransferToken(input: {
       return {
         ok: false,
         error: friendlyTransferError(
-          await edgeErrorMessage(error, 'Could not create transfer QR.')
+          await edgeErrorMessage(error, 'Could not create transfer QR.'),
+          'create'
         ),
       };
     }
     if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
       return {
         ok: false,
-        error: friendlyTransferError(String((data as { error: string }).error)),
+        error: friendlyTransferError(String((data as { error: string }).error), 'create'),
       };
     }
     const token = String((data as { token?: string }).token ?? '');
@@ -155,13 +156,16 @@ export async function checkTransferEligibility(input: {
     if (error) {
       return {
         ok: false,
-        error: friendlyTransferError(await edgeErrorMessage(error, 'Could not check eligibility.')),
+        error: friendlyTransferError(
+          await edgeErrorMessage(error, 'Could not check eligibility.'),
+          'eligibility'
+        ),
       };
     }
     if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
       return {
         ok: false,
-        error: friendlyTransferError(String((data as { error: string }).error)),
+        error: friendlyTransferError(String((data as { error: string }).error), 'eligibility'),
       };
     }
     return { ok: true, eligible: Boolean((data as { eligible?: boolean }).eligible) };
@@ -235,7 +239,8 @@ export async function acceptHouseholdTransfer(input: {
       return {
         ok: false,
         error: friendlyTransferError(
-          await edgeErrorMessage(error, 'Could not complete the transfer.')
+          await edgeErrorMessage(error, 'Could not complete the transfer.'),
+          'accept'
         ),
         code: 'other',
       };
@@ -247,7 +252,7 @@ export async function acceptHouseholdTransfer(input: {
           : ('other' as const);
       return {
         ok: false,
-        error: friendlyTransferError(String((data as { error: string }).error)),
+        error: friendlyTransferError(String((data as { error: string }).error), 'accept'),
         code,
       };
     }
@@ -264,7 +269,10 @@ export async function acceptHouseholdTransfer(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Could not complete the transfer.',
+      error: friendlyTransferError(
+        error instanceof Error ? error.message : 'Could not complete the transfer.',
+        'accept'
+      ),
       code: 'other',
     };
   }

@@ -31,6 +31,26 @@ test('Pass B: successful buy grants tokens, files receipt, sends email', () => {
   assert.match(credits, /setBuying\(null\)/);
 });
 
+test('Pass B2: one calm success card — receipt email status lives inside it, never raw errors', () => {
+  const credits = read('app/poppins-credits.tsx');
+  assert.match(credits, /ReceiptMailRow/);
+  assert.match(credits, /kind: 'sending'/);
+  assert.match(credits, /View receipt/);
+  assert.doesNotMatch(credits, /email pending \(\$\{mailed\.error\}\)/, 'no raw edge error in UI');
+  assert.doesNotMatch(credits, /emailBanner/, 'no second orange banner under the packs');
+  const runPurchase = credits.slice(
+    credits.indexOf('const runPurchase'),
+    credits.indexOf('const buy = useCallback')
+  );
+  assert.ok(runPurchase.length > 200, 'found the purchase flow');
+  assert.doesNotMatch(
+    runPurchase,
+    /setOpenReceipt\(receipt\)/,
+    'receipt opens on tap, not on top of the celebration'
+  );
+  assert.match(credits, /seq === purchaseSeq\.current\) setBuying\(null\)/);
+});
+
 test('Pass C: errors use native feedback Alert (no orbitAlert under Settings)', () => {
   const credits = read('app/poppins-credits.tsx');
   assert.match(credits, /showNativeAppError/);

@@ -5,12 +5,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Avatar } from '@/components/orbit/avatar';
 import { Moji } from '@/components/orbit/moji/moji';
 import { StreakDots } from '@/components/orbit/house-rules/visuals/streak-dots';
+import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri } from '@/lib/game-levels';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { resolveHouseRulesPalette } from '@/lib/rules/house-rules-palette';
@@ -19,7 +20,7 @@ import {
   selfStreakAmongRows,
   type MemberStreakRow,
 } from '@/lib/streaks/member-streak-rows';
-import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { glassCardStrong, glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 const STREAK_TONE = '#FF6A3D';
 const PERSON_TONES = ['#17B9A0', '#8E7CFF', '#FF9F1C', '#4FA3FF', '#E9B44C', '#FB7185'];
@@ -51,6 +52,75 @@ function startOfLocalDay(now = Date.now()) {
   return d.getTime();
 }
 
+function dayUnit(n: number) {
+  return n === 1 ? 'day' : 'days';
+}
+
+function displayName(row: MemberStreakRow) {
+  return row.isSelf ? 'You' : row.name;
+}
+
+function leaderCaption(leaders: MemberStreakRow[], lead = 0) {
+  if (leaders.length === 0) return '';
+  if (leaders.length === 1) {
+    if (!leaders[0]!.isSelf) return leaders[0]!.name;
+    return lead > 0 ? `You, by ${lead} ${dayUnit(lead)}` : 'That’s you';
+  }
+  if (leaders.length === 2) return `${displayName(leaders[0]!)} & ${displayName(leaders[1]!)}`;
+  return `${leaders.length} tied`;
+}
+
+function selfCaption(selfStreak: number, houseBest: number, selfLeads: boolean) {
+  if (selfStreak <= 0) return 'Finish a task to start';
+  if (selfLeads) return 'Leading the house';
+  const gap = houseBest - selfStreak;
+  return `${gap} ${dayUnit(gap)} off the lead`;
+}
+
+function HeroStat({
+  label,
+  dot,
+  value,
+  caption,
+  delay,
+}: {
+  label: string;
+  dot: string;
+  value: number;
+  caption: string;
+  delay: number;
+}) {
+  const { c, glassBorder, isDark } = useOrbitColors();
+  return (
+    <Animated.View
+      entering={FadeIn.delay(delay).duration(260)}
+      style={[
+        styles.heroStat,
+        { backgroundColor: glassCardStrong(isDark), borderColor: glassBorder(0.08) },
+      ]}>
+      <View style={styles.heroStatHead}>
+        <View style={[styles.heroStatDot, { backgroundColor: dot }]} />
+        <Text style={[styles.heroStatLabel, { color: c.textMuted }]} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+      <View style={styles.heroValueRow}>
+        <Text
+          style={[styles.heroValue, { color: c.text }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}>
+          {value}
+        </Text>
+        <Text style={[styles.heroUnit, { color: c.textMuted }]}>{dayUnit(value)}</Text>
+      </View>
+      <Text style={[styles.heroStatCaption, { color: c.textMuted }]} numberOfLines={1}>
+        {caption}
+      </Text>
+    </Animated.View>
+  );
+}
+
 export function PersonActivityShowcase({
   rows,
   signals,
@@ -72,11 +142,19 @@ export function PersonActivityShowcase({
         if (s.memberName) return s.memberName.toLowerCase() === row.name.toLowerCase();
         return false;
       });
+      // Dedupe identical labels so chips don't repeat "Poppins · Tasks" twice.
+      const seen = new Set<string>();
+      const unique = todays.filter((s) => {
+        const key = s.label.trim().toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       return {
         row,
         tone: row.isSelf ? accentColor : toneFor(index),
         todayCount: todays.length,
-        latest: todays.slice(0, 2),
+        latest: unique.slice(0, 2),
       };
     });
   }, [accentColor, dayStart, rows, signals]);
@@ -87,69 +165,102 @@ export function PersonActivityShowcase({
   const houseBest = bestStreakAmongRows(rows);
   const selfStreak = selfStreakAmongRows(rows);
   const heroStreak = mode === 'household' ? houseBest : selfStreak;
-  const bestLeader = rows.find((r) => Math.max(0, r.streak) === houseBest && houseBest > 0);
+  const leaders = houseBest > 0 ? rows.filter((r) => Math.max(0, r.streak) === houseBest) : [];
+  const selfLeads = leaders.some((r) => r.isSelf);
+  const runnerUp = rows.reduce(
+    (next, r) => (r.streak < houseBest ? Math.max(next, Math.max(0, r.streak)) : next),
+    0
+  );
+  const leadMargin = leaders.length === 1 && rows.length > 1 ? houseBest - runnerUp : 0;
   const activeToday = byPerson.filter((p) => p.todayCount > 0).length;
+  const householdQuiet = houseBest <= 0 && selfStreak <= 0;
 
   if (!rows.length) return null;
+
+  const isHousehold = mode === 'household';
+  const householdTitle = householdQuiet
+    ? 'Every streak starts today'
+    : activeToday > 0
+      ? `${activeToday} of ${rows.length} active today`
+      : 'Quiet so far today';
+  const personalTitle =
+    selfStreak <= 0
+      ? 'Every streak starts today'
+      : `${selfStreak} ${dayUnit(selfStreak)} and counting`;
+  const heroA11y = isHousehold
+    ? householdQuiet
+      ? 'Household energy. No active streaks yet.'
+      : `Household energy. Best in house ${houseBest} ${dayUnit(houseBest)}, ${leaderCaption(
+          leaders
+        )}. Your streak ${selfStreak} ${dayUnit(selfStreak)}.`
+    : `Your energy. ${selfStreak} ${dayUnit(selfStreak)} streak.`;
 
   return (
     <View style={styles.root}>
       <Animated.View entering={FadeInDown.duration(260)}>
         <LinearGradient
-          colors={[`${STREAK_TONE}40`, `${STREAK_TONE}12`, 'transparent']}
+          colors={[`${STREAK_TONE}2A`, `${STREAK_TONE}0D`, 'transparent']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.hero, { borderColor: `${STREAK_TONE}55` }]}>
+          style={[styles.hero, { borderColor: `${STREAK_TONE}38` }]}
+          accessible
+          accessibilityRole="summary"
+          accessibilityLabel={heroA11y}>
           <View style={styles.heroTop}>
-            <View style={[styles.fireWell, { backgroundColor: `${STREAK_TONE}28` }]}>
-              <Moji name="fire" size={26} />
+            <View style={[styles.fireWell, { backgroundColor: `${STREAK_TONE}22` }]}>
+              <Moji name="fire" size={22} />
             </View>
-            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <View style={styles.heroHeading}>
               <Text style={[styles.heroEyebrow, { color: STREAK_TONE }]}>
-                {mode === 'household' ? 'Household energy' : 'Your energy'}
+                {isHousehold ? 'Household energy' : 'Your energy'}
               </Text>
-              <Text style={[styles.heroTitle, { color: c.text }]}>
-                {mode === 'household'
-                  ? houseBest <= 0
-                    ? 'No active streaks yet'
-                    : bestLeader
-                      ? `${bestLeader.isSelf ? 'You' : bestLeader.name} leads · ${houseBest}d best`
-                      : `${houseBest}d best in the house`
-                  : `${heroStreak} day streak`}
+              <Text style={[typography.headline, { color: c.text }]} numberOfLines={1}>
+                {isHousehold ? householdTitle : personalTitle}
               </Text>
             </View>
-            {mode === 'household' ? (
-              <View style={styles.heroPair}>
-                <View style={styles.heroStat}>
-                  <Text style={[styles.heroStatLabel, { color: c.textSubtle }]}>Best</Text>
-                  <Text style={[styles.heroBig, { color: STREAK_TONE }]}>{houseBest}</Text>
-                </View>
-                <View style={[styles.heroStatDivider, { backgroundColor: `${STREAK_TONE}44` }]} />
-                <View style={styles.heroStat}>
-                  <Text style={[styles.heroStatLabel, { color: c.textSubtle }]}>You</Text>
-                  <Text style={[styles.heroBig, { color: accentColor }]}>{selfStreak}</Text>
-                </View>
-              </View>
-            ) : (
-              <Text style={[styles.heroBig, { color: STREAK_TONE }]}>{heroStreak}</Text>
-            )}
           </View>
-          <Text style={[styles.heroSub, { color: c.textMuted }]}>
-            {mode === 'household'
-              ? activeToday > 0
-                ? `${activeToday} face${activeToday === 1 ? '' : 's'} lit up today · your streak matches Home`
-                : 'Waiting for today’s first signals · your streak matches Home'
-              : 'Finish-by keeps Late Credit safe'}
-          </Text>
-          {mode === 'personal' ? (
-            <View style={styles.dots}>
-              <StreakDots
-                constants={doc.constants}
-                palette={palette}
-                voice="sidekick"
-                liveStreakDays={heroStreak}
+
+          {isHousehold && !householdQuiet ? (
+            <View style={styles.heroPair}>
+              <HeroStat
+                label="Best in house"
+                dot={STREAK_TONE}
+                value={houseBest}
+                caption={leaderCaption(leaders, leadMargin)}
+                delay={90}
+              />
+              <HeroStat
+                label="You"
+                dot={accentColor}
+                value={selfStreak}
+                caption={selfCaption(selfStreak, houseBest, selfLeads)}
+                delay={140}
               />
             </View>
+          ) : null}
+
+          {isHousehold && householdQuiet ? (
+            <Text style={[styles.heroSub, { color: c.textMuted }]}>
+              Finish one task to light the first flame for the house.
+            </Text>
+          ) : null}
+
+          {!isHousehold ? (
+            <>
+              <View style={styles.dots}>
+                <StreakDots
+                  constants={doc.constants}
+                  palette={palette}
+                  voice="sidekick"
+                  liveStreakDays={heroStreak}
+                />
+              </View>
+              <Text style={[styles.heroSub, { color: c.textMuted }]}>
+                {selfStreak <= 0
+                  ? 'Finish one task to light your first flame.'
+                  : 'Finish-by keeps Late Credit safe.'}
+              </Text>
+            </>
           ) : null}
         </LinearGradient>
       </Animated.View>
@@ -168,13 +279,15 @@ export function PersonActivityShowcase({
                 style={({ pressed }) => [
                   styles.tile,
                   {
-                    backgroundColor: `${tone}17`,
-                    borderColor: `${tone}44`,
+                    backgroundColor: `${tone}12`,
+                    borderColor: `${tone}33`,
                     transform: [{ scale: pressed ? 0.97 : 1 }],
                   },
                 ]}
-                accessibilityRole="summary"
-                accessibilityLabel={`${row.name}, ${row.streak} day streak, ${todayCount} signals today`}>
+                accessibilityRole={onSelectPerson ? 'button' : 'summary'}
+                accessibilityLabel={`${displayName(row)}, ${row.streak} ${dayUnit(row.streak)} streak, ${todayCount} ${
+                  todayCount === 1 ? 'signal' : 'signals'
+                } today`}>
                 <View style={styles.tileTop}>
                   <Avatar
                     name={row.name}
@@ -188,10 +301,10 @@ export function PersonActivityShowcase({
                   </View>
                 </View>
                 <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>
-                  {row.isSelf ? 'You' : row.name}
+                  {displayName(row)}
                 </Text>
                 <Text style={[styles.stat, { color: c.textMuted }]} numberOfLines={1}>
-                  <Text style={{ color: tone, fontWeight: '800' }}>{todayCount}</Text>
+                  <Text style={[styles.statCount, { color: tone }]}>{todayCount}</Text>
                   {todayCount === 1 ? ' signal today' : ' signals today'}
                 </Text>
                 {latest.length > 0 ? (
@@ -232,38 +345,58 @@ export function PersonActivityShowcase({
 }
 
 const styles = StyleSheet.create({
-  root: { gap: 12 },
+  root: { gap: space.sm },
   hero: {
     borderCurve: 'continuous',
-    borderRadius: 22,
+    borderRadius: radius.cardLarge,
     borderWidth: 1,
-    gap: 6,
+    gap: space.sm,
     overflow: 'hidden',
-    padding: 14,
+    padding: space.md,
   },
-  heroTop: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  heroTop: { alignItems: 'center', flexDirection: 'row', gap: space.sm },
+  heroHeading: { flex: 1, gap: 2, minWidth: 0 },
   fireWell: {
     alignItems: 'center',
-    borderRadius: 14,
-    height: 44,
+    borderCurve: 'continuous',
+    borderRadius: radius.control,
+    height: 40,
     justifyContent: 'center',
-    width: 44,
+    width: 40,
   },
-  heroEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
-  heroTitle: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
-  heroBig: { fontSize: 28, fontWeight: '900', letterSpacing: -1 },
-  heroPair: { alignItems: 'center', flexDirection: 'row', gap: 10 },
-  heroStat: { alignItems: 'center', minWidth: 36 },
+  heroEyebrow: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
+  heroPair: { flexDirection: 'row', gap: space.xs },
+  heroStat: {
+    borderCurve: 'continuous',
+    borderRadius: radius.control,
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.sm,
+  },
+  heroStatHead: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+  heroStatDot: { borderRadius: 3, height: 6, width: 6 },
   heroStatLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-    marginBottom: 1,
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  heroStatDivider: { borderRadius: 1, height: 28, width: 2 },
-  heroSub: { fontSize: 12.5, fontWeight: '600', lineHeight: 17 },
-  dots: { marginTop: 4 },
+  heroValueRow: { alignItems: 'baseline', flexDirection: 'row', gap: 4, marginTop: 2 },
+  heroValue: {
+    ...typography.metricLarge,
+    flexShrink: 1,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.8,
+    lineHeight: 40,
+  },
+  heroUnit: { fontSize: 13, fontWeight: '600' },
+  heroStatCaption: { fontSize: 12, fontWeight: '500', lineHeight: 16 },
+  heroSub: { ...typography.footnote },
+  dots: { marginTop: 2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
   tileWrap: { width: '48%' },
   tile: {
@@ -283,9 +416,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
-  streakNum: { fontSize: 12, fontWeight: '900' },
-  name: { fontSize: 15, fontWeight: '800', marginTop: 4 },
-  stat: { fontSize: 12, lineHeight: 15 },
+  streakNum: { fontSize: 12, fontVariant: ['tabular-nums'], fontWeight: '800' },
+  name: { fontSize: 15, fontWeight: '700', marginTop: 4 },
+  stat: { fontSize: 12, lineHeight: 16 },
+  statCount: { fontVariant: ['tabular-nums'], fontWeight: '700' },
   signalRow: { gap: 4, marginTop: 6 },
   signalChip: {
     alignItems: 'center',
