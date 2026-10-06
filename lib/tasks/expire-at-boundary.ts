@@ -12,6 +12,7 @@ import {
   formatDateInTimezone,
   resolveHouseholdTimezone,
 } from '@/lib/tasks/household-tz';
+import { carryReassignedOvernight } from '@/lib/tasks/reassign-policy';
 import { isExpiredStatus } from '@/lib/tasks/recurring';
 import { getTaskAssignees } from '@/lib/tasks/split-assign';
 import type { HouseholdTask } from '@/types/orbit';
@@ -55,6 +56,7 @@ export function expireOpenTasksAtBoundary(
   now: Date,
   input: {
     expiryHm: string;
+    dailyDeadlineHm?: string;
     /** When set (including null/undefined value), use household IANA TZ. Omit key for device-local. */
     timezone?: string | null;
     assigneeOnRecess?: (assigneeName: string, dateKey: string) => boolean;
@@ -64,6 +66,7 @@ export function expireOpenTasksAtBoundary(
   const timezone = useHouseholdTz ? resolveHouseholdTimezone(input.timezone) : null;
   const todayKey = timezone ? formatDateInTimezone(now, timezone) : formatLocalDate(now);
   const expiredAt = now.toISOString();
+  const dailyDeadlineHm = input.dailyDeadlineHm ?? '19:00';
   return tasks.map((task) => {
     if (!OPEN.includes(task.status) || isExpiredStatus(task.status)) return task;
     const dateKey = occurrenceDateKey(task, now, timezone ?? DEFAULT_HOUSEHOLD_TIMEZONE);
@@ -79,6 +82,14 @@ export function expireOpenTasksAtBoundary(
       names.every((name) => input.assigneeOnRecess?.(name, dateKey))
     ) {
       return task;
+    }
+    if (task.reassignedAt && !task.reassignCarriedOvernight) {
+      const carried = carryReassignedOvernight(task, dateKey, {
+        dailyDeadlineHm,
+        timezone,
+        now,
+      });
+      if (carried) return carried;
     }
     return { ...task, status: 'Expired' as const, expiredAt: task.expiredAt ?? expiredAt };
   });

@@ -203,10 +203,14 @@ export function evaluateAchievements(
   }));
 }
 
+/** @deprecated Prefer resolveMemberAccentColor — kept for emoji fallbacks. */
 export const MEMBER_ACCENTS: Record<string, { color: string; emoji: string }> = {
-  Sarah: { color: '#38BDF8', emoji: '👩' },
-  David: { color: '#A78BFA', emoji: '👨' },
-  Emma: { color: '#FB923C', emoji: '🦋' },
+  Sarah: { color: '#378ADD', emoji: '👩' },
+  David: { color: '#7F77DD', emoji: '👨' },
+  /** Coral orange — matches Jack's designated pack */
+  Jack: { color: '#D85A30', emoji: '👦' },
+  /** Citrus yellow — matches Emma's designated pack */
+  Emma: { color: '#EF9F27', emoji: '🦋' },
   Liam: { color: '#34D399', emoji: '🌟' },
   Jordan: { color: '#F472B6', emoji: '✨' },
   Casey: { color: '#94A3B8', emoji: '👋' },

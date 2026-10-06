@@ -35,7 +35,6 @@ function MorphGlyph({
   index,
   color,
   fontWeight,
-  letterSpacing,
   energetic,
   generation,
   slotMin,
@@ -45,10 +44,9 @@ function MorphGlyph({
   index: number;
   color: string;
   fontWeight: MorphingTabLabelProps['fontWeight'];
-  letterSpacing: number;
   energetic: boolean;
   generation: number;
-  /** Narrower slots for long words, so "Allowance" doesn't read as "Al lowance". */
+  /** Narrower slots for long words during morph only. */
   slotMin: number;
 }) {
   const progress = useSharedValue(1);
@@ -129,7 +127,8 @@ function MorphGlyph({
     color,
     fontSize: 10,
     fontFamily: fontFamilyForWeight(fontWeight ?? '400'),
-    letterSpacing,
+    // Per-glyph letterSpacing stacks with slot padding and makes "ll"/"lo" look gappy.
+    letterSpacing: 0,
   } as const;
 
   const empty = !from && !to;
@@ -149,7 +148,8 @@ function MorphGlyph({
         minWidth: 0,
       };
     }
-    return { minWidth: slotMin };
+    // During morph only — natural width + tiny pad (never a fixed minWidth for "l").
+    return { minWidth: 0, paddingHorizontal: slotMin >= 5 ? 0.35 : 0.15 };
   });
 
   return (
@@ -161,9 +161,38 @@ function MorphGlyph({
   );
 }
 
+function SettledLabel({
+  text,
+  color,
+  fontWeight,
+  letterSpacing,
+}: {
+  text: string;
+  color: string;
+  fontWeight: MorphingTabLabelProps['fontWeight'];
+  letterSpacing: number;
+}) {
+  return (
+    <View style={styles.row} accessibilityLabel={text}>
+      <Animated.Text
+        style={{
+          color,
+          fontSize: 10,
+          fontFamily: fontFamilyForWeight(fontWeight ?? '400'),
+          // Long tab words: never add positive tracking (Coral +0.15 widened "ll"/"lo").
+          letterSpacing: text.length >= 8 ? Math.min(letterSpacing, 0) : letterSpacing,
+          fontWeight,
+        }}>
+        {text}
+      </Animated.Text>
+    </View>
+  );
+}
+
 /**
  * Magical letter-morph for Rewards ↔ Ranks ↔ Redeem tab labels.
  * Glyphs transform (scramble mid-flight) instead of a hard cut.
+ * Long labels (Allowance) settle as one Text node so font kerning stays natural.
  */
 export function MorphingTabLabel({
   text,
@@ -183,10 +212,19 @@ export function MorphingTabLabel({
     setGeneration((g) => g + 1);
   }, [text, to]);
 
+  // After the morph finishes, sync from→to so long labels can use natural kerning.
+  useEffect(() => {
+    if (from === to) return;
+    const settleMs = (energetic ? MORPH_MS : MORPH_MS * 0.85) + STAGGER_MS * Math.max(from.length, to.length) + 60;
+    const id = setTimeout(() => {
+      setFrom(to);
+    }, settleMs);
+    return () => clearTimeout(id);
+  }, [energetic, from, generation, to]);
+
   const len = Math.max(from.length, to.length, 1);
-  // A tab is about 70pt wide. Nine letters at 6.2pt each overflow and the gaps read as a
-  // space, so the slot narrows as the word grows.
-  const slotMin = len >= 9 ? 4.2 : len >= 7 ? 5.2 : 6.2;
+  // A tab is about 70pt wide. Long words need tight morph slots or "ll"/"lo" look spaced.
+  const slotMin = len >= 10 ? 3.1 : len >= 9 ? 3.4 : len >= 7 ? 4.8 : 6.2;
 
   const slots = useMemo(() => {
     // Center-pad the shorter word so morph slots stay balanced under the icon.
@@ -199,8 +237,15 @@ export function MorphingTabLabel({
     }));
   }, [from, generation, len, to]);
 
+  // Settled long label → one Text node (fixes Allowance "ll"/"lo" slot gaps).
+  if (from === to && to.length >= 8) {
+    return (
+      <SettledLabel text={to} color={color} fontWeight={fontWeight} letterSpacing={letterSpacing} />
+    );
+  }
+
   return (
-    <View style={styles.row} accessibilityLabel={to}>
+    <View style={[styles.row, len >= 8 && styles.rowTight]} accessibilityLabel={to}>
       {slots.map((slot, index) => (
         <MorphGlyph
           key={slot.key}
@@ -209,7 +254,6 @@ export function MorphingTabLabel({
           index={index}
           color={color}
           fontWeight={fontWeight}
-          letterSpacing={letterSpacing}
           energetic={energetic}
           generation={generation}
           slotMin={slotMin}
@@ -228,6 +272,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'visible',
     width: '100%',
+  },
+  rowTight: {
+    columnGap: 0,
   },
   glyph: {
     alignItems: 'center',

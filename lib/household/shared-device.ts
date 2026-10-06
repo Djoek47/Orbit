@@ -63,7 +63,7 @@ export function findSharedDeviceForMember(
 }
 
 /**
- * Nested switchable account on a shared tablet (e.g. Josh / Todd).
+ * Nested switchable account on a shared tablet (e.g. Emma / Jack).
  * These profiles get a simplified Sidekick Home/Tasks surface.
  */
 export function isSharedDeviceAccount(
@@ -75,7 +75,7 @@ export function isSharedDeviceAccount(
 
 /**
  * Top-level assign targets: shared devices + people not nested under a device.
- * Nested accounts (Josh/Todd) are chosen after picking the Shared tablet.
+ * Nested accounts (Emma/Jack) are chosen after picking the Shared tablet.
  */
 export function assignTargetMembers(members: HouseholdMember[]): HouseholdMember[] {
   const nested = nestedSharedAccountIds(members);
@@ -106,7 +106,7 @@ export function pruneSharedDeviceLinks(
   return next;
 }
 
-/** Title shown on the shared device: "Clean dishes - Josh". */
+/** Title shown on the shared device: "Clean dishes - Jack". */
 export function withSharedPersonLabel(baseTitle: string, personName: string): string {
   const trimmed = baseTitle.trim();
   const suffix = ` - ${personName.trim()}`;

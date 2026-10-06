@@ -5,6 +5,7 @@ import {
   type HouseholdRewardSettings,
 } from '@/lib/rewards/reward-mode';
 import { calculateAward } from '@/lib/scoring/calculate-award';
+import { effectiveDueAtForAward } from '@/lib/tasks/reassign-policy';
 import type { HouseholdTask, TaskDifficulty } from '@/types/orbit';
 
 const WEIGHT_BY_DIFFICULTY: Record<TaskDifficulty, number> = {
@@ -31,11 +32,12 @@ export function isHygieneTask(
 }
 
 export function isTaskLate(task: HouseholdTask, completedAt: Date = new Date()): boolean {
-  if (task.status === 'Overdue') {
-    return true;
+  const effectiveDue = effectiveDueAtForAward(task);
+  if (effectiveDue) {
+    return new Date(effectiveDue).getTime() < completedAt.getTime();
   }
-  if (task.dueAt) {
-    return new Date(task.dueAt).getTime() < completedAt.getTime();
+  if (task.status === 'Overdue' && !task.reassignFullXpUntil) {
+    return true;
   }
   return /overdue/i.test(task.due);
 }
@@ -56,16 +58,17 @@ export function resolveCompletionXp(
     return { awarded: 0, penalty: 0, late: false, base: 0, completedLate: false };
   }
 
+  const dueForAward = effectiveDueAtForAward(task);
   const award = calculateAward(
     {
       xp: base,
-      dueAt: task.dueAt,
+      dueAt: dueForAward,
       xpEligible: isXpEligible(task),
       tracking: task.tracking,
       category: task.category,
     },
     completedAt,
-    task.dueAt
+    dueForAward
   );
 
   const forgone = award.completedLate ? award.fullXp - award.awardedXp : 0;

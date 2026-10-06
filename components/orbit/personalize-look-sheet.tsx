@@ -4,10 +4,17 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
+import { AvatarLibraryStrip } from '@/components/orbit/avatar-library-strip';
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import { AVATAR_EMOJIS } from '@/constants/accent-themes';
 import { space, typography } from '@/constants/orbit-theme';
+import { isAvatarImageUri } from '@/lib/game-levels';
+import {
+  listAvatarLibrary,
+  rememberAvatarInLibrary,
+  type AvatarLibraryEntry,
+} from '@/lib/profile/avatar-library';
 import {
   AvatarPickError,
   createAvatarWithImagePlayground,
@@ -25,6 +32,8 @@ import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 type PersonalizeLookSheetProps = {
   visible: boolean;
   memberName: string;
+  /** Account id — gallery is keyed so faces survive sign-out on this phone. */
+  userId?: string | null;
   /** Everyone else in the house — their names are kept out of the Playground prompt too. */
   otherNames?: string[];
   currentAvatar?: string;
@@ -44,6 +53,7 @@ type PersonalizeLookSheetProps = {
 export function PersonalizeLookSheet({
   visible,
   memberName,
+  userId,
   otherNames,
   currentAvatar,
   onDismiss,
@@ -61,6 +71,7 @@ export function PersonalizeLookSheet({
   const [sourcePhoto, setSourcePhoto] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [gallery, setGallery] = useState<AvatarLibraryEntry[]>([]);
   const avoidNames = [memberName, ...(otherNames ?? [])].filter(
     (name) => !/^(you|them|member|me)$/i.test(name.trim())
   );
@@ -71,9 +82,24 @@ export function PersonalizeLookSheet({
     setShowGuide(false);
     setBusy(false);
     setAvailability(imagePlaygroundAvailability());
-  }, [visible]);
+    if (userId) {
+      void listAvatarLibrary(userId).then(setGallery);
+    } else {
+      setGallery([]);
+    }
+  }, [visible, userId]);
 
-  const finish = async (value: string) => {
+  const finish = async (
+    value: string,
+    source?: 'playground' | 'photos' | 'import'
+  ) => {
+    if (userId && isAvatarImageUri(value)) {
+      try {
+        setGallery(await rememberAvatarInLibrary({ userId, uri: value, source: source ?? 'import' }));
+      } catch {
+        /* gallery is best-effort */
+      }
+    }
     await onSelect(value);
     onDismiss();
   };
@@ -81,7 +107,7 @@ export function PersonalizeLookSheet({
   const handlePhotos = async () => {
     setBusy(true);
     try {
-      await finish(await pickAvatarFromLibrary());
+      await finish(await pickAvatarFromLibrary(), 'photos');
     } catch (error) {
       if (error instanceof AvatarPickError && error.code === 'cancelled') return;
       orbitAlert(
@@ -125,7 +151,7 @@ export function PersonalizeLookSheet({
         style,
         sourceImageUri: sourcePhoto,
       });
-      if (uri) await finish(uri);
+      if (uri) await finish(uri, 'playground');
     } catch (error) {
       setShowGuide(true);
       if (error instanceof AvatarPickError && error.code === 'unavailable') {
@@ -161,6 +187,17 @@ export function PersonalizeLookSheet({
       <Text style={[typography.subheadline, { color: c.textMuted, marginTop: 6 }]}>
         Apple Image Playground draws it on this iPhone. Three quick choices, then tap Create.
       </Text>
+
+      {gallery.length ? (
+        <View style={{ marginTop: space.md }}>
+          <AvatarLibraryStrip
+            entries={gallery}
+            selectedUri={currentAvatar}
+            accent={c.primary}
+            onSelect={(uri) => void finish(uri, 'import')}
+          />
+        </View>
+      ) : null}
 
       <Step n={1} title="Pick a look" color={c.textSubtle} text={c.text} />
       <View style={styles.styleRow}>

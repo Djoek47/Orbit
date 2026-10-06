@@ -47,6 +47,10 @@ import { isTasksStatus } from '@/lib/navigation/open-tasks-tab';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import {
+  resolveMemberAccentColor,
+  resolveMemberAccentTheme,
+} from '@/lib/theme/member-accent';
+import {
   normalizeRewardSettings,
   resolveTaskXpFromHouseholdTask,
   type HouseholdRewardSettings,
@@ -63,6 +67,7 @@ import { canAdminRequestTaskProof, needsSidekickPhotoReply } from '@/lib/tasks/p
 import { isDueToday } from '@/lib/tasks/today';
 import { displayDueLabel, homeworkDueChip } from '@/lib/tasks/due-label';
 import {
+  countExpiredHistory,
   groupExpiredByDay,
   isActiveTask,
   isCompletedTask,
@@ -623,7 +628,7 @@ function TaskItem({
 }
 
 /** Preferred household order for admin by-person breakdown (after “My tasks”). */
-const MEMBER_SECTION_ORDER = ['Sarah', 'David', 'Liam', 'Emma', 'Josh', 'Todd'];
+const MEMBER_SECTION_ORDER = ['Sarah', 'David', 'Liam', 'Emma', 'Jack', 'Todd'];
 
 function sortTasksForMember(tasks: HouseholdTask[]) {
   const rank = (task: HouseholdTask) => {
@@ -955,6 +960,10 @@ export default function TasksScreen() {
     [...(proofReplyTask?.proofRounds ?? [])].reverse().find((round) => round.note)?.note ?? null;
 
   const expiredGroups = useMemo(() => groupExpiredByDay(grouped.expired), [grouped.expired]);
+  const expiredHistoryCount = useMemo(
+    () => countExpiredHistory(household.tasks),
+    [household.tasks]
+  );
   const expiredCount = useMemo(() => {
     return household.tasks.filter((task) => {
       if (!isExpiredVisibleInTab(task)) return false;
@@ -1017,7 +1026,7 @@ export default function TasksScreen() {
         done,
         total,
         title: isMine ? `My tasks (${member.name})` : `${member.name}'s tasks`,
-        accent: MEMBER_ACCENTS[member.name]?.color ?? accentTheme.primary,
+        accent: resolveMemberAccentColor(member, accentTheme.primary),
       };
     });
   }, [
@@ -1030,16 +1039,18 @@ export default function TasksScreen() {
     showByMember,
   ]);
 
-  const focusedMemberRecord = useMemo(
-    () =>
-      focusMember
-        ? household.members.find((member) => member.name === focusMember) ?? null
-        : null,
-    [focusMember, household.members]
+  const focusedMemberRecord = useMemo(() => {
+    const name = focusMember ?? currentMember?.name ?? null;
+    if (!name) return null;
+    return household.members.find((member) => member.name === name) ?? currentMember ?? null;
+  }, [focusMember, currentMember, household.members]);
+
+  /** Tasks chrome follows Who's on / signed-in person — Jack orange, Emma yellow. */
+  const viewAccent = useMemo(
+    () => resolveMemberAccentTheme(focusedMemberRecord, accentTheme.id),
+    [focusedMemberRecord, accentTheme.id]
   );
-  const focusedAccent = focusedMemberRecord
-    ? MEMBER_ACCENTS[focusedMemberRecord.name]?.color ?? accentTheme.primary
-    : accentTheme.primary;
+  const focusedAccent = viewAccent.primary;
 
   const totalXPToday = grouped.today.reduce((sum, task) => {
     if (task.tracking === 'streak' || task.category === 'Hygiene') return sum;
@@ -1119,7 +1130,7 @@ export default function TasksScreen() {
       contentContainerStyle={[orbitScreen.content, { paddingTop: chromePad }]}
       contentInsetAdjustmentBehavior="never"
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={accentTheme.primary} />
+        <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={focusedAccent} />
       }>
       <View style={styles.headerRow}>
         <View style={[orbitScreen.header, styles.tasksHeader]}>
@@ -1146,7 +1157,7 @@ export default function TasksScreen() {
               members={household.members}
               currentMemberId={currentMember?.id ?? ''}
               viewingName={focusMember ?? currentMember?.name ?? null}
-              accentColor={accentTheme.primary}
+              accentColor={focusedAccent}
               onViewMember={(member) => {
                 if (!member || member.id === currentMember?.id) {
                   clearFocusMember();
@@ -1171,7 +1182,7 @@ export default function TasksScreen() {
             }
             style={styles.addButtonWrap}>
             <LinearGradient
-              colors={[accentTheme.primary, accentTheme.secondary]}
+              colors={[viewAccent.primary, viewAccent.secondary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.addButton}>
@@ -1187,6 +1198,7 @@ export default function TasksScreen() {
       {hasKids ? (
       <TourTarget id="tasks.domainSegment">
       <SegmentedControl
+        accentColor={focusedAccent}
         options={[
           { value: 'chores', label: 'Chores' },
           { value: 'homework', label: 'Homework' },
@@ -1218,6 +1230,7 @@ export default function TasksScreen() {
       ) : null}
 
       <SegmentedControl
+        accentColor={focusedAccent}
         options={[
           { value: 'active', label: 'Active' },
           { value: 'completed', label: 'Completed' },
@@ -1237,14 +1250,14 @@ export default function TasksScreen() {
         <CompletedBreakdownCard
           tasks={household.tasks}
           members={household.members}
-          accent={accentTheme.primary}
+          accent={focusedAccent}
         />
       ) : rewardCapabilities.xpEnabled ? (
         <LinearGradient
-          colors={[`${accentTheme.primary}1F`, 'rgba(52,211,153,0.08)']}
+          colors={[`${focusedAccent}1F`, 'rgba(52,211,153,0.08)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.xpBanner, { borderColor: `${accentTheme.primary}26` }]}>
+          style={[styles.xpBanner, { borderColor: `${focusedAccent}26` }]}>
           <View style={styles.xpBannerLeft}>
             <MaterialIcons name="local-fire-department" size={16} color={c.warning} />
             <Text style={[styles.xpBannerTitle, { color: c.text }]}>
@@ -1261,6 +1274,7 @@ export default function TasksScreen() {
         <>
           <SearchBar value={search} onChangeText={setSearch} placeholder="Search assigned tasks" />
           <SegmentedControl
+            accentColor={focusedAccent}
             options={FILTER_TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
             value={filter}
             onChange={(next) => {
@@ -1283,8 +1297,11 @@ export default function TasksScreen() {
           <MaterialIcons name="schedule" size={16} color={c.textMuted} />
           <Text style={[typography.footnote, styles.expiredNoticeText, { color: c.textMuted }]}>
             {domainTab === 'homework'
-              ? 'Expired homework is automatically deleted 7 days after it expires.'
-              : 'Expired tasks are automatically deleted 7 days after they expire.'}
+              ? 'Expired homework leaves this tab after 7 days. History stays in household health.'
+              : 'Expired work leaves this tab after 7 days — kept in history, not deleted.'}
+            {expiredHistoryCount > 0
+              ? ` ${expiredHistoryCount} older ${expiredHistoryCount === 1 ? 'item' : 'items'} in history.`
+              : ''}
           </Text>
         </View>
       ) : null}
@@ -1321,6 +1338,7 @@ export default function TasksScreen() {
         <View>
           <EmptyState
             tone="allClear"
+            accentColor={focusedAccent}
             title={
               statusTab === 'expired'
                 ? 'Nothing expired. Nice work.'
@@ -1357,7 +1375,7 @@ export default function TasksScreen() {
                   );
                 }}
                 style={styles.emptyCta}>
-                <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>
+                <Text style={[styles.emptyCtaText, { color: focusedAccent }]}>
                   Switch who’s signed in
                 </Text>
               </Pressable>
@@ -1371,7 +1389,7 @@ export default function TasksScreen() {
                 } as never)
               }
               style={styles.emptyCta}>
-              <Text style={[styles.emptyCtaText, { color: accentTheme.primary }]}>
+              <Text style={[styles.emptyCtaText, { color: focusedAccent }]}>
                 {domainTab === 'homework' ? 'Assign homework' : 'Assign tasks'}
               </Text>
             </Pressable>
@@ -1389,7 +1407,7 @@ export default function TasksScreen() {
               countLabel={`${group.tasks.length} items`}
               tasks={group.tasks}
               members={household.members}
-              accentPrimary={accentTheme.primary}
+              accentPrimary={focusedAccent}
               muted
               interactive
               justCompletedId={null}
@@ -1415,7 +1433,7 @@ export default function TasksScreen() {
             }
             tasks={section.tasks}
             members={household.members}
-            accentPrimary={accentTheme.primary}
+            accentPrimary={focusedAccent}
             allowEmpty
             emptyLabel="No tasks assigned"
             progress={{ done: section.done, total: section.total, color: section.accent }}
@@ -1443,7 +1461,7 @@ export default function TasksScreen() {
           }
           tasks={grouped.done}
           members={household.members}
-          accentPrimary={accentTheme.primary}
+          accentPrimary={focusedAccent}
           muted
           justCompletedId={justCompletedId}
           canDelete={permissions.canCreateTask}
@@ -1467,7 +1485,7 @@ export default function TasksScreen() {
             countLabel={`${grouped.today.length} items`}
             tasks={grouped.today}
             members={household.members}
-            accentPrimary={accentTheme.primary}
+            accentPrimary={focusedAccent}
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}
@@ -1482,11 +1500,11 @@ export default function TasksScreen() {
 
           <TaskSection
             title="Upcoming"
-            dotColor={accentTheme.primary}
+            dotColor={focusedAccent}
             countLabel={`${grouped.upcoming.length} items`}
             tasks={grouped.upcoming}
             members={household.members}
-            accentPrimary={accentTheme.primary}
+            accentPrimary={focusedAccent}
             justCompletedId={justCompletedId}
             canDelete={permissions.canCreateTask}
             hygieneXpWhenRewarded={hygieneXpWhenRewarded}

@@ -141,22 +141,22 @@ test('Pass C2: signOutAndLeave coalesces + hard ceiling + always navigates', asy
   assert.match(leave, /resetToGetStarted/);
 });
 
-test('Pass C2b: Privacy & legal uses native menu (never orbitAlert over Settings)', () => {
+test('Pass C2b: Privacy & legal dismisses Settings then opens root sheet', () => {
   const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
   const admin = read('app/settings.tsx');
   const menus = read('lib/ui/settings-native-menus.ts');
-  assert.match(sidekick, /Privacy & legal[\s\S]{0,400}?showPrivacyLegalMenu/);
-  assert.match(admin, /Privacy & legal[\s\S]{0,400}?showPrivacyLegalMenu/);
+  assert.match(sidekick, /Privacy & legal[\s\S]{0,500}?closeSettingsModal\(\)/);
+  assert.match(sidekick, /Privacy & legal[\s\S]{0,500}?showPrivacyLegalMenu/);
+  assert.match(admin, /Privacy & legal[\s\S]{0,500}?closeSettingsModal\(\)/);
+  assert.match(admin, /Privacy & legal[\s\S]{0,500}?showPrivacyLegalMenu/);
   assert.match(menus, /openLegalLinksSheet/);
   assert.match(
     read('components/orbit/settings/legal-links-sheet-host.tsx'),
     /CHOREMAXX_LEGAL\.privacyUrl/
   );
   assert.match(read('lib/legal/open-choremaxx-url.ts'), /openBrowserAsync/);
-  // Nested RN Modal over Expo Settings modal is the freeze — ban it on these rows.
   assert.doesNotMatch(sidekick, /Privacy & legal[\s\S]{0,400}?orbitAlert\(/);
   assert.doesNotMatch(admin, /Privacy & legal[\s\S]{0,400}?orbitAlert\(/);
-  // Delete account works because it navigates — no nested Modal.
   assert.match(admin, /handleDelete[\s\S]{0,120}?router\.push\('\/delete-account'/);
 });
 
@@ -179,8 +179,10 @@ test('Pass C3: orbitAlert defers destructive until Modal settles', () => {
   assert.equal(alert.includes('requestAnimationFrame(() => btn.onPress'), false);
 });
 
-test('Pass C4: session restart dismisses modals then replaces root (no auto remount)', () => {
+test('Pass C4: session restart dismisses modals then lands Get Started (no auto remount)', () => {
   const restart = read('lib/navigation/session-restart.ts');
+  assert.match(restart, /SESSION_RESTART_ROUTE = '\/welcome'/);
+  assert.match(restart, /dismissTo/);
   assert.match(restart, /dismissAll/);
   assert.match(restart, /SESSION_NAV_DELAY_MS/);
   assert.match(restart, /applySignedOutNavigation/);
@@ -193,4 +195,6 @@ test('Pass C4: session restart dismisses modals then replaces root (no auto remo
     restart,
     /schedule\(\(\) => remountSignedOutSession/
   );
+  assert.match(read('lib/navigation/reset-to-get-started.ts'), /dismissTo/);
+  assert.match(read('lib/auth/sign-out-and-leave.ts'), /dismissTo\('\/welcome'/);
 });

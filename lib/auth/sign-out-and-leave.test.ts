@@ -47,13 +47,13 @@ async function main() {
   {
     const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
     assert.match(sidekick, /signOutAndLeave\(signOut\)/, 'Sidekick/shared uses one-shot leave');
-    assert.match(sidekick, /style: 'destructive'/, 'shared-device confirm is destructive');
+    assert.match(sidekick, /confirmLeaveDevice/, 'shared-device confirm uses native menu');
     assert.match(sidekick, /Signing out…/, 'busy label on first press');
     assert.match(sidekick, /isSignOutInFlight/, 'blocks stacked confirms');
 
     const settings = read('app/settings.tsx');
     assert.match(settings, /signOutAndLeave\(signOut\)/, 'admin uses one-shot leave');
-    assert.match(settings, /confirmAdminSignOut/, 'admin confirms before leave');
+    assert.match(settings, /confirmLeaveDevice/, 'admin confirms before leave');
     assert.match(settings, /Signing out…/, 'admin busy label');
     assert.match(
       read('app/_layout.tsx'),
@@ -64,6 +64,12 @@ async function main() {
     const leave = read('lib/auth/sign-out-and-leave.ts');
     assert.match(leave, /SIGNOUT_HARD_MS/, 'hard ceiling if wipe hangs');
     assert.match(leave, /SESSION_NAV_DELAY_MS/, 'hold cover through nav delay');
+    assert.match(leave, /dismissTo\('\/welcome'/, 'second shove lands Get Started');
+    assert.match(
+      read('lib/navigation/session-restart.ts'),
+      /SESSION_RESTART_ROUTE = '\/welcome'/,
+      'primary restart is Get Started not /'
+    );
   }
 
   // Pass 2 — alert + removal Modal settle before navigation

@@ -1,7 +1,6 @@
 /**
  * Client → transfer-household edge (create / accept / eligibility).
  */
-import { getSupabaseClient } from '@/lib/supabase/client';
 import {
   buildHouseholdTransferDeepLink,
   buildHouseholdTransferShareLink,
@@ -11,6 +10,8 @@ import {
   transferTokenExpiresAt,
   type TransferMembership,
 } from '@/lib/household/household-transfer';
+import { getSupabaseClient } from '@/lib/supabase/client';
+import { edgeErrorMessage, friendlyTransferError } from '@/lib/supabase/edge-error';
 
 export type CreateTransferResult =
   | {
@@ -79,10 +80,18 @@ export async function createHouseholdTransferToken(input: {
       body: { action: 'create', householdId: input.householdId },
     });
     if (error) {
-      return { ok: false, error: error.message || 'Could not create transfer QR.' };
+      return {
+        ok: false,
+        error: friendlyTransferError(
+          await edgeErrorMessage(error, 'Could not create transfer QR.')
+        ),
+      };
     }
     if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
-      return { ok: false, error: String((data as { error: string }).error) };
+      return {
+        ok: false,
+        error: friendlyTransferError(String((data as { error: string }).error)),
+      };
     }
     const token = String((data as { token?: string }).token ?? '');
     const expiresAt = String(
@@ -127,10 +136,16 @@ export async function checkTransferEligibility(input: {
       body: { action: 'eligibility' },
     });
     if (error) {
-      return { ok: false, error: error.message };
+      return {
+        ok: false,
+        error: friendlyTransferError(await edgeErrorMessage(error, 'Could not check eligibility.')),
+      };
     }
     if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
-      return { ok: false, error: String((data as { error: string }).error) };
+      return {
+        ok: false,
+        error: friendlyTransferError(String((data as { error: string }).error)),
+      };
     }
     return { ok: true, eligible: Boolean((data as { eligible?: boolean }).eligible) };
   } catch (error) {
@@ -200,7 +215,13 @@ export async function acceptHouseholdTransfer(input: {
       body: { action: 'accept', token },
     });
     if (error) {
-      return { ok: false, error: error.message || 'Could not complete the transfer.', code: 'other' };
+      return {
+        ok: false,
+        error: friendlyTransferError(
+          await edgeErrorMessage(error, 'Could not complete the transfer.')
+        ),
+        code: 'other',
+      };
     }
     if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
       const code =
@@ -209,7 +230,7 @@ export async function acceptHouseholdTransfer(input: {
           : ('other' as const);
       return {
         ok: false,
-        error: String((data as { error: string }).error),
+        error: friendlyTransferError(String((data as { error: string }).error)),
         code,
       };
     }

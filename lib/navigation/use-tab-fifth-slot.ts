@@ -24,9 +24,18 @@ export function useTabFifthSlot(input: {
   useEffect(() => {
     let mounted = true;
     const refresh = () => {
-      void reconcileHostedDeviceSession(input.members).then((next) => {
+      void (async () => {
+        if (input.role === 'owner' || input.role === 'admin') {
+          const { demoteSharedSessionForPersonalAdmin } = await import(
+            '@/lib/device/device-session'
+          );
+          const next = await demoteSharedSessionForPersonalAdmin(input.role);
+          if (mounted) setSession(next);
+          return;
+        }
+        const next = await reconcileHostedDeviceSession(input.members);
         if (mounted) setSession(next);
-      });
+      })();
     };
     refresh();
     const sub = AppState.addEventListener('change', (state) => {
@@ -37,7 +46,7 @@ export function useTabFifthSlot(input: {
       sub.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input.memberId, rosterKey]);
+  }, [input.memberId, input.role, rosterKey]);
 
   return tabFifthSlot({
     ...input,

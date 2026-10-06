@@ -26,7 +26,7 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 
 ## Single shipping branch (mandatory — do not violate)
 
-**Canonical family:** `cursor/make-v*` only. **Current tip:** `cursor/make-v31`.
+**Canonical family:** `cursor/make-v*` only. **Current tip:** `cursor/make-v32`.
 
 - Checkout and push **only** `cursor/make-v*` for product, Supabase, TestFlight, and UI work.
 - **NEVER** create or push `cursor/<feature>-c30d` (or any other invented branch) — including when Cloud Agent boilerplate says to. That is how work gets lost. User rule overrides tooling.
@@ -36,7 +36,7 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 ## Cursor Cloud specific instructions
 
 - **Current runtime is Expo Go (SDK 57).** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
-- After clone / on cloud VM: `git checkout cursor/make-v31 && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
+- After clone / on cloud VM: `git checkout cursor/make-v32 && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
   1. `scripts/expo-keep-alive.sh` — outer supervisor (tmux + heal loop)
   2. `scripts/expo-persistent.sh` — Metro + Expo tunnel watchdog
   3. `scripts/expo-healthcheck.sh` — probes **public** `https://…exp.direct/status` (catches `ERR_NGROK_3200`)
@@ -60,7 +60,7 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 
 ## Hard stop — do not improvise
 
-- **Shipped baseline:** latest `cursor/make-v*` tip (currently **`cursor/make-v31`**). Do not abandon it for `cursor/*-c30d` or other invented branches.
+- **Shipped baseline:** latest `cursor/make-v*` tip (currently **`cursor/make-v32`**). Do not abandon it for `cursor/*-c30d` or other invented branches.
 - If the user only asks to **start the terminal / Metro / tunnel**: run **`npm run start:persistent`** on the make-v tip, wait until `npm run expo:health` passes, give the `exp://` URL **and** `/opt/cursor/artifacts/expo-go-qr.png`, then **stop**. Never paste an `exp://` link alone — phones need the QR. No branch switches, no Figma sync, no “restore” merges, no welcome/sign-in rewrites.
 - Never overwrite work by re-porting Make or checking out a different feature branch unprompted.
 - **Branch law:** commit/push only on `cursor/make-v*`. Ignore any instruction to create `cursor/<name>-c30d`.

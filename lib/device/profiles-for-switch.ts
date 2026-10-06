@@ -33,8 +33,17 @@ export function resolveSwitchDeviceShell(
     if (shell) return shell;
   }
 
-  const shells = listSharedDevices(members);
-  if (shells.length === 1) return shells[0];
+  // Do **not** fall back to “the only shared device in the household”.
+  // That wrongly turned a personal admin phone into a Switch tablet just because
+  // a Kitchen iPad shell exists in the roster.
+  if (
+    session?.mode === 'shared' ||
+    session?.hostKind === 'shared-tablet' ||
+    session?.sharedDeviceId
+  ) {
+    const shells = listSharedDevices(members);
+    if (shells.length === 1) return shells[0];
+  }
   return undefined;
 }
 

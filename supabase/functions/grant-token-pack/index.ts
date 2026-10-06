@@ -1,6 +1,7 @@
 /**
  * Grant consumable token pack after client validates the StoreKit purchase.
  * Unique transaction_id is the replay guard.
+ * Requires authenticated household admin; inserts via service role only.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
@@ -27,6 +28,14 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
     const householdId = typeof body.householdId === 'string' ? body.householdId : null;
     const pack = typeof body.pack === 'string' ? body.pack : null;
@@ -54,11 +63,46 @@ Deno.serve(async (req) => {
       });
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const admin = createClient(supabaseUrl, serviceKey);
+
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: membership, error: memberError } = await admin
+      .from('household_members')
+      .select('id, role, status')
+      .eq('household_id', householdId)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (memberError || !membership || !['owner', 'admin'].includes(String(membership.role))) {
+      return new Response(JSON.stringify({ error: 'forbidden' }), {
+        status: 403,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // TODO(P0 App Store): verify StoreKit / App Store Server transaction before insert.
+    // AuthZ + unique transaction_id block free anonymous minting; signed receipt verify
+    // is still required before public launch.
+
     const tokens = PACK_TOKENS[pack]!;
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
 
     // Replay-safe: unique transaction_id
     const { data: existing } = await admin

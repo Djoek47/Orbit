@@ -295,6 +295,7 @@ import {
   saveAccentThemeId,
   saveMemberAccentThemeId,
 } from '@/lib/theme/accent-prefs';
+import { resolveMemberAccentTheme } from '@/lib/theme/member-accent';
 import {
   loadAppearanceMode,
   loadBackgroundThemeId,
@@ -3391,6 +3392,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const dayKey = addCalendarDays(todayKey, -offset);
       nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now, {
         expiryHm,
+        dailyDeadlineHm: live.dailyDeadline?.trim() || '19:00',
         timezone,
         skipAssigneeNames: recessSkipAssignees(live, dayKey),
       });
@@ -3449,6 +3451,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       // After creating past-day open rows, mark them missed if still pending.
       nextTasks = rolloverMissedOccurrences(nextTasks, dayKey, now, {
         expiryHm,
+        dailyDeadlineHm: live.dailyDeadline?.trim() || '19:00',
         timezone,
         skipAssigneeNames: recessSkipAssignees(live, dayKey),
       });
@@ -3509,13 +3512,31 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
     const merged = applyHouseholdTaskExpiry([...created, ...nextTasks], live, now);
     const relabeled = refreshStaleDueLabels(merged, now);
+
+    // Wire cliffs / Rescue: classify each caught-up day for every member.
+    const { applyRolloverStreaksForDay } = await import('@/lib/streaks/apply-rollover-streaks');
+    const streakByMember = new Map<string, number>();
+    for (let offset = LOOKBACK_DAYS; offset >= 1; offset -= 1) {
+      const dayKey = addCalendarDays(todayKey, -offset);
+      const recessNames = new Set(recessSkipAssignees(live, dayKey));
+      const applied = applyRolloverStreaksForDay({
+        localDate: dayKey,
+        members: live.members,
+        tasks: relabeled,
+        recessMemberNames: recessNames,
+      });
+      for (const row of applied) {
+        streakByMember.set(row.memberId, row.streak);
+      }
+    }
+
     const profileAuth = await usesProfileCodeAuth().catch(() => null);
 
     if (!profileAuth) {
       for (const task of relabeled) {
         const prev = live.tasks.find((t) => t.id === task.id);
         if (!prev) {
-          if (isExpiredStatus(task.status)) {
+          if (isExpiredStatus(task.status) || task.reassignCarriedOvernight) {
             await taskRepository.updateTask(task).catch((error) => {
               console.warn('runOccurrenceCatchUp persist new', task.id, error);
             });
@@ -3525,16 +3546,36 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         if (
           prev.verification !== task.verification ||
           prev.status !== task.status ||
-          prev.due !== task.due
+          prev.due !== task.due ||
+          prev.occurrenceDate !== task.occurrenceDate ||
+          prev.reassignCarriedOvernight !== task.reassignCarriedOvernight ||
+          prev.assignee !== task.assignee
         ) {
           await taskRepository.updateTask(task).catch((error) => {
             console.warn('runOccurrenceCatchUp persist', task.id, error);
           });
         }
       }
+      for (const [memberId, streak] of streakByMember) {
+        if (!live.id) break;
+        const prev = live.members.find((m) => m.id === memberId);
+        if (!prev || (prev.streak ?? 0) === streak) continue;
+        await taskRepository
+          .updateMemberStreak({ householdId: live.id, memberId, streak })
+          .catch((error) => {
+            console.warn('runOccurrenceCatchUp streak', memberId, error);
+          });
+      }
     }
 
-    setHousehold((current) => ({ ...current, tasks: relabeled }));
+    setHousehold((current) => ({
+      ...current,
+      tasks: relabeled,
+      members: current.members.map((member) => {
+        const nextStreak = streakByMember.get(member.id);
+        return nextStreak == null ? member : { ...member, streak: nextStreak };
+      }),
+    }));
   };
 
   useEffect(() => {
@@ -3700,10 +3741,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
       const late = isTaskLate(currentTask);
       const baseShare = splitShareXp(currentTask, rewardSettings);
-      // v2 §5.2: late never docks XP
-      const latePenalty = 0;
-      const awarded = Math.max(0, baseShare);
+      // Decision §13.7 — same Late Credit table as solo tasks.
+      const { calculateAward } = await import('@/lib/scoring/calculate-award');
+      const { effectiveDueAtForAward } = await import('@/lib/tasks/reassign-policy');
+      const shareAward = calculateAward(
+        {
+          xp: baseShare,
+          dueAt: effectiveDueAtForAward(currentTask),
+          xpEligible: true,
+          tracking: currentTask.tracking,
+          category: currentTask.category,
+        },
+        completedAt,
+        effectiveDueAtForAward(currentTask)
+      );
+      const awarded = Math.max(0, shareAward.awardedXp);
+      const latePenalty = shareAward.completedLate ? Math.max(0, baseShare - awarded) : 0;
 
+      const shareLate = shareAward.completedLate;
       const nextShares = currentTask.shares.map((item) =>
         item.name === forAssignee
           ? { ...item, status: 'Completed' as const, awardedXp: awarded }
@@ -3743,7 +3798,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             task: nextTask,
             awardedXp: totalAwarded,
             completedAt,
-            completedLate: late,
+            completedLate: shareLate,
             verification: initialVerification(wantsProof),
             taskStatus: settled || everyoneDone ? 'completed' : 'in_progress',
             dueLabel: settled || everyoneDone ? 'Completed today' : nextTask.due,
@@ -3776,7 +3831,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             householdId: household.id,
             memberName: forAssignee,
             amount: totalAwarded,
-            reason: late
+            reason: shareLate
               ? `Split share (late): ${currentTask.title}`
               : `Split share: ${currentTask.title}`,
             taskId,
@@ -3838,7 +3893,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             assignee: forAssignee,
             awardedXp: totalAwarded,
             penalty: latePenalty,
-            late,
+            late: shareLate,
             taskId,
             audienceMemberIds: adminMemberIds(household.members),
           });
@@ -3848,7 +3903,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         }
         await trackAnalytics(
           'task.share_completed',
-          { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof },
+          { taskId, forAssignee, awarded, bonus, everyoneDone, needsProof, late: shareLate },
           analyticsContext
         );
       } catch (postShareError) {
@@ -3857,7 +3912,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       return {
         awarded,
         penalty: latePenalty,
-        late,
+        late: shareLate,
         bonus: everyoneDone ? bonus : 0,
         needsProof,
       };
@@ -4019,36 +4074,50 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const reassignTask = async (taskId: string, newAssigneeName: string) => {
-    const currentTask = household.tasks.find((item) => item.id === taskId);
-    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
-      return;
+    if (
+      !v2Permissions.canAssignOrEditTask &&
+      !permissions.canAssignTask &&
+      !permissions.canManageHousehold
+    ) {
+      throw new Error('Only admins can reassign tasks.');
     }
-    const trimmed = newAssigneeName.trim();
-    if (!trimmed) return;
+    const live = householdRef.current;
+    const currentTask = live.tasks.find((item) => item.id === taskId);
+    if (!currentTask) return;
 
-    const nextTask: HouseholdTask = {
-      ...currentTask,
-      assignee: trimmed,
-      assignees: [trimmed],
-      shares: undefined,
-      splitXpEach: undefined,
-      splitBonusXp: undefined,
-      splitPenaltyXp: undefined,
-    };
+    const { planTaskReassignment, applyReassignmentPlan } = await import(
+      '@/lib/tasks/reassign-policy'
+    );
+    const deadlineHm = live.dailyDeadline?.trim() || '19:00';
+    const plan = planTaskReassignment({
+      task: currentTask,
+      newAssigneeName,
+      dailyDeadlineHm: deadlineHm,
+      timezone: live.timezone,
+    });
+    if (!plan.ok) {
+      throw new Error(plan.message);
+    }
+
+    // Series handoff = this occurrence only (decision §13.4).
+    const nextTask = applyReassignmentPlan(currentTask, plan);
     const saved = await taskRepository.updateTask(nextTask);
-    setHousehold((current) => ({
-      ...current,
-      tasks: current.tasks.map((item) => (item.id === taskId ? saved : item)),
-    }));
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+    const persisted = live.tasks.map((item) => (item.id === taskId ? saved : item));
+
+    setHousehold((current) => ({ ...current, tasks: persisted }));
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot({ ...live, tasks: persisted });
+    }
+
+    const prefs = live.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
     await notifyTaskAssigned(
       pushNotification,
-      { members: household.members, notificationPrefs: household.notificationPrefs },
+      { members: live.members, notificationPrefs: live.notificationPrefs },
       {
         title: saved.title,
         category: saved.category,
-        assignee: trimmed,
-        assignees: [trimmed],
+        assignee: plan.nextAssignee,
+        assignees: [plan.nextAssignee],
         due: saved.due,
         xp: saved.xp,
         repeat: saved.repeat,
@@ -4056,7 +4125,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       saved,
       prefs.tasks !== false
     );
-    await trackAnalytics('task.reassigned', { taskId, assignee: trimmed }, analyticsContext);
+    await trackAnalytics(
+      'task.reassigned',
+      { taskId, assignee: plan.nextAssignee, mode: plan.mode },
+      analyticsContext
+    );
   };
 
   const awardDailyStreak = async () => {
@@ -5368,14 +5441,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const resolvedPaletteId = useMemo<ColorPaletteId>(() => {
-    if (currentMember?.accentThemeId) {
-      return migrateColorPaletteId(currentMember.accentThemeId);
+    // Shared-device Switch: Jack/Emma (and personal accentThemeId) drive the whole chrome.
+    if (currentMember) {
+      return resolveMemberAccentTheme(currentMember, household.accentThemeId).id;
     }
     if (household.accentThemeId) {
       return migrateColorPaletteId(household.accentThemeId);
     }
     return migrateColorPaletteId(paletteId ?? DEFAULT_COLOR_PALETTE_ID);
-  }, [currentMember?.accentThemeId, household.accentThemeId, paletteId]);
+  }, [currentMember, household.accentThemeId, paletteId]);
 
   const accentTheme = useMemo(
     () => getAccentTheme(resolvedPaletteId),
@@ -5940,6 +6014,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const switchPersona = (memberId: string) => {
     const member = household.members.find((m) => m.id === memberId);
     if (!member) return;
+
+    // Personal admin never Switch-faces — shared tablet only.
+    if (currentMember?.role === 'owner' || currentMember?.role === 'admin') {
+      return;
+    }
 
     // Shared iPad is a device shell — land on a linked account so XP/redeem work.
     let target = member;

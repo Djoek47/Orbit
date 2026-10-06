@@ -11,6 +11,8 @@ export type QualifyingOccurrence = {
   status: 'pending' | 'late' | 'completed' | 'expired';
   frequency?: string | null;
   repeat?: string | null;
+  tracking?: 'xp' | 'streak' | null;
+  category?: string | null;
   /** True when member was on Recess this day. */
   onRecess?: boolean;
 };

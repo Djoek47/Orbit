@@ -154,7 +154,10 @@ export function SharedDeviceManageCard({
         <MaterialIcons name="chevron-right" size={18} color={accent} />
       </Pressable>
 
-      <Text style={[styles.sectionLabel, { color: accent }]}>On this device</Text>
+      <Text style={[styles.sectionLabel, { color: accent }]}>Who can use it</Text>
+      <Text style={[styles.linkHint, { color: c.textMuted }]}>
+        Linked Sidekicks for the shared tablet QR — not a Switch menu on your phone.
+      </Text>
       {onDevice.length === 0 ? (
         <View style={[styles.empty, { borderColor: glassBorder(0.12), backgroundColor: `${accent}10` }]}>
           <MaterialIcons name="person-add-alt" size={22} color={accent} />
@@ -324,6 +327,7 @@ const styles = StyleSheet.create({
   headCopy: { flex: 1, gap: 2, minWidth: 0 },
   title: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   subtitle: { fontSize: 13, lineHeight: 18 },
+  linkHint: { fontSize: 12, fontWeight: '500', lineHeight: 16, marginTop: -4 },
   showQr: {
     alignItems: 'center',
     borderCurve: 'continuous',

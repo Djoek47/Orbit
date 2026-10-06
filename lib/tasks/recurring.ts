@@ -9,6 +9,7 @@ import { DEFAULT_DUE_TIME_LOCAL, parseLocalHm } from '@/lib/tasks/recurrence-def
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { dueLabelForDate } from '@/lib/tasks/due-label';
 import { expiryInstantInTimezone } from '@/lib/tasks/household-tz';
+import { carryReassignedOvernight } from '@/lib/tasks/reassign-policy';
 
 /** @deprecated Prefer ensureOccurrencesForDay — kept for cancel-this cleanup only. */
 export function spawnNextOccurrence(task: HouseholdTask): HouseholdTask | null {
@@ -196,12 +197,15 @@ export function rolloverMissedOccurrences(
   now = new Date(),
   options?: {
     expiryHm?: string;
+    /** Household daily deadline HH:mm — used when carrying reassigned work. */
+    dailyDeadlineHm?: string;
     timezone?: string | null;
     skipAssigneeNames?: string[];
   }
 ): HouseholdTask[] {
   const expiredAt = now.toISOString();
   const expiryHm = options?.expiryHm ?? '23:59';
+  const dailyDeadlineHm = options?.dailyDeadlineHm ?? '19:00';
   const skip = new Set(options?.skipAssigneeNames ?? []);
   const timezone = options?.timezone?.trim();
   const boundary = timezone
@@ -234,6 +238,16 @@ export function rolloverMissedOccurrences(
     const names = getTaskAssignees(task);
     if (names.length > 0 && names.every((name) => skip.has(name))) {
       return task;
+    }
+
+    // Smart reassign: first unfinished night carries to tomorrow (full XP window).
+    if (task.reassignedAt && !task.reassignCarriedOvernight) {
+      const carried = carryReassignedOvernight(task, previousDateKey, {
+        dailyDeadlineHm,
+        timezone,
+        now,
+      });
+      if (carried) return carried;
     }
 
     return { ...task, status: 'Expired' as const, expiredAt: task.expiredAt ?? expiredAt };

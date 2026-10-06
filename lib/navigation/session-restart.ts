@@ -1,10 +1,14 @@
 import { bumpSessionEpoch } from '@/lib/navigation/session-epoch';
 
-/** Cold-start entry. `index` then sends unsigned users to Get Started. */
-export const SESSION_RESTART_ROUTE = '/' as const;
+/**
+ * Get Started (welcome). Go here directly on sign-out.
+ * Do **not** land on `/` alone — `(tabs)` returns null when signed out and a
+ * failed/slow index handoff leaves a blank dark screen (TF 111).
+ */
+export const SESSION_RESTART_ROUTE = '/welcome' as const;
 
 /**
- * Dismiss Settings / replace `/` after voice native close.
+ * Dismiss Settings / replace Get Started after voice native close.
  * Must stay above `VOICE_NATIVE_CLOSE_MS` (120).
  */
 export const SESSION_NAV_DELAY_MS = 400;
@@ -18,7 +22,9 @@ export const SESSION_REMOUNT_DELAY_MS = 900;
 export type RestartNav = {
   canDismiss?: () => boolean;
   dismissAll?: () => void;
-  replace: (href: typeof SESSION_RESTART_ROUTE | '/welcome') => void;
+  /** Prefer this when available — dismisses modals and lands href (or replaces). */
+  dismissTo?: (href: typeof SESSION_RESTART_ROUTE | '/welcome') => void;
+  replace: (href: typeof SESSION_RESTART_ROUTE | '/' | '/welcome') => void;
 };
 
 export type RestartScheduler = (fn: () => void, ms: number) => unknown;
@@ -39,10 +45,18 @@ export function cancelSignedOutRestart(): void {
 
 /**
  * Land on Get Started without remounting the JS tree. Settings is a modal, so
- * `replace('/')` alone can leave Get Started under a still-open overlay —
- * dismiss first, then replace. Do **not** bump session epoch (IPA 50 `08497FBD`).
+ * `dismissAll` + `replace` can race and leave `(tabs)` rendering null (blank).
+ * Prefer `dismissTo('/welcome')` (one hop). Do **not** bump session epoch (IPA 50).
  */
 export function applySignedOutNavigation(nav: RestartNav): void {
+  if (nav.dismissTo) {
+    try {
+      nav.dismissTo('/welcome');
+      return;
+    } catch {
+      /* fall through to dismissAll + replace */
+    }
+  }
   try {
     if (nav.canDismiss?.()) {
       nav.dismissAll?.();
@@ -54,9 +68,9 @@ export function applySignedOutNavigation(nav: RestartNav): void {
     nav.replace(SESSION_RESTART_ROUTE);
   } catch {
     try {
-      nav.replace('/welcome');
+      nav.replace('/');
     } catch {
-      /* index still routes unsigned users to welcome */
+      /* last resort — tabs safety net also replaces /welcome */
     }
   }
 }

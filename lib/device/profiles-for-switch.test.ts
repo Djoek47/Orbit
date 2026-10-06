@@ -53,6 +53,22 @@ const members = [owner, emma, jack, testTablet];
   assert.equal(resolveSwitchDeviceShell(session, members)?.name, 'Test');
 }
 
+{
+  // Personal admin phone — must not inherit the household’s only shared tablet.
+  const personal: DeviceSession = {
+    mode: 'personal',
+    profileMemberIds: [],
+    activeMemberId: null,
+    needsProfilePick: false,
+  };
+  assert.equal(
+    resolveSwitchDeviceShell(personal, members),
+    undefined,
+    'sole shared-device shell must not attach to a personal session'
+  );
+  assert.deepEqual(profilesForSharedDeviceSwitch(personal, members), []);
+}
+
 const home = readFileSync(join(process.cwd(), 'app/(tabs)/index.tsx'), 'utf8');
 assert.match(home, /SharedDeviceSwitchMenu/, 'Home mounts Switch · Name menu');
 
@@ -62,9 +78,29 @@ const menu = readFileSync(
 );
 assert.match(menu, /Switch ·/, 'chip label');
 assert.match(menu, /Connected/, 'connected status chip');
+assert.match(menu, /isSharedTabletDeviceSession/, 'gated to shared-tablet sessions only');
+assert.match(menu, /isPersonalAdmin/, 'owner/admin hard-gated off Switch');
+assert.match(menu, /demoteSharedSessionForPersonalAdmin/, 'admin demotes leaked tablet binding');
 assert.match(menu, /onSwitchPersona/, 'switches face without sign-out');
 assert.match(menu, /selectDeviceProfile/, 'updates device session');
 assert.doesNotMatch(menu, /signOut|clearSidekickSession/, 'never signs out on switch');
+
+const manage = readFileSync(
+  join(process.cwd(), 'components/orbit/members/shared-device-manage-card.tsx'),
+  'utf8'
+);
+assert.match(manage, /Who can use it/);
+assert.doesNotMatch(manage, />On this device</);
+assert.match(manage, /not a Switch menu/);
+
+const deviceSession = readFileSync(join(process.cwd(), 'lib/device/device-session.ts'), 'utf8');
+assert.match(
+  deviceSession,
+  /demoteSharedSessionForPersonalAdmin/,
+  'admin personal login can clear a leaked shared-tablet binding'
+);
+const homeSrc = readFileSync(join(process.cwd(), 'app/(tabs)/index.tsx'), 'utf8');
+assert.match(homeSrc, /demoteSharedSessionForPersonalAdmin/);
 
 const bar = readFileSync(join(process.cwd(), 'components/orbit/make-tab-bar.tsx'), 'utf8');
 assert.match(bar, /markNeedsProfilePick\(members\)/, 'tab Switch expands roster');

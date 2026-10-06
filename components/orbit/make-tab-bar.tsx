@@ -102,11 +102,15 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
    *   a Sidekick      nothing; four tabs, since they have no Poppins
    */
   const members = orbit?.household.members ?? [];
-  const fifthSlot = useTabFifthSlot({
-    role: orbit?.currentMember?.role,
+  const memberRole = orbit?.currentMember?.role;
+  const fifthSlotRaw = useTabFifthSlot({
+    role: memberRole,
     members,
     memberId: orbit?.currentMember?.id,
   });
+  // Belt-and-suspenders: personal admin never sees the Switch tab.
+  const fifthSlot =
+    memberRole === 'owner' || memberRole === 'admin' ? 'poppins' : fifthSlotRaw;
   const [deviceSession, setDeviceSession] = useState<DeviceSession | null>(null);
   const rosterKey = members
     .filter((m) => m.role === 'shared-device')

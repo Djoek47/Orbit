@@ -26,6 +26,7 @@ import {
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberPresenceParts } from '@/lib/household/member-presence';
 import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
+import { resolveMemberAccentColor } from '@/lib/theme/member-accent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -49,16 +50,28 @@ export function SharedDeviceSwitchMenu({
   const { c, glass, glassBorder } = useOrbitColors();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<DeviceSession | null>(null);
+  const role = currentMember?.role;
+  // Hard rule: household admin personal phone never shows Switch · faces.
+  const isPersonalAdmin = role === 'owner' || role === 'admin';
 
   useEffect(() => {
     let mounted = true;
-    void reconcileHostedDeviceSession(members).then((next) => {
+    void (async () => {
+      if (isPersonalAdmin) {
+        const { demoteSharedSessionForPersonalAdmin } = await import(
+          '@/lib/device/device-session'
+        );
+        const next = await demoteSharedSessionForPersonalAdmin(role);
+        if (mounted) setSession(next);
+        return;
+      }
+      const next = await reconcileHostedDeviceSession(members);
       if (mounted) setSession(next);
-    });
+    })();
     return () => {
       mounted = false;
     };
-  }, [currentMember?.id, members]);
+  }, [currentMember?.id, isPersonalAdmin, members, role]);
 
   const people = useMemo(
     () => profilesForSharedDeviceSwitch(session, members),
@@ -69,7 +82,21 @@ export function SharedDeviceSwitchMenu({
     [session, members]
   );
 
-  if (people.length < 2 || !currentMember) return null;
+  // Personal admin / Sidekick phones never show Switch — only a real shared-tablet
+  // session where the signed-in face is one of the hosted people (or the shell).
+  const onSharedRoster =
+    Boolean(currentMember) &&
+    (currentMember!.role === 'shared-device' ||
+      people.some((person) => person.id === currentMember!.id));
+  if (
+    isPersonalAdmin ||
+    !isSharedTabletDeviceSession(session) ||
+    people.length < 2 ||
+    !currentMember ||
+    !onSharedRoster
+  ) {
+    return null;
+  }
 
   const firstName = currentMember.name.trim().split(/\s+/)[0] || currentMember.name;
   const deviceName = normalizeSharedDeviceLabel(session?.deviceLabel || shell?.name);
@@ -167,6 +194,7 @@ export function SharedDeviceSwitchMenu({
             {people.map((member, index) => {
               const selected = member.id === currentMember.id;
               const live = memberPresenceParts(member).isLive;
+              const faceAccent = resolveMemberAccentColor(member, accentColor);
               return (
                 <Animated.View
                   key={member.id}
@@ -177,8 +205,8 @@ export function SharedDeviceSwitchMenu({
                     style={[
                       styles.face,
                       {
-                        backgroundColor: selected ? `${accentColor}22` : glass(0.04),
-                        borderColor: selected ? `${accentColor}77` : glassBorder(0.1),
+                        backgroundColor: selected ? `${faceAccent}22` : glass(0.04),
+                        borderColor: selected ? `${faceAccent}77` : glassBorder(0.1),
                       },
                     ]}
                     accessibilityRole="button"
@@ -186,12 +214,12 @@ export function SharedDeviceSwitchMenu({
                     accessibilityLabel={`Continue as ${member.name}`}>
                     <FaceBubble
                       member={member}
-                      accentColor={accentColor}
+                      accentColor={faceAccent}
                       size={40}
                       selected={selected}
                     />
                     <Text
-                      style={[styles.faceName, { color: selected ? accentColor : c.text }]}
+                      style={[styles.faceName, { color: selected ? faceAccent : c.text }]}
                       numberOfLines={1}>
                       {member.name.split(' ')[0]}
                     </Text>

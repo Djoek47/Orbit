@@ -137,7 +137,7 @@ sequenceDiagram
 
 - Empty account: zero active memberships OR only recoverable scheduled-delete shell.
 - Post-transfer: source demoted to adult (cannot recover); destination becomes owner; deletion schedule cleared.
-- Settings → House → Transfer ownership (owner); scanner `orbit://transfer-household?token=`.
+- Settings → You → House ownership → Transfer ownership (owner); scanner `orbit://transfer-household?token=`.
 
 **Passes:** two test accounts; ineligible user sees empty-account message.
 

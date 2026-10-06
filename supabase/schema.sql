@@ -492,7 +492,9 @@ create table if not exists public.push_tokens (
 );
 
 -- Legacy alias view for older app code that referenced nova_briefings
-create or replace view public.nova_briefings as
+create or replace view public.nova_briefings
+  with (security_invoker = true)
+as
   select id, household_id, title, summary, actions, metadata, created_at, updated_at
   from public.ai_briefings
   where briefing_type = 'daily';
@@ -616,9 +618,9 @@ alter table public.smart_home_scenes enable row level security;
 alter table public.push_tokens enable row level security;
 
 -- Profiles
-create policy profiles_select_own on public.profiles for select using (id = auth.uid());
-create policy profiles_update_own on public.profiles for update using (id = auth.uid());
-create policy profiles_insert_own on public.profiles for insert with check (id = auth.uid());
+create policy profiles_select_own on public.profiles for select using (id = (select auth.uid()));
+create policy profiles_update_own on public.profiles for update using (id = (select auth.uid()));
+create policy profiles_insert_own on public.profiles for insert with check (id = (select auth.uid()));
 
 -- Households
 create policy households_select on public.households for select
@@ -630,16 +632,27 @@ create policy households_delete on public.households for delete using (owner_id 
 -- Members
 create policy members_select on public.household_members for select
   using (public.is_household_member(household_id) or user_id = auth.uid());
+-- Hardened in 20261006013743_security_harden_rls_v32: admin or bootstrap owner only
 create policy members_insert on public.household_members for insert
-  with check (public.is_household_admin(household_id) or user_id = auth.uid());
+  with check (
+    public.is_household_admin(household_id)
+    or (
+      user_id = auth.uid()
+      and role = 'owner'
+      and exists (
+        select 1 from public.households h
+        where h.id = household_id and h.owner_id = auth.uid()
+      )
+    )
+  );
 create policy members_update on public.household_members for update
   using (public.is_household_admin(household_id) or user_id = auth.uid());
 create policy members_delete on public.household_members for delete
   using (public.is_household_admin(household_id));
 
--- Invites: admins manage; anyone authenticated can read by code via edge/join
+-- Invites: members read; join-household edge uses service role by code
 create policy invites_select on public.household_invites for select
-  using (public.is_household_member(household_id) or true);
+  using (public.is_household_member(household_id));
 create policy invites_insert on public.household_invites for insert
   with check (public.is_household_admin(household_id));
 create policy invites_update on public.household_invites for update

@@ -28,18 +28,41 @@ export function isCompletedTask(task: HouseholdTask): boolean {
   return task.status === 'Completed';
 }
 
-/** View filter: expiredAt within last 7 days (matches purge window). */
+function expiredStamp(task: HouseholdTask): Date | null {
+  if (task.expiredAt) {
+    const d = new Date(task.expiredAt);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (task.occurrenceDate) {
+    const d = new Date(`${task.occurrenceDate}T23:59:59`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (task.dueAt) {
+    const d = new Date(task.dueAt);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+/** View filter: expiredAt within last 7 days (Expired tab only — history kept forever). */
 export function isExpiredVisibleInTab(task: HouseholdTask, now = new Date()): boolean {
   if (!isExpiredTask(task)) return false;
-  const stamp = task.expiredAt
-    ? new Date(task.expiredAt)
-    : task.occurrenceDate
-      ? new Date(`${task.occurrenceDate}T23:59:59`)
-      : task.dueAt
-        ? new Date(task.dueAt)
-        : null;
-  if (!stamp || Number.isNaN(stamp.getTime())) return true;
+  const stamp = expiredStamp(task);
+  if (!stamp) return true;
   return now.getTime() - stamp.getTime() < expiredPurgeMs();
+}
+
+/**
+ * Older expired rows kept for household health / Champion’s Record.
+ * Not shown in the main Expired tab after 7 days (DEAD-08 view hide, not delete).
+ */
+export function isExpiredInHistory(task: HouseholdTask, now = new Date()): boolean {
+  if (!isExpiredTask(task)) return false;
+  return !isExpiredVisibleInTab(task, now);
+}
+
+export function countExpiredHistory(tasks: HouseholdTask[], now = new Date()): number {
+  return tasks.filter((t) => isExpiredInHistory(t, now)).length;
 }
 
 export function expiredDayLabel(task: HouseholdTask, now = new Date()): string {

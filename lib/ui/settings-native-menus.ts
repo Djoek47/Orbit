@@ -9,7 +9,11 @@ import { ActionSheetIOS, Alert, Platform } from 'react-native';
 
 import { openLegalLinksSheet } from '@/lib/ui/legal-links-sheet-controller';
 
-/** Privacy / Terms / Support — root glass sheet + in-app browser, never orbitAlert. */
+/**
+ * Privacy / Terms / Support — root glass sheet + in-app browser, never orbitAlert.
+ * Callers that are already inside Settings must dismiss Settings first
+ * (`closeSettingsModal`) so this Modal is not nested under Expo presentation:modal.
+ */
 export function showPrivacyLegalMenu(): void {
   openLegalLinksSheet();
 }

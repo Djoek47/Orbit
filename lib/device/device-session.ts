@@ -63,6 +63,27 @@ export async function clearDeviceSession(): Promise<void> {
   await AsyncStorage.removeItem(KEY);
 }
 
+/**
+ * Owner/admin personal phones must never keep a shared-tablet Switch binding
+ * left over from testing. Clears the device session back to personal.
+ */
+export async function demoteSharedSessionForPersonalAdmin(
+  role: HouseholdMember['role'] | undefined | null
+): Promise<DeviceSession> {
+  if (role !== 'owner' && role !== 'admin') {
+    return loadDeviceSession();
+  }
+  const current = await loadDeviceSession();
+  const looksShared =
+    current.mode === 'shared' ||
+    current.hostKind === 'shared-tablet' ||
+    current.profileMemberIds.length > 0 ||
+    Boolean(current.sharedDeviceId);
+  if (!looksShared) return current;
+  await clearDeviceSession();
+  return { ...EMPTY };
+}
+
 /** True when this device hosts multiple profiles (shared iPad or family Sidekick phone). */
 export function isSharedTabletDeviceSession(session: DeviceSession | null | undefined): boolean {
   if (!session || session.mode !== 'shared') return false;
@@ -94,7 +115,14 @@ export async function reconcileHostedDeviceSession(
 
   let rosterSharedDeviceId = current.sharedDeviceId ?? null;
   let rosterLabel = current.deviceLabel;
-  if (members && members.length > 0) {
+  // Only expand from the household shared-device roster when this phone is
+  // already a shared tablet (QR / hosted). Personal admin login must stay personal.
+  const alreadySharedHost =
+    current.mode === 'shared' ||
+    current.hostKind === 'shared-tablet' ||
+    Boolean(current.sharedDeviceId) ||
+    current.profileMemberIds.length > 0;
+  if (alreadySharedHost && members && members.length > 0) {
     const { profilesForSharedDeviceSwitch, resolveSwitchDeviceShell } = await import(
       '@/lib/device/profiles-for-switch'
     );

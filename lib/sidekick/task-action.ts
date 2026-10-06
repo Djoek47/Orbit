@@ -6,10 +6,12 @@ import { mapTaskRow, mapEventRow, mapGroceryRow } from '@/lib/mappers/orbit-mapp
 import { buildSidekickProofSubmitBody } from '@/lib/sidekick/proof-submit-body';
 import { isSidekickLocalUserId, loadSidekickSession } from '@/lib/sidekick/session';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { edgeErrorMessage } from '@/lib/supabase/edge-error';
 import { dataMode } from '@/config/data-mode';
 import type { CreateEventInput, CreateGroceryInput, CreateTaskInput, GroceryItem, HouseholdEvent, HouseholdTask } from '@/types/orbit';
 
 export { buildSidekickProofSubmitBody } from '@/lib/sidekick/proof-submit-body';
+export { edgeErrorMessage } from '@/lib/supabase/edge-error';
 
 /**
  * Profile-code auth for Sidekick devices only.
@@ -114,20 +116,6 @@ export async function sidekickCompleteTask(input: {
   }
 
   return mapSidekickTaskRow(payload.task, input.task);
-}
-
-/** supabase-js hides the server's reason behind "non-2xx status code"; dig it out of the response. */
-export async function edgeErrorMessage(error: unknown, fallback: string): Promise<string> {
-  const context = (error as { context?: unknown } | null)?.context;
-  if (context && typeof (context as Response).json === 'function') {
-    try {
-      const body = (await (context as Response).clone().json()) as { error?: unknown };
-      if (typeof body?.error === 'string' && body.error) return body.error;
-    } catch {
-      // body wasn't JSON — fall through
-    }
-  }
-  return (error as { message?: string } | null)?.message || fallback;
 }
 
 async function invokeSidekickTaskAction(

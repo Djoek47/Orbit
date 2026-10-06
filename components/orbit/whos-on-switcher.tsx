@@ -15,6 +15,7 @@ import { reconcileHostedDeviceSession } from '@/lib/device/device-session';
 import { profilesForSharedDeviceSwitch } from '@/lib/device/profiles-for-switch';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { whosOnPeople } from '@/lib/household/whos-on-people';
+import { resolveMemberAccentColor } from '@/lib/theme/member-accent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -118,6 +119,7 @@ export function WhosOnSwitcher({
             {people.map((member, index) => {
               const selected = member.name === viewing.name;
               const isSignedIn = member.id === currentMemberId;
+              const faceAccent = resolveMemberAccentColor(member, accentColor);
               return (
                 <Animated.View
                   key={member.id}
@@ -133,16 +135,16 @@ export function WhosOnSwitcher({
                     style={[
                       styles.face,
                       {
-                        backgroundColor: selected ? `${accentColor}22` : glass(0.04),
-                        borderColor: selected ? `${accentColor}77` : glassBorder(0.1),
+                        backgroundColor: selected ? `${faceAccent}22` : glass(0.04),
+                        borderColor: selected ? `${faceAccent}77` : glassBorder(0.1),
                       },
                     ]}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     accessibilityLabel={`View ${member.name}'s tasks${isSignedIn ? ', signed in' : ''}`}>
-                    <FaceBubble member={member} accentColor={accentColor} size={36} selected={selected} />
+                    <FaceBubble member={member} accentColor={faceAccent} size={36} selected={selected} />
                     <Text
-                      style={[styles.faceName, { color: selected ? accentColor : c.text }]}
+                      style={[styles.faceName, { color: selected ? faceAccent : c.text }]}
                       numberOfLines={1}>
                       {member.name.split(' ')[0]}
                     </Text>
