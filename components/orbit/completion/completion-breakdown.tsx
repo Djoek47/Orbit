@@ -20,6 +20,10 @@ import Svg, { Line, Rect } from 'react-native-svg';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { GlassCard } from '@/components/orbit/glass-card';
+import {
+  GlassDetailPopover,
+  type GlassDetailLine,
+} from '@/components/orbit/health/glass-detail-popover';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { Moji } from '@/components/orbit/moji/moji';
 import type { MojiName } from '@/components/orbit/moji/art';
@@ -35,11 +39,19 @@ import {
   type BreakdownRange,
   type Bucket,
 } from '@/lib/tasks/completion-stats';
-import { healthLoadMembers } from '@/lib/household/health-dashboard';
+import { computeLiveMemberLoad, healthLoadMembers } from '@/lib/household/health-dashboard';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { taskRepository } from '@/repositories/task-repository';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdTask } from '@/types/orbit';
+import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
+
+export type BreakdownTipDetail = {
+  title: string;
+  subtitle?: string;
+  accent: string;
+  lines: GlassDetailLine[];
+  emptyLabel?: string;
+};
 
 type Metric = 'tasks' | 'time';
 
@@ -58,9 +70,19 @@ type Props = {
    * instead of owning the vertical scroll.
    */
   embedded?: boolean;
+  /**
+   * When set (Household Health sheet), tip UI is hosted by the parent so the glass
+   * overlay can cover the full modal — not just the breakdown block.
+   */
+  onOpenDetail?: (detail: BreakdownTipDetail) => void;
 };
 
-export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded = false }: Props) {
+export function CompletionBreakdown({
+  initialRange,
+  bottomInset = 24,
+  embedded = false,
+  onOpenDetail,
+}: Props) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const { household, currentMember, permissions } = useOrbit();
   const [range, setRange] = useState<BreakdownRange>(initialRange ?? 'W');
@@ -69,9 +91,14 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded =
   const [who, setWho] = useState<string | null>(null);
   const [history, setHistory] = useState<HouseholdTask[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tip, setTip] = useState<BreakdownTipDetail | null>(null);
 
   const isAdult = permissions.canManageHousehold;
   const now = useMemo(() => new Date(), []);
+  const memberLoad = useMemo(
+    () => computeLiveMemberLoad(household.members, household.tasks),
+    [household.members, household.tasks]
+  );
 
   // History for the widest range, once — ranges then switch instantly.
   useEffect(() => {
@@ -137,6 +164,112 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded =
   const people = healthLoadMembers(household.members);
   const barColor = metric === 'tasks' ? undefined : c.success;
 
+  const showMetricTip = (m: Metric) => {
+    const accent = m === 'tasks' ? c.primary : c.success;
+    const topFamilies = breakdown.byFamily.slice(0, 4).map((row) => ({
+      label: FAMILY_META[row.family].label,
+      meta:
+        m === 'tasks'
+          ? `${row.tasks} task${row.tasks === 1 ? '' : 's'}`
+          : formatMinutes(row.minutesSaved),
+    }));
+    const lines: GlassDetailLine[] =
+      m === 'tasks'
+        ? [
+            { label: 'Completed in range', meta: String(breakdown.totals.tasks) },
+            {
+              label: breakdown.headline.kind === 'average' ? 'Average per day' : 'Total',
+              meta:
+                breakdown.headline.kind === 'average'
+                  ? breakdown.headline.tasks.toFixed(1)
+                  : String(breakdown.headline.tasks),
+            },
+            { label: 'By Sidekicks', meta: String(breakdown.totals.bySidekicks) },
+            { label: 'Time saved', meta: formatMinutes(breakdown.totals.minutesSaved) },
+            ...topFamilies,
+          ]
+        : [
+            { label: 'Time saved in range', meta: formatMinutes(breakdown.totals.minutesSaved) },
+            {
+              label: breakdown.headline.kind === 'average' ? 'Average saved / day' : 'Total saved',
+              meta: formatMinutes(breakdown.headline.minutesSaved),
+            },
+            { label: 'Tasks behind it', meta: String(breakdown.totals.tasks) },
+            { label: 'By Sidekicks', meta: String(breakdown.totals.bySidekicks) },
+            ...topFamilies,
+          ];
+    const detail: BreakdownTipDetail = {
+      title: m === 'tasks' ? 'Tasks' : 'Time saved',
+      subtitle: breakdown.span,
+      accent,
+      lines,
+      emptyLabel: 'Nothing finished in this range yet.',
+    };
+    if (onOpenDetail) onOpenDetail(detail);
+    else setTip(detail);
+  };
+
+  const showWhoTip = (member: HouseholdMember | null) => {
+    if (!member) {
+      const lines: GlassDetailLine[] = [
+        { label: 'People in view', meta: String(people.length) },
+        { label: 'Tasks completed', meta: String(breakdown.totals.tasks) },
+        { label: 'Time saved', meta: formatMinutes(breakdown.totals.minutesSaved) },
+        { label: 'By Sidekicks', meta: String(breakdown.totals.bySidekicks) },
+        ...memberLoad.slice(0, 6).map((row) => ({
+          label: row.member.name.split(' ')[0]!,
+          meta: row.openCount > 0 ? `${row.openCount} open · ${row.loadShare}%` : `${row.loadShare}% load`,
+        })),
+      ];
+      const detail: BreakdownTipDetail = {
+        title: 'Everyone',
+        subtitle: breakdown.span,
+        accent: c.primary,
+        lines,
+      };
+      if (onOpenDetail) onOpenDetail(detail);
+      else setTip(detail);
+      return;
+    }
+    const load = memberLoad.find((row) => row.member.id === member.id);
+    const personEvents = completionEvents(tasks, household.members).filter(
+      (event) => event.by === member.name
+    );
+    const personBreakdown = computeBreakdown(personEvents, range, now);
+    const lines: GlassDetailLine[] = [
+      {
+        label: member.role === 'child' ? 'Sidekick' : member.role === 'adult' ? 'Adult' : 'Admin',
+        meta: `${member.xp} XP`,
+      },
+      { label: 'This week', meta: `${member.weekXp ?? 0} XP` },
+      { label: 'Streak', meta: `${member.streak ?? 0} day${(member.streak ?? 0) === 1 ? '' : 's'}` },
+      {
+        label: 'Open chores now',
+        meta: String(load?.openCount ?? 0),
+      },
+      {
+        label: 'Load share',
+        meta: `${load?.loadShare ?? 0}%`,
+      },
+      {
+        label: `Done · ${RANGE_LABEL[range]}`,
+        meta: String(personBreakdown.totals.tasks),
+      },
+      {
+        label: `Saved · ${RANGE_LABEL[range]}`,
+        meta: formatMinutes(personBreakdown.totals.minutesSaved),
+      },
+    ];
+    const detail: BreakdownTipDetail = {
+      title: member.name.split(' ')[0]!,
+      subtitle: breakdown.span,
+      accent: c.primary,
+      lines,
+    };
+    if (onOpenDetail) onOpenDetail(detail);
+    else setTip(detail);
+  };
+
   const body = (
     <>
         {/* D W M 6M Y */}
@@ -160,27 +293,37 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded =
           })}
         </View>
 
-        {/* Tasks · Time saved */}
+        {/* Tasks · Time saved — tap selects; tap again / long-press shows glass tip */}
         <View style={styles.metricRow}>
           {(['tasks', 'time'] as const).map((m) => {
             const on = m === metric;
+            const accent = m === 'tasks' ? c.primary : c.success;
             return (
               <Pressable
                 key={m}
-                onPress={() => setMetric(m)}
+                onPress={() => {
+                  if (on) {
+                    showMetricTip(m);
+                    return;
+                  }
+                  setMetric(m);
+                }}
+                onLongPress={() => showMetricTip(m)}
+                delayLongPress={280}
                 style={[
                   styles.metricChip,
                   {
-                    backgroundColor: on ? `${m === 'tasks' ? c.primary : c.success}22` : glass(0.05),
-                    borderColor: on ? `${m === 'tasks' ? c.primary : c.success}66` : glassBorder(0.1),
+                    backgroundColor: on ? `${accent}22` : glass(0.05),
+                    borderColor: on ? `${accent}66` : glassBorder(0.1),
                   },
                 ]}
                 accessibilityRole="button"
-                accessibilityState={{ selected: on }}>
+                accessibilityState={{ selected: on }}
+                accessibilityHint="Double-tap when selected, or long-press, for a short summary">
                 <MaterialIcons
                   name={m === 'tasks' ? 'task-alt' : 'schedule'}
                   size={15}
-                  color={on ? (m === 'tasks' ? c.primary : c.success) : c.textMuted}
+                  color={on ? accent : c.textMuted}
                 />
                 <Text style={[typography.footnote, { color: on ? c.text : c.textMuted, fontWeight: '700' }]}>
                   {m === 'tasks' ? 'Tasks' : 'Time saved'}
@@ -190,22 +333,39 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded =
           })}
         </View>
 
-        {/* Who (adults) */}
+        {/* Who (adults) — tap filters; long-press / re-tap selected shows tip */}
         {isAdult ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.whoRow}>
-            <WhoChip label="Everyone" on={who == null} onPress={() => {
-              setSelected(null);
-              setWho(null);
-            }} c={c} glass={glass} glassBorder={glassBorder} />
+            <WhoChip
+              label="Everyone"
+              on={who == null}
+              onPress={() => {
+                if (who == null) {
+                  showWhoTip(null);
+                  return;
+                }
+                setSelected(null);
+                setWho(null);
+              }}
+              onLongPress={() => showWhoTip(null)}
+              c={c}
+              glass={glass}
+              glassBorder={glassBorder}
+            />
             {people.map((m) => (
               <WhoChip
                 key={m.id}
                 label={m.name.split(' ')[0]!}
                 on={who === m.name}
                 onPress={() => {
+                  if (who === m.name) {
+                    showWhoTip(m);
+                    return;
+                  }
                   setSelected(null);
-                  setWho(who === m.name ? null : m.name);
+                  setWho(m.name);
                 }}
+                onLongPress={() => showWhoTip(m)}
                 c={c}
                 glass={glass}
                 glassBorder={glassBorder}
@@ -300,14 +460,30 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded =
     </>
   );
 
+  const tipLayer =
+    onOpenDetail == null ? (
+      <GlassDetailPopover
+        visible={tip != null}
+        title={tip?.title ?? ''}
+        subtitle={tip?.subtitle}
+        accent={tip?.accent ?? c.primary}
+        lines={tip?.lines ?? []}
+        emptyLabel={tip?.emptyLabel}
+        onClose={() => setTip(null)}
+      />
+    ) : null;
+
   if (embedded) {
     return <View style={[styles.content, styles.embeddedContent, { paddingBottom: 0 }]}>{body}</View>;
   }
 
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomInset + 32 }]}>
-      {body}
-    </ScrollView>
+    <View style={styles.root}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomInset + 32 }]}>
+        {body}
+      </ScrollView>
+      {tipLayer}
+    </View>
   );
 }
 
@@ -421,6 +597,7 @@ function WhoChip({
   label,
   on,
   onPress,
+  onLongPress,
   c,
   glass,
   glassBorder,
@@ -429,6 +606,7 @@ function WhoChip({
   label: string;
   on: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
   c: ReturnType<typeof useOrbitColors>['c'];
   glass: (a?: number) => string;
   glassBorder: (a?: number) => string;
@@ -437,12 +615,15 @@ function WhoChip({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={280}
       style={[
         styles.whoChip,
         { backgroundColor: on ? `${c.primary}22` : glass(0.05), borderColor: on ? `${c.primary}66` : glassBorder(0.1) },
       ]}
       accessibilityRole="button"
-      accessibilityState={{ selected: on }}>
+      accessibilityState={{ selected: on }}
+      accessibilityHint="Long-press for a short summary">
       {icon}
       <Text style={[typography.caption1, { color: on ? c.text : c.textMuted, fontWeight: '700' }]}>{label}</Text>
     </Pressable>

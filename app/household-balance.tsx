@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,11 +13,25 @@ import {
   computeLiveMemberLoad,
 } from '@/lib/household/health-dashboard';
 import { isSharedDeviceAccount } from '@/lib/household/shared-device';
+import { groupHouseholdEvents } from '@/lib/calendar/event-groups';
+import { isOpenTask } from '@/lib/tasks/cancel';
 import { useOrbit } from '@/store/orbit-store';
 import { CompletionBreakdown } from '@/components/orbit/completion/completion-breakdown';
+import {
+  GlassDetailPopover,
+  type GlassDetailLine,
+} from '@/components/orbit/health/glass-detail-popover';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { Moji } from '@/components/orbit/moji/moji';
 import { AppText as Text } from '@/components/orbit/app-text';
+
+type SheetDetail = {
+  title: string;
+  subtitle?: string;
+  accent: string;
+  lines: GlassDetailLine[];
+  emptyLabel?: string;
+};
 
 /**
  * Home → Household Health: one unified sheet.
@@ -27,6 +41,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 export default function HouseholdBalanceScreen() {
   const insets = useSafeAreaInsets();
   const { accentTheme, household, metrics, currentMember, permissions, orbitPalette } = useOrbit();
+  const [sheetDetail, setSheetDetail] = useState<SheetDetail | null>(null);
 
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
@@ -72,39 +87,131 @@ export default function HouseholdBalanceScreen() {
   const openTasks = metrics.openTasks ?? 0;
   const missingGroceries = metrics.missingGroceries ?? 0;
   const upcomingEvents = metrics.upcomingEvents ?? 0;
+  const groceryReadiness = metrics.groceryReadiness ?? 0;
+
+  const openTaskLines = useMemo<GlassDetailLine[]>(
+    () =>
+      household.tasks
+        .filter((task) => isOpenTask(task))
+        .slice(0, 24)
+        .map((task) => ({
+          label: task.title,
+          meta: task.assignee || task.due || task.status,
+        })),
+    [household.tasks]
+  );
+
+  const groceryLines = useMemo<GlassDetailLine[]>(() => {
+    const low = household.groceries.filter((item) => item.status === 'Low');
+    const missing = household.groceries.filter((item) => item.status === 'Missing');
+    const ready = household.groceries.filter(
+      (item) => item.status === 'Available' || item.status === 'Purchased'
+    );
+    const lines: GlassDetailLine[] = [
+      {
+        label: `${ready.length} ready`,
+        meta: `${groceryReadiness}%`,
+      },
+      {
+        label: `${low.length} running low`,
+        meta: low.length ? low.slice(0, 3).map((item) => item.name).join(', ') : '—',
+      },
+      {
+        label: `${missing.length} missing`,
+        meta: missing.length ? 'Need shop' : 'Clear',
+      },
+    ];
+    for (const item of [...low, ...missing].slice(0, 18)) {
+      lines.push({ label: item.name, meta: item.status });
+    }
+    return lines;
+  }, [household.groceries, groceryReadiness]);
+
+  const missingLines = useMemo<GlassDetailLine[]>(
+    () =>
+      household.groceries
+        .filter((item) => item.status === 'Missing')
+        .slice(0, 24)
+        .map((item) => ({
+          label: item.name,
+          meta: item.quantity || item.category,
+        })),
+    [household.groceries]
+  );
+
+  const eventLines = useMemo<GlassDetailLine[]>(() => {
+    const groups = groupHouseholdEvents(household.events);
+    return groups
+      .filter((group) => group.key === 'Today' || group.key === 'Tomorrow')
+      .flatMap((group) =>
+        group.events.map((event) => ({
+          label: event.title,
+          meta: [group.key, event.time].filter(Boolean).join(' · ') || event.responsible,
+        }))
+      )
+      .slice(0, 16);
+  }, [household.events]);
 
   // Hero already shows Completion + Streak — keep the pulse thin.
   const livePulse = !sharedKidMode
     ? [
         {
-          key: 'open',
+          key: 'open' as const,
           icon: 'assignment' as const,
           color: accentTheme.primary,
           label: `${openTasks} open task${openTasks === 1 ? '' : 's'}`,
+          detail: {
+            title: 'Open tasks',
+            subtitle: `${openTasks} still need attention`,
+            accent: accentTheme.primary,
+            lines: openTaskLines,
+            emptyLabel: 'No open tasks right now.',
+          } satisfies SheetDetail,
         },
         {
-          key: 'grocery',
+          key: 'grocery' as const,
           icon: 'shopping-cart' as const,
           color: '#38BDF8',
-          label: `${metrics.groceryReadiness ?? 0}% groceries ready`,
+          label: `${groceryReadiness}% groceries ready`,
+          detail: {
+            title: 'Grocery readiness',
+            subtitle: `${groceryReadiness}% of the list is ready`,
+            accent: '#38BDF8',
+            lines: groceryLines,
+            emptyLabel: 'Grocery list is empty.',
+          } satisfies SheetDetail,
         },
         ...(upcomingEvents > 0
           ? [
               {
-                key: 'events',
+                key: 'events' as const,
                 icon: 'event' as const,
                 color: '#A78BFA',
                 label: `${upcomingEvents} upcoming`,
+                detail: {
+                  title: 'Upcoming',
+                  subtitle: `${upcomingEvents} on the calendar soon`,
+                  accent: '#A78BFA',
+                  lines: eventLines,
+                  emptyLabel: 'Nothing upcoming.',
+                } satisfies SheetDetail,
               },
             ]
           : []),
         ...(missingGroceries > 0
           ? [
               {
-                key: 'missing',
+                key: 'missing' as const,
                 icon: 'playlist-add-check' as const,
                 color: '#F472B6',
                 label: `${missingGroceries} missing`,
+                detail: {
+                  title: 'Missing groceries',
+                  subtitle: `${missingGroceries} item${missingGroceries === 1 ? '' : 's'} to pick up`,
+                  accent: '#F472B6',
+                  lines: missingLines,
+                  emptyLabel: 'Nothing marked missing.',
+                } satisfies SheetDetail,
               },
             ]
           : []),
@@ -159,12 +266,23 @@ export default function HouseholdBalanceScreen() {
         {livePulse.length > 0 ? (
           <View style={styles.liveStrip}>
             {livePulse.map((chip) => (
-              <View
+              <Pressable
                 key={chip.key}
-                style={[styles.liveChip, { backgroundColor: `${accentTheme.primary}18` }]}>
+                onPress={() => setSheetDetail(chip.detail)}
+                style={[
+                  styles.liveChip,
+                  {
+                    backgroundColor: `${chip.color}22`,
+                    borderColor: `${chip.color}55`,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`${chip.label}. Show details`}
+                accessibilityHint="Opens a short glass summary">
                 <MaterialIcons name={chip.icon} size={14} color={chip.color} />
                 <Text style={[styles.liveChipText, { color: orbitPalette.text }]}>{chip.label}</Text>
-              </View>
+                <MaterialIcons name="expand-more" size={14} color={`${chip.color}CC`} />
+              </Pressable>
             ))}
           </View>
         ) : null}
@@ -173,7 +291,11 @@ export default function HouseholdBalanceScreen() {
           {sharedKidMode ? 'Your completions' : 'Task breakdown'}
         </Text>
         <View style={styles.breakdownWrap}>
-          <CompletionBreakdown embedded bottomInset={0} />
+          <CompletionBreakdown
+            embedded
+            bottomInset={0}
+            onOpenDetail={setSheetDetail}
+          />
         </View>
 
         {!sharedKidMode ? (
@@ -244,6 +366,16 @@ export default function HouseholdBalanceScreen() {
           </>
         ) : null}
       </ScrollView>
+
+      <GlassDetailPopover
+        visible={sheetDetail != null}
+        title={sheetDetail?.title ?? ''}
+        subtitle={sheetDetail?.subtitle}
+        accent={sheetDetail?.accent ?? accentTheme.primary}
+        lines={sheetDetail?.lines ?? []}
+        emptyLabel={sheetDetail?.emptyLabel}
+        onClose={() => setSheetDetail(null)}
+      />
     </View>
   );
 }
@@ -299,6 +431,7 @@ const styles = StyleSheet.create({
   liveChip: {
     alignItems: 'center',
     borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 6,
     paddingHorizontal: 12,
