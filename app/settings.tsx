@@ -56,15 +56,11 @@ import {
   householdDeletionDaysRemaining,
   isHouseholdDeletionPending,
 } from '@/lib/household/household-deletion';
-<<<<<<< HEAD
+import { NotificationPrefsPanel } from '@/components/orbit/settings/notification-prefs-panel';
 import {
   confirmLeaveDevice,
   showPrivacyLegalMenuAfterSettingsDismiss,
 } from '@/lib/ui/settings-native-menus';
-=======
-import { NotificationPrefsPanel } from '@/components/orbit/settings/notification-prefs-panel';
-import { confirmLeaveDevice, showPrivacyLegalMenu } from '@/lib/ui/settings-native-menus';
->>>>>>> da255f1 (feat(notifications): premium Alerts prefs + Activity person showcase)
 import { formatHouseholdRole } from '@/lib/permissions';
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
