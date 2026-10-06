@@ -62,6 +62,21 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
   assert.match(showcase, /Household energy|Your energy/);
   assert.match(showcase, /signals today/);
   assert.match(showcase, /StreakDots/);
+  assert.match(showcase, /bestStreakAmongRows/);
+  assert.match(showcase, /heroStreak/);
+  assert.doesNotMatch(
+    showcase,
+    /reduce\(\(sum, r\) => sum \+ Math\.max\(0, r\.streak\)/,
+    'never sum personal streaks for the household hero'
+  );
+  assert.doesNotMatch(
+    showcase,
+    /mode === 'household' \? activeToday/,
+    'hero big number is streak days, not faces-active-today'
+  );
+  const rows = read('lib/streaks/member-streak-rows.ts');
+  assert.match(rows, /personalStreakDays/);
+  assert.match(rows, /bestStreakAmongRows/);
   const policy = read('lib/poppins/notification-policy.ts');
   assert.match(policy, /memberId: fact\.memberId/);
   const inbox = read('components/orbit/notification-inbox.tsx');

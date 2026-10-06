@@ -2,7 +2,10 @@
  * Who appears on the Activity / Inbox streak strip.
  * Admins see every real person; Sidekicks / shared profiles see themselves
  * (and optionally other faces hosted on the same shared device).
+ *
+ * Streak values use `personalStreakDays` — same source as Home / Household Health.
  */
+import { personalStreakDays } from '@/lib/home-health-metrics';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -46,8 +49,20 @@ export function memberStreakRows(input: {
   return sorted.map((member) => ({
     id: member.id,
     name: member.name,
-    streak: Math.max(0, member.streak ?? 0),
+    streak: personalStreakDays(member),
     avatar: member.avatar || member.name.charAt(0).toUpperCase(),
     isSelf: member.id === input.viewerId,
   }));
+}
+
+/** Best personal streak among showcase rows — Activity household hero number. */
+export function bestStreakAmongRows(rows: readonly MemberStreakRow[]): number {
+  if (!rows.length) return 0;
+  return Math.max(...rows.map((r) => Math.max(0, r.streak)));
+}
+
+/** Viewer's personal streak from showcase rows (falls back to first row). */
+export function selfStreakAmongRows(rows: readonly MemberStreakRow[]): number {
+  const self = rows.find((r) => r.isSelf);
+  return Math.max(0, self?.streak ?? rows[0]?.streak ?? 0);
 }

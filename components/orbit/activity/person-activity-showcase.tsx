@@ -14,7 +14,11 @@ import { StreakDots } from '@/components/orbit/house-rules/visuals/streak-dots';
 import { isAvatarImageUri } from '@/lib/game-levels';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { resolveHouseRulesPalette } from '@/lib/rules/house-rules-palette';
-import type { MemberStreakRow } from '@/lib/streaks/member-streak-rows';
+import {
+  bestStreakAmongRows,
+  selfStreakAmongRows,
+  type MemberStreakRow,
+} from '@/lib/streaks/member-streak-rows';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 const STREAK_TONE = '#FF6A3D';
@@ -77,7 +81,11 @@ export function PersonActivityShowcase({
     });
   }, [accentColor, dayStart, rows, signals]);
 
-  const houseStreak = rows.reduce((sum, r) => sum + Math.max(0, r.streak), 0);
+  // Same personal-streak source as Home / Health — never sum streaks, never
+  // show "faces active today" as the hero streak number (that mismatched 2 vs 0).
+  const houseBest = bestStreakAmongRows(rows);
+  const selfStreak = selfStreakAmongRows(rows);
+  const heroStreak = mode === 'household' ? houseBest : selfStreak;
   const activeToday = byPerson.filter((p) => p.todayCount > 0).length;
 
   if (!rows.length) return null;
@@ -100,13 +108,13 @@ export function PersonActivityShowcase({
               </Text>
               <Text style={[styles.heroTitle, { color: c.text }]}>
                 {mode === 'household'
-                  ? `${houseStreak} streak days across the house`
-                  : `${rows[0]?.streak ?? 0} day streak`}
+                  ? heroStreak === 1
+                    ? '1-day best streak in the house'
+                    : `${heroStreak} day best streak in the house`
+                  : `${heroStreak} day streak`}
               </Text>
             </View>
-            <Text style={[styles.heroBig, { color: STREAK_TONE }]}>
-              {mode === 'household' ? activeToday : rows[0]?.streak ?? 0}
-            </Text>
+            <Text style={[styles.heroBig, { color: STREAK_TONE }]}>{heroStreak}</Text>
           </View>
           <Text style={[styles.heroSub, { color: c.textMuted }]}>
             {mode === 'household'
@@ -115,13 +123,13 @@ export function PersonActivityShowcase({
                 : 'Waiting for today’s first signals'
               : 'Finish-by keeps Late Credit safe'}
           </Text>
-          {mode === 'personal' && rows[0] ? (
+          {mode === 'personal' ? (
             <View style={styles.dots}>
               <StreakDots
                 constants={doc.constants}
                 palette={palette}
                 voice="sidekick"
-                liveStreakDays={rows[0].streak}
+                liveStreakDays={heroStreak}
               />
             </View>
           ) : null}
