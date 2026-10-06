@@ -31,7 +31,7 @@ When you allow Location, Choremaxx preloads maps, finds grocery and clothing sto
 
 ## Subscriptions & billing
 
-Paid plans (when offered): **7-day free trial**, then **$4.99/month** or **$48/year** (+ tax via Apple). Pricing and renewal terms are shown in-app before purchase. App Store purchases follow Apple’s refund policies. Allowance tracking in Choremaxx never sends or transfers money — parents use **Mark as paid**.
+Paid plans (when offered): **7-day free trial**, then **$6.99/month** or **$49.99/year at 40% off** (+ tax via Apple). Pricing and renewal terms are shown in-app before purchase. App Store purchases follow Apple’s refund policies. Allowance tracking in Choremaxx never sends or transfers money — parents use **Mark as paid**.
 
 ## Disclaimer
 

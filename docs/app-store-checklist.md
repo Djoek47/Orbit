@@ -32,7 +32,7 @@
 | **Privacy Policy URL** | https://choremaxx.vercel.app/privacy |
 | **Category** | Lifestyle (secondary: Productivity) |
 | **Age rating** | 4+ / family utility; child role under guardian |
-| **Pricing** | Auto-renewable: 7-day free trial · $4.99/mo · $48/yr (product IDs in `constants/billing.ts`) |
+| **Pricing** | Auto-renewable: 7-day free trial · $6.99/mo · $49.99/yr at 40% off (product IDs in `constants/billing.ts`) |
 
 ## App Review notes (suggested)
 

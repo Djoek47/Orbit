@@ -147,7 +147,7 @@ export function PoppinsSettingsPanel({
               moji="gem"
               tone="#FFD166"
               label="Credits"
-              sub="Buy actions that never expire"
+              sub="Buy packs · never expire"
               onPress={() => router.push('/poppins-credits' as never)}
               divider
             />
@@ -156,7 +156,7 @@ export function PoppinsSettingsPanel({
             moji="tools"
             tone="#8E7CFF"
             label="Advanced"
-            sub="Waiting, undo, written replies, Sidekick access"
+            sub="Save timing, on-screen replies, quiet hours"
             onPress={() => router.push('/poppins-advanced' as never)}
             divider
           />

@@ -11,13 +11,22 @@ import {
   topUpBalanceFromGrants,
   type TokenGrantBalance,
 } from '@/lib/billing/token-grants-math';
+import { notifyTokenGrantsChanged } from '@/lib/billing/token-grants-events';
 import { isPersistedHouseholdId } from '@/lib/household/persisted-household-id';
-import { getSupabaseClient } from '@/lib/supabase/client';
+
+/** Lazy — keeps Expo Go / Node unit tests from loading SecureStore at import time. */
+async function supabaseClient() {
+  const { getSupabaseClient } = await import('@/lib/supabase/client');
+  return getSupabaseClient();
+}
 
 export type TokenGrant = TokenGrantBalance;
 export { applyTopUpConsumption, mergeTokenGrants, topUpBalanceFromGrants };
 
 const keyFor = (householdId: string) => `orbit.token-grants.${householdId}`;
+
+/** In-memory bank when AsyncStorage is unavailable (Node unit tests). */
+const memoryBanks = new Map<string, TokenGrant[]>();
 
 export async function loadTokenGrants(
   householdId: string | null | undefined
@@ -46,21 +55,27 @@ async function loadLocal(householdId: string | null | undefined): Promise<TokenG
   if (!householdId) return [];
   try {
     const raw = await AsyncStorage.getItem(keyFor(householdId));
-    if (!raw) return [];
+    if (!raw) return memoryBanks.get(householdId) ?? [];
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return memoryBanks.get(householdId) ?? [];
     return parsed.filter(isGrant);
   } catch {
-    return [];
+    return memoryBanks.get(householdId) ?? [];
   }
 }
 
 async function saveLocal(householdId: string, grants: TokenGrant[]): Promise<void> {
-  await AsyncStorage.setItem(keyFor(householdId), JSON.stringify(grants));
+  memoryBanks.set(householdId, grants);
+  try {
+    await AsyncStorage.setItem(keyFor(householdId), JSON.stringify(grants));
+  } catch {
+    /* Node / missing native storage — memory bank still holds the balance */
+  }
+  notifyTokenGrantsChanged();
 }
 
 async function loadRemote(householdId: string): Promise<TokenGrant[] | null> {
-  const supabase = getSupabaseClient();
+  const supabase = await supabaseClient();
   if (!supabase) return null;
   try {
     const { data, error } = await supabase
@@ -91,7 +106,7 @@ async function loadRemote(householdId: string): Promise<TokenGrant[] | null> {
 }
 
 async function syncConsumedRemote(householdId: string, grants: TokenGrant[]): Promise<void> {
-  const supabase = getSupabaseClient();
+  const supabase = await supabaseClient();
   if (!supabase) return;
   for (const grant of grants) {
     if (!grant.id || grant.id.startsWith('mock-') || grant.id.startsWith('local-')) continue;
@@ -166,7 +181,7 @@ export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenG
     return grant;
   }
 
-  const supabase = getSupabaseClient();
+  const supabase = await supabaseClient();
   if (supabase && isPersistedHouseholdId(input.householdId)) {
     const { data, error } = await supabase.functions.invoke('grant-token-pack', {
       body: {

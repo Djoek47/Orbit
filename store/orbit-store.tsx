@@ -627,10 +627,19 @@ type OrbitContextValue = {
   }[];
   isGuestInActiveHousehold: boolean;
   switchHousehold: (householdId: string) => Promise<void>;
-  /** Owner-only — schedules permanent deletion after a 15-day grace period. */
+  /** Owner or admin — schedules permanent deletion after a 30-day grace period. */
   deleteHousehold: () => Promise<{ scheduledFor: string }>;
-  /** Owner-only — cancels a scheduled household deletion within the grace window. */
+  /** Owner or admin — cancels a scheduled household deletion within the grace window. */
   cancelHouseholdDeletion: () => Promise<void>;
+  /** Owner or admin — accelerate to 24h confirm + email token. */
+  requestImmediateHouseholdDeletion: () => Promise<{
+    scheduledFor: string;
+    confirmToken: string;
+  }>;
+  /** Owner or admin — stop reminder emails for a scheduled deletion. */
+  optOutHouseholdDeletionReminders: () => Promise<void>;
+  /** Mock / Expo Go: apply ownership transfer after QR accept. */
+  applyMockHouseholdTransfer: (householdId: string) => Promise<void>;
   /**
    * Custom house rules — display only; never alter scoring / XP / allowance.
    */
@@ -1243,6 +1252,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       void touchSidekickSession().catch(() => undefined);
 
       const prefs = merged.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      // Keep refs in sync before announce so concurrent live syncs see a real baseline.
+      householdRef.current = merged;
+      notificationsRef.current = filterOutDismissedIds(sync.notifications, tombstones);
+
+      const { loadAnnounceLedger, recordAnnouncedKeys, ledgerKeySet, toExpoNotificationIdentifier } =
+        await import('@/lib/notifications/announce-ledger');
+      const ledger = householdId
+        ? await loadAnnounceLedger(householdId, memberId)
+        : { entries: [] };
       const banners = diffSidekickAnnouncements({
         announceRequested: Boolean(options?.announceNewTasks),
         announceReady: sidekickAnnounceReadyRef.current,
@@ -1251,11 +1269,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         tasks: sync.tasks,
         notifications: sync.notifications,
         memberName: sync.member.name,
+        targetMemberId: memberId,
         tasksPrefEnabled: prefs.tasks !== false,
+        smartDelivery: prefs.smartDelivery !== false,
+        dismissedNotificationIds: tombstones,
+        announcedKeys: ledgerKeySet(ledger),
         taskMatchesAssignee,
       });
       for (const banner of banners) {
-        void presentLocalBanner(banner.title, banner.body, banner.data).catch(() => undefined);
+        void presentLocalBanner(banner.title, banner.body, banner.data, {
+          identifier: toExpoNotificationIdentifier(banner.key),
+        })
+          .then(() => {
+            if (householdId) {
+              void recordAnnouncedKeys(householdId, memberId, [banner.key]);
+            }
+          })
+          .catch(() => undefined);
       }
       // First successful sync after sign-in/Continue-as arms live announce for later diffs.
       sidekickAnnounceReadyRef.current = true;
@@ -2136,11 +2166,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!user?.id || !household.id) {
       throw new Error('No active household to delete.');
     }
-    if (currentMember?.role !== 'owner') {
-      throw new Error('Only the household owner can delete this household.');
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') {
+      throw new Error('Only a household owner or admin can delete this household.');
     }
     const result = await householdRepository.requestHouseholdDeletion(household.id, user.id);
-    const scheduledSnapshot = { ...household, deletionScheduledFor: result.scheduledFor };
+    const scheduledSnapshot = {
+      ...household,
+      deletionScheduledFor: result.scheduledFor,
+      deletionReminderStage: null,
+      deletionRemindersOptOut: false,
+    };
     setHousehold(scheduledSnapshot);
     if (dataMode === 'mock') {
       await persistMockHouseholdSnapshot(scheduledSnapshot);
@@ -2159,17 +2194,141 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!user?.id || !household.id) {
       throw new Error('No active household.');
     }
-    if (currentMember?.role !== 'owner') {
-      throw new Error('Only the household owner can cancel deletion.');
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') {
+      throw new Error('Only a household owner or admin can cancel deletion.');
     }
     await householdRepository.cancelHouseholdDeletion(household.id, user.id);
-    const restored = { ...household, deletionScheduledFor: null, deletedAt: null };
+    const restored = {
+      ...household,
+      deletionScheduledFor: null,
+      deletedAt: null,
+      deletionReminderStage: null,
+      deletionRemindersOptOut: false,
+    };
     setHousehold(restored);
     if (dataMode === 'mock') {
       await persistMockHouseholdSnapshot(restored);
     }
     await refreshHouseholdMemberships(user.id);
     await trackAnalytics('household.deletion_cancelled', {}, { householdId: household.id, userId: user.id });
+    const { sendDeletionCancelledEmail } = await import('@/lib/household/deletion-email-actions');
+    void sendDeletionCancelledEmail({
+      to: user.email || undefined,
+      name: currentMember?.name ?? user.name,
+      householdName: household.householdName,
+      householdId: household.id,
+    });
+  };
+
+  const requestImmediateHouseholdDeletion = async () => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id || !household.id) {
+      throw new Error('No active household.');
+    }
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') {
+      throw new Error('Only a household owner or admin can accelerate deletion.');
+    }
+    const result = await householdRepository.requestImmediateHouseholdDeletion(
+      household.id,
+      user.id
+    );
+    const next = {
+      ...household,
+      deletionScheduledFor: result.scheduledFor,
+      deletionReminderStage: null,
+    };
+    setHousehold(next);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(next);
+    }
+    const { sendImmediateDeletionConfirmEmail } = await import(
+      '@/lib/household/deletion-email-actions'
+    );
+    void sendImmediateDeletionConfirmEmail({
+      to: user.email || undefined,
+      name: currentMember?.name ?? user.name,
+      householdName: household.householdName,
+      householdId: household.id,
+      scheduledFor: result.scheduledFor,
+      confirmToken: result.confirmToken,
+    });
+    await trackAnalytics(
+      'household.deletion_immediate_requested',
+      { scheduledFor: result.scheduledFor },
+      { householdId: household.id, userId: user.id }
+    );
+    return {
+      scheduledFor: result.scheduledFor,
+      confirmToken: result.confirmToken,
+    };
+  };
+
+  const optOutHouseholdDeletionReminders = async () => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id || !household.id) {
+      throw new Error('No active household.');
+    }
+    if (currentMember?.role !== 'owner' && currentMember?.role !== 'admin') {
+      throw new Error('Only a household owner or admin can change reminder preferences.');
+    }
+    await householdRepository.optOutHouseholdDeletionReminders(household.id, user.id);
+    const next = { ...household, deletionRemindersOptOut: true };
+    setHousehold(next);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(next);
+    }
+  };
+
+  const applyMockHouseholdTransfer = async (householdId: string) => {
+    const user = currentUser ?? (await authRepository.getCurrentSession())?.user ?? null;
+    if (!user?.id) {
+      throw new Error('Sign in to accept a transfer.');
+    }
+    const snapshot =
+      (await householdRepository.loadHouseholdById(householdId, user.id).catch(() => null)) ??
+      (household.id === householdId ? household : null);
+    if (!snapshot?.id) {
+      throw new Error('Household not found for transfer.');
+    }
+    const previousOwner = snapshot.members.find((m) => m.role === 'owner');
+    let members = snapshot.members.map((m) => {
+      if (previousOwner && m.id === previousOwner.id) {
+        return { ...m, role: 'adult' as const };
+      }
+      if (m.userId === user.id) {
+        return { ...m, role: 'owner' as const, status: 'active' as const };
+      }
+      return m;
+    });
+    if (!members.some((m) => m.userId === user.id)) {
+      members = [
+        ...members,
+        {
+          id: `xfer-${user.id.slice(0, 8)}`,
+          name: user.name || 'Owner',
+          role: 'owner' as const,
+          status: 'active' as const,
+          userId: user.id,
+          avatar: user.avatar ?? user.name?.charAt(0)?.toUpperCase() ?? 'O',
+          xp: 0,
+          loadShare: 1,
+        },
+      ];
+    }
+    const next = {
+      ...snapshot,
+      members,
+      deletionScheduledFor: null,
+      deletedAt: null,
+      deletionReminderStage: null,
+      deletionRemindersOptOut: false,
+    };
+    setHousehold(next);
+    setActiveMemberId(members.find((m) => m.userId === user.id)?.id ?? null);
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot(next);
+    }
+    await refreshHouseholdMemberships(user.id);
   };
 
   const restoreSidekickFromSession = async (session: SidekickSession): Promise<boolean> => {
@@ -2585,6 +2744,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const sharedTablet = isSharedTabletDeviceSession(device);
     // Personal Sidekick: keep Continue-as. Shared tablet: wipe every hosted face.
     const sidekickSigningOut = isSidekickRole(currentMember?.role) && !sharedTablet;
+
+    // Stamp Disconnected before wiping auth so admin roster flips immediately.
+    try {
+      const { markPresenceDisconnected } = await import(
+        '@/lib/household/mark-presence-disconnected'
+      );
+      const { loadSidekickSession } = await import('@/lib/sidekick/session');
+      const sidekick = await loadSidekickSession().catch(() => null);
+      const memberIds = sharedTablet
+        ? device.profileMemberIds
+        : currentMember?.id
+          ? [currentMember.id]
+          : [];
+      await markPresenceDisconnected({
+        memberIds,
+        profileInviteCode: sidekick?.profileInviteCode ?? null,
+      });
+    } catch (error) {
+      console.warn('orbit.signOut.presence', error);
+    }
+
     try {
       await authRepository.signOut();
     } catch (error) {
@@ -4278,6 +4458,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!household.id) return null;
     if (decision.decision === 'drop' || decision.decision === 'activity_only') return null;
 
+    const targetMemberId =
+      (typeof input.data?.targetMemberId === 'string' && input.data.targetMemberId) ||
+      (typeof input.data?.memberId === 'string' && input.data.memberId) ||
+      decision.memberId ||
+      undefined;
     const data = {
       ...(input.data ?? {}),
       urgency: decision.urgency,
@@ -4285,6 +4470,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       mergeKey: decision.mergeKey,
       factIds: decision.factIds,
       cta: decision.cta,
+      ...(targetMemberId
+        ? { targetMemberId, memberId: (input.data?.memberId as string | undefined) ?? targetMemberId }
+        : {}),
     };
 
     if (decision.decision === 'merge' && decision.mergeKey) {
@@ -4357,11 +4545,28 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const deferBanner = quietEnabled && isQuietHour(new Date().getHours()) && !urgent;
 
     if (!deferBanner && decision.banner) {
-      void presentLocalBanner(item.title, item.body, {
-        ...(item.data ?? {}),
-        notificationId: item.id,
-        category: item.category,
-      }).catch(() => undefined);
+      const taskIdFromData =
+        typeof item.data?.taskId === 'string'
+          ? item.data.taskId
+          : typeof input.data?.taskId === 'string'
+            ? input.data.taskId
+            : undefined;
+      const stableKey =
+        (typeof data.mergeKey === 'string' && data.mergeKey) ||
+        (taskIdFromData ? `task:${taskIdFromData}` : undefined) ||
+        item.id;
+      void import('@/lib/notifications/announce-ledger').then(({ toExpoNotificationIdentifier }) =>
+        presentLocalBanner(
+          item.title,
+          item.body,
+          {
+            ...(item.data ?? {}),
+            notificationId: item.id,
+            category: item.category,
+          },
+          { identifier: toExpoNotificationIdentifier(String(stableKey)) }
+        ).catch(() => undefined)
+      );
     }
     return item;
   };
@@ -4477,7 +4682,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           undefined,
         memberId: typeof row.data?.memberId === 'string' ? row.data.memberId : undefined,
       }));
-      const [decision] = coalesceFacts([fact], { now: Date.now(), existing });
+      const prefsForSmart = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+      const [decision] = coalesceFacts([fact], {
+        now: Date.now(),
+        existing,
+        smartDelivery: prefsForSmart.smartDelivery !== false,
+      });
       if (!decision || decision.decision === 'drop' || decision.decision === 'activity_only') {
         return null;
       }
@@ -7370,6 +7580,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       switchHousehold,
       deleteHousehold,
       cancelHouseholdDeletion,
+      requestImmediateHouseholdDeletion,
+      optOutHouseholdDeletionReminders,
+      applyMockHouseholdTransfer,
       addCustomHouseRule,
       updateCustomHouseRule,
       removeCustomHouseRule,

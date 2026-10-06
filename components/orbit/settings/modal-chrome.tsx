@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { closeSettingsModalStack } from '@/lib/navigation/close-settings-modal';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
@@ -35,12 +36,7 @@ export function SettingsModalChrome({
   const { c, glassBorder, isDark } = useOrbitColors();
   const accent = c.primary;
   const back = onBack ?? (() => router.back());
-  const close =
-    onClose ??
-    (() => {
-      if (router.canDismiss()) router.dismiss();
-      else router.replace('/settings' as never);
-    });
+  const close = onClose ?? closeSettingsModalStack;
 
   return (
     <View style={[styles.shell, { backgroundColor: c.background, paddingTop: insets.top }]}>

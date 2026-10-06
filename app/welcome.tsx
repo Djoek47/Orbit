@@ -90,6 +90,7 @@ import { shouldSkipPremiumForInvite } from '@/lib/billing/premium-invite';
 import { buildInviteLinks, normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { classifyInviteCode, inviteHref, nextInviteDestination } from '@/lib/invites/invite-intent';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
+import { listRecoverableDeletions } from '@/lib/household/household-recovery';
 import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
 import { shareInvite } from '@/lib/invites/share-invite';
 import {
@@ -199,6 +200,7 @@ export default function WelcomeOnboardingScreen() {
     currentUser,
     hasHousehold,
     household,
+    householdMemberships,
     isLoading,
     isSignedIn,
     hydrateFromSession,
@@ -216,6 +218,11 @@ export default function WelcomeOnboardingScreen() {
   const accent = accentTheme.primary;
   const ink = orbitPalette.ink;
   const bg = orbitPalette.background;
+
+  const recoverableHouseholds = useMemo(
+    () => listRecoverableDeletions(householdMemberships),
+    [householdMemberships]
+  );
 
   const inviteParams = useLocalSearchParams<{
     invite?: string;
@@ -1072,10 +1079,7 @@ export default function WelcomeOnboardingScreen() {
       {step === 'splash' ? (
         <View style={styles.splashScreen}>
           <View style={styles.splashCenter}>
-            <BrandOpening
-              tagline="Your household, quietly run."
-              onReady={() => setSplashReady(true)}
-            />
+            <BrandOpening onReady={() => setSplashReady(true)} />
             <SplashHooks visible={splashReady} />
           </View>
 
@@ -1096,6 +1100,35 @@ export default function WelcomeOnboardingScreen() {
                     Welcome back — pick up where you left off, or start fresh below.
                   </Text>
                 </>
+              ) : null}
+              {isSignedIn && recoverableHouseholds.length > 0 ? (
+                <Pressable
+                  onPress={() => {
+                    const first = recoverableHouseholds[0]!;
+                    router.push(
+                      `/household-recovery?householdId=${encodeURIComponent(first.householdId)}` as never
+                    );
+                  }}
+                  style={[
+                    styles.recoveryCard,
+                    {
+                      backgroundColor: '#FBBF2418',
+                      borderColor: '#FBBF2444',
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Recover a household scheduled for deletion">
+                  <MaterialIcons name="hourglass-top" size={22} color="#FBBF24" />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[typography.subheadline, { color: orbitPalette.text, fontWeight: '700' }]}>
+                      Recover {recoverableHouseholds[0]!.householdName}
+                    </Text>
+                    <Text style={[typography.footnote, { color: orbitPalette.textMuted, lineHeight: 18 }]}>
+                      Scheduled for deletion — cancel, opt out of emails, or delete sooner.
+                    </Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#FBBF24" />
+                </Pressable>
               ) : null}
               <OrbitButton onPress={handleGetStarted}>Get Started</OrbitButton>
               <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
@@ -1129,11 +1162,8 @@ export default function WelcomeOnboardingScreen() {
           {step === 'motivation' ? (
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
-              <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                How should chores feel?
-              </Text>
-              <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Change anytime in Settings.
+              <Text style={[typography.title1, styles.stepTitle, styles.mb, { color: orbitPalette.text }]}>
+                Choose your household reward strategy.
               </Text>
               <View style={styles.motivationGrid}>
                 {REWARD_MODEL_OPTIONS.map((opt) => {
@@ -1246,10 +1276,10 @@ export default function WelcomeOnboardingScreen() {
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                Pick a reward starter pack
+                Pick a Reward
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Cute, ready-made prizes for your household. You can change these anytime.
+                Additional rewards can be created.
               </Text>
               <RewardPackagePicker
                 selectedId={selectedRewardPackageId}
@@ -1285,7 +1315,7 @@ export default function WelcomeOnboardingScreen() {
                 Create your account
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                One account for your household. We&apos;ll confirm by email when needed.
+                One admin account for your household and confirm via email.
               </Text>
               {appleAvailable && Platform.OS === 'ios' ? (
                 <>
@@ -1552,6 +1582,13 @@ export default function WelcomeOnboardingScreen() {
       <InviteQrScanner
         visible={scannerOpen}
         onClose={() => setScannerOpen(false)}
+        onTransferScanned={(token) => {
+          setScannerOpen(false);
+          setError('');
+          router.replace(
+            `/accept-household-transfer?token=${encodeURIComponent(token)}` as never
+          );
+        }}
         onScanned={(code) => {
           setScannerOpen(false);
           setError('');
@@ -1684,6 +1721,16 @@ const styles = StyleSheet.create({
   splashCtaBlock: {
     alignSelf: 'stretch',
     gap: 14,
+  },
+  recoveryCard: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
   splashLegal: {
     alignItems: 'center',

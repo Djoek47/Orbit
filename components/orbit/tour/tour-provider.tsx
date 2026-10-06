@@ -984,10 +984,14 @@ export function TourProvider({ children }: PropsWithChildren) {
   }, [tourState, tourId, persist, analyticsContext]);
 
   const showChecklist = useCallback(() => {
-    if (!tourState) return;
-    setChecklistForced(true);
-    void persist({ ...tourState, checklistHidden: false });
-  }, [tourState, persist]);
+    // Settings → Get Started: leave the modal, land on Home, force the card open.
+    // Same dismiss path as startTour so we never stack over Settings.
+    void dismissModalsThen(() => {
+      const base = tourState ?? skipTourState(startTourState(tourId));
+      setChecklistForced(true);
+      void persist({ ...base, checklistHidden: false });
+    });
+  }, [tourState, tourId, persist, dismissModalsThen]);
 
   const hideChecklist = useCallback(() => {
     if (!tourState) return;

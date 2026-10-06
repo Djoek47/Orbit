@@ -7,6 +7,7 @@ import {
   parseMemberInviteTokenFromUrl,
   parseSharedDeviceInviteFromUrl,
 } from '@/lib/invite/deep-links';
+import { parseHouseholdTransferTokenFromUrl } from '@/lib/household/household-transfer';
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
 import { stashMemberInviteToken } from '@/lib/invite/member-invite-token-store';
 import {
@@ -24,6 +25,14 @@ async function handleInviteUrl(
   if (sharedDevicePayload) {
     router.replace(
       `/join-shared-device?payload=${encodeURIComponent(sharedDevicePayload)}` as never
+    );
+    return;
+  }
+
+  const transferToken = parseHouseholdTransferTokenFromUrl(url);
+  if (transferToken) {
+    router.replace(
+      `/accept-household-transfer?token=${encodeURIComponent(transferToken)}` as never
     );
     return;
   }

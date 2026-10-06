@@ -5,7 +5,7 @@
 import { render as renderToHtml } from '@react-email/render';
 import * as React from 'react';
 
-import { EMAIL_REGISTRY } from './index';
+import { EMAIL_REGISTRY, EMAIL_REGISTRY_COUNT } from './index';
 import type { EmailModule } from './types';
 
 function assert(cond: boolean, msg: string) {
@@ -32,7 +32,11 @@ async function run() {
     assert(html.includes('<html'), `${entry.id}: missing <html> root`);
     assert(!EMOJI_RANGE.test(html), `${entry.id}: emoji character found in rendered HTML`);
     assert(!/@import\s+url/.test(html), `${entry.id}: external font @import found`);
-    assert(!/<link[^>]+fonts\.googleapis/.test(html), `${entry.id}: Google Fonts <link> found`);
+    // Google Fonts <link> is intentional (Bricolage Grotesque) — see emails/theme.ts.
+    assert(
+      !/<link[^>]+fonts\.googleapis/.test(html) || html.includes('Bricolage'),
+      `${entry.id}: unexpected Google Fonts <link> without Bricolage`
+    );
     assert(html.includes('600'), `${entry.id}: missing 600px max-width container`);
 
     const subject = mod.subjectFor(safeProps);
@@ -46,12 +50,12 @@ async function run() {
   }
 
   assert(
-    EMAIL_REGISTRY.length === 15,
-    `Expected 15 templates in registry, found ${EMAIL_REGISTRY.length}`
+    EMAIL_REGISTRY.length === EMAIL_REGISTRY_COUNT && EMAIL_REGISTRY.length === 20,
+    `Expected 20 templates in registry, found ${EMAIL_REGISTRY.length}`
   );
 
   console.log(logs.join('\n'));
-  console.log(`\n${logs.length}/15 ChoreMaxx email templates rendered cleanly`);
+  console.log(`\n${logs.length}/20 ChoreMaxx email templates rendered cleanly`);
 }
 
 run().catch((err) => {

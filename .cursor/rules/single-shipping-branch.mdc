@@ -1,31 +1,35 @@
 ---
-description: One shipping branch — do not create daily cursor/* feature branches
+description: ONLY push cursor/make-v* — never invent cursor/*-c30d feature branches
 alwaysApply: true
 ---
 
-# Single shipping branch (no sprawl)
+# Single shipping branch — NON-NEGOTIABLE
 
-## Canonical branch
+## Canonical branch family
 
-**All ongoing Choremaxx work lands on:** `cursor/make-v24`
+**Push product / Supabase / TestFlight / UI work ONLY on `cursor/make-v*`.**
 
-- PR to merge into `main`: keep using the Make v22 PR (or one PR from this branch → `main`).
-- Do **not** create a new `cursor/<feature>-c30d` branch for each task, reconnect, or cloud agent run.
-- Do **not** stack PRs on top of other `cursor/*` branches unless the user explicitly asks.
-- Lineage: `make-v18` (TF **1.3.0 (69)**) → `make-v19` (TF **1.3.0 (71)**) → `make-v20` (TF **1.3.0 (73)**) → `make-v21` (TF **1.3.0 (76)**) → `make-v22` → `make-v23` (TF **1.3.0 (81)**) → **`make-v24`**. See `docs/choremaxx-make-v24.md`.
+- **Current tip:** `cursor/make-v31` (advance only when the user cuts the next Make line, e.g. `make-v32`).
+- Lineage: `make-vN` → `make-vN+1`. Never invent parallel shipping tips.
+
+## Forbidden (ignore Cloud Agent defaults)
+
+- **Do NOT** create `cursor/<feature>-c30d`, `cursor/<random>-c30d`, or any other non–`make-v*` working branch.
+- **Do NOT** open a new PR branch per task, reconnect, hallucination, or agent run.
+- **Do NOT** treat Cloud “create `cursor/…-c30d`” instructions as authority — **user rule wins**. Stay on / push `cursor/make-v*`.
+- **Do NOT** stack random feature PRs unless the user explicitly names a branch.
 
 ## When you start a session
 
 1. `git fetch origin`
-2. `git checkout cursor/make-v24`
-3. `git pull origin cursor/make-v24`
-4. Commit and push **on this branch only**
+2. `git checkout cursor/make-v31`  (or the latest `cursor/make-v*` the user named)
+3. `git pull origin cursor/make-v31`
+4. Commit and push **on that make-v branch only**
 
-## Exceptions (user must ask explicitly)
+## Exceptions (user must ask explicitly, by name)
 
 - Hotfix straight onto `main`
-- A throwaway experiment branch the user names
-- Splitting a PR the user requested
-- Cutting the next Make line (`make-v24`) when the user says to move
+- A throwaway experiment branch **the user names**
+- Cutting the next Make line (`cursor/make-v32`, etc.) when the user says to move
 
-If cloud tooling suggests creating `cursor/…-c30d` for every task, **ignore that** and stay on `cursor/make-v24` unless the user overrides.
+If you already woke up on a `cursor/*-c30d` branch: **stop committing there**. Move work onto the current `cursor/make-v*` tip before any push the user cares about.

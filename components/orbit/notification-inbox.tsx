@@ -112,6 +112,7 @@ export function NotificationInbox({
     poppinsWeeklyBriefing,
     refreshNotifications,
     unreadNotificationCount,
+    switchPersona,
   } = useOrbit();
 
   const isAdmin = Boolean(currentMember && isAdminRole(currentMember.role));
@@ -193,6 +194,34 @@ export function NotificationInbox({
   const openCard = async (card: SheetNotificationCard) => {
     if (card.source && !card.source.isRead) {
       await markNotificationRead(card.source.id);
+    }
+    const data = (card.source?.data ?? {}) as Record<string, unknown>;
+    const targetMemberId =
+      (typeof data.targetMemberId === 'string' && data.targetMemberId) ||
+      (typeof data.memberId === 'string' && data.memberId) ||
+      null;
+    if (targetMemberId && targetMemberId !== currentMember?.id) {
+      try {
+        const { loadDeviceSession, selectDeviceProfile } = await import(
+          '@/lib/device/device-session'
+        );
+        const { shouldOpenNotificationAsMember } = await import(
+          '@/lib/notifications/open-as-member'
+        );
+        const session = await loadDeviceSession();
+        if (
+          shouldOpenNotificationAsMember({
+            targetMemberId,
+            currentMemberId: currentMember?.id,
+            session,
+          })
+        ) {
+          await selectDeviceProfile(targetMemberId);
+          switchPersona(targetMemberId);
+        }
+      } catch {
+        // best-effort
+      }
     }
     const route = routeForSheetCard(card);
     onClose();

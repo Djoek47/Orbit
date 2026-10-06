@@ -48,7 +48,7 @@ Contrast audit F7 · Add-member 4-step wizard F8 · invite RLS F3.6 · full Pers
 | AI name in product strings | **Poppins** (Master Brief §3.1) |
 | Families only | No roommate mode in shipping product (site still markets roommates — fix in A1/B4) |
 | Allowance | Tracker only — **Mark as paid**; never send/pay/transfer |
-| Pricing | 7-day trial · **$4.99/mo** · **$48/yr** (20% off $60) + tax via Apple |
+| Pricing | 7-day trial · **$6.99/mo** · **$49.99/yr** (40% off) + tax via Apple |
 | Data mode | Expo Go may stay mock; TestFlight / store builds use `EXPO_PUBLIC_DATA_MODE=supabase` |
 
 ---
@@ -137,7 +137,7 @@ HARD RULES:
 - Poppins in product strings (not Nova) per Master Brief.
 - Families only — no roommate mode in shipping product.
 - Allowance never sends money — Mark as paid.
-- Pricing: 7-day trial, $4.99/mo, $48/yr via Apple IAP.
+- Pricing: 7-day trial, $6.99/mo, $49.99/yr (40% off) via Apple IAP.
 - Prefer Expo Go for UI checks; use TestFlight/supabase for store paths.
 - After each phase slice: commit, push, OTA to channel testflight.
 - Fill a short completion report per A/B item (pass/fail + what you skipped).

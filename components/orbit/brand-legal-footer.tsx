@@ -1,5 +1,6 @@
-import * as Linking from 'expo-linking';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+
+import { openChoremaxxUrl } from '@/lib/legal/open-choremaxx-url';
 
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import {
@@ -26,8 +27,8 @@ export function BrandLegalFooter({
 }: BrandLegalFooterProps) {
   const { c } = useOrbitColors();
 
-  const open = (url: string) => {
-    void Linking.openURL(url).catch(() => undefined);
+  const open = (url: string, label: string) => {
+    void openChoremaxxUrl(url, label);
   };
 
   return (
@@ -40,15 +41,17 @@ export function BrandLegalFooter({
       ) : null}
       <Text style={[styles.copyright, { color: c.textSubtle }]}>{CHOREMAXX_LEGAL.copyright}</Text>
       <View style={styles.links}>
-        <Pressable onPress={() => open(CHOREMAXX_LEGAL.privacyUrl)} hitSlop={8}>
+        <Pressable onPress={() => open(CHOREMAXX_LEGAL.privacyUrl, 'Privacy')} hitSlop={8}>
           <Text style={styles.link}>Privacy</Text>
         </Pressable>
         <Text style={[styles.dot, { color: c.textFaint }]}>·</Text>
-        <Pressable onPress={() => open(CHOREMAXX_LEGAL.termsUrl)} hitSlop={8}>
+        <Pressable onPress={() => open(CHOREMAXX_LEGAL.termsUrl, 'Terms')} hitSlop={8}>
           <Text style={styles.link}>Terms</Text>
         </Pressable>
         <Text style={[styles.dot, { color: c.textFaint }]}>·</Text>
-        <Pressable onPress={() => open(`mailto:${CHOREMAXX_LEGAL.supportEmail}`)} hitSlop={8}>
+        <Pressable
+          onPress={() => open(`mailto:${CHOREMAXX_LEGAL.supportEmail}`, 'Support')}
+          hitSlop={8}>
           <Text style={styles.link}>Support</Text>
         </Pressable>
       </View>

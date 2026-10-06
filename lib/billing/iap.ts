@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   ASC_IAP_SETUP_NOTES,
+  BILLING_TRIAL_DAYS,
   clearMockEntitlement,
   EMPTY_ENTITLEMENT,
   getMockEntitlement,
@@ -106,19 +107,22 @@ async function withNativeIap<T>(fn: (iap: typeof import('expo-iap')) => Promise<
 function entitlementFromPurchase(opts: {
   productId: string;
   expiresAt?: string | null;
+  effectiveAt?: string | null;
   inTrial?: boolean;
 }): EntitlementState {
   const key = productKeyForId(opts.productId);
   const product = key ? IAP_SUBSCRIPTIONS[key] : IAP_SUBSCRIPTIONS.monthly;
+  const effectiveAt = opts.effectiveAt ?? new Date().toISOString();
   let expiresAt = opts.expiresAt ?? null;
   if (!expiresAt) {
-    const expires = new Date();
+    const expires = new Date(effectiveAt);
     expires.setDate(expires.getDate() + (opts.inTrial ? product.trialDays : 31));
     expiresAt = expires.toISOString();
   }
   return {
     active: true,
     productId: (key ? product.productId : opts.productId) as IapProductId,
+    effectiveAt,
     expiresAt,
     source: 'storekit',
     inTrial: Boolean(opts.inTrial),
@@ -282,26 +286,14 @@ export async function purchaseTokens(
     // Mock grant — Expo Go / unit tests. Grants the selected pack size and appends
     // to the existing bank (credits never expire / never replace prior balance).
     const transactionId = `mock-${packKey}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    try {
-      const { grantTokenPack } = await import('@/lib/billing/token-grants');
-      return await grantTokenPack({
-        householdId,
-        packKey,
-        transactionId,
-        productId: pack.productId,
-        mock: true,
-      });
-    } catch {
-      return {
-        id: `mock-${transactionId}`,
-        householdId,
-        pack: pack.pack,
-        tokens: pack.tokens,
-        consumed: 0,
-        transactionId,
-        grantedAt: new Date().toISOString(),
-      };
-    }
+    const { grantTokenPack } = await import('@/lib/billing/token-grants');
+    return await grantTokenPack({
+      householdId,
+      packKey,
+      transactionId,
+      productId: pack.productId,
+      mock: true,
+    });
   }
 
   return withNativeIap(async (iap) => {
@@ -414,7 +406,9 @@ export async function clearEntitlementForTests(): Promise<EntitlementState> {
 
 export function premiumCopy(state: EntitlementState): string {
   if (!isPremiumActive(state)) {
-    return 'Start a 7-day free trial — then $6.99/mo or $49.99/yr.';
+    const m = IAP_SUBSCRIPTIONS.monthly.priceUsd.toFixed(2);
+    const y = IAP_SUBSCRIPTIONS.yearly.priceUsd.toFixed(2);
+    return `Start a ${BILLING_TRIAL_DAYS}-day free trial — then $${m}/mo or $${y}/yr (${IAP_SUBSCRIPTIONS.yearly.savingsLabel}).`;
   }
   if (state.inTrial) {
     return 'Premium trial active.';

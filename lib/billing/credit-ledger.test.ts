@@ -103,6 +103,7 @@ assert.match(formatResetDate(new Date(2026, 8, 30)), /Oct 1/);
   assert.doesNotMatch(actions, /grantTokenPack/, 'and never sells anything');
   assert.match(credits, /CREDIT BALANCE/, 'Credits leads with the balance');
   assert.match(credits, /never expire/, 'and says they keep');
+  assert.match(credits, /purchaseTokens/, 'buys go through the IAP facade');
   assert.doesNotMatch(credits, /CreditBreakdownView/, 'without the usage chart');
   const panel = readFileSync(
     join(process.cwd(), 'components/orbit/poppins/poppins-settings-panel.tsx'),

@@ -11,7 +11,8 @@ import Animated, { FadeIn, FadeInDown, Layout, ZoomIn } from 'react-native-reani
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { radius, typography } from '@/constants/orbit-theme';
-import { loadDeviceSession } from '@/lib/device/device-session';
+import { reconcileHostedDeviceSession } from '@/lib/device/device-session';
+import { profilesForSharedDeviceSwitch } from '@/lib/device/profiles-for-switch';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { whosOnPeople } from '@/lib/household/whos-on-people';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -42,12 +43,17 @@ export function WhosOnSwitcher({
   const [hostedIds, setHostedIds] = useState<string[] | undefined>();
 
   useEffect(() => {
-    void loadDeviceSession().then((session) => {
+    void reconcileHostedDeviceSession(members).then((session) => {
+      const roster = profilesForSharedDeviceSwitch(session, members).map((p) => p.id);
+      if (roster.length > 0) {
+        setHostedIds(roster);
+        return;
+      }
       if (session.mode === 'shared' && session.profileMemberIds.length > 0) {
         setHostedIds(session.profileMemberIds);
       }
     });
-  }, [currentMemberId]);
+  }, [currentMemberId, members]);
 
   const people = useMemo(
     () =>

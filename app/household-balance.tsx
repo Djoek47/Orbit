@@ -70,23 +70,12 @@ export default function HouseholdBalanceScreen() {
   }));
 
   const openTasks = metrics.openTasks ?? 0;
-  const streakDays =
-    typeof metrics.householdStreak === 'number'
-      ? metrics.householdStreak
-      : Number.parseInt(
-          String(healthItems.find((item) => item.kind === 'streak')?.valueLabel ?? '0').replace(/\D/g, ''),
-          10
-        ) || 0;
-  const liveStreakLabel = `${streakDays}d`;
+  const missingGroceries = metrics.missingGroceries ?? 0;
+  const upcomingEvents = metrics.upcomingEvents ?? 0;
 
+  // Hero already shows Completion + Streak — keep the pulse thin.
   const livePulse = !sharedKidMode
     ? [
-        {
-          key: 'streak',
-          icon: 'local-fire-department' as const,
-          color: '#FB923C',
-          label: `Live streak ${liveStreakLabel}`,
-        },
         {
           key: 'open',
           icon: 'assignment' as const,
@@ -99,26 +88,37 @@ export default function HouseholdBalanceScreen() {
           color: '#38BDF8',
           label: `${metrics.groceryReadiness ?? 0}% groceries ready`,
         },
-        {
-          key: 'missing',
-          icon: 'playlist-add-check' as const,
-          color: '#F472B6',
-          label: `${metrics.missingGroceries ?? 0} missing`,
-        },
-        {
-          key: 'events',
-          icon: 'event' as const,
-          color: '#A78BFA',
-          label: `${metrics.upcomingEvents ?? 0} upcoming`,
-        },
-        {
-          key: 'momentum',
-          icon: 'bolt' as const,
-          color: '#34D399',
-          label: `${metrics.momentum ?? 0} momentum`,
-        },
+        ...(upcomingEvents > 0
+          ? [
+              {
+                key: 'events',
+                icon: 'event' as const,
+                color: '#A78BFA',
+                label: `${upcomingEvents} upcoming`,
+              },
+            ]
+          : []),
+        ...(missingGroceries > 0
+          ? [
+              {
+                key: 'missing',
+                icon: 'playlist-add-check' as const,
+                color: '#F472B6',
+                label: `${missingGroceries} missing`,
+              },
+            ]
+          : []),
       ]
     : [];
+
+  const roomsQuiet = cleaningByRoom.every((row) => row.open === 0 && row.completed === 0);
+
+  const roleLabel = (role: string) => {
+    if (role === 'child') return 'Sidekick';
+    if (role === 'owner' || role === 'admin') return 'Admin';
+    if (role === 'adult') return 'Adult';
+    return role;
+  };
 
   return (
     <View
@@ -197,7 +197,7 @@ export default function HouseholdBalanceScreen() {
                   <View style={styles.memberInfo}>
                     <Text style={[styles.memberName, { color: orbitPalette.text }]}>{member.name}</Text>
                     <Text style={[styles.memberMeta, { color: orbitPalette.textMuted }]}>
-                      {member.role} · {member.xp} XP
+                      {roleLabel(member.role)} · {member.xp} XP
                       {openCount > 0 ? ` · ${openCount} open` : ''}
                     </Text>
                     <View style={styles.loadTrack}>
@@ -218,23 +218,29 @@ export default function HouseholdBalanceScreen() {
             )}
 
             <Text style={[styles.section, { color: orbitPalette.textMuted }]}>Cleaning by room</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.roomStrip}>
-              {cleaningByRoom.map(({ room, open, completed, lastTitle }) => (
-                <View key={room.id} style={styles.roomCard}>
-                  <Moji emoji={room.emoji} size={18} />
-                  <Text style={[styles.roomName, { color: orbitPalette.text }]}>{room.name}</Text>
-                  <Text style={[styles.roomMeta, { color: orbitPalette.textMuted }]}>
-                    {completed} done · {open} open
-                  </Text>
-                  <Text style={[styles.roomLast, { color: orbitPalette.textSubtle }]} numberOfLines={2}>
-                    {lastTitle ? `Last: ${lastTitle}` : 'No completed cleans yet'}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
+            {roomsQuiet ? (
+              <Text style={[styles.emptyHint, { color: orbitPalette.textSubtle }]}>
+                No room cleans logged yet — assign a kitchen or bathroom chore to start the map.
+              </Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.roomStrip}>
+                {cleaningByRoom.map(({ room, open, completed, lastTitle }) => (
+                  <View key={room.id} style={styles.roomCard}>
+                    <Moji emoji={room.emoji} size={18} />
+                    <Text style={[styles.roomName, { color: orbitPalette.text }]}>{room.name}</Text>
+                    <Text style={[styles.roomMeta, { color: orbitPalette.textMuted }]}>
+                      {completed} done · {open} open
+                    </Text>
+                    <Text style={[styles.roomLast, { color: orbitPalette.textSubtle }]} numberOfLines={2}>
+                      {lastTitle ? `Last: ${lastTitle}` : 'No completed cleans yet'}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </>
         ) : null}
       </ScrollView>

@@ -7,6 +7,10 @@ import { AppState, Platform } from 'react-native';
 import { logActivity, type ActivityKind } from '@/lib/activity/activity-log';
 import { handleIuiActNotificationResponse } from '@/lib/notifications/iui-act-response';
 import { getNotificationRoute } from '@/lib/notifications/navigate';
+import {
+  shouldOpenNotificationAsMember,
+  targetMemberIdFromPushData,
+} from '@/lib/notifications/open-as-member';
 import { useOrbit } from '@/store/orbit-store';
 import type { NotificationItem } from '@/types/orbit';
 
@@ -92,6 +96,7 @@ export function NotificationTapBridge() {
     updateTask,
     claimReward,
     advanceItineraryStop,
+    switchPersona,
   } = useOrbit();
 
   const writesRef = useRef({
@@ -105,6 +110,7 @@ export function NotificationTapBridge() {
     updateTask,
     claimReward,
     advanceItineraryStop,
+    switchPersona,
   });
   writesRef.current = {
     household,
@@ -117,6 +123,7 @@ export function NotificationTapBridge() {
     updateTask,
     claimReward,
     advanceItineraryStop,
+    switchPersona,
   };
 
   useEffect(() => {
@@ -146,6 +153,28 @@ export function NotificationTapBridge() {
           defaultActionId: Notifications.DEFAULT_ACTION_IDENTIFIER,
         });
         if (result.handled) return;
+
+        const targetMemberId = targetMemberIdFromPushData(payload);
+        if (targetMemberId) {
+          try {
+            const { loadDeviceSession, selectDeviceProfile } = await import(
+              '@/lib/device/device-session'
+            );
+            const session = await loadDeviceSession();
+            if (
+              shouldOpenNotificationAsMember({
+                targetMemberId,
+                currentMemberId: writesRef.current.currentMember?.id,
+                session,
+              })
+            ) {
+              await selectDeviceProfile(targetMemberId);
+              writesRef.current.switchPersona(targetMemberId);
+            }
+          } catch {
+            // Open-as is best-effort — still navigate.
+          }
+        }
 
         const route = routeFromPushData(payload);
         if (route) {

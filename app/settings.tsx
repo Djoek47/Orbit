@@ -5,8 +5,10 @@ import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {  AppState, Image, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { orbitAlert } from '@/components/orbit/orbit-alert';
+import { OrbitButton } from '@/components/orbit/orbit-button';
 import {
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
@@ -30,7 +32,6 @@ import {
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { BUILD_INFO } from '@/constants/build-info';
-import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import {
   loadErrorLog,
 } from '@/lib/errors/error-log';
@@ -50,7 +51,9 @@ import {
   householdDeletionDaysRemaining,
   isHouseholdDeletionPending,
 } from '@/lib/household/household-deletion';
+import { confirmLeaveDevice, showPrivacyLegalMenu } from '@/lib/ui/settings-native-menus';
 import { formatHouseholdRole } from '@/lib/permissions';
+import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
 import {
   DEFAULT_REWARD_MODEL,
@@ -72,13 +75,20 @@ import {
 import { registerPushForActor } from '@/lib/notifications/member-push';
 import { loadSidekickSession } from '@/lib/sidekick/session';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
+import { BILLING_TRIAL_DAYS, PREMIUM_ALLOWANCE_COPY } from '@/constants/billing';
+import { subscribeTokenGrantsChanged } from '@/lib/billing/token-grants-events';
 import {
   fetchEntitlement,
-  IAP_PRODUCTS,
+  isPremiumActive,
   premiumCopy,
   restorePurchases,
   type EntitlementState,
 } from '@/lib/billing/iap';
+import {
+  formatSubscriptionDate,
+  resolveEffectiveAt,
+  subscriptionDatesSubtitle,
+} from '@/lib/billing/subscription-dates';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { MemberInvite } from '@/lib/household/member-invites';
@@ -209,6 +219,17 @@ export default function SettingsScreen() {
     lastRequested.current = requestedSection;
     setSection(requestedSection);
   }, [requestedSection]);
+
+  // Never leave the sheet touch-locked after leaving Poppins or unmounting.
+  useEffect(() => {
+    if (section !== 'poppins') setWheelDragging(false);
+  }, [section]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => setWheelDragging(false);
+    }, [])
+  );
   useEffect(() => {
     if (section !== 'members' || !permissions.canManageHousehold) return;
 
@@ -294,6 +315,8 @@ export default function SettingsScreen() {
         xpFairness: true,
         nearShop: true,
         missingOnTheWay: true,
+        quietHoursEnabled: true,
+        smartDelivery: true,
       },
     [household.notificationPrefs]
   );
@@ -385,19 +408,44 @@ export default function SettingsScreen() {
 
   const [topUpBalance, setTopUpBalance] = useState(0);
 
+  const refreshTopUpBalance = useCallback(async () => {
+    const { loadTokenGrants, topUpBalanceFromGrants } = await import(
+      '@/lib/billing/token-grants'
+    );
+    const grants = await loadTokenGrants(household.id);
+    setTopUpBalance(topUpBalanceFromGrants(grants));
+  }, [household.id]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { loadTokenGrants, topUpBalanceFromGrants } = await import(
-        '@/lib/billing/token-grants'
-      );
-      const grants = await loadTokenGrants(household.id);
-      if (!cancelled) setTopUpBalance(topUpBalanceFromGrants(grants));
+      try {
+        await refreshTopUpBalance();
+      } catch {
+        if (!cancelled) setTopUpBalance(0);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [household.id, actEvents]);
+  }, [actEvents, refreshTopUpBalance]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (section !== 'poppins' && section !== 'premium') return;
+      void refreshTopUpBalance().catch((error) => {
+        console.warn('settings.topUpRefresh.focus', error);
+      });
+    }, [refreshTopUpBalance, section])
+  );
+
+  useEffect(() => {
+    return subscribeTokenGrantsChanged(() => {
+      void refreshTopUpBalance().catch((error) => {
+        console.warn('settings.topUpRefresh.event', error);
+      });
+    });
+  }, [refreshTopUpBalance]);
 
   const aiSummary = useMemo(
     () =>
@@ -453,20 +501,38 @@ export default function SettingsScreen() {
 
   const [signingOut, setSigningOut] = useState(false);
 
+  /** RN sheets/alerts over Settings must close before dismiss or Sign Out navigates. */
+  const collapseSettingsOverlays = useCallback(() => {
+    setWheelDragging(false);
+    setPersonalizeMemberId(null);
+    setDeadlineOpen(false);
+    setInviteTarget(null);
+    setHouseholdSwitchOpen(false);
+    setAddMemberOpen(false);
+  }, []);
+
+  const closeSettings = useCallback(() => {
+    if (signingOut || isSignOutInFlight()) return;
+    collapseSettingsOverlays();
+    closeSettingsModal();
+  }, [collapseSettingsOverlays, signingOut]);
+
   const confirmAdminSignOut = () => {
     if (signingOut || isSignOutInFlight()) return;
-    orbitAlert('Sign out?', 'You’ll return to Get Started. Your household stays saved on this account.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: () => {
-          if (signingOut || isSignOutInFlight()) return;
-          setSigningOut(true);
-          void signOutAndLeave(signOut).finally(() => setSigningOut(false));
-        },
+    collapseSettingsOverlays();
+    // Native confirm — orbitAlert Modal over Settings freezes touches on iOS.
+    confirmLeaveDevice({
+      title: 'Sign out?',
+      message: 'You’ll return to Get Started. Your household stays saved on this account.',
+      confirmLabel: 'Sign out',
+      onConfirm: () => {
+        if (signingOut || isSignOutInFlight()) return;
+        collapseSettingsOverlays();
+        closeSettingsModal();
+        setSigningOut(true);
+        void signOutAndLeave(signOut).finally(() => setSigningOut(false));
       },
-    ]);
+    });
   };
 
   const personalizeMember = useMemo(
@@ -486,31 +552,51 @@ export default function SettingsScreen() {
       <Stack.Screen
         options={{
           headerShown: false,
-          // Poppins voice wheel: horizontal drags must not dismiss the sheet or pop back.
-          gestureEnabled: section !== 'poppins' && !wheelDragging,
-          fullScreenGestureEnabled: section !== 'poppins' && !wheelDragging,
+          // Keep sheet gestures on by default (root layout also sets true).
+          // Only lock while the Poppins voice wheel is actively dragging.
+          gestureEnabled: !wheelDragging,
+          fullScreenGestureEnabled: !wheelDragging,
         }}
       />
-
       <View style={styles.handleRow} pointerEvents={wheelDragging ? 'none' : 'auto'}>
         <View style={[styles.handle, { backgroundColor: glassBorder(0.2) }]} />
       </View>
 
-      <View style={styles.header} pointerEvents={wheelDragging ? 'none' : 'auto'}>
+      <View style={styles.header}>
         {section !== 'main' ? (
-          <Pressable style={styles.backRow} onPress={() => setSection('main')}>
+          <Pressable
+            style={styles.backRow}
+            onPress={() => {
+              setWheelDragging(false);
+              setSection('main');
+            }}
+            pointerEvents="auto">
             <Text style={[styles.backChevron, { color: accentTheme.primary }]}>‹</Text>
             <Text style={[styles.backLabel, { color: accentTheme.primary }]}>Settings</Text>
           </Pressable>
         ) : (
-          <View style={styles.titleRow}>
+          <View style={styles.titleRow} pointerEvents="box-none">
             <LinearGradient colors={[accentTheme.primary, accentTheme.secondary]} style={styles.zapBox}>
               <MaterialIcons name="bolt" size={16} color={orbitPalette.ink} />
             </LinearGradient>
             <Text style={[styles.title, { color: orbitPalette.text }]}>Settings</Text>
           </View>
         )}
-        <Pressable style={[styles.close, { backgroundColor: glass(0.08) }]} onPress={() => router.back()}>
+        <Pressable
+          style={[
+            styles.close,
+            {
+              backgroundColor: glass(0.08),
+              opacity: signingOut || isSignOutInFlight() ? 0.4 : 1,
+            },
+          ]}
+          onPress={closeSettings}
+          disabled={signingOut || isSignOutInFlight()}
+          accessibilityRole="button"
+          accessibilityLabel="Close settings"
+          accessibilityState={{ disabled: signingOut || isSignOutInFlight() }}
+          hitSlop={12}
+          pointerEvents="auto">
           <MaterialIcons name="close" size={16} color={orbitPalette.textMuted} />
         </Pressable>
       </View>
@@ -543,19 +629,38 @@ export default function SettingsScreen() {
                     borderColor: '#FBBF2444',
                   },
                 ]}>
-                <MaterialIcons name="hourglass-top" size={18} color="#FBBF24" />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: c.text }]}>
-                    Deletion scheduled
-                  </Text>
-                  <Text style={[styles.caption, { color: c.textMuted }]}>
-                    {household.householdName} will be permanently deleted on{' '}
-                    {formatHouseholdDeletionDate(household.deletionScheduledFor)} (
-                    {householdDeletionDaysRemaining(household.deletionScheduledFor)} days left). Data
-                    is kept until then.
-                  </Text>
-                </View>
-                {currentMember?.role === 'owner' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Open household recovery"
+                  onPress={() => {
+                    if (currentMember?.role === 'owner' || currentMember?.role === 'admin') {
+                      router.push('/household-recovery' as never);
+                    }
+                  }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                  <MaterialIcons name="hourglass-top" size={18} color="#FBBF24" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.memberName, { color: c.text }]}>
+                      Deletion scheduled
+                    </Text>
+                    <Text style={[styles.caption, { color: c.textMuted }]}>
+                      {household.householdName} will be permanently deleted on{' '}
+                      {formatHouseholdDeletionDate(household.deletionScheduledFor)} (
+                      {householdDeletionDaysRemaining(household.deletionScheduledFor)} days left).{' '}
+                      Reminder emails start in the final week (7d → 3d → 24h → ~1h).
+                    </Text>
+                    {currentMember?.role === 'owner' || currentMember?.role === 'admin' ? (
+                      <Text
+                        style={[
+                          styles.caption,
+                          { color: '#FBBF24', fontWeight: '700', marginTop: 4 },
+                        ]}>
+                        Tap to recover · countdown and options
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+                {currentMember?.role === 'owner' || currentMember?.role === 'admin' ? (
                   <Pressable
                     onPress={() => void cancelHouseholdDeletion()}
                     style={[styles.adminActionChip, { borderColor: '#FBBF2466' }]}>
@@ -640,6 +745,15 @@ export default function SettingsScreen() {
                       onPress={() => router.navigate('/house-rules' as never)}
                     />
                   </TourTarget>
+                  {currentMember?.role === 'owner' ? (
+                    <SettingsNavRow
+                      icon="home-work"
+                      iconColor="#FBBF24"
+                      label="House"
+                      subtitle="Transfer ownership · delete"
+                      onPress={() => setSection('house')}
+                    />
+                  ) : null}
                   <SettingsNavRow
                     icon="emoji-events"
                     iconColor="#A78BFA"
@@ -762,11 +876,14 @@ export default function SettingsScreen() {
                 }}
               />
               <SettingsNavRow
-                icon="checklist"
+                icon="flag"
                 iconColor="#34D399"
-                label="Show the checklist"
-                subtitle="Getting started on Home"
-                onPress={() => tourControls?.showChecklist()}
+                label="Get Started"
+                subtitle="Opens the checklist on Home"
+                onPress={() => {
+                  collapseSettingsOverlays();
+                  tourControls?.showChecklist();
+                }}
               />
                 </>
               ) : null}
@@ -783,12 +900,20 @@ export default function SettingsScreen() {
                 onPress={() => router.push('/support' as never)}
               />
             </SettingsGroup>
-<SettingsGroup header="Choremaxx">
+
+            <SettingsGroup header="Choremaxx">
               <SettingsNavRow
                 icon="workspace-premium"
                 iconColor="#E9B44C"
-                label="Premium"
-                value={entitlement?.inTrial ? 'Trial' : entitlement?.active ? 'On' : undefined}
+                label="My Subscription"
+                value={
+                  entitlement && isPremiumActive(entitlement)
+                    ? entitlement.inTrial
+                      ? 'Trial'
+                      : 'Active'
+                    : undefined
+                }
+                subtitle={subscriptionDatesSubtitle(entitlement)}
                 onPress={() => setSection('premium')}
               />
               <SettingsNavRow
@@ -796,23 +921,11 @@ export default function SettingsScreen() {
                 iconColor="#34D399"
                 label="Privacy & legal"
                 last
-                onPress={() =>
-                  orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
-                    {
-                      text: 'Privacy Policy',
-                      onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
-                    },
-                    {
-                      text: 'Terms of Service',
-                      onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
-                    },
-                    {
-                      text: 'Contact support',
-                      onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
-                    },
-                    { text: 'Cancel', style: 'cancel' },
-                  ])
-                }
+                onPress={() => {
+                  collapseSettingsOverlays();
+                  // Native ActionSheet/Alert only — never orbitAlert (RN Modal over Settings).
+                  requestAnimationFrame(() => showPrivacyLegalMenu());
+                }}
               />
             </SettingsGroup>
 
@@ -1036,14 +1149,28 @@ export default function SettingsScreen() {
         {section === 'house' ? (
           <>
             {currentMember?.role === 'owner' ? (
-              <Pressable
-                onPress={() => router.push('/delete-household' as never)}
-                style={[styles.accountBtn, { backgroundColor: '#F8717110', marginTop: 8 }]}>
-                <Text style={[styles.accountBtnText, { color: '#F87171', textAlign: 'center' }]}>
-                  Delete household
-                </Text>
-              </Pressable>
-            ) : null}
+              <SettingsGroup header="Ownership">
+                <SettingsNavRow
+                  icon="qr-code-2"
+                  iconColor="#38BDF8"
+                  label="Transfer ownership"
+                  subtitle="15-minute QR · empty account only"
+                  onPress={() => router.push('/transfer-household' as never)}
+                />
+                <SettingsNavRow
+                  icon="delete-forever"
+                  iconColor="#F87171"
+                  label="Delete household"
+                  subtitle="30-day recovery window"
+                  last
+                  onPress={() => router.push('/delete-household' as never)}
+                />
+              </SettingsGroup>
+            ) : (
+              <Text style={[styles.caption, { color: c.textMuted, textAlign: 'center' }]}>
+                Only the household owner can transfer or delete this house.
+              </Text>
+            )}
           </>
         ) : null}
 
@@ -1123,42 +1250,72 @@ export default function SettingsScreen() {
 
         {section === 'premium' ? (
           <>
-            <SectionCard title="Premium">
-              <Text style={[styles.caption, { color: c.textSoft, marginBottom: 10 }]}>
-                {entitlement ? premiumCopy(entitlement) : 'Loading…'}
-              </Text>
-              <Text style={[styles.caption, { color: c.textSubtle, marginBottom: 12 }]}>
-                7-day free trial, then ${IAP_PRODUCTS.monthly.priceUsd}/mo via Apple.
-              </Text>
-              <Pressable
-                style={[styles.accountBtn, { backgroundColor: glass(0.06) }]}
+            <Animated.View entering={FadeInDown.duration(260)} style={styles.premiumStack}>
+              <LinearGradient
+                colors={['#E9B44C3D', '#E9B44C0F']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.premiumHero, { borderColor: '#E9B44C55' }]}>
+                <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
+                  <Text style={[styles.premiumHeroEyebrow, { color: '#E9B44C' }]}>
+                    My Subscription
+                  </Text>
+                  <Text style={[styles.premiumHeroTitle, { color: c.text }]} numberOfLines={2}>
+                    {entitlement ? premiumCopy(entitlement) : 'Loading…'}
+                  </Text>
+                  {entitlement && isPremiumActive(entitlement) ? (
+                    <>
+                      <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
+                        Effective date{' '}
+                        {formatSubscriptionDate(resolveEffectiveAt(entitlement))}
+                      </Text>
+                      <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
+                        Expiration date {formatSubscriptionDate(entitlement.expiresAt)}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.premiumHeroSub, { color: c.textSubtle }]}>
+                      {BILLING_TRIAL_DAYS}-day free trial · then billed via Apple
+                    </Text>
+                  )}
+                  <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
+                    {PREMIUM_ALLOWANCE_COPY}
+                  </Text>
+                </View>
+                <View style={[styles.premiumHeroMoji, { backgroundColor: '#E9B44C2E' }]}>
+                  <MaterialIcons name="workspace-premium" size={32} color="#E9B44C" />
+                </View>
+              </LinearGradient>
+
+              <OrbitButton
                 onPress={() =>
                   router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
                 }>
-                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
-                  Open Premium
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.accountBtn,
-                  { backgroundColor: glass(0.06), opacity: billingBusy ? 0.6 : 1 },
-                ]}
-                disabled={billingBusy}
-                onPress={() => {
-                  setBillingBusy(true);
-                  void restorePurchases()
-                    .then((next) => {
-                      setEntitlement(next);
-                      orbitAlert('Restore', premiumCopy(next));
-                    })
-                    .finally(() => setBillingBusy(false));
-                }}>
-                <Text style={[styles.accountBtnText, { color: orbitPalette.text }]}>
-                  Restore purchases
-                </Text>
-              </Pressable>
-            </SectionCard>
+                {entitlement && isPremiumActive(entitlement)
+                  ? 'Manage subscription'
+                  : 'Start free trial'}
+              </OrbitButton>
+
+              <SettingsGroup header="Purchases">
+                <SettingsNavRow
+                  icon="restore"
+                  iconColor="#E9B44C"
+                  label={billingBusy ? 'Restoring…' : 'Restore purchases'}
+                  subtitle="Bring back an Apple subscription on this device"
+                  last
+                  onPress={() => {
+                    if (billingBusy) return;
+                    setBillingBusy(true);
+                    void restorePurchases()
+                      .then((next) => {
+                        setEntitlement(next);
+                        orbitAlert('Restore', premiumCopy(next));
+                      })
+                      .finally(() => setBillingBusy(false));
+                  }}
+                />
+              </SettingsGroup>
+            </Animated.View>
           </>
         ) : null}
 
@@ -1172,7 +1329,9 @@ export default function SettingsScreen() {
             onPersonalize={setPersonalizeMemberId}
             onOpenPersonaSwitch={() => {
               void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-                markNeedsProfilePick().then(() => router.push('/select-profile' as never))
+                markNeedsProfilePick(household.members).then(() =>
+                  router.push('/select-profile' as never)
+                )
               );
             }}
           />
@@ -1248,6 +1407,12 @@ export default function SettingsScreen() {
             </Text>
             {(
               [
+                [
+                  'smartDelivery',
+                  'Smart delivery',
+                  'One calm digest for same-day tasks — details stay in Activity. Urgent actions still push.',
+                  '✨',
+                ],
                 ['tasks', 'Tasks & streaks', 'Due tasks, photos, streak risk', '✅'],
                 ['rewards', 'Rewards & allowance', 'Claims, approvals, paid allowance', '🎁'],
                 ['groceries', 'Groceries', 'List updates that still use this channel', '🛒'],
@@ -1281,8 +1446,8 @@ export default function SettingsScreen() {
                 </View>
                 <Switch
                   value={
-                    key === 'quietHoursEnabled'
-                      ? prefs.quietHoursEnabled !== false
+                    key === 'quietHoursEnabled' || key === 'smartDelivery'
+                      ? prefs[key] !== false
                       : Boolean(prefs[key])
                   }
                   onValueChange={(value) => updateNotificationPrefs({ [key]: value })}
@@ -1439,6 +1604,40 @@ const styles = StyleSheet.create({
     width: 32,
   },
   title: { fontSize: 18, fontWeight: '700' },
+  premiumStack: { gap: 16 },
+  premiumHero: {
+    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  premiumHeroEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  premiumHeroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    lineHeight: 28,
+  },
+  premiumHeroSub: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  premiumHeroMoji: {
+    alignItems: 'center',
+    borderRadius: 24,
+    height: 72,
+    justifyContent: 'center',
+    width: 72,
+  },
   sectionHeading: {
     fontSize: 28,
     fontWeight: '600',

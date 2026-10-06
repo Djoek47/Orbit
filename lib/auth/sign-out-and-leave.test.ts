@@ -55,6 +55,15 @@ async function main() {
     assert.match(settings, /signOutAndLeave\(signOut\)/, 'admin uses one-shot leave');
     assert.match(settings, /confirmAdminSignOut/, 'admin confirms before leave');
     assert.match(settings, /Signing out…/, 'admin busy label');
+    assert.match(
+      read('app/_layout.tsx'),
+      /GlobalSigningOutCover/,
+      'root cover survives Settings unmount'
+    );
+
+    const leave = read('lib/auth/sign-out-and-leave.ts');
+    assert.match(leave, /SIGNOUT_HARD_MS/, 'hard ceiling if wipe hangs');
+    assert.match(leave, /SESSION_NAV_DELAY_MS/, 'hold cover through nav delay');
   }
 
   // Pass 2 — alert + removal Modal settle before navigation

@@ -285,17 +285,23 @@ export function CompletionBreakdown({ initialRange, bottomInset = 24, embedded =
           ) : null}
         </GlassCard>
 
-        <Text style={[styles.footnote, { color: c.textSubtle }]}>
-          Each row shows the time that work takes, from the chore&apos;s own name where we know it
-          (unloading the dishwasher ≈ 10 min, mowing ≈ 45 min) and its category otherwise.
-          &ldquo;Saved&rdquo; is the part a Sidekick did instead of a grown-up — homework and a
-          child&apos;s own routine still show their time, but aren&apos;t counted as saved.
-        </Text>
+        {embedded ? (
+          <Text style={[styles.footnote, { color: c.textSubtle }]}>
+            Time saved is the work a Sidekick did instead of a grown-up.
+          </Text>
+        ) : (
+          <Text style={[styles.footnote, { color: c.textSubtle }]}>
+            Each row shows the time that work takes, from the chore&apos;s own name where we know it
+            (unloading the dishwasher ≈ 10 min, mowing ≈ 45 min) and its category otherwise.
+            &ldquo;Saved&rdquo; is the part a Sidekick did instead of a grown-up — homework and a
+            child&apos;s own routine still show their time, but aren&apos;t counted as saved.
+          </Text>
+        )}
     </>
   );
 
   if (embedded) {
-    return <View style={[styles.content, { paddingBottom: 8 }]}>{body}</View>;
+    return <View style={[styles.content, styles.embeddedContent, { paddingBottom: 0 }]}>{body}</View>;
   }
 
   return (
@@ -477,6 +483,7 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
   },
   content: { paddingHorizontal: space.md, gap: space.md },
+  embeddedContent: { gap: 10 },
   rangeBar: { flexDirection: 'row', borderRadius: 999, padding: 4 },
   rangeBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
   rangeText: { fontSize: 15, fontWeight: '700' },

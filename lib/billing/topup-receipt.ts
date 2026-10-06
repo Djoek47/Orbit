@@ -135,25 +135,17 @@ export function receiptSubject(receipt: TopUpReceipt): string {
  * can be checked, with one line that says plainly no money moved.
  */
 export function receiptBody(receipt: TopUpReceipt): string {
-  const when = new Date(receipt.purchasedAt);
-  const date = `${when.toLocaleDateString()} at ${when.toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-  })}`;
   return [
-    `Thanks — ${receipt.tokens} Poppins actions have been added to ${receipt.householdName}.`,
+    `Thanks — ${receipt.tokens} actions added to ${receipt.householdName}.`,
     '',
-    `Order    ${receipt.orderId}`,
-    `Date     ${date}`,
-    `Item     ${receipt.tokens} Poppins actions`,
-    `Price    ${formatPrice(receipt.priceUsd)}`,
-    `Tax      ${formatPrice(receipt.taxUsd)}`,
-    `Total    ${formatPrice(receipt.totalUsd)}`,
+    `Order  ${receipt.orderId}`,
+    `Item   ${receipt.tokens} actions · ${formatPrice(receipt.totalUsd)}`,
     '',
-    'Top-up actions never expire. Your monthly allowance is spent first, then these.',
-    '',
-    'TEST PURCHASE — no card was charged and no money moved.',
-  ].join('\n');
+    'Credits never expire. Month first, then these.',
+    receipt.mock ? 'TEST — no charge.' : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 /** One line for the list of past top-ups. */

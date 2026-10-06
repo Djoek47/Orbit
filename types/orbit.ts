@@ -616,6 +616,11 @@ export type PoppinsNotificationPrefs = {
    * are deferred; deadline reminders still fire.
    */
   quietHoursEnabled?: boolean;
+  /**
+   * Smart delivery (default ON): same-day assignment noise becomes one digest
+   * push; full detail lives in Activity. Urgent interrupts still push.
+   */
+  smartDelivery?: boolean;
 };
 
 /** Activity feed entry from Poppins Monitor Agent. */
@@ -785,8 +790,12 @@ export type HouseholdSnapshot = {
   hygieneXp?: 5 | 10;
   /** IANA timezone for streak/day boundaries. Default America/Toronto. */
   timezone?: string;
-  /** ISO timestamp when permanent deletion is scheduled (15-day grace). */
+  /** ISO timestamp when permanent deletion is scheduled (30-day grace). */
   deletionScheduledFor?: string | null;
+  /** Last deletion reminder stage emailed (7d / 3d / 24h / 1h11m). */
+  deletionReminderStage?: '7d' | '3d' | '24h' | '1h11m' | null;
+  /** When true, cron skips reminder emails for this household. */
+  deletionRemindersOptOut?: boolean;
   /** Set when the household has been purged. */
   deletedAt?: string | null;
   /** Local time HH:mm when the household day ends. Default 00:00. */

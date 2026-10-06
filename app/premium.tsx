@@ -13,6 +13,7 @@ import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { space } from '@/constants/orbit-theme';
 import { summarizeActUsage } from '@/lib/ai/act-events';
 import { loadActEvents } from '@/lib/ai/act-ledger';
+import { IAP_SUBSCRIPTIONS } from '@/constants/billing';
 import {
   fetchEntitlement,
   isPremiumActive,
@@ -25,16 +26,27 @@ import {
   type IapTokenPackKey,
 } from '@/lib/billing/iap';
 import { setPremiumOnboardingGate } from '@/lib/billing/premium-onboarding';
+import { sendSubscriptionReceiptEmail } from '@/lib/billing/send-subscription-receipt';
 import { loadTokenGrants, topUpBalanceFromGrants } from '@/lib/billing/token-grants';
+import { formatPrice } from '@/lib/billing/topup-receipt';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+
+function formatRenewalDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
 export default function PremiumScreen() {
   const params = useLocalSearchParams<{ source?: string }>();
   const fromOnboarding = params.source === 'onboarding' || !params.source;
   const variant = fromOnboarding ? 'onboarding' : 'settings';
   const insets = useSafeAreaInsets();
-  const { household, orbitPalette, accentTheme } = useOrbit();
+  const { household, orbitPalette, accentTheme, currentMember, currentUser } = useOrbit();
   const { c } = useOrbitColors();
   const members = household.members;
 
@@ -147,6 +159,30 @@ export default function PremiumScreen() {
     try {
       const next = await purchasePremium(product);
       setEntitlement(next);
+      const catalog = IAP_SUBSCRIPTIONS[product];
+      const plan = `Choremaxx ${catalog.label}`;
+      const price =
+        catalog.period === 'year'
+          ? `${formatPrice(catalog.priceUsd)}/year`
+          : `${formatPrice(catalog.priceUsd)}/month`;
+      void sendSubscriptionReceiptEmail({
+        to: currentUser?.email || undefined,
+        name: currentMember?.name ?? currentUser?.name ?? undefined,
+        plan,
+        price,
+        renewalDate: formatRenewalDate(next.expiresAt),
+        inTrial: next.inTrial,
+        mock: next.source === 'mock',
+        householdId: household?.id ?? undefined,
+      }).then((mailed) => {
+        if (mailed.ok) {
+          setStatusMessage(`Trial started · emailed ${mailed.to}`);
+        } else if (mailed.skipped) {
+          setStatusMessage('Trial started');
+        } else {
+          setStatusMessage(`Trial started · email pending`);
+        }
+      });
       setStatusMessage('Trial started');
       await setPremiumOnboardingGate('started');
       await new Promise((r) => setTimeout(r, 700));
@@ -224,8 +260,7 @@ export default function PremiumScreen() {
       statusMessage={statusMessage}
       errorMessage={errorMessage}
       usage={usagePanel}
-      onStartTrial={() => void startTrial('yearly')}
-      onStartMonthly={() => void startTrial('monthly')}
+      onStartTrial={(period) => void startTrial(period)}
       onRestore={() => void restore()}
       onContinue={() => void leave('started')}
       onDismiss={() => void leave(fromOnboarding ? 'deferred' : 'skipped')}

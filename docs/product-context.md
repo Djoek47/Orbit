@@ -89,7 +89,7 @@ MVP should prove that people want an AI household operating system:
 - XP and badges.
 - Household Momentum score.
 - Basic Nova briefing mockup.
-- Smart notification placeholders.
+- Smart delivery notifications (default ON): same-day assignment noise rolls into one digest push; full detail lives in Activity. Reopen/login never replays already-announced banners. Shared-device taps open as the concerned face.
 - Shopping recommendation placeholder.
 
 ## Roadmap Stages

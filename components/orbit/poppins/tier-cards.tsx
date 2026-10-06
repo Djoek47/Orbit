@@ -214,9 +214,8 @@ function TierCard({
 }
 
 /**
- * The orb, and what leaves it. Base: three written lines. Max: three rings, breathing when
- * it is the chosen tier — the only place in the app where "it talks" is drawn rather than
- * written.
+ * The orb, and which mic it wears. Base: a listening mic. Max: a speaking mic with sound
+ * arcs, plus breathing rings when it's the chosen tier.
  */
 function TierMark({
   tier,
@@ -249,21 +248,11 @@ function TierMark({
       <View style={[styles.orb, { backgroundColor: `${tone}2E`, borderColor: `${tone}66` }]}>
         <Moji name="poppins" size={24} />
       </View>
-      {/* Which one it is, at a glance: an ear listening, or a voice leaving. Both sit inside
-          the mark — the written lines used to spill out across the card's title. */}
       <View
         style={[styles.badge, { backgroundColor: `${tone}E6` }]}
         pointerEvents="none"
         accessible={false}>
-        {tier === 'base' ? (
-          <Moji name="mic" size={13} />
-        ) : (
-          <View style={styles.bars}>
-            {[6, 10, 7].map((height, index) => (
-              <View key={index} style={[styles.bar, { height }]} />
-            ))}
-          </View>
-        )}
+        <Moji name={tier === 'base' ? 'mic' : 'micSpeak'} size={13} />
       </View>
     </View>
   );
@@ -292,8 +281,6 @@ const styles = StyleSheet.create({
     right: 2,
     width: 20,
   },
-  bars: { alignItems: 'center', flexDirection: 'row', gap: 1.5, height: 12 },
-  bar: { backgroundColor: '#0B1220', borderRadius: 1, width: 2 },
   orb: {
     alignItems: 'center',
     borderRadius: 17,

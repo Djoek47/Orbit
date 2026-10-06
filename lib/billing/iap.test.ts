@@ -7,6 +7,7 @@ import {
   IAP_PRODUCTS,
   isPremiumActive,
   startMockTrial,
+  subscriptionPriceLine,
 } from '@/constants/billing';
 import {
   clearEntitlementForTests,
@@ -16,7 +17,14 @@ import {
   purchaseTokens,
 } from '@/lib/billing/iap';
 import { premiumOnboardingHref } from '@/lib/billing/premium-onboarding';
+import {
+  formatSubscriptionDate,
+  resolveEffectiveAt,
+  subscriptionDatesSubtitle,
+} from '@/lib/billing/subscription-dates';
 import { applyTopUpConsumption, topUpBalanceFromGrants } from '@/lib/billing/token-grants-math';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 test('IAP catalog locks monthly/yearly pricing + trial', () => {
   assert.equal(IAP_PRODUCTS.monthly.priceUsd, 6.99);
@@ -24,6 +32,7 @@ test('IAP catalog locks monthly/yearly pricing + trial', () => {
   assert.equal(IAP_PRODUCTS.monthly.productId, 'app.choremaxx.household.premium.monthly');
   assert.equal(IAP_PRODUCTS.yearly.priceUsd, 49.99);
   assert.equal(IAP_PRODUCTS.yearly.savingsLabel, '40% off');
+  assert.equal(subscriptionPriceLine(), '$6.99/mo · $49.99/yr (40% off)');
 });
 
 test('consumable token packs are catalogued', () => {
@@ -75,7 +84,33 @@ test('A3 mock trial activates entitlement', async () => {
   assert.equal(state.productId, IAP_PRODUCTS.monthly.productId);
   assert.equal(isPremiumActive(state), true);
   assert.match(premiumCopy(state), /trial/i);
+  assert.ok(state.effectiveAt, 'trial stores effectiveAt');
+  assert.match(subscriptionDatesSubtitle(state), /Effective /);
+  assert.match(subscriptionDatesSubtitle(state), /Expires /);
   await clearEntitlementForTests();
+});
+
+test('subscription dates derive effectiveAt when missing', () => {
+  const expiresAt = '2026-10-13T12:00:00.000Z';
+  const effective = resolveEffectiveAt({
+    active: true,
+    productId: IAP_PRODUCTS.monthly.productId,
+    expiresAt,
+    source: 'mock',
+    inTrial: true,
+  });
+  assert.equal(formatSubscriptionDate(effective), formatSubscriptionDate('2026-10-06T12:00:00.000Z'));
+  assert.match(subscriptionDatesSubtitle(null), /\$6\.99\/mo/);
+  assert.match(subscriptionDatesSubtitle(null), /40% off/);
+});
+
+test('Settings lists My Subscription with date fields', () => {
+  const settings = readFileSync(join(process.cwd(), 'app/settings.tsx'), 'utf8');
+  assert.match(settings, /label="My Subscription"/);
+  assert.doesNotMatch(settings, /label="Premium"/);
+  assert.match(settings, /Effective date/);
+  assert.match(settings, /Expiration date/);
+  assert.match(settings, /subscriptionDatesSubtitle/);
 });
 
 test('Expo Go mock token grant uses selected pack size and accumulates', async () => {

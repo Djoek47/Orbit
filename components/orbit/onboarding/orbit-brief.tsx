@@ -1,7 +1,8 @@
 /**
  * First screen after Get Started — plain context before reward-model choices.
- * One composition: what ChoreMaxx is, then Continue into How should chores feel?
+ * One composition: what ChoreMaxx is, then Continue into reward strategy.
  */
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
@@ -39,18 +40,24 @@ export function OrbitBrief({
 
   return (
     <View style={styles.root}>
-      <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={10}>
-        <Text style={[styles.back, { color: accent }]}>‹ Back</Text>
+      <Pressable
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        hitSlop={10}
+        style={styles.backRow}>
+        <MaterialIcons name="chevron-left" size={22} color={accent} />
+        <Text style={[styles.back, { color: accent }]}>Back</Text>
       </Pressable>
 
       <Animated.View entering={FadeIn.duration(280)} style={styles.brand}>
         <ChoremaxxLogo size="md" />
         <Text style={[typography.title1, styles.title, { color: c.text }]}>
-          Your household, quietly run
+          Turn Chores into XP. Run Your Household Like Never Before.
         </Text>
         <Text style={[styles.lede, { color: c.textMuted }]}>
-          ChoreMaxx is the operating system for home — before you pick scoring, here’s the shape
-          of what you’re setting up.
+          ChoreMaxx is the operating system for your household — shared work, Poppins, then you
+          choose how effort pays off.
         </Text>
       </Animated.View>
 
@@ -82,10 +89,17 @@ const styles = StyleSheet.create({
     gap: space.lg,
     paddingBottom: space.xl,
   },
+  backRow: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 2,
+    marginBottom: 4,
+    marginLeft: -6,
+  },
   back: {
     fontSize: 17,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontWeight: '600',
   },
   brand: {
     gap: 12,
@@ -100,7 +114,6 @@ const styles = StyleSheet.create({
   },
   points: {
     gap: 18,
-    flex: 1,
   },
   point: {
     flexDirection: 'row',

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
+import { parseHouseholdTransferTokenFromUrl } from '@/lib/household/household-transfer';
 import { parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -13,9 +14,16 @@ type InviteQrScannerProps = {
   visible: boolean;
   onClose: () => void;
   onScanned: (inviteCode: string) => void;
+  /** Ownership transfer QR (orbit://transfer-household?token=). */
+  onTransferScanned?: (token: string) => void;
 };
 
-export function InviteQrScanner({ visible, onClose, onScanned }: InviteQrScannerProps) {
+export function InviteQrScanner({
+  visible,
+  onClose,
+  onScanned,
+  onTransferScanned,
+}: InviteQrScannerProps) {
   const insets = useSafeAreaInsets();
   const { c } = useOrbitColors();
   const [permission, requestPermission] = useCameraPermissions();
@@ -31,6 +39,18 @@ export function InviteQrScanner({ visible, onClose, onScanned }: InviteQrScanner
 
   const handleBarcode = ({ data }: { data: string }) => {
     if (locked) return;
+    const transferToken = parseHouseholdTransferTokenFromUrl(data);
+    if (transferToken) {
+      if (!onTransferScanned) {
+        setHint('Sign in on an empty account to accept a transfer QR');
+        return;
+      }
+      setLocked(true);
+      setHint('Transfer QR found');
+      onTransferScanned(transferToken);
+      onClose();
+      return;
+    }
     const code = parseInvitePayload(data);
     if (!code) {
       setHint('That QR is not a Choremaxx invite — try again');

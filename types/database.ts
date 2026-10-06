@@ -36,6 +36,10 @@ export type HouseholdRow = {
   deleted_at?: string | null;
   deletion_scheduled_for?: string | null;
   deletion_requested_by?: string | null;
+  deletion_reminder_stage?: '7d' | '3d' | '24h' | '1h11m' | null;
+  deletion_reminders_opt_out?: boolean | null;
+  deletion_immediate_token?: string | null;
+  deletion_immediate_token_expires_at?: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -61,6 +65,8 @@ export type HouseholdMemberRow = {
   planned_task_frequencies?: Record<string, string> | null;
   /** Admin pre-approval — join lands active when household requires approval. */
   join_pre_approved?: boolean | null;
+  /** Sidekick / device activity for admin Connected roster. */
+  last_seen_at?: Timestamp | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -701,6 +707,42 @@ export type Database = {
       cancel_household_deletion: {
         Args: { p_household_id: string };
         Returns: undefined;
+      };
+      request_immediate_household_deletion: {
+        Args: { p_household_id: string };
+        Returns: {
+          scheduled_for: string;
+          confirm_token: string;
+          confirm_expires_at: string;
+        }[];
+      };
+      confirm_immediate_household_deletion: {
+        Args: { p_token: string };
+        Returns: string;
+      };
+      opt_out_household_deletion_reminders: {
+        Args: { p_household_id: string };
+        Returns: undefined;
+      };
+      purge_due_households: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      account_eligible_for_household_transfer: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
+      create_household_transfer_token: {
+        Args: { p_household_id: string };
+        Returns: {
+          token: string;
+          expires_at: string;
+          household_name: string;
+        }[];
+      };
+      accept_household_transfer: {
+        Args: { p_token: string };
+        Returns: Json;
       };
     };
     Enums: Record<string, never>;

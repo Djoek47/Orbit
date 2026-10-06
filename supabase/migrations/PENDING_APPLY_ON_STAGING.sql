@@ -79,3 +79,21 @@ limit 50;
 
 -- Proof bucket present?
 select id, public, file_size_limit from storage.buckets where id = 'task-proofs';
+
+-- 8) Household deletion v2 (from 20261005140000_household_deletion_v2.sql)
+--    30-day grace, admin/owner RPCs, reminder stage columns, immediate token,
+--    purge_due_households cron. Run the FULL migration file if columns missing:
+--      deletion_reminder_stage, deletion_reminders_opt_out, deletion_immediate_token
+select column_name from information_schema.columns
+where table_schema = 'public' and table_name = 'households'
+  and column_name in (
+    'deletion_reminder_stage',
+    'deletion_reminders_opt_out',
+    'deletion_immediate_token',
+    'deletion_immediate_token_expires_at'
+  );
+
+-- 9) Household transfer QR (from 20261005150000_household_transfer.sql)
+--    Run FULL file if household_transfer_tokens is missing.
+select table_name from information_schema.tables
+where table_schema = 'public' and table_name = 'household_transfer_tokens';

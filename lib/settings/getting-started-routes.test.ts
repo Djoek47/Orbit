@@ -29,6 +29,22 @@ assert.match(settings, /openMemberInvite\(member\)/, 'invite=<id> opens that QR'
 assert.match(settings, /handledIntent/, 'and only acts once');
 // Adding someone already leads to their code.
 assert.match(settings, /onAdded=\{\(member\) => \{[\s\S]{0,140}openMemberInvite\(member\)/, 'a new Sidekick goes straight to their QR');
+// Help → Get Started dismisses Settings and opens the Home checklist card.
+assert.match(settings, /label="Get Started"/, 'checklist row is Get Started');
+assert.ok(!settings.includes('Show the checklist'), 'old checklist label is gone');
+assert.match(settings, /tourControls\?\.showChecklist\(\)/, 'Get Started calls showChecklist');
+
+const tourProvider = read('components/orbit/tour/tour-provider.tsx');
+assert.match(
+  tourProvider,
+  /showChecklist = useCallback\(\(\) => \{[\s\S]{0,280}?dismissModalsThen/,
+  'Get Started dismisses Settings then lands on Home'
+);
+assert.match(
+  tourProvider,
+  /checklistHidden: false/,
+  'and forces the Getting Started card visible'
+);
 
 // Settings for a Sidekick / shared device.
 const sidekick = read('components/orbit/sidekick-settings-screen.tsx');

@@ -5,7 +5,7 @@ npm run email:dev
 ```
 
 Opens the React Email dev server at `http://localhost:3010` with a live,
-hot-reloading preview of all 15 templates in `emails/*.tsx`, each rendered
+hot-reloading preview of all 20 templates in `emails/*.tsx`, each rendered
 with its `PreviewProps`. Use this to design/tweak visuals before wiring a
 template to a real send.
 

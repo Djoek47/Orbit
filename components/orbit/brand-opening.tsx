@@ -32,7 +32,7 @@ type BrandOpeningProps = {
  */
 export function BrandOpening({
   onReady,
-  tagline = 'Run the household',
+  tagline,
 }: BrandOpeningProps) {
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
@@ -148,9 +148,11 @@ export function BrandOpening({
         </Animated.View>
       </View>
 
-      <Animated.View style={tagStyle}>
-        <Text style={[styles.tagline, { color: c.textSoft }]}>{tagline}</Text>
-      </Animated.View>
+      {tagline?.trim() ? (
+        <Animated.View style={tagStyle}>
+          <Text style={[styles.tagline, { color: c.textSoft }]}>{tagline}</Text>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

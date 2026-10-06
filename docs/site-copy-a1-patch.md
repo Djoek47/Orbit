@@ -12,7 +12,7 @@
 |------|--------|
 | AI name | Nova / AI Assistant → **Poppins** |
 | Modes | Removed roommate mode; families / helpers / blended |
-| Pricing | **7-day trial · $4.99/mo · $48/yr** (dropped Free / $8.99 Family) |
+| Pricing | **7-day trial · $6.99/mo · $49.99/yr at 40% off** (dropped Free / $8.99 Family) |
 | Privacy / Terms | Re-hosted from Orbit `docs/legal/*` (2026-08-10) |
 | Email logo | `public/emails/logo-mark.png` for Resend templates |
 

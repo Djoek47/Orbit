@@ -7,6 +7,8 @@ import 'react-native-reanimated';
 
 import { AppErrorBoundary } from '@/components/orbit/app-error-boundary';
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
+import { GlobalSigningOutCover } from '@/components/orbit/global-signing-out-cover';
+import { LegalLinksSheetHost } from '@/components/orbit/settings/legal-links-sheet-host';
 import { MemberRemovedCountdown } from '@/components/orbit/member-removed-countdown';
 import { OrbitAlertProvider } from '@/components/orbit/orbit-alert';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
@@ -50,6 +52,8 @@ export default function RootLayout() {
               <DeepLinkBridge />
               <OrbitChromeBridge />
               <MemberRemovedCountdown />
+              <GlobalSigningOutCover />
+              <LegalLinksSheetHost />
               <LayoutAnimationConfig
                 key={sessionEpoch}
                 skipEntering={sessionEpoch > 0}
@@ -98,6 +102,18 @@ export default function RootLayout() {
                   <Stack.Screen
                     name="delete-household"
                     options={{ presentation: 'modal', headerShown: false, title: 'Delete Household' }}
+                  />
+                  <Stack.Screen
+                    name="household-recovery"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Recover household' }}
+                  />
+                  <Stack.Screen
+                    name="transfer-household"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Transfer ownership' }}
+                  />
+                  <Stack.Screen
+                    name="accept-household-transfer"
+                    options={{ headerShown: false, title: 'Take ownership' }}
                   />
                   <Stack.Screen name="premium" options={{ headerShown: false, title: 'Premium' }} />
                   <Stack.Screen
@@ -148,7 +164,16 @@ export default function RootLayout() {
                     name="member/[id]"
                     options={{ presentation: 'modal', headerShown: false, title: 'Member' }}
                   />
-                  <Stack.Screen name="settings" options={{ presentation: 'modal', headerShown: false }} />
+                  <Stack.Screen
+                    name="settings"
+                    options={{
+                      presentation: 'modal',
+                      headerShown: false,
+                      gestureEnabled: true,
+                      fullScreenGestureEnabled: true,
+                      animation: 'slide_from_bottom',
+                    }}
+                  />
                   <Stack.Screen
                     name="support"
                     options={{ presentation: 'modal', headerShown: false, title: 'Support' }}

@@ -13,6 +13,10 @@ import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 
 export const BILLING_TRIAL_DAYS = 7;
 
+/**
+ * Final consumer pricing (USD, before Apple tax):
+ *   $6.99 / month  ·  $49.99 / year at 40% off vs 12 × monthly
+ */
 export const IAP_SUBSCRIPTIONS = {
   monthly: {
     productId: 'app.choremaxx.household.premium.monthly',
@@ -27,10 +31,17 @@ export const IAP_SUBSCRIPTIONS = {
     priceUsd: 49.99,
     period: 'year' as const,
     trialDays: BILLING_TRIAL_DAYS,
-    /** vs 12 × $6.99 = $83.88 */
+    /** vs 12 × $6.99 = $83.88 → ~40% off */
     savingsLabel: '40% off',
   },
 } as const;
+
+/** Canonical Settings / paywall line: "$6.99/mo · $49.99/yr (40% off)". */
+export function subscriptionPriceLine(): string {
+  const m = IAP_SUBSCRIPTIONS.monthly.priceUsd.toFixed(2);
+  const y = IAP_SUBSCRIPTIONS.yearly.priceUsd.toFixed(2);
+  return `$${m}/mo · $${y}/yr (${IAP_SUBSCRIPTIONS.yearly.savingsLabel})`;
+}
 
 /** Consumable token packs — ASC product ids must match before TF ships strings. */
 export const IAP_CONSUMABLES = {
@@ -70,6 +81,8 @@ export type IapTokenProductId = (typeof IAP_CONSUMABLES)[IapTokenPackKey]['produ
 export type EntitlementState = {
   active: boolean;
   productId: IapProductId | null;
+  /** ISO — when the current trial/paid period began (optional on older persisted rows). */
+  effectiveAt?: string | null;
   /** ISO — trial or paid period end */
   expiresAt: string | null;
   source: 'mock' | 'storekit' | 'none';
@@ -79,6 +92,7 @@ export type EntitlementState = {
 export const EMPTY_ENTITLEMENT: EntitlementState = {
   active: false,
   productId: null,
+  effectiveAt: null,
   expiresAt: null,
   source: 'none',
   inTrial: false,
@@ -117,6 +131,7 @@ export function startMockTrial(productKey: IapProductKey = 'yearly', now = new D
   return setMockEntitlement({
     active: true,
     productId: product.productId,
+    effectiveAt: now.toISOString(),
     expiresAt: expires.toISOString(),
     source: 'mock',
     inTrial: true,
@@ -133,7 +148,23 @@ export function tokenPackForProductId(
   return null;
 }
 
-export const PREMIUM_ALLOWANCE_COPY = `${TOKENS_PER_MONTH} Poppins actions a month, ${TOKENS_PER_DAY} a day.`;
+/**
+ * Paywall / Settings allowance line.
+ * When the soft daily cap equals (or exceeds) the monthly pool, saying both
+ * "300 a month, 300 a day" reads like a double allotment — only mention the
+ * daily soft cap when it actually paces the month.
+ */
+export function premiumAllowanceCopy(
+  monthly: number = TOKENS_PER_MONTH,
+  daily: number = TOKENS_PER_DAY
+): string {
+  if (daily >= monthly) {
+    return `${monthly} Poppins actions a month.`;
+  }
+  return `${monthly} Poppins actions a month · up to ${daily} a day.`;
+}
+
+export const PREMIUM_ALLOWANCE_COPY = premiumAllowanceCopy();
 
 export const ASC_IAP_SETUP_NOTES = [
   'ASC Premium group — monthly + yearly products (confirm price points in App Store Connect)',
