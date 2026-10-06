@@ -4020,36 +4020,72 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const reassignTask = async (taskId: string, newAssigneeName: string) => {
-    const currentTask = household.tasks.find((item) => item.id === taskId);
-    if (!currentTask || currentTask.status === 'Completed' || currentTask.status === 'Cancelled') {
-      return;
+    if (
+      !v2Permissions.canAssignOrEditTask &&
+      !permissions.canAssignTask &&
+      !permissions.canManageHousehold
+    ) {
+      throw new Error('Only admins can reassign tasks.');
     }
-    const trimmed = newAssigneeName.trim();
-    if (!trimmed) return;
+    const live = householdRef.current;
+    const currentTask = live.tasks.find((item) => item.id === taskId);
+    if (!currentTask) return;
 
-    const nextTask: HouseholdTask = {
-      ...currentTask,
-      assignee: trimmed,
-      assignees: [trimmed],
-      shares: undefined,
-      splitXpEach: undefined,
-      splitBonusXp: undefined,
-      splitPenaltyXp: undefined,
-    };
+    const { planTaskReassignment, applyReassignmentPlan } = await import(
+      '@/lib/tasks/reassign-policy'
+    );
+    const deadlineHm = live.dailyDeadline?.trim() || '19:00';
+    const plan = planTaskReassignment({
+      task: currentTask,
+      newAssigneeName,
+      dailyDeadlineHm: deadlineHm,
+      timezone: live.timezone,
+    });
+    if (!plan.ok) {
+      throw new Error(plan.message);
+    }
+
+    const nextTask = applyReassignmentPlan(currentTask, plan);
     const saved = await taskRepository.updateTask(nextTask);
-    setHousehold((current) => ({
-      ...current,
-      tasks: current.tasks.map((item) => (item.id === taskId ? saved : item)),
-    }));
-    const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
+
+    // Series: future open days follow the new assignee (from the rolled day on).
+    let persisted = live.tasks.map((item) => (item.id === taskId ? saved : item));
+    if (currentTask.repeat !== 'None' && plan.nextAssignee !== currentTask.assignee) {
+      const { applySeriesPatch, defaultSeriesScope } = await import('@/lib/tasks/series-edit');
+      const scope = defaultSeriesScope(currentTask, { ...saved, assignee: plan.nextAssignee });
+      if (scope === 'future') {
+        const patched = applySeriesPatch(
+          persisted,
+          saved,
+          { assignee: plan.nextAssignee },
+          'future'
+        );
+        const before = new Map(persisted.map((item) => [item.id, item]));
+        for (const row of patched) {
+          const prev = before.get(row.id);
+          if (!prev || prev.assignee === row.assignee) continue;
+          if (row.id === saved.id) continue;
+          const rowSaved = await taskRepository.updateTask(row);
+          persisted = persisted.map((item) => (item.id === rowSaved.id ? rowSaved : item));
+        }
+        persisted = persisted.map((item) => (item.id === saved.id ? saved : item));
+      }
+    }
+
+    setHousehold((current) => ({ ...current, tasks: persisted }));
+    if (dataMode === 'mock') {
+      await persistMockHouseholdSnapshot({ ...live, tasks: persisted });
+    }
+
+    const prefs = live.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
     await notifyTaskAssigned(
       pushNotification,
-      { members: household.members, notificationPrefs: household.notificationPrefs },
+      { members: live.members, notificationPrefs: live.notificationPrefs },
       {
         title: saved.title,
         category: saved.category,
-        assignee: trimmed,
-        assignees: [trimmed],
+        assignee: plan.nextAssignee,
+        assignees: [plan.nextAssignee],
         due: saved.due,
         xp: saved.xp,
         repeat: saved.repeat,
@@ -4057,7 +4093,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       saved,
       prefs.tasks !== false
     );
-    await trackAnalytics('task.reassigned', { taskId, assignee: trimmed }, analyticsContext);
+    await trackAnalytics(
+      'task.reassigned',
+      { taskId, assignee: plan.nextAssignee, mode: plan.mode },
+      analyticsContext
+    );
   };
 
   const awardDailyStreak = async () => {

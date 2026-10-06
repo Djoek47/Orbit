@@ -245,14 +245,11 @@ export default function TaskDetailScreen() {
   const showProofPreview = Boolean(
     myProofUri && (myProofStatus === 'submitted' || myProofStatus === 'approved')
   );
-  // Open work can be finished by whoever it belongs to — and by an admin, who used to be
-  // left looking at a task with no way to close it.
+  // EARN-04 / Rev F §12.1 — only the assignee completes (admins included cannot finish for others).
   const canCompleteMine = split
     ? Boolean(onThisSplit && myShare?.status === 'Pending')
     : Boolean(
-        canFinishTask(task) &&
-          (permissions.canManageHousehold ||
-            (currentMember && taskMatchesAssignee(task, currentMember.name)))
+        canFinishTask(task) && currentMember && taskMatchesAssignee(task, currentMember.name)
       );
 
   const canAdjust = Boolean(canEdit && task.status !== 'Cancelled');
@@ -466,15 +463,40 @@ export default function TaskDetailScreen() {
       setWhoOpen(false);
       return;
     }
-    setBusy(true);
-    try {
-      await updateTask({ ...task, assignee: name });
-      setWhoOpen(false);
-    } catch {
-      orbitAlert('Couldn’t save', 'Try again in a moment.');
-    } finally {
-      setBusy(false);
+    const { planTaskReassignment } = await import('@/lib/tasks/reassign-policy');
+    const plan = planTaskReassignment({
+      task,
+      newAssigneeName: name,
+      dailyDeadlineHm: household.dailyDeadline?.trim() || '19:00',
+      timezone: household.timezone,
+    });
+    if (!plan.ok) {
+      orbitAlert('Can’t reassign', plan.message);
+      return;
     }
+    const confirmLabel = plan.mode === 'next_day' ? `Give to ${name} tomorrow` : `Give to ${name}`;
+    orbitAlert('Reassign task', plan.summary, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: confirmLabel,
+        onPress: () => {
+          void (async () => {
+            setBusy(true);
+            try {
+              await reassignTask(task.id, name);
+              setWhoOpen(false);
+            } catch (error) {
+              orbitAlert(
+                'Couldn’t reassign',
+                error instanceof Error ? error.message : 'Try again in a moment.'
+              );
+            } finally {
+              setBusy(false);
+            }
+          })();
+        },
+      },
+    ]);
   };
 
   const skipToday = async () => {
@@ -740,6 +762,48 @@ export default function TaskDetailScreen() {
                 ]}
                 placeholderTextColor={c.textSubtle}
               />
+              {!split ? (
+                <>
+                  <Text style={[styles.label, { color: c.textMuted }]}>Who</Text>
+                  <Text style={[typography.footnote, { color: c.textSoft, marginBottom: 4 }]}>
+                    After the household deadline, reassigning moves the job to tomorrow so it
+                    doesn’t expire tonight and doesn’t break {task.assignee}’s streak.
+                  </Text>
+                  <View style={styles.chipWrap}>
+                    {memberNames.map((name) => {
+                      const active = task.assignee === name;
+                      const member = household.members.find((item) => item.name === name);
+                      return (
+                        <Pressable
+                          key={`edit-who-${name}`}
+                          disabled={busy}
+                          onPress={() => void applyAssignee(name)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          accessibilityLabel={`Assign to ${name}`}
+                          style={[
+                            styles.choiceChip,
+                            { borderColor: glassBorder(0.12), backgroundColor: glass(0.03) },
+                            active && {
+                              borderColor: accentTheme.primary,
+                              backgroundColor: `${accentTheme.primary}22`,
+                            },
+                          ]}>
+                          <MemberGlyph member={member} size={18} />
+                          <Text
+                            style={[
+                              styles.choiceText,
+                              { color: c.textMuted },
+                              active && { color: accentTheme.primary },
+                            ]}>
+                            {name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : null}
               <Text style={[styles.label, { color: c.textMuted }]}>XP · slide the wheel</Text>
               <View
                 style={[
@@ -871,16 +935,25 @@ export default function TaskDetailScreen() {
                 </View>
               ) : null}
               {whoOpen && canAdjust && !split ? (
-                <Text style={[styles.body, { color: c.textSoft }]}>Applies from this day on.</Text>
+                <Text style={[styles.body, { color: c.textSoft }]}>
+                  {stateView.state === 'overdue'
+                    ? 'Past the deadline — handing off moves this job to tomorrow so it won’t expire tonight.'
+                    : 'Applies from this day on. After the deadline, a handoff rolls to tomorrow.'}
+                </Text>
               ) : null}
             </View>
-            {/* Handing it on only makes sense while it can still be finished. */}
-            {stateView.state === 'overdue' &&
-            (permissions.canAssignTask || permissions.canManageHousehold) ? (
+            {/* Open work: same Who control — keep a shortcut when overdue so admins see the handoff. */}
+            {isOpenWork &&
+            !split &&
+            stateView.state === 'overdue' &&
+            (permissions.canAssignTask ||
+              permissions.canManageHousehold ||
+              v2Permissions.canAssignOrEditTask) ? (
               <View style={styles.detailRow}>
-                <Text style={[styles.label, { color: c.textMuted }]}>Reassign (overdue)</Text>
+                <Text style={[styles.label, { color: c.textMuted }]}>Reassign</Text>
                 <Text style={[styles.body, { color: c.textSoft }]}>
-                  Hand this to someone else. They earn the XP when they finish.
+                  Hand this to someone else for tomorrow. {task.assignee} will not take a miss.
+                  They earn the XP when they finish.
                 </Text>
                 <View style={styles.chipWrap}>
                   {memberNames
@@ -888,19 +961,8 @@ export default function TaskDetailScreen() {
                     .map((name) => (
                       <Pressable
                         key={`reassign-${name}`}
-                        onPress={() => {
-                          orbitAlert(
-                            'Reassign task',
-                            `Move “${task.title}” to ${name}? ${task.assignee} will not earn XP for it.`,
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              {
-                                text: `Give to ${name}`,
-                                onPress: () => void reassignTask(task.id, name),
-                              },
-                            ]
-                          );
-                        }}
+                        disabled={busy}
+                        onPress={() => void applyAssignee(name)}
                         style={[styles.choiceChip, { borderColor: `${accentTheme.primary}55` }]}>
                         <Text style={[styles.choiceText, { color: accentTheme.primary }]}>{name}</Text>
                       </Pressable>

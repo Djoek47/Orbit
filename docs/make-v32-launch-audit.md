@@ -9,6 +9,8 @@ This is the living checklist for “ready for TestFlight” vs “ready for publ
 
 ## 1. Logic audit (product flows)
 
+**Full house-rules logic audit:** [`docs/logic/LOGIC_AUDIT_V32.md`](./logic/LOGIC_AUDIT_V32.md) (create → assign → edit/reassign → complete → proof → late/expiry → streaks → shared-device → rewards). Open product questions are in §13 of that doc.
+
 | Flow | Status | Notes |
 |------|--------|--------|
 | Admin / Sidekick sign-out | **PASS** | Native confirm → dismiss Settings → `signOutAndLeave` → root Signing-out cover → Get Started |
@@ -19,6 +21,8 @@ This is the living checklist for “ready for TestFlight” vs “ready for publ
 | Mock token buy | **PASS** | Packs append; Settings/Credits refresh via `notifyTokenGrantsChanged` |
 | Jack/Emma accents | **PASS** | Coral / Citrus; Switch + Who’s on + tab Switch follow person |
 | Sign-in | **PASS** (prior) | Email confirm + review demo path unchanged this pass |
+| Admin task reassign | **PASS** (this pass) | Who in Edit + view; after deadline → tomorrow; streak-safe handoff |
+| Streak cliffs / Rescue | **CRITICAL GAP** | Engine present; production rollover not wired — see logic audit §7 |
 
 \*Hardened in the audit polish commit: Privacy now calls `closeSettingsModal()` before opening the legal sheet.
 
