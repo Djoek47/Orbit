@@ -1270,7 +1270,7 @@ export default function SettingsScreen() {
             </SettingsGroup>
             <SectionCard title="Maps">
               <Text style={[styles.caption, { color: c.textMuted, marginBottom: 10 }]}>
-                Preferred maps app
+                Preferred maps — AutoNav picks the best app installed
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {(
