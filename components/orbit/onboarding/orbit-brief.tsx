@@ -1,6 +1,6 @@
 /**
  * First screen after Get Started — plain context before reward-model choices.
- * One composition: what ChoreMaxx is, then Continue into How should chores feel?
+ * One composition: what ChoreMaxx is, then Continue into reward strategy.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, View } from 'react-native';
