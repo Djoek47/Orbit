@@ -79,9 +79,19 @@ const menu = readFileSync(
 assert.match(menu, /Switch ·/, 'chip label');
 assert.match(menu, /Connected/, 'connected status chip');
 assert.match(menu, /isSharedTabletDeviceSession/, 'gated to shared-tablet sessions only');
+assert.match(menu, /isPersonalAdmin/, 'owner/admin hard-gated off Switch');
+assert.match(menu, /demoteSharedSessionForPersonalAdmin/, 'admin demotes leaked tablet binding');
 assert.match(menu, /onSwitchPersona/, 'switches face without sign-out');
 assert.match(menu, /selectDeviceProfile/, 'updates device session');
 assert.doesNotMatch(menu, /signOut|clearSidekickSession/, 'never signs out on switch');
+
+const manage = readFileSync(
+  join(process.cwd(), 'components/orbit/members/shared-device-manage-card.tsx'),
+  'utf8'
+);
+assert.match(manage, /Who can use it/);
+assert.doesNotMatch(manage, />On this device</);
+assert.match(manage, /not a Switch menu/);
 
 const deviceSession = readFileSync(join(process.cwd(), 'lib/device/device-session.ts'), 'utf8');
 assert.match(

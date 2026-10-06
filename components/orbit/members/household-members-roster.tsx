@@ -155,6 +155,11 @@ export function HouseholdMembersRoster({
   }, [sharedDevices, household.members]);
 
   const requestSwitch = (memberId: string) => {
+    // Personal admin never face-switches from People — open the member sheet instead.
+    if (currentMember?.role === 'owner' || currentMember?.role === 'admin') {
+      router.push(`/member/${memberId}` as never);
+      return;
+    }
     if (onOpenPersonaSwitch) {
       onOpenPersonaSwitch();
       return;

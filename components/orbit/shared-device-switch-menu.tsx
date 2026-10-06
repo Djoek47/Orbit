@@ -50,16 +50,28 @@ export function SharedDeviceSwitchMenu({
   const { c, glass, glassBorder } = useOrbitColors();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<DeviceSession | null>(null);
+  const role = currentMember?.role;
+  // Hard rule: household admin personal phone never shows Switch · faces.
+  const isPersonalAdmin = role === 'owner' || role === 'admin';
 
   useEffect(() => {
     let mounted = true;
-    void reconcileHostedDeviceSession(members).then((next) => {
+    void (async () => {
+      if (isPersonalAdmin) {
+        const { demoteSharedSessionForPersonalAdmin } = await import(
+          '@/lib/device/device-session'
+        );
+        const next = await demoteSharedSessionForPersonalAdmin(role);
+        if (mounted) setSession(next);
+        return;
+      }
+      const next = await reconcileHostedDeviceSession(members);
       if (mounted) setSession(next);
-    });
+    })();
     return () => {
       mounted = false;
     };
-  }, [currentMember?.id, members]);
+  }, [currentMember?.id, isPersonalAdmin, members, role]);
 
   const people = useMemo(
     () => profilesForSharedDeviceSwitch(session, members),
@@ -77,6 +89,7 @@ export function SharedDeviceSwitchMenu({
     (currentMember!.role === 'shared-device' ||
       people.some((person) => person.id === currentMember!.id));
   if (
+    isPersonalAdmin ||
     !isSharedTabletDeviceSession(session) ||
     people.length < 2 ||
     !currentMember ||

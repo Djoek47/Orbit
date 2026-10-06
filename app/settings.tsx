@@ -1410,13 +1410,6 @@ export default function SettingsScreen() {
             onAddMember={() => setAddMemberOpen(true)}
             onShareInvite={openMemberInvite}
             onPersonalize={setPersonalizeMemberId}
-            onOpenPersonaSwitch={() => {
-              void import('@/lib/device/device-session').then(({ markNeedsProfilePick }) =>
-                markNeedsProfilePick(household.members).then(() =>
-                  router.push('/select-profile' as never)
-                )
-              );
-            }}
           />
           {currentMember?.role === 'owner' ? (
             <Text style={[styles.caption, { color: c.textMuted, textAlign: 'center', marginTop: 16 }]}>

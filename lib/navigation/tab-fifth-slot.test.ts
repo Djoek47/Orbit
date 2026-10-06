@@ -95,6 +95,11 @@ assert.match(bar, /fifthSlot === 'switch'/, 'and the switcher takes its place');
 assert.match(bar, /SwitchPeopleIcon/, 'Switch glyph mounts in the fifth slot');
 assert.match(bar, /^\s*Switch\s*$/m, 'Switch label is visible under the glyph');
 assert.match(bar, /markNeedsProfilePick/, 'which opens the face picker');
+assert.match(
+  bar,
+  /memberRole === 'owner' \|\| memberRole === 'admin' \? 'poppins'/,
+  'tab bar forces Poppins for personal admin'
+);
 assert.match(read('lib/refresh/use-home-live-refresh.ts'), /useHomeLiveRefresh/, 'Home has a live refresh hook');
 assert.match(read('app/(tabs)/index.tsx'), /useHomeLiveRefresh/, 'Home wires the live refresh');
 assert.match(read('app/(tabs)/_layout.tsx'), /useTabFifthSlot\(/, 'the layout uses the same rule');
