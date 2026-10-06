@@ -31,10 +31,28 @@ test('Pass B: successful buy grants tokens, files receipt, sends email', () => {
   assert.match(credits, /setBuying\(null\)/);
 });
 
-test('Pass C: errors use native Alert so Settings stack stays touchable', () => {
+test('Pass C: errors use native feedback Alert (no orbitAlert under Settings)', () => {
   const credits = read('app/poppins-credits.tsx');
-  assert.match(credits, /Alert\.alert\([\s\S]*That didn't go through/);
+  assert.match(credits, /showNativeAppError/);
+  assert.match(credits, /That didn't go through/);
+  assert.match(credits, /isUserCancelledPurchase/);
   assert.doesNotMatch(credits, /orbitAlert\([\s\S]*didn't go through/);
+  assert.doesNotMatch(credits, /from ['"]@\/components\/orbit\/orbit-alert['"]/);
+  const native = read('lib/errors/show-native-app-error.ts');
+  assert.match(native, /recordAppError/);
+  assert.match(native, /Send feedback/);
+  assert.match(native, /Alert\.alert/);
+  assert.match(native, /\/support\?errorId=/);
+});
+
+test('Pass C2: purchase errors never stringify to [object Object]', () => {
+  const iap = read('lib/billing/iap.ts');
+  assert.match(iap, /rejectPurchaseError/);
+  assert.match(iap, /formatUnknownError/);
+  assert.match(iap, /sku_not_found/);
+  assert.match(iap, /fetchProducts/);
+  const fmt = read('lib/errors/unknown-error.ts');
+  assert.match(fmt, /\[object Object\]/);
 });
 
 test('Pass D: congratulations email template still celebrates purchase', async () => {

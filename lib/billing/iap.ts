@@ -25,6 +25,7 @@ import {
   type IapTokenPackKey,
 } from '@/constants/billing';
 import type { TokenGrant } from '@/lib/billing/token-grants';
+import { formatUnknownError } from '@/lib/errors/unknown-error';
 
 export { IAP_PRODUCTS, IAP_CONSUMABLES, ASC_IAP_SETUP_NOTES, isPremiumActive };
 export type { EntitlementState, IapProductKey, IapTokenPackKey };
@@ -270,6 +271,18 @@ export async function purchasePremium(
   });
 }
 
+function rejectPurchaseError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  if (error && typeof error === 'object') {
+    const row = error as { message?: string; code?: string; isEmptyProductList?: boolean | null };
+    if (row.isEmptyProductList) {
+      return new Error('sku_not_found: App Store returned no credit packs for this build.');
+    }
+    return new Error(formatUnknownError(error, 'Failed to request purchase'));
+  }
+  return new Error(formatUnknownError(error, 'Failed to request purchase'));
+}
+
 /**
  * Purchase a consumable token pack.
  * Order: validate product → grant tokens → finish (isConsumable: true).
@@ -298,10 +311,24 @@ export async function purchaseTokens(
 
   return withNativeIap(async (iap) => {
     await iap.initConnection();
-    await iap.fetchProducts({
+    const listed = await iap.fetchProducts({
       skus: [pack.productId],
       type: 'in-app',
     });
+    const products = Array.isArray(listed) ? listed : [];
+    const found = products.some((item) => {
+      const id = String(
+        (item as { productId?: string; id?: string }).productId ??
+          (item as { id?: string }).id ??
+          ''
+      );
+      return id === pack.productId;
+    });
+    if (!found) {
+      throw new Error(
+        `sku_not_found: ${pack.productId} is not available from App Store Connect for this build.`
+      );
+    }
 
     const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const removeUpdated = iap.purchaseUpdatedListener((event) => {
@@ -312,7 +339,7 @@ export async function purchaseTokens(
       const removeError = iap.purchaseErrorListener((error) => {
         removeUpdated.remove();
         removeError.remove();
-        reject(error);
+        reject(rejectPurchaseError(error));
       });
 
       void iap
@@ -328,7 +355,7 @@ export async function purchaseTokens(
         .catch((error: unknown) => {
           removeUpdated.remove();
           removeError.remove();
-          reject(error);
+          reject(rejectPurchaseError(error));
         });
     });
 

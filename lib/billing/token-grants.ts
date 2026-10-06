@@ -192,8 +192,17 @@ export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenG
         productId: pack.productId,
       },
     });
-    if (error) throw new Error(error.message || 'grant_token_pack_failed');
-    const row = (data as { grant?: TokenGrant } | null)?.grant;
+    if (error) {
+      const { formatUnknownError } = await import('@/lib/errors/unknown-error');
+      throw new Error(
+        formatUnknownError(error, 'grant_token_pack_failed') || 'grant_token_pack_failed'
+      );
+    }
+    const payload = data as { grant?: TokenGrant; error?: string } | null;
+    if (payload?.error) {
+      throw new Error(String(payload.error));
+    }
+    const row = payload?.grant;
     if (row) {
       const existing = await loadTokenGrants(input.householdId);
       const merged = existing.some((g) => g.transactionId === row.transactionId)

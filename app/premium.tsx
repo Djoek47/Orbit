@@ -116,9 +116,17 @@ export default function PremiumScreen() {
       if (isUserCancelledPurchase(error)) {
         setErrorMessage(null);
       } else {
-        setErrorMessage(
-          error instanceof Error ? error.message : 'Could not buy more actions.'
-        );
+        const { formatUnknownError } = await import('@/lib/errors/unknown-error');
+        const { friendlyErrorMessage } = await import('@/lib/errors/friendly-error');
+        const { recordAppError } = await import('@/lib/errors/error-log');
+        const raw = formatUnknownError(error, 'Could not buy more actions.');
+        void recordAppError({
+          title: "That didn't go through",
+          message: raw,
+          source: 'premium-topup',
+          category: 'billing',
+        });
+        setErrorMessage(friendlyErrorMessage(raw));
       }
     } finally {
       setBusy(false);
@@ -191,11 +199,17 @@ export default function PremiumScreen() {
       if (isUserCancelledPurchase(error)) {
         setErrorMessage(null);
       } else {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : 'Could not start the trial. Try again in a moment.'
-        );
+        const { formatUnknownError } = await import('@/lib/errors/unknown-error');
+        const { friendlyErrorMessage } = await import('@/lib/errors/friendly-error');
+        const { recordAppError } = await import('@/lib/errors/error-log');
+        const raw = formatUnknownError(error, 'Could not start the trial. Try again in a moment.');
+        void recordAppError({
+          title: "That didn't go through",
+          message: raw,
+          source: 'premium-trial',
+          category: 'billing',
+        });
+        setErrorMessage(friendlyErrorMessage(raw));
       }
     } finally {
       setBusy(false);
@@ -218,9 +232,17 @@ export default function PremiumScreen() {
         setErrorMessage('No active subscription found.');
       }
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : 'Restore failed. Try again.'
-      );
+      const { formatUnknownError } = await import('@/lib/errors/unknown-error');
+      const { friendlyErrorMessage } = await import('@/lib/errors/friendly-error');
+      const { recordAppError } = await import('@/lib/errors/error-log');
+      const raw = formatUnknownError(error, 'Restore failed. Try again.');
+      void recordAppError({
+        title: 'Restore failed',
+        message: raw,
+        source: 'premium-restore',
+        category: 'billing',
+      });
+      setErrorMessage(friendlyErrorMessage(raw));
     } finally {
       setBusy(false);
     }

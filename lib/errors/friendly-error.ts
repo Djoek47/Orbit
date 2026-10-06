@@ -26,6 +26,19 @@ export function friendlyErrorMessage(raw: string | null | undefined): string {
   if (lower.includes('network') || lower.includes('failed to fetch')) {
     return 'You’re offline or the connection dropped. Try again when you’re back online.';
   }
+  if (
+    lower.includes('failed to request purchase') ||
+    lower.includes('empty product') ||
+    lower.includes('sku_not_found') ||
+    lower.includes('product_not_found') ||
+    lower.includes('item_unavailable') ||
+    lower.includes('storekit')
+  ) {
+    return 'Apple couldn’t start this purchase. The credit pack may not be live in App Store Connect yet — try again later, or send feedback so we can check.';
+  }
+  if (lower.includes('grant_token_pack') || lower.includes('grant failed')) {
+    return 'Payment may have gone through, but we couldn’t add credits to your household. Send feedback and we’ll fix it.';
+  }
   // Already human-readable short messages — keep them.
   if (text.length <= 160 && !/[_:]{2,}|\berror\b/i.test(text) && !/^[a-z0-9_]+$/i.test(text)) {
     return text;
@@ -44,6 +57,9 @@ export function looksLikeErrorAlert(title: string, message?: string): boolean {
     blob.includes('failed') ||
     blob.includes('error') ||
     blob.includes('went wrong') ||
-    blob.includes('try again')
+    blob.includes('try again') ||
+    blob.includes("didn't go through") ||
+    blob.includes('didn’t go through') ||
+    blob.includes('unavailable')
   );
 }

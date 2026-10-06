@@ -23,16 +23,28 @@ without hunting through logs.
    both record + offer feedback. Legal / network open failures use the same path
    (`openChoremaxxUrl`).
 
+   Under Settings / Credits (Expo `presentation: 'modal'`), use **native** feedback
+   so we never nest an RN Modal:
+
+   ```ts
+   await showNativeAppError("That didn't go through", error, {
+     source: 'poppins-credits',
+     category: 'billing',
+   });
+   ```
+
 ## Rules
 
 - Never put technical codes alone in the alert body.
+- Never show `[object Object]` — always `formatUnknownError` before display.
 - Confirmations / success alerts use `{ record: false }` so they don’t open the loop.
 - Settings and other Expo modals must navigate only in the deferred `onPress`
-  after `orbitAlert` dismisses (already built in).
+  after `orbitAlert` dismisses (already built in), or use `showNativeAppError`.
 - Cap the log (`MAX_ENTRIES`) so Support stays scannable.
 
 ## Follow-ups
 
-- Prefer `showAppError` / bare `orbitAlert` (auto Send feedback) for new failures.
-- Remaining intentional natives: Settings confirm menus (`settings-native-menus`) — keep native, not the error loop.
+- Prefer `showAppError` / `showNativeAppError` / bare `orbitAlert` for new failures.
+- Remaining intentional natives without feedback: Settings **confirm** menus only
+  (`confirmCreditPackPurchase`, `confirmLeaveDevice`) — not error paths.
 - Optional: deep-link from crash recovery into the same Support compose.

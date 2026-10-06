@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -39,10 +39,11 @@ import {
   summarizeCredits,
   type CreditSummary,
 } from '@/lib/billing/credit-ledger';
-import { isNativeIapAvailable, purchaseTokens } from '@/lib/billing/iap';
+import { isNativeIapAvailable, isUserCancelledPurchase, purchaseTokens } from '@/lib/billing/iap';
 import { sendCreditReceiptEmail } from '@/lib/billing/send-credit-receipt';
 import { loadTokenGrants } from '@/lib/billing/token-grants';
 import { summarizeActUsage } from '@/lib/ai/act-events';
+import { showNativeAppError } from '@/lib/errors/show-native-app-error';
 import {
   buildTopUpReceipt,
   fileReceipt,
@@ -176,8 +177,13 @@ function PoppinsCreditsScreenInner() {
           setEmailStatus(`Credits added · email pending (${mailed.error})`);
         }
       } catch (error) {
-        // Native Alert — never orbitAlert under Settings stack (touch freeze).
-        Alert.alert("That didn't go through", String(error instanceof Error ? error.message : error));
+        // Native Alert + feedback loop — never orbitAlert under Settings (touch freeze).
+        if (!isUserCancelledPurchase(error)) {
+          await showNativeAppError("That didn't go through", error, {
+            source: 'poppins-credits',
+            category: 'billing',
+          });
+        }
       } finally {
         setBuying(null);
       }
