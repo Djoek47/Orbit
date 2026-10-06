@@ -58,7 +58,17 @@
 | Key rotation | Deferred (list only) |
 | StoreKit server verify | Not required for private TF |
 
-**Verdict:** Safe to cut **private TestFlight** to validate last 24–36h UX + logic. Staging SQL/edge should be applied before relying on live supabase paths in that build.
+**Verdict:** Private TestFlight **cut and submitted**.
+
+| | |
+|--|--|
+| Version | **1.3.0 (111)** |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/341180ab-466e-4cbd-8faf-86198605c9cb |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/c01caaea-7f44-4f19-90ff-93eed3ebb3c2 |
+| ASC | https://appstoreconnect.apple.com/apps/6796850110/testflight/ios |
+| Tip commit | `2dd9a51` on `cursor/make-v32` |
+
+Apple processing usually 5–10 minutes, then install from TestFlight. Staging SQL/edge should still be applied before relying on live supabase paths.
 
 ---
 
