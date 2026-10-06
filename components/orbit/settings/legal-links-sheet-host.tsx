@@ -1,22 +1,27 @@
 /**
- * Root-level Privacy & legal sheet — glass rows, opens in-app browser.
+ * Root-level Privacy & legal sheet — frosted glass, opens browser / Support
+ * only after this Modal has fully dismissed (never nests WebBrowser or
+ * router.push over a closing Modal — that left Home untouchable on TestFlight).
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { FrostedPanel, frostedBackdropColor } from '@/components/orbit/frosted-panel';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { openChoremaxxUrl } from '@/lib/legal/open-choremaxx-url';
+import { SESSION_NAV_DELAY_MS } from '@/lib/navigation/session-restart';
 import {
   closeLegalLinksSheet,
   openLegalLinksSheet,
   subscribeLegalLinksSheet,
 } from '@/lib/ui/legal-links-sheet-controller';
-import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { glassBorder, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
 type Row = {
@@ -26,15 +31,59 @@ type Row = {
   onPress: () => void;
 };
 
+type PendingAction = (() => void) | null;
+
+/** Match orbitAlert: Android often skips Modal.onDismiss. */
+const LEGAL_SHEET_DISMISS_MS = SESSION_NAV_DELAY_MS;
+
 export function LegalLinksSheetHost() {
   const [visible, setVisible] = useState(false);
-  const { c, glassBorder, isDark } = useOrbitColors();
+  const pendingAction = useRef<PendingAction>(null);
+  const flushedRef = useRef(false);
+  const { c, isDark } = useOrbitColors();
   const orbit = useOrbitOptional();
   const primary = orbit?.accentTheme.primary ?? c.primary;
 
   useEffect(() => subscribeLegalLinksSheet(setVisible), []);
 
-  const dismiss = () => closeLegalLinksSheet();
+  const flushAfterDismiss = useCallback(() => {
+    if (flushedRef.current) return;
+    flushedRef.current = true;
+    const next = pendingAction.current;
+    pendingAction.current = null;
+    if (!next) return;
+    // Two frames past native dismiss — safe for SFSafariViewController / router.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        try {
+          next();
+        } catch (error) {
+          console.warn('legalLinksSheet.action', error);
+        }
+      });
+    });
+  }, []);
+
+  // Android / some hosts skip onDismiss — still run after the fade.
+  useEffect(() => {
+    if (visible) {
+      flushedRef.current = false;
+      return;
+    }
+    const handle = setTimeout(flushAfterDismiss, LEGAL_SHEET_DISMISS_MS);
+    return () => clearTimeout(handle);
+  }, [visible, flushAfterDismiss]);
+
+  /** Close sheet; optional follow-up runs only after Modal dismiss settles. */
+  const beginDismiss = useCallback((action?: () => void) => {
+    pendingAction.current = action ?? null;
+    flushedRef.current = false;
+    closeLegalLinksSheet();
+  }, []);
+
+  const dismiss = () => {
+    beginDismiss(undefined);
+  };
 
   const rows: Row[] = [
     {
@@ -42,8 +91,9 @@ export function LegalLinksSheetHost() {
       tone: '#34D399',
       label: 'Privacy Policy',
       onPress: () => {
-        dismiss();
-        void openChoremaxxUrl(CHOREMAXX_LEGAL.privacyUrl, 'Privacy Policy');
+        beginDismiss(() => {
+          void openChoremaxxUrl(CHOREMAXX_LEGAL.privacyUrl, 'Privacy Policy');
+        });
       },
     },
     {
@@ -51,8 +101,9 @@ export function LegalLinksSheetHost() {
       tone: '#38BDF8',
       label: 'Terms of Service',
       onPress: () => {
-        dismiss();
-        void openChoremaxxUrl(CHOREMAXX_LEGAL.termsUrl, 'Terms of Service');
+        beginDismiss(() => {
+          void openChoremaxxUrl(CHOREMAXX_LEGAL.termsUrl, 'Terms of Service');
+        });
       },
     },
     {
@@ -60,8 +111,13 @@ export function LegalLinksSheetHost() {
       tone: '#FF8A3D',
       label: 'Contact support',
       onPress: () => {
-        dismiss();
-        void openChoremaxxUrl(`mailto:${CHOREMAXX_LEGAL.supportEmail}`, 'Support');
+        beginDismiss(() => {
+          try {
+            router.push('/support' as never);
+          } catch {
+            void openChoremaxxUrl(`mailto:${CHOREMAXX_LEGAL.supportEmail}`, 'Support');
+          }
+        });
       },
     },
   ];
@@ -73,64 +129,65 @@ export function LegalLinksSheetHost() {
       animationType="fade"
       statusBarTranslucent
       presentationStyle="overFullScreen"
-      onRequestClose={dismiss}>
-      <View style={styles.frame} pointerEvents="box-none">
+      onRequestClose={dismiss}
+      onDismiss={flushAfterDismiss}>
+      <View style={styles.frame}>
         <Pressable
-          style={styles.backdrop}
+          style={[styles.backdrop, { backgroundColor: frostedBackdropColor(isDark) }]}
           onPress={dismiss}
           accessibilityRole="button"
           accessibilityLabel="Dismiss Privacy and legal">
-          <Animated.View entering={FadeIn.duration(220)} style={StyleSheet.absoluteFill} />
+          <Animated.View entering={FadeIn.duration(180)} style={StyleSheet.absoluteFill} />
         </Pressable>
         <View style={styles.center} pointerEvents="box-none">
-          <Animated.View
-            entering={FadeInDown.duration(280).springify().damping(18)}
-            style={[
-              styles.sheet,
-              { backgroundColor: glassFill(isDark), borderColor: `${primary}55` },
-            ]}>
-            <LinearGradient
-              colors={[`${primary}28`, 'transparent']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <Text style={[typography.headline, { color: c.text }]}>Privacy & legal</Text>
-            <Text style={[styles.sub, { color: c.textMuted }]}>
-              Choremaxx legal pages open in your browser.
-            </Text>
-            <View style={[styles.group, { borderColor: glassBorder(0.1) }]}>
-              {rows.map((row, index) => (
+          <Animated.View entering={FadeInDown.duration(260).springify().damping(18)}>
+            <FrostedPanel borderColor={`${primary}66`} style={styles.sheet}>
+              <LinearGradient
+                colors={[`${primary}33`, 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.sheetGlow}
+                pointerEvents="none"
+              />
+              <View style={styles.sheetInner}>
+                <Text style={[typography.headline, { color: c.text }]}>Privacy & legal</Text>
+                <Text style={[styles.sub, { color: c.textMuted }]}>
+                  Privacy and Terms open in your browser. Support opens in the app.
+                </Text>
+                <View style={[styles.group, { borderColor: glassBorder(isDark, 0.14) }]}>
+                  {rows.map((row, index) => (
+                    <Pressable
+                      key={row.label}
+                      accessibilityRole="button"
+                      onPress={row.onPress}
+                      style={({ pressed }) => [
+                        styles.row,
+                        index > 0 && {
+                          borderTopWidth: StyleSheet.hairlineWidth,
+                          borderTopColor: glassBorder(isDark, 0.1),
+                        },
+                        pressed && { opacity: 0.72 },
+                      ]}>
+                      <View style={[styles.iconWell, { backgroundColor: `${row.tone}22` }]}>
+                        <MaterialIcons name={row.icon} size={18} color={row.tone} />
+                      </View>
+                      <Text style={[styles.rowLabel, { color: c.text }]}>{row.label}</Text>
+                      <MaterialIcons name="chevron-right" size={20} color={c.textSubtle} />
+                    </Pressable>
+                  ))}
+                </View>
                 <Pressable
-                  key={row.label}
+                  onPress={dismiss}
                   accessibilityRole="button"
-                  onPress={row.onPress}
                   style={({ pressed }) => [
-                    styles.row,
-                    index > 0 && {
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: glassBorder(0.08),
-                    },
-                    pressed && { opacity: 0.72 },
+                    styles.cancel,
+                    { backgroundColor: `${primary}22`, borderColor: `${primary}55` },
+                    pressed && { opacity: 0.8 },
                   ]}>
-                  <View style={[styles.iconWell, { backgroundColor: `${row.tone}22` }]}>
-                    <MaterialIcons name={row.icon} size={18} color={row.tone} />
-                  </View>
-                  <Text style={[styles.rowLabel, { color: c.text }]}>{row.label}</Text>
-                  <MaterialIcons name="chevron-right" size={20} color={c.textSubtle} />
+                  <Text style={[styles.cancelLabel, { color: c.text }]}>Cancel</Text>
                 </Pressable>
-              ))}
-            </View>
-            <Pressable
-              onPress={dismiss}
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.cancel,
-                { backgroundColor: `${primary}18`, borderColor: `${primary}44` },
-                pressed && { opacity: 0.8 },
-              ]}>
-              <Text style={[styles.cancelLabel, { color: c.text }]}>Cancel</Text>
-            </Pressable>
+              </View>
+            </FrostedPanel>
           </Animated.View>
         </View>
       </View>
@@ -149,7 +206,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   cancel: {
     alignItems: 'center',
@@ -172,6 +228,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   group: {
+    backgroundColor: 'rgba(0,0,0,0.22)',
     borderCurve: 'continuous',
     borderRadius: radius.card,
     borderWidth: 1,
@@ -198,11 +255,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   sheet: {
-    borderCurve: 'continuous',
-    borderRadius: 24,
-    borderWidth: 1,
+    // FrostedPanel owns radius/border; keep padding on inner.
+  },
+  sheetGlow: {
+    ...StyleSheet.absoluteFill,
+  },
+  sheetInner: {
     gap: 6,
-    overflow: 'hidden',
     paddingBottom: space.md,
     paddingHorizontal: space.md,
     paddingTop: space.lg,
