@@ -1079,10 +1079,7 @@ export default function WelcomeOnboardingScreen() {
       {step === 'splash' ? (
         <View style={styles.splashScreen}>
           <View style={styles.splashCenter}>
-            <BrandOpening
-              tagline="Your household, quietly run."
-              onReady={() => setSplashReady(true)}
-            />
+            <BrandOpening onReady={() => setSplashReady(true)} />
             <SplashHooks visible={splashReady} />
           </View>
 
