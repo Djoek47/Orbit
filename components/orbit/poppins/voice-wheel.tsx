@@ -52,10 +52,10 @@ const CENTER = SIZE / 2;
 const KNOB = 28;
 /** Extra pad around the dial so a finger near the rim never hits the back chevron / sheet. */
 const HIT_PAD = 28;
-/** Wait after a deliberate settle before the warm-up ring starts. */
-const PREVIEW_SETTLE_MS = 700;
-/** Fill the hub ring, then speak — long enough that a slow drag never stacks clips. */
-const PREVIEW_WARM_MS = 1100;
+/** Wait after a deliberate settle before the warm-up starts (~couple of seconds total with fill). */
+const PREVIEW_SETTLE_MS = 850;
+/** Fill the hub orb / ring, then speak — long enough that a slow drag never stacks clips. */
+const PREVIEW_WARM_MS = 1200;
 const HUB_RING_R = 30;
 const HUB_RING_C = 2 * Math.PI * HUB_RING_R;
 
@@ -360,6 +360,17 @@ export function VoiceWheel({
 
   const warmRingProps = useAnimatedProps(() => ({
     strokeDashoffset: HUB_RING_C * (1 - warmProgress.value),
+    opacity: warmProgress.value > 0.02 ? 1 : 0,
+  }));
+
+  /** Soft fill grows inside the annotated Poppins orb while the voice warms up. */
+  const orbFillStyle = useAnimatedStyle(() => ({
+    opacity: 0.18 + warmProgress.value * 0.55,
+    transform: [{ scale: 0.55 + warmProgress.value * 0.45 }],
+  }));
+
+  const orbPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + warmProgress.value * 0.04 }],
   }));
 
   // Slight overlap so neighbouring strokes never leave a hairline of track showing through.
@@ -466,13 +477,19 @@ export function VoiceWheel({
 
             <View style={styles.hub} pointerEvents="none">
               <View style={styles.hubMojiWrap}>
-                {/* Warm-up ring around the Poppins orb — fills, then the line plays. */}
+                {/* Warm-up on the Poppins orb (screenshot mark) — ring + fill, then the line plays. */}
                 <Svg width={68} height={68} style={styles.hubRing}>
                   <Circle
                     cx={34}
                     cy={34}
                     r={HUB_RING_R}
-                    stroke={isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,28,42,0.1)'}
+                    stroke={
+                      previewPhase === 'idle'
+                        ? 'transparent'
+                        : isDark
+                          ? 'rgba(255,255,255,0.12)'
+                          : 'rgba(15,28,42,0.1)'
+                    }
                     strokeWidth={3}
                     fill="none"
                   />
@@ -489,9 +506,12 @@ export function VoiceWheel({
                     transform="rotate(-90 34 34)"
                   />
                 </Svg>
-                <View style={[styles.hubMoji, { backgroundColor: `${liveColor}26` }]}>
+                <Animated.View style={[styles.hubMoji, { backgroundColor: `${liveColor}26` }, orbPulseStyle]}>
+                  <Animated.View
+                    style={[styles.hubFill, { backgroundColor: liveColor }, orbFillStyle]}
+                  />
                   <Moji name="poppins" size={34} />
-                </View>
+                </Animated.View>
               </View>
               <Text style={[styles.hubName, { color: c.text }]} numberOfLines={1}>
                 {live.label}
@@ -619,7 +639,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     height: 54,
     justifyContent: 'center',
+    overflow: 'hidden',
     width: 54,
+  },
+  hubFill: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 18,
   },
   hubName: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   hubHint: { fontSize: 12.5, fontWeight: '700' },
