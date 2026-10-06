@@ -76,6 +76,7 @@ import { registerPushForActor } from '@/lib/notifications/member-push';
 import { loadSidekickSession } from '@/lib/sidekick/session';
 import { isSidekickRole } from '@/lib/sidekick/permissions';
 import { BILLING_TRIAL_DAYS, PREMIUM_ALLOWANCE_COPY } from '@/constants/billing';
+import { subscribeTokenGrantsChanged } from '@/lib/billing/token-grants-events';
 import {
   fetchEntitlement,
   isPremiumActive,
@@ -438,6 +439,14 @@ export default function SettingsScreen() {
     }, [refreshTopUpBalance, section])
   );
 
+  useEffect(() => {
+    return subscribeTokenGrantsChanged(() => {
+      void refreshTopUpBalance().catch((error) => {
+        console.warn('settings.topUpRefresh.event', error);
+      });
+    });
+  }, [refreshTopUpBalance]);
+
   const aiSummary = useMemo(
     () =>
       summarizeActUsage(
@@ -519,6 +528,7 @@ export default function SettingsScreen() {
       onConfirm: () => {
         if (signingOut || isSignOutInFlight()) return;
         collapseSettingsOverlays();
+        closeSettingsModal();
         setSigningOut(true);
         void signOutAndLeave(signOut).finally(() => setSigningOut(false));
       },

@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 import { AppErrorBoundary } from '@/components/orbit/app-error-boundary';
 import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
 import { GlobalSigningOutCover } from '@/components/orbit/global-signing-out-cover';
+import { LegalLinksSheetHost } from '@/components/orbit/settings/legal-links-sheet-host';
 import { MemberRemovedCountdown } from '@/components/orbit/member-removed-countdown';
 import { OrbitAlertProvider } from '@/components/orbit/orbit-alert';
 import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
@@ -52,6 +53,7 @@ export default function RootLayout() {
               <OrbitChromeBridge />
               <MemberRemovedCountdown />
               <GlobalSigningOutCover />
+              <LegalLinksSheetHost />
               <LayoutAnimationConfig
                 key={sessionEpoch}
                 skipEntering={sessionEpoch > 0}

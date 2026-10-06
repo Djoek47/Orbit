@@ -11,7 +11,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Redirect, router, Stack } from 'expo-router';
+import { Redirect, router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -103,6 +103,14 @@ function PoppinsCreditsScreenInner() {
       cancelled = true;
     };
   }, [readBalance]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void readBalance().then((next) => {
+        if (next) setCredits(next);
+      });
+    }, [readBalance])
+  );
 
   const packs = useMemo(() => topUpPacks(), []);
   const mockBuy = !isNativeIapAvailable();

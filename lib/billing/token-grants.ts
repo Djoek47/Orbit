@@ -11,6 +11,7 @@ import {
   topUpBalanceFromGrants,
   type TokenGrantBalance,
 } from '@/lib/billing/token-grants-math';
+import { notifyTokenGrantsChanged } from '@/lib/billing/token-grants-events';
 import { isPersistedHouseholdId } from '@/lib/household/persisted-household-id';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
@@ -57,6 +58,7 @@ async function loadLocal(householdId: string | null | undefined): Promise<TokenG
 
 async function saveLocal(householdId: string, grants: TokenGrant[]): Promise<void> {
   await AsyncStorage.setItem(keyFor(householdId), JSON.stringify(grants));
+  notifyTokenGrantsChanged();
 }
 
 async function loadRemote(householdId: string): Promise<TokenGrant[] | null> {

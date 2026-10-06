@@ -63,6 +63,7 @@ export function SidekickSettingsScreen() {
   const runSignOut = () => {
     if (signingOut || isSignOutInFlight()) return;
     setPersonalizeOpen(false);
+    closeSettingsModal();
     setSigningOut(true);
     void signOutAndLeave(signOut).finally(() => setSigningOut(false));
   };

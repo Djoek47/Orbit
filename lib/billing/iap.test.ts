@@ -98,7 +98,8 @@ test('subscription dates derive effectiveAt when missing', () => {
     inTrial: true,
   });
   assert.equal(formatSubscriptionDate(effective), formatSubscriptionDate('2026-10-06T12:00:00.000Z'));
-  assert.equal(subscriptionDatesSubtitle(null), 'No active plan');
+  assert.match(subscriptionDatesSubtitle(null), /\$6\.99\/mo/);
+  assert.match(subscriptionDatesSubtitle(null), /40% off/);
 });
 
 test('Settings lists My Subscription with date fields', () => {

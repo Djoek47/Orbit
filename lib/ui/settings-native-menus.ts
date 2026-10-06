@@ -5,42 +5,13 @@
  * presentation: 'modal' can fail to present and leave an invisible touch
  * blocker after dismiss on iOS.
  */
-import { ActionSheetIOS, Alert, Linking, Platform } from 'react-native';
+import { ActionSheetIOS, Alert, Platform } from 'react-native';
 
-import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
+import { openLegalLinksSheet } from '@/lib/ui/legal-links-sheet-controller';
 
-function openUrl(url: string): void {
-  void Linking.openURL(url).catch(() => undefined);
-}
-
-/** Privacy / Terms / Support — system action sheet or Alert, never orbitAlert. */
+/** Privacy / Terms / Support — root glass sheet + in-app browser, never orbitAlert. */
 export function showPrivacyLegalMenu(): void {
-  if (Platform.OS === 'ios') {
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        title: 'Privacy & legal',
-        message: 'Open Choremaxx legal pages',
-        options: ['Privacy Policy', 'Terms of Service', 'Contact support', 'Cancel'],
-        cancelButtonIndex: 3,
-      },
-      (index) => {
-        if (index === 0) openUrl(CHOREMAXX_LEGAL.privacyUrl);
-        else if (index === 1) openUrl(CHOREMAXX_LEGAL.termsUrl);
-        else if (index === 2) openUrl(`mailto:${CHOREMAXX_LEGAL.supportEmail}`);
-      }
-    );
-    return;
-  }
-
-  Alert.alert('Privacy & legal', 'Open Choremaxx legal pages', [
-    { text: 'Privacy Policy', onPress: () => openUrl(CHOREMAXX_LEGAL.privacyUrl) },
-    { text: 'Terms of Service', onPress: () => openUrl(CHOREMAXX_LEGAL.termsUrl) },
-    {
-      text: 'Contact support',
-      onPress: () => openUrl(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
-    },
-    { text: 'Cancel', style: 'cancel' },
-  ]);
+  openLegalLinksSheet();
 }
 
 /** Destructive leave confirm — system sheet/Alert so Settings never stacks RN Modal. */

@@ -8,6 +8,13 @@ import {
   type EntitlementState,
 } from '@/constants/billing';
 
+/** Settings row when there is no active subscription yet. */
+export function subscriptionPricingSubtitle(): string {
+  const m = IAP_SUBSCRIPTIONS.monthly.priceUsd.toFixed(2);
+  const y = IAP_SUBSCRIPTIONS.yearly.priceUsd.toFixed(2);
+  return `$${m}/mo · $${y}/yr (${IAP_SUBSCRIPTIONS.yearly.savingsLabel})`;
+}
+
 /** Short local date for Settings rows (e.g. Oct 6, 2026). */
 export function formatSubscriptionDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -45,7 +52,7 @@ export function resolveEffectiveAt(state: EntitlementState, now = new Date()): s
 
 /** One-line subtitle for the Settings list row. */
 export function subscriptionDatesSubtitle(state: EntitlementState | null): string {
-  if (!state || !isPremiumActive(state)) return 'No active plan';
+  if (!state || !isPremiumActive(state)) return subscriptionPricingSubtitle();
   const effective = formatSubscriptionDate(resolveEffectiveAt(state));
   const expires = formatSubscriptionDate(state.expiresAt);
   return `Effective ${effective} · Expires ${expires}`;

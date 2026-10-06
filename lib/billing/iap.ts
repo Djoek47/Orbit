@@ -285,26 +285,14 @@ export async function purchaseTokens(
     // Mock grant — Expo Go / unit tests. Grants the selected pack size and appends
     // to the existing bank (credits never expire / never replace prior balance).
     const transactionId = `mock-${packKey}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    try {
-      const { grantTokenPack } = await import('@/lib/billing/token-grants');
-      return await grantTokenPack({
-        householdId,
-        packKey,
-        transactionId,
-        productId: pack.productId,
-        mock: true,
-      });
-    } catch {
-      return {
-        id: `mock-${transactionId}`,
-        householdId,
-        pack: pack.pack,
-        tokens: pack.tokens,
-        consumed: 0,
-        transactionId,
-        grantedAt: new Date().toISOString(),
-      };
-    }
+    const { grantTokenPack } = await import('@/lib/billing/token-grants');
+    return await grantTokenPack({
+      householdId,
+      packKey,
+      transactionId,
+      productId: pack.productId,
+      mock: true,
+    });
   }
 
   return withNativeIap(async (iap) => {

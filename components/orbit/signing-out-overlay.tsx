@@ -4,6 +4,7 @@
  */
 import { ActivityIndicator, Modal, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -29,19 +30,23 @@ export function SigningOutOverlay({ visible }: Props) {
       onRequestClose={() => {
         /* block back while signing out */
       }}>
-      <View style={[styles.backdrop, { backgroundColor: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(8,16,28,0.55)' }]}>
-        <LinearGradient
-          colors={[`${primary}33`, `${secondary}14`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.card, { borderColor: `${primary}66` }]}>
-          <ActivityIndicator size="large" color={primary} />
-          <Text style={[styles.title, { color: isDark ? '#F7F2EC' : c.text }]}>Signing out…</Text>
-          <Text style={[styles.sub, { color: isDark ? '#C9B8AA' : c.textMuted }]}>
-            This can take a few seconds while we close Poppins and clear this device.
-          </Text>
-        </LinearGradient>
-      </View>
+      <Animated.View
+        entering={FadeIn.duration(280)}
+        style={[styles.backdrop, { backgroundColor: isDark ? 'rgba(0,0,0,0.72)' : 'rgba(8,16,28,0.55)' }]}>
+        <Animated.View entering={FadeInDown.duration(320).springify().damping(16)}>
+          <LinearGradient
+            colors={[`${primary}33`, `${secondary}14`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.card, { borderColor: `${primary}66` }]}>
+            <ActivityIndicator size="large" color={primary} />
+            <Text style={[styles.title, { color: isDark ? '#F7F2EC' : c.text }]}>Signing out…</Text>
+            <Text style={[styles.sub, { color: isDark ? '#C9B8AA' : c.textMuted }]}>
+              This can take a few seconds while we close Poppins and clear this device.
+            </Text>
+          </LinearGradient>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }

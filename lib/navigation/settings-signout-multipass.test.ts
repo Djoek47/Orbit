@@ -70,8 +70,8 @@ test('Pass B2: admin sign-out clears look sheet before overlay', () => {
   assert.match(settings, /collapseSettingsOverlays/);
   assert.match(
     settings,
-    /collapseSettingsOverlays\(\);\s*setSigningOut\(true\)/s,
-    'sign-out closes sheets so RN Modals cannot block Get Started'
+    /collapseSettingsOverlays\(\);\s*closeSettingsModal\(\);\s*setSigningOut\(true\)/s,
+    'sign-out closes sheets + Settings modal before overlay'
   );
 });
 
@@ -93,11 +93,15 @@ test('Pass B5: modal chrome X uses dismissAll stack close', () => {
 test('Pass B3: sidekick close + sign-out clear look sheet', () => {
   const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
   assert.match(sidekick, /setPersonalizeOpen\(false\);\s*closeSettingsModal\(\)/s);
-  assert.match(sidekick, /setPersonalizeOpen\(false\);\s*setSigningOut\(true\)/s);
+  assert.match(
+    sidekick,
+    /setPersonalizeOpen\(false\);\s*closeSettingsModal\(\);\s*setSigningOut\(true\)/s
+  );
 });
 
 test('Pass C1: SigningOutOverlay hoisted to root (survives Settings unmount)', () => {
   assert.match(read('app/_layout.tsx'), /GlobalSigningOutCover/);
+  assert.match(read('app/_layout.tsx'), /LegalLinksSheetHost/);
   assert.match(read('components/orbit/global-signing-out-cover.tsx'), /subscribeSignOutInFlight/);
   assert.match(read('components/orbit/signing-out-overlay.tsx'), /Signing out…/);
   assert.doesNotMatch(read('app/settings.tsx'), /SigningOutOverlay/);
@@ -143,8 +147,12 @@ test('Pass C2b: Privacy & legal uses native menu (never orbitAlert over Settings
   const menus = read('lib/ui/settings-native-menus.ts');
   assert.match(sidekick, /Privacy & legal[\s\S]{0,400}?showPrivacyLegalMenu/);
   assert.match(admin, /Privacy & legal[\s\S]{0,400}?showPrivacyLegalMenu/);
-  assert.match(menus, /ActionSheetIOS\.showActionSheetWithOptions/);
-  assert.match(menus, /CHOREMAXX_LEGAL\.privacyUrl/);
+  assert.match(menus, /openLegalLinksSheet/);
+  assert.match(
+    read('components/orbit/settings/legal-links-sheet-host.tsx'),
+    /CHOREMAXX_LEGAL\.privacyUrl/
+  );
+  assert.match(read('lib/legal/open-choremaxx-url.ts'), /openBrowserAsync/);
   // Nested RN Modal over Expo Settings modal is the freeze — ban it on these rows.
   assert.doesNotMatch(sidekick, /Privacy & legal[\s\S]{0,400}?orbitAlert\(/);
   assert.doesNotMatch(admin, /Privacy & legal[\s\S]{0,400}?orbitAlert\(/);
@@ -157,6 +165,8 @@ test('Pass C2c: Sign out confirm uses native menu (never orbitAlert over Setting
   const admin = read('app/settings.tsx');
   assert.match(sidekick, /confirmLeaveDevice/);
   assert.match(admin, /confirmLeaveDevice/);
+  assert.match(sidekick, /closeSettingsModal\(\)/);
+  assert.match(admin, /closeSettingsModal\(\)/);
   assert.doesNotMatch(sidekick, /orbitAlert\(model\.signOut/);
   assert.doesNotMatch(admin, /orbitAlert\('Sign out\?/);
 });
