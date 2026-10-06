@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,7 +16,11 @@ import { BUILD_INFO } from '@/constants/build-info';
 import { VOCAB } from '@/constants/vocabulary';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
-import { markNeedsProfilePick } from '@/lib/device/device-session';
+import {
+  isSharedTabletDeviceSession,
+  loadDeviceSession,
+  markNeedsProfilePick,
+} from '@/lib/device/device-session';
 import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { memberSettingsModel } from '@/lib/settings/member-settings-model';
@@ -56,10 +60,26 @@ export function SidekickSettingsScreen() {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const [personalizeOpen, setPersonalizeOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [onSharedTablet, setOnSharedTablet] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    void loadDeviceSession().then((session) => {
+      if (mounted) setOnSharedTablet(isSharedTabletDeviceSession(session));
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [currentMember?.id]);
 
   const model = useMemo(
-    () => memberSettingsModel({ member: currentMember, members: household.members }),
-    [currentMember, household.members]
+    () =>
+      memberSettingsModel({
+        member: currentMember,
+        members: household.members,
+        onSharedTablet,
+      }),
+    [currentMember, household.members, onSharedTablet]
   );
 
   if (!currentMember || !model) return null;

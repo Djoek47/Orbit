@@ -23,6 +23,11 @@ export function resolveSwitchDeviceShell(
   session: DeviceSession | null,
   members: HouseholdMember[]
 ): HouseholdMember | undefined {
+  // Personal Sidekick phone — never inherit a Kitchen iPad shell from roster links.
+  if (session?.hostKind === 'sidekick' && !session.sharedDeviceId) {
+    return undefined;
+  }
+
   if (session?.sharedDeviceId) {
     const byId = members.find((m) => m.id === session.sharedDeviceId);
     if (byId?.role === 'shared-device' && byId.status === 'active') return byId;
