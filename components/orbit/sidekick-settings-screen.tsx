@@ -21,7 +21,10 @@ import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leav
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { memberSettingsModel } from '@/lib/settings/member-settings-model';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { confirmLeaveDevice, showPrivacyLegalMenu } from '@/lib/ui/settings-native-menus';
+import {
+  confirmLeaveDevice,
+  showPrivacyLegalMenuAfterSettingsDismiss,
+} from '@/lib/ui/settings-native-menus';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
 
@@ -217,9 +220,10 @@ export function SidekickSettingsScreen() {
               onPress={() => {
                 // Close look sheet + Settings first — root legal Modal must not nest
                 // over Expo Settings (same freeze class as orbitAlert).
+                // Wait for dismiss animation before opening the sheet.
                 setPersonalizeOpen(false);
                 closeSettingsModal();
-                requestAnimationFrame(() => showPrivacyLegalMenu());
+                showPrivacyLegalMenuAfterSettingsDismiss();
               }}
             />
           </SettingsGroup>

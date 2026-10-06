@@ -74,59 +74,65 @@ export function LegalLinksSheetHost() {
       statusBarTranslucent
       presentationStyle="overFullScreen"
       onRequestClose={dismiss}>
-      <Pressable style={styles.backdrop} onPress={dismiss} accessibilityLabel="Dismiss">
-        <Animated.View entering={FadeIn.duration(220)} style={StyleSheet.absoluteFill} />
-      </Pressable>
-      <View style={styles.center} pointerEvents="box-none">
-        <Animated.View
-          entering={FadeInDown.duration(280).springify().damping(18)}
-          style={[
-            styles.sheet,
-            { backgroundColor: glassFill(isDark), borderColor: `${primary}55` },
-          ]}>
-          <LinearGradient
-            colors={[`${primary}28`, 'transparent']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <Text style={[typography.headline, { color: c.text }]}>Privacy & legal</Text>
-          <Text style={[styles.sub, { color: c.textMuted }]}>
-            Choremaxx legal pages open in your browser.
-          </Text>
-          <View style={[styles.group, { borderColor: glassBorder(0.1) }]}>
-            {rows.map((row, index) => (
-              <Pressable
-                key={row.label}
-                accessibilityRole="button"
-                onPress={row.onPress}
-                style={({ pressed }) => [
-                  styles.row,
-                  index > 0 && {
-                    borderTopWidth: StyleSheet.hairlineWidth,
-                    borderTopColor: glassBorder(0.08),
-                  },
-                  pressed && { opacity: 0.72 },
-                ]}>
-                <View style={[styles.iconWell, { backgroundColor: `${row.tone}22` }]}>
-                  <MaterialIcons name={row.icon} size={18} color={row.tone} />
-                </View>
-                <Text style={[styles.rowLabel, { color: c.text }]}>{row.label}</Text>
-                <MaterialIcons name="chevron-right" size={20} color={c.textSubtle} />
-              </Pressable>
-            ))}
-          </View>
-          <Pressable
-            onPress={dismiss}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.cancel,
-              { backgroundColor: `${primary}18`, borderColor: `${primary}44` },
-              pressed && { opacity: 0.8 },
+      <View style={styles.frame} pointerEvents="box-none">
+        <Pressable
+          style={styles.backdrop}
+          onPress={dismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss Privacy and legal">
+          <Animated.View entering={FadeIn.duration(220)} style={StyleSheet.absoluteFill} />
+        </Pressable>
+        <View style={styles.center} pointerEvents="box-none">
+          <Animated.View
+            entering={FadeInDown.duration(280).springify().damping(18)}
+            style={[
+              styles.sheet,
+              { backgroundColor: glassFill(isDark), borderColor: `${primary}55` },
             ]}>
-            <Text style={[styles.cancelLabel, { color: c.text }]}>Cancel</Text>
-          </Pressable>
-        </Animated.View>
+            <LinearGradient
+              colors={[`${primary}28`, 'transparent']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={[typography.headline, { color: c.text }]}>Privacy & legal</Text>
+            <Text style={[styles.sub, { color: c.textMuted }]}>
+              Choremaxx legal pages open in your browser.
+            </Text>
+            <View style={[styles.group, { borderColor: glassBorder(0.1) }]}>
+              {rows.map((row, index) => (
+                <Pressable
+                  key={row.label}
+                  accessibilityRole="button"
+                  onPress={row.onPress}
+                  style={({ pressed }) => [
+                    styles.row,
+                    index > 0 && {
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: glassBorder(0.08),
+                    },
+                    pressed && { opacity: 0.72 },
+                  ]}>
+                  <View style={[styles.iconWell, { backgroundColor: `${row.tone}22` }]}>
+                    <MaterialIcons name={row.icon} size={18} color={row.tone} />
+                  </View>
+                  <Text style={[styles.rowLabel, { color: c.text }]}>{row.label}</Text>
+                  <MaterialIcons name="chevron-right" size={20} color={c.textSubtle} />
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              onPress={dismiss}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.cancel,
+                { backgroundColor: `${primary}18`, borderColor: `${primary}44` },
+                pressed && { opacity: 0.8 },
+              ]}>
+              <Text style={[styles.cancelLabel, { color: c.text }]}>Cancel</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
       </View>
     </Modal>
   );
@@ -138,6 +144,9 @@ export function __openLegalLinksSheetForTests(): void {
 }
 
 const styles = StyleSheet.create({
+  frame: {
+    flex: 1,
+  },
   backdrop: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.55)',

@@ -37,6 +37,10 @@ test('credits screen wires purchaseTokens and sendCreditReceiptEmail', () => {
   const credits = readFileSync(join(process.cwd(), 'app/poppins-credits.tsx'), 'utf8');
   assert.match(credits, /purchaseTokens/);
   assert.match(credits, /sendCreditReceiptEmail/);
+  assert.match(credits, /confirmCreditPackPurchase/);
+  assert.doesNotMatch(credits, /from ['"]@\/components\/orbit\/orbit-alert['"]/);
+  assert.doesNotMatch(credits, /orbitAlert\s*\(/);
+  assert.match(credits, /Congratulations!/);
 });
 
 test('delete household leaves modals before tabs', () => {

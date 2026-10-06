@@ -7,7 +7,10 @@
  */
 import { ActionSheetIOS, Alert, Platform } from 'react-native';
 
+import { SESSION_NAV_DELAY_MS } from '@/lib/navigation/session-restart';
 import { openLegalLinksSheet } from '@/lib/ui/legal-links-sheet-controller';
+
+let privacyOpenTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Privacy / Terms / Support — root glass sheet + in-app browser, never orbitAlert.
@@ -16,6 +19,35 @@ import { openLegalLinksSheet } from '@/lib/ui/legal-links-sheet-controller';
  */
 export function showPrivacyLegalMenu(): void {
   openLegalLinksSheet();
+}
+
+/**
+ * After `closeSettingsModal()`, wait for the Expo modal dismiss animation before
+ * presenting the root legal sheet. A single rAF was too early and left a touch
+ * blocker (same class as nesting orbitAlert over Settings).
+ */
+export function showPrivacyLegalMenuAfterSettingsDismiss(): void {
+  if (privacyOpenTimer) {
+    clearTimeout(privacyOpenTimer);
+    privacyOpenTimer = null;
+  }
+  privacyOpenTimer = setTimeout(() => {
+    privacyOpenTimer = null;
+    openLegalLinksSheet();
+  }, SESSION_NAV_DELAY_MS);
+}
+
+/** Native confirm for credit packs — safe under Settings modal stack (no RN Modal). */
+export function confirmCreditPackPurchase(opts: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+}): void {
+  Alert.alert(opts.title, opts.message, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: opts.confirmLabel, onPress: opts.onConfirm },
+  ]);
 }
 
 /** Destructive leave confirm — system sheet/Alert so Settings never stacks RN Modal. */

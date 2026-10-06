@@ -56,7 +56,10 @@ import {
   householdDeletionDaysRemaining,
   isHouseholdDeletionPending,
 } from '@/lib/household/household-deletion';
-import { confirmLeaveDevice, showPrivacyLegalMenu } from '@/lib/ui/settings-native-menus';
+import {
+  confirmLeaveDevice,
+  showPrivacyLegalMenuAfterSettingsDismiss,
+} from '@/lib/ui/settings-native-menus';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
@@ -931,8 +934,9 @@ export default function SettingsScreen() {
                   collapseSettingsOverlays();
                   // Dismiss Settings first — glass legal sheet is a root Modal; nesting
                   // it over Expo Settings modal can leave an invisible touch blocker.
+                  // Wait for dismiss animation (not a single rAF) before opening.
                   closeSettingsModal();
-                  requestAnimationFrame(() => showPrivacyLegalMenu());
+                  showPrivacyLegalMenuAfterSettingsDismiss();
                 }}
               />
             </SettingsGroup>
