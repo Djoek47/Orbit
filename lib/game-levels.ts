@@ -222,7 +222,10 @@ export const MEMBER_ACCENTS: Record<string, { color: string; emoji: string }> = 
 /** Prefer stored member.avatar over hardcoded Make demo emoji. */
 export function isAvatarImageUri(avatar?: string | null) {
   if (!avatar) return false;
-  return /^(file|content|https?):\/\//i.test(avatar) || avatar.startsWith('data:image');
+  const trimmed = avatar.trim();
+  // Bare scheme leftovers must never render as chip text ("file://").
+  if (/^(file|content|https?):\/\/*$/i.test(trimmed)) return false;
+  return /^(file|content|https?):\/\//i.test(trimmed) || trimmed.startsWith('data:image');
 }
 
 export function memberDisplayEmoji(member: { name: string; avatar?: string }) {

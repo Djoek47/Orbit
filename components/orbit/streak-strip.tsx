@@ -6,8 +6,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { Avatar } from '@/components/orbit/avatar';
 import { StreakDots } from '@/components/orbit/house-rules/visuals/streak-dots';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { getHouseRulesDoc } from '@/lib/rules/house-rules-data';
 import { resolveHouseRulesPalette } from '@/lib/rules/house-rules-palette';
 import type { MemberStreakRow } from '@/lib/streaks/member-streak-rows';
@@ -80,9 +82,16 @@ export function StreakStrip({ rows, mode, accentColor }: Props) {
                   borderColor: row.isSelf ? `${accentColor}55` : glassBorder(0.1),
                 },
               ]}>
-              <View style={[styles.avatar, { backgroundColor: `${accentColor}22` }]}>
-                <Text style={[styles.avatarText, { color: accentColor }]}>{row.avatar}</Text>
-              </View>
+              <Avatar
+                name={row.name}
+                emoji={
+                  isAvatarImageUri(row.avatar)
+                    ? memberDisplayEmoji({ name: row.name, avatar: row.avatar })
+                    : row.avatar
+                }
+                imageUri={isAvatarImageUri(row.avatar) ? row.avatar : undefined}
+                size="xs"
+              />
               <View style={{ minWidth: 0 }}>
                 <Text style={[styles.chipName, { color: c.text }]} numberOfLines={1}>
                   {row.isSelf ? 'You' : row.name}
@@ -142,17 +151,6 @@ const styles = StyleSheet.create({
     minWidth: 108,
     paddingHorizontal: 10,
     paddingVertical: 8,
-  },
-  avatar: {
-    alignItems: 'center',
-    borderRadius: 999,
-    height: 28,
-    justifyContent: 'center',
-    width: 28,
-  },
-  avatarText: {
-    fontSize: 12,
-    fontWeight: '800',
   },
   chipName: {
     fontSize: 13,
