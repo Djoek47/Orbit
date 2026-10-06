@@ -58,17 +58,18 @@
 | Key rotation | Deferred (list only) |
 | StoreKit server verify | Not required for private TF |
 
-**Verdict:** Private TestFlight **cut and submitted**.
+**Verdict:** Private TestFlight **cut and submitted** (sign-out → Get Started fix in **113**).
 
 | | |
 |--|--|
-| Version | **1.3.0 (111)** |
-| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/341180ab-466e-4cbd-8faf-86198605c9cb |
-| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/c01caaea-7f44-4f19-90ff-93eed3ebb3c2 |
+| Version | **1.3.0 (113)** |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/1a519900-9ab2-4d22-b679-b0b1aad41300 |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/ad7cc4ec-66a2-4f5a-a7d5-4aa37d47a532 |
 | ASC | https://appstoreconnect.apple.com/apps/6796850110/testflight/ios |
-| Tip commit | `2dd9a51` on `cursor/make-v32` |
+| Tip commit | `a22e6e0` on `cursor/make-v32` |
+| Prior | 1.3.0 (111) blank after sign-out — fixed: `dismissTo('/welcome')` + tabs/leave safety nets |
 
-Apple processing usually 5–10 minutes, then install from TestFlight. Staging SQL/edge should still be applied before relying on live supabase paths.
+Apple processing usually 5–10 minutes after build finishes, then install from TestFlight. Staging SQL/edge should still be applied before relying on live supabase paths.
 
 ---
 
