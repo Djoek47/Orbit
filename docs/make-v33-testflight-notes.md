@@ -44,11 +44,23 @@ Reply with: device + iOS version, role tested (admin / Sidekick / tablet face), 
 
 ---
 
+## Blockers before next TestFlight / App Store push
+
+Do **not** cut another TF or App Store build until these are cleared:
+
+- [ ] **Supabase Auth — Leaked password protection (HaveIBeenPwned)**  
+  Staging project `dejrbyufotcvcillnneo` → Dashboard → **Authentication** → **Providers** / **Password** → enable **Leaked password protection**.  
+  Advisor: `auth_leaked_password_protection`. Not settable from SQL.  
+  See `docs/supabase-security-advisors-2026-10-06.md`.
+- [ ] ASC consumable IAP packs live for Credits (`docs/asc-iap-setup.md`) if Credits buy is in scope for that cut
+- [ ] Product explicitly says “push TestFlight”
+
 ## Cut checklist
 
 1. ~~OpenAI bake~~ — 10 clips in `assets/voice-previews/*.m4a`
 2. ~~Staging avatars~~ — `member-avatars` bucket present
 3. ~~Internal TF queued~~ — **1.3.0 (116)** auto-submit
+4. [ ] **Leaked password protection ON** (blocker above) — required before any new push
 
 | | |
 |--|--|

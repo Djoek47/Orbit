@@ -15,6 +15,7 @@
 - [x] EAS project env: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - [x] EAS env: `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_TERMS_URL` (still on choremaxx.vercel.app until site cutover)
 - [ ] ASC IAP products created — see `docs/asc-iap-setup.md`
+- [ ] **Supabase Auth: Leaked password protection (HaveIBeenPwned) enabled** on staging (`dejrbyufotcvcillnneo`) — Dashboard → Authentication → Password. Advisor `auth_leaked_password_protection`. Blocker before next TF push — see `docs/make-v33-testflight-notes.md`.
 - [x] Privacy + Terms source in `docs/legal/*` (re-host on Vercel after Nova→Poppins edit)
 - [x] `npm run testflight:preflight` passes
 

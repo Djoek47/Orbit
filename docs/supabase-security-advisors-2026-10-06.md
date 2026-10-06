@@ -16,11 +16,17 @@ Project: `dejrbyufotcvcillnneo` (Choremaxx-Staging)
 
 `authenticated_security_definer_function_executable` for client RPCs that **must** stay callable by signed-in users via PostgREST / edge (`create_household_transfer_token`, `accept_household_transfer`, `is_household_member`, deletion RPCs, etc.). Revoking those would break the app. Definer + auth checks inside the function body is the model.
 
-## Manual Auth dashboard step
+## BLOCKER — Manual Auth dashboard step (before next TF / password ship)
 
-| Advisor | Action |
-|---------|--------|
-| `auth_leaked_password_protection` | Supabase Dashboard → **Authentication** → **Providers / Password** → enable **Leaked password protection** (HaveIBeenPwned). Not settable from SQL. |
+| Advisor | Status | Action |
+|---------|--------|--------|
+| `auth_leaked_password_protection` | **OPEN — must fix before push** | Supabase Dashboard → project `dejrbyufotcvcillnneo` → **Authentication** → **Providers** / **Password** → enable **Leaked password protection** (HaveIBeenPwned). Not settable from SQL. |
+
+Tracked also in:
+- `docs/make-v33-testflight-notes.md` § Blockers before next TestFlight
+- `docs/STAGING_DEPLOY_CHECKLIST.md` § 2b
+- `docs/app-store-checklist.md` Preconditions
+- `scripts/testflight-preflight.sh` (prints blocker reminder)
 
 ## Deployed with this pass
 

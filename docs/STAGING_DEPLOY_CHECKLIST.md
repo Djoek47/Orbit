@@ -95,6 +95,17 @@ Full command list: `supabase/functions/README.md`.
 
 ---
 
+## 2b) Supabase Auth — blockers before TestFlight / password ship
+
+These are **not** SQL migrations. Clear before any new TestFlight or App Store push:
+
+- [ ] **Leaked password protection (HaveIBeenPwned)** — Dashboard → project `dejrbyufotcvcillnneo` → **Authentication** → **Providers** / **Password** → enable **Leaked password protection**.  
+  Security advisor: `auth_leaked_password_protection`. Details: `docs/supabase-security-advisors-2026-10-06.md` and `docs/make-v33-testflight-notes.md` § Blockers.
+
+Until that box is checked, treat password / Auth as incomplete for ship.
+
+---
+
 ## 3) App / Expo (optional OTA — not TestFlight)
 
 ```bash
