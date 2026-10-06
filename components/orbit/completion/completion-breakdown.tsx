@@ -19,7 +19,6 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import Svg, { Line, Rect } from 'react-native-svg';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { GlassCard } from '@/components/orbit/glass-card';
 import {
   GlassDetailPopover,
   type GlassDetailLine,
@@ -411,7 +410,7 @@ export function CompletionBreakdown({
         </View>
 
         {/* Categories */}
-        <GlassCard style={{ gap: 12 }}>
+        <View style={{ gap: 10 }}>
           <Text style={[typography.eyebrow, { color: c.textSubtle }]}>
             {sel ? `By kind · ${sel.title}` : 'By kind of task'}
           </Text>
@@ -423,18 +422,40 @@ export function CompletionBreakdown({
             const total = sel ? sel.tasks : breakdown.totals.tasks;
             const pct = total ? row.tasks / total : 0;
             return (
-              <View key={row.family} style={styles.familyRow}>
-                <Moji name={meta.moji as MojiName} size={24} />
-                <View style={{ flex: 1, gap: 5 }}>
+              <View
+                key={row.family}
+                style={[
+                  styles.familyCard,
+                  {
+                    backgroundColor: glass(0.05),
+                    borderColor: glassBorder(0.1),
+                  },
+                ]}>
+                <View style={[styles.familyIcon, { backgroundColor: `${meta.color}22` }]}>
+                  <Moji name={meta.moji as MojiName} size={22} />
+                </View>
+                <View style={{ flex: 1, gap: 6 }}>
                   <View style={styles.familyTop}>
-                    <Text style={[typography.subheadline, { color: c.text, fontWeight: '600' }]}>{meta.label}</Text>
-                    <Text style={[typography.footnote, { color: c.textMuted }]}>
+                    <Text style={[typography.headline, { color: c.text }]}>{meta.label}</Text>
+                    <Text style={[typography.caption1, { color: c.textMuted }]}>
                       {row.tasks} · {formatMinutes(row.effortMinutes)}
                       {row.minutesSaved > 0 ? ` · ${formatMinutes(row.minutesSaved)} saved` : ''}
                     </Text>
                   </View>
-                  <View style={[styles.familyBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.08)' }]}>
-                    <View style={[styles.familyFill, { width: `${Math.max(3, Math.round(pct * 100))}%`, backgroundColor: meta.color }]} />
+                  <View
+                    style={[
+                      styles.familyBar,
+                      { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.08)' },
+                    ]}>
+                    <View
+                      style={[
+                        styles.familyFill,
+                        {
+                          width: `${Math.max(3, Math.round(pct * 100))}%`,
+                          backgroundColor: meta.color,
+                        },
+                      ]}
+                    />
                   </View>
                 </View>
               </View>
@@ -443,7 +464,7 @@ export function CompletionBreakdown({
           {breakdown.totals.tasks === 0 ? (
             <Text style={[typography.footnote, { color: c.textMuted }]}>Nothing finished in this range yet.</Text>
           ) : null}
-        </GlassCard>
+        </View>
 
         {embedded ? (
           <Text style={[styles.footnote, { color: c.textSubtle }]}>
@@ -648,8 +669,8 @@ function Kpi({
   return (
     <View style={[styles.kpi, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}>
       <View style={[styles.kpiDot, { backgroundColor: color }]} />
-      <Text style={[typography.caption1, { color: c.textMuted }]}>{label}</Text>
-      <Text style={{ color: c.text, fontSize: 20, fontWeight: '800' }}>{value}</Text>
+      <Text style={[typography.caption2, { color: c.textMuted }]}>{label}</Text>
+      <Text style={[typography.metricSmall, { color: c.text, fontSize: 20 }]}>{value}</Text>
     </View>
   );
 }
@@ -701,14 +722,30 @@ const styles = StyleSheet.create({
   kpis: { flexDirection: 'row', gap: 8 },
   kpi: {
     flex: 1,
+    borderCurve: 'continuous',
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 12,
     gap: 4,
   },
   kpiDot: { width: 8, height: 8, borderRadius: 4 },
-  familyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  familyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  familyCard: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+  },
+  familyIcon: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  familyTop: { gap: 2 },
   familyBar: { height: 6, borderRadius: 3, overflow: 'hidden' },
   familyFill: { height: 6, borderRadius: 3 },
   footnote: { fontSize: 12, lineHeight: 17 },

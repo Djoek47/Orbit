@@ -7920,6 +7920,8 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
       fairnessScore = Math.max(0, Math.min(100, Math.round(100 - variance * 50)));
     }
   }
+  // Best personal streak in the house — not the Streak chip on Home / Health.
+  // Those surfaces use the viewer’s `member.streak` (house rules: per-person).
   const householdStreak = activeMembers.length
     ? Math.max(...activeMembers.map((member) => member.streak ?? 0))
     : 0;

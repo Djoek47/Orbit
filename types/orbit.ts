@@ -486,7 +486,10 @@ export type OrbitMetrics = {
   upcomingEvents: number;
   /** Week XP spread fairness 0–100 (admin health). */
   fairnessScore?: number;
-  /** Best active-member streak days (admin health). */
+  /**
+   * Best personal streak among active members (informational).
+   * Home Today’s Tasks + Household Health Streak chips use `member.streak` instead.
+   */
   householdStreak?: number;
 };
 

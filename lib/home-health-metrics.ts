@@ -42,12 +42,25 @@ export function fairnessFromWeekXp(members: HouseholdMember[]): number {
   return Math.max(0, Math.min(100, Math.round(100 - variance * 50)));
 }
 
+/**
+ * Personal daily streak for the signed-in / switched face.
+ * House rules: streaks are per-person (Rescue, recess freeze, daily/weekday feed).
+ * Today’s Tasks and Household Health must use this same number.
+ */
+export function personalStreakDays(member?: HouseholdMember | null): number {
+  return Math.max(0, member?.streak ?? 0);
+}
+
+/**
+ * Best personal streak among active people — not the house-rules “streak”
+ * shown on Home / Health. Kept for optional “house best” reads only.
+ */
 export function householdStreakDays(members: HouseholdMember[]): number {
   const active = members.filter(
     (m) => m.status === 'active' && m.role !== 'guest' && !isSharedDeviceRole(m.role),
   );
   if (!active.length) return 0;
-  return Math.max(...active.map((m) => m.streak ?? 0));
+  return Math.max(...active.map((m) => personalStreakDays(m)));
 }
 
 export function buildHomeHealthMetrics(opts: {
@@ -58,6 +71,8 @@ export function buildHomeHealthMetrics(opts: {
 }): HealthMetricItem[] {
   const { role, metrics, household, currentMember } = opts;
   const name = currentMember?.name;
+  // Same source as Today’s Tasks (`currentMember.streak`) for every role.
+  const streak = personalStreakDays(currentMember);
 
   if (role === 'kid') {
     const myOpen = household.tasks.filter(
@@ -66,7 +81,6 @@ export function buildHomeHealthMetrics(opts: {
         t.status !== 'Completed' &&
         t.status !== 'Cancelled',
     ).length;
-    const streak = currentMember?.streak ?? 0;
     const xp = currentMember?.xp ?? 0;
     const next = nextXpMilestone(xp);
     const trophyPct = next
@@ -104,10 +118,8 @@ export function buildHomeHealthMetrics(opts: {
     ];
   }
 
-  // Household Health shows Completion + Streak only (§7.1 — Fairness removed).
-  // Household streak: increments on any day where 100% of that day's due occurrences
-  // across all members were completed by their deadlines (§7.2).
-  const streak = metrics.householdStreak ?? householdStreakDays(household.members);
+  // Admin / adult: Completion is household-wide; Streak is the viewer’s personal
+  // streak (matches Today’s Tasks). Other members’ streaks live under Member load.
   return [
     {
       key: 'completion',
