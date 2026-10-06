@@ -48,4 +48,16 @@ Reply with: device + iOS version, role tested (admin / Sidekick / tablet face), 
 
 1. ~~OpenAI bake~~ — 10 clips in `assets/voice-previews/*.m4a`
 2. ~~Staging avatars~~ — `member-avatars` bucket present
-3. Internal TF: `npm run testflight:preflight` → `npm run build:ios:testflight` → `npm run submit:ios:testflight`
+3. ~~Internal TF queued~~ — **1.3.0 (116)** auto-submit
+
+| | |
+|--|--|
+| Version | **1.3.0 (116)** |
+| Branch | `cursor/make-v33` @ `92e2498` |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2c539a10-c16a-41f8-83ae-a274342b7d74 |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/d7ddbafc-149d-45d2-81ee-cc8ec2ce6475 |
+| ASC | https://appstoreconnect.apple.com/apps/6796850110/testflight/ios |
+
+## External tester prompt (short — paste as-is)
+
+Install the latest **Choremaxx** build in TestFlight (1.3.0). Sign in with the staging account we sent you. Spend 10 minutes: finish a chore, open Household Health (streak should match Today), try Settings → Poppins voice colour (you should hear a short line), and if you have a shared tablet Switch between faces. Reply with anything broken + a screenshot.
