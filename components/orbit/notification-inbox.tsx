@@ -17,7 +17,7 @@ import { EmptyState } from '@/components/orbit/empty-state';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
-import { StreakStrip } from '@/components/orbit/streak-strip';
+import { PersonActivityShowcase } from '@/components/orbit/activity/person-activity-showcase';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   buildInboxSections,
@@ -49,6 +49,8 @@ type ActivityItem = {
   category: string;
   icon: keyof typeof MaterialIcons.glyphMap;
   color: string;
+  memberId?: string;
+  memberName?: string;
 };
 
 const ACTION_CFG: Record<string, { color: string; icon: keyof typeof MaterialIcons.glyphMap }> = {
@@ -154,6 +156,14 @@ export function NotificationInbox({
   const activityItems = useMemo(() => {
     const fromMonitor: ActivityItem[] = poppinsMonitorActions.map((action) => {
       const cfg = ACTION_CFG[action.kind] ?? ACTION_CFG.notification;
+      const data = (action.data ?? {}) as Record<string, unknown>;
+      const memberId =
+        typeof data.memberId === 'string'
+          ? data.memberId
+          : typeof data.targetMemberId === 'string'
+            ? data.targetMemberId
+            : undefined;
+      const memberName = typeof data.memberName === 'string' ? data.memberName : undefined;
       return {
         id: action.id,
         action: action.label,
@@ -162,6 +172,8 @@ export function NotificationInbox({
         category: action.kind,
         icon: cfg.icon,
         color: cfg.color,
+        memberId,
+        memberName,
       };
     });
     const fromFacts: ActivityItem[] = poppinsActivityFacts.map((fact) => {
@@ -175,6 +187,8 @@ export function NotificationInbox({
         category: mapped.category,
         icon: cfg.icon,
         color: cfg.color,
+        memberId: mapped.memberId,
+        memberName: mapped.memberName,
       };
     });
     return [...fromMonitor, ...fromFacts]
@@ -566,18 +580,31 @@ function ActivityFeed({
     },
   ];
 
-  const streakBlock = (
-    <StreakStrip
+  const signals = items.map((item) => ({
+    id: item.id,
+    label: item.action,
+    color: item.color,
+    createdAt: item.createdAt,
+    memberId: item.memberId,
+    memberName: item.memberName,
+  }));
+
+  const showcase = (
+    <PersonActivityShowcase
       rows={streakRows}
+      signals={signals}
       mode={isAdmin ? 'household' : 'personal'}
       accentColor={accentColor}
     />
   );
 
+  // Recent feed — keep short so the person tiles stay the hero.
+  const recent = items.slice(0, 8);
+
   if (items.length === 0) {
     return (
       <View style={styles.feed}>
-        {streakBlock}
+        {showcase}
         {isAdmin ? <HistoryLogEntry /> : null}
         <View style={[styles.liveBar, { backgroundColor: 'rgba(45,212,191,0.06)', borderColor: 'rgba(45,212,191,0.16)' }]}>
           <PoppinsHourglass size={16} color="#2DD4BF" active />
@@ -586,14 +613,14 @@ function ActivityFeed({
               {majordomoName} is active
             </Text>
             <Text style={[typography.caption2, { color: c.textMuted }]}>
-              Schedules, streaks, and household patterns are monitored in the background.
+              Schedules, streaks, and household patterns stay monitored quietly.
             </Text>
           </View>
         </View>
         <EmptyState
           tone="allClear"
           title="No activity yet"
-          caption={`When ${majordomoName} acts — reminders, insights, monitor passes — it shows up here alongside your alerts.`}
+          caption={`When ${majordomoName} acts — reminders, insights, monitor passes — faces above light up.`}
         />
         <WeekSummary stats={weekStats} />
       </View>
@@ -602,16 +629,16 @@ function ActivityFeed({
 
   return (
     <Animated.View entering={FadeIn.duration(180)} style={styles.feed}>
-      {streakBlock}
+      {showcase}
       {isAdmin ? <HistoryLogEntry /> : null}
       <View style={[styles.liveBar, { backgroundColor: 'rgba(45,212,191,0.06)', borderColor: 'rgba(45,212,191,0.16)' }]}>
         <PoppinsHourglass size={16} color="#2DD4BF" active />
         <Text style={[typography.caption1, { color: '#2DD4BF', fontWeight: '700' }]}>
-          Live household signals
+          Latest signals
         </Text>
       </View>
 
-      {items.map((item) => (
+      {recent.map((item) => (
         <View
           key={item.id}
           style={[styles.activityCard, { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) }]}>
