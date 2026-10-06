@@ -267,7 +267,9 @@ export default function SetupKidDeviceScreen() {
       throw new Error('Pick at least one person.');
     }
     if (hostedMembers.length > SHARED_DEVICE_MAX_PEOPLE) {
-      throw new Error(`A shared device can host up to ${SHARED_DEVICE_MAX_PEOPLE} people.`);
+      throw new Error(
+        `This tablet is full — up to ${SHARED_DEVICE_MAX_PEOPLE} people can share it. Remove someone first, or set up another shared device.`
+      );
     }
 
     const codes: string[] = [];
@@ -379,7 +381,9 @@ export default function SetupKidDeviceScreen() {
       return;
     }
     if (selectedIds.length >= SHARED_DEVICE_MAX_PEOPLE) {
-      setError(`Up to ${SHARED_DEVICE_MAX_PEOPLE} people on one device.`);
+      setError(
+        `This tablet is full — up to ${SHARED_DEVICE_MAX_PEOPLE} people can share it. Remove someone first, or set up another shared device.`
+      );
       return;
     }
     try {
@@ -404,7 +408,9 @@ export default function SetupKidDeviceScreen() {
       return;
     }
     if (selectedIds.length >= SHARED_DEVICE_MAX_PEOPLE) {
-      setError(`Up to ${SHARED_DEVICE_MAX_PEOPLE} people on one device.`);
+      setError(
+        `This tablet is full — up to ${SHARED_DEVICE_MAX_PEOPLE} people can share it. Remove someone first, or set up another shared device.`
+      );
       return;
     }
     try {

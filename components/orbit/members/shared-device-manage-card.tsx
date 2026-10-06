@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Avatar } from '@/components/orbit/avatar';
 import { MemberPresencePill } from '@/components/orbit/members/member-presence-pill';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { formatLastSeen, memberIsLive } from '@/lib/household/member-presence';
 import {
@@ -21,6 +22,11 @@ import {
   SHARED_DEVICE_MAX_PEOPLE,
   sharedDeviceLinkCandidates,
 } from '@/lib/household/shared-device';
+import {
+  sharedDeviceFullHint,
+  sharedDeviceFullMessage,
+  sharedDeviceFullTitle,
+} from '@/lib/household/shared-device-cap-copy';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -95,7 +101,12 @@ export function SharedDeviceManageCard({
       onLinksChange(linkedIds.filter((id) => id !== personId));
       return;
     }
-    if (atCap) return;
+    if (atCap) {
+      orbitAlert(sharedDeviceFullTitle(), sharedDeviceFullMessage(deviceName), undefined, {
+        record: false,
+      });
+      return;
+    }
     onLinksChange([...linkedIds, personId]);
   };
 
@@ -201,16 +212,22 @@ export function SharedDeviceManageCard({
       {available.length > 0 ? (
         <>
           <Text style={[styles.sectionLabel, { color: c.textSubtle }]}>
-            {atCap ? 'Device is full' : 'Add people'}
+            {atCap ? 'Tablet is full' : 'Add people'}
           </Text>
+          {atCap ? (
+            <Text style={[styles.linkHint, { color: c.textMuted }]}>{sharedDeviceFullHint()}</Text>
+          ) : null}
           <View style={styles.faceRow}>
             {available.map((person) => (
               <Pressable
                 key={person.id}
-                disabled={atCap}
                 onPress={() => toggle(person.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Add ${person.name} to ${deviceName}`}
+                accessibilityLabel={
+                  atCap
+                    ? `${person.name}. ${sharedDeviceFullTitle()}`
+                    : `Add ${person.name} to ${deviceName}`
+                }
                 style={[
                   styles.faceChip,
                   styles.faceChipDashed,
