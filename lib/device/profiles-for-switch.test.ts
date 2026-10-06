@@ -38,6 +38,7 @@ const testTablet = person('d', 'Test', 'shared-device', {
 const members = [owner, emma, jack, testTablet];
 
 {
+  // Personal Sidekick phone — must NOT inherit Kitchen iPad faces from roster.
   const session: DeviceSession = {
     mode: 'shared',
     hostKind: 'sidekick',
@@ -46,11 +47,34 @@ const members = [owner, emma, jack, testTablet];
     needsProfilePick: true,
     deviceLabel: "Emma's device",
   };
+  assert.equal(
+    resolveSwitchDeviceShell(session, members),
+    undefined,
+    'personal sidekick never resolves a tablet shell'
+  );
   assert.deepEqual(
     profilesForSharedDeviceSwitch(session, members).map((m) => m.name),
+    ['Emma'],
+    'only the face hosted on this phone'
+  );
+}
+
+{
+  // Real shared tablet — roster faces for Switch.
+  const tablet: DeviceSession = {
+    mode: 'shared',
+    hostKind: 'shared-tablet',
+    profileMemberIds: ['e', 'j'],
+    activeMemberId: 'e',
+    needsProfilePick: false,
+    sharedDeviceId: 'd',
+    deviceLabel: 'Test',
+  };
+  assert.equal(resolveSwitchDeviceShell(tablet, members)?.name, 'Test');
+  assert.deepEqual(
+    profilesForSharedDeviceSwitch(tablet, members).map((m) => m.name),
     ['Emma', 'Jack']
   );
-  assert.equal(resolveSwitchDeviceShell(session, members)?.name, 'Test');
 }
 
 {

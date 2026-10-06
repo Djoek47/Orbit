@@ -69,11 +69,16 @@ export default function TabLayout() {
     () => resolveUiRole(currentMember?.role, onboardingRole, sharedKid),
     [currentMember?.role, onboardingRole, sharedKid],
   );
-  const fifthSlot = useTabFifthSlot({
+  const fifthSlotRaw = useTabFifthSlot({
     role: currentMember?.role,
     members: household.members,
     memberId: currentMember?.id,
   });
+  // Belt-and-suspenders with the tab bar: personal admin always keeps Poppins.
+  const fifthSlot =
+    currentMember?.role === 'owner' || currentMember?.role === 'admin'
+      ? 'poppins'
+      : fifthSlotRaw;
 
   if (isLoading) {
     return null;

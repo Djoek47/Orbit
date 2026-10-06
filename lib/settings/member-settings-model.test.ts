@@ -29,8 +29,14 @@ assert.equal(own.canSwitchProfiles, false);
 assert.equal(own.deviceName, undefined);
 assert.equal(own.signOut.label, 'Sign out');
 
-// Someone on the shared device: switching is the way out, and sign out warns it takes the others.
-const shared = memberSettingsModel({ member: ama, members })!;
+// Roster-linked to Kitchen iPad but on personal phone → still sidekick (no Switch).
+const personalLinked = memberSettingsModel({ member: ama, members, onSharedTablet: false })!;
+assert.equal(personalLinked.kind, 'sidekick');
+assert.equal(personalLinked.canSwitchProfiles, false);
+assert.equal(personalLinked.signOut.label, 'Sign out');
+
+// Same person on the shared tablet session → shared-account + Switch.
+const shared = memberSettingsModel({ member: ama, members, onSharedTablet: true })!;
 assert.equal(shared.kind, 'shared-account');
 assert.equal(shared.deviceName, 'Kitchen device');
 assert.equal(shared.canSwitchProfiles, true);
