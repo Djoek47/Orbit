@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -13,7 +13,6 @@ import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet'
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { SettingsGroup, SettingsNavRow } from '@/components/orbit/settings/grouped';
 import { BUILD_INFO } from '@/constants/build-info';
-import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { VOCAB } from '@/constants/vocabulary';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -22,9 +21,9 @@ import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leav
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { memberSettingsModel } from '@/lib/settings/member-settings-model';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { confirmLeaveDevice, showPrivacyLegalMenu } from '@/lib/ui/settings-native-menus';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
-import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 /**
  * Settings for everyone who isn't an admin — one screen, three shapes.
@@ -215,22 +214,9 @@ export function SidekickSettingsScreen() {
               last
               onPress={() => {
                 // Close look sheet first — orphan BottomSheet eats legal / Sign Out taps.
+                // Native ActionSheet/Alert only — never orbitAlert (RN Modal over Settings).
                 setPersonalizeOpen(false);
-                orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
-                  {
-                    text: 'Privacy Policy',
-                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
-                  },
-                  {
-                    text: 'Terms of Service',
-                    onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
-                  },
-                  {
-                    text: 'Contact support',
-                    onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
-                  },
-                  { text: 'Cancel', style: 'cancel' },
-                ]);
+                requestAnimationFrame(() => showPrivacyLegalMenu());
               }}
             />
           </SettingsGroup>
@@ -246,15 +232,14 @@ export function SidekickSettingsScreen() {
             ]}
             onPress={() => {
               if (signingOut || isSignOutInFlight()) return;
-              orbitAlert(model.signOut.title, model.signOut.body, [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: model.signOut.confirm,
-                  style: 'destructive',
-                  // orbitAlert defers this until the Modal has fully dismissed.
-                  onPress: runSignOut,
-                },
-              ]);
+              setPersonalizeOpen(false);
+              // Native confirm — orbitAlert Modal over Settings freezes touches on iOS.
+              confirmLeaveDevice({
+                title: model.signOut.title,
+                message: model.signOut.body,
+                confirmLabel: model.signOut.confirm,
+                onConfirm: runSignOut,
+              });
             }}>
             <Text style={[styles.signOutText, { color: orbitPalette.text }]}>
               {signingOut ? 'Signing out…' : model.signOut.label}

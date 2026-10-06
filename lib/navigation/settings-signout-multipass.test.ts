@@ -137,13 +137,28 @@ test('Pass C2: signOutAndLeave coalesces + hard ceiling + always navigates', asy
   assert.match(leave, /resetToGetStarted/);
 });
 
-test('Pass C2b: Privacy & legal collapses look sheet before alert', () => {
-  assert.match(
-    read('components/orbit/sidekick-settings-screen.tsx'),
-    /Privacy & legal[\s\S]*setPersonalizeOpen\(false\)/
-  );
-  assert.match(read('app/settings.tsx'), /Privacy & legal[\s\S]*collapseSettingsOverlays\(\)/);
-  assert.match(read('components/orbit/sidekick-settings-screen.tsx'), /Linking\.openURL\(CHOREMAXX_LEGAL/);
+test('Pass C2b: Privacy & legal uses native menu (never orbitAlert over Settings)', () => {
+  const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
+  const admin = read('app/settings.tsx');
+  const menus = read('lib/ui/settings-native-menus.ts');
+  assert.match(sidekick, /Privacy & legal[\s\S]{0,400}?showPrivacyLegalMenu/);
+  assert.match(admin, /Privacy & legal[\s\S]{0,400}?showPrivacyLegalMenu/);
+  assert.match(menus, /ActionSheetIOS\.showActionSheetWithOptions/);
+  assert.match(menus, /CHOREMAXX_LEGAL\.privacyUrl/);
+  // Nested RN Modal over Expo Settings modal is the freeze — ban it on these rows.
+  assert.doesNotMatch(sidekick, /Privacy & legal[\s\S]{0,400}?orbitAlert\(/);
+  assert.doesNotMatch(admin, /Privacy & legal[\s\S]{0,400}?orbitAlert\(/);
+  // Delete account works because it navigates — no nested Modal.
+  assert.match(admin, /handleDelete[\s\S]{0,120}?router\.push\('\/delete-account'/);
+});
+
+test('Pass C2c: Sign out confirm uses native menu (never orbitAlert over Settings)', () => {
+  const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
+  const admin = read('app/settings.tsx');
+  assert.match(sidekick, /confirmLeaveDevice/);
+  assert.match(admin, /confirmLeaveDevice/);
+  assert.doesNotMatch(sidekick, /orbitAlert\(model\.signOut/);
+  assert.doesNotMatch(admin, /orbitAlert\('Sign out\?/);
 });
 
 test('Pass C3: orbitAlert defers destructive until Modal settles', () => {

@@ -32,7 +32,6 @@ import {
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { MapsAppMark } from '@/components/orbit/maps-app-mark';
 import { BUILD_INFO } from '@/constants/build-info';
-import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import {
   loadErrorLog,
 } from '@/lib/errors/error-log';
@@ -52,6 +51,7 @@ import {
   householdDeletionDaysRemaining,
   isHouseholdDeletionPending,
 } from '@/lib/household/household-deletion';
+import { confirmLeaveDevice, showPrivacyLegalMenu } from '@/lib/ui/settings-native-menus';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { resolveMemberCapabilities } from '@/lib/member-capabilities';
@@ -505,19 +505,19 @@ export default function SettingsScreen() {
 
   const confirmAdminSignOut = () => {
     if (signingOut || isSignOutInFlight()) return;
-    orbitAlert('Sign out?', 'You’ll return to Get Started. Your household stays saved on this account.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: () => {
-          if (signingOut || isSignOutInFlight()) return;
-          collapseSettingsOverlays();
-          setSigningOut(true);
-          void signOutAndLeave(signOut).finally(() => setSigningOut(false));
-        },
+    collapseSettingsOverlays();
+    // Native confirm — orbitAlert Modal over Settings freezes touches on iOS.
+    confirmLeaveDevice({
+      title: 'Sign out?',
+      message: 'You’ll return to Get Started. Your household stays saved on this account.',
+      confirmLabel: 'Sign out',
+      onConfirm: () => {
+        if (signingOut || isSignOutInFlight()) return;
+        collapseSettingsOverlays();
+        setSigningOut(true);
+        void signOutAndLeave(signOut).finally(() => setSigningOut(false));
       },
-    ]);
+    });
   };
 
   const personalizeMember = useMemo(
@@ -898,21 +898,8 @@ export default function SettingsScreen() {
                 last
                 onPress={() => {
                   collapseSettingsOverlays();
-                  orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
-                    {
-                      text: 'Privacy Policy',
-                      onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
-                    },
-                    {
-                      text: 'Terms of Service',
-                      onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
-                    },
-                    {
-                      text: 'Contact support',
-                      onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
-                    },
-                    { text: 'Cancel', style: 'cancel' },
-                  ]);
+                  // Native ActionSheet/Alert only — never orbitAlert (RN Modal over Settings).
+                  requestAnimationFrame(() => showPrivacyLegalMenu());
                 }}
               />
             </SettingsGroup>
