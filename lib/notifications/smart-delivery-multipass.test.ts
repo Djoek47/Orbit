@@ -31,7 +31,20 @@ const prefs = read('services/poppins-notifications.ts');
 assert.match(prefs, /smartDelivery:\s*true/, 'Smart default ON');
 
 const settings = read('app/settings.tsx');
-assert.match(settings, /smartDelivery/, 'Settings exposes Smart delivery');
+assert.match(settings, /NotificationPrefsPanel/, 'Settings uses premium prefs panel');
+assert.match(settings, /smartDelivery|NotificationPrefsPanel/, 'Settings exposes Smart delivery');
+
+const panel = read('components/orbit/settings/notification-prefs-panel.tsx');
+assert.match(panel, /Smart delivery/, 'Smart hero on prefs panel');
+assert.match(panel, /SMART_DELIVERY_CHIPS/, 'Smart mode chips explain the difference');
+assert.doesNotMatch(panel, /deadlines still fire/, 'no code-like quiet hours copy');
+
+const ui = read('lib/notifications/smart-delivery-ui.ts');
+assert.match(ui, /channelGroups/, 'channels condensed into groups');
+assert.match(ui, /SMART_DELIVERY_HERO/);
+
+const inbox = read('components/orbit/notification-inbox.tsx');
+assert.match(inbox, /PersonActivityShowcase/, 'Activity shows per-person showcase');
 
 const notify = read('lib/notifications/notify-task-assigned.ts');
 assert.match(notify, /targetMemberId/, 'assignee open-as id on create');

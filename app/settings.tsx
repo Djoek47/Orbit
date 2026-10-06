@@ -56,6 +56,7 @@ import {
   householdDeletionDaysRemaining,
   isHouseholdDeletionPending,
 } from '@/lib/household/household-deletion';
+import { NotificationPrefsPanel } from '@/components/orbit/settings/notification-prefs-panel';
 import { confirmLeaveDevice, showPrivacyLegalMenu } from '@/lib/ui/settings-native-menus';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
@@ -335,8 +336,6 @@ export default function SettingsScreen() {
       },
     [household.notificationPrefs]
   );
-  const enabledCount = useMemo(() => Object.values(prefs).filter(Boolean).length, [prefs]);
-
   const guardSettingsToggle = useCallback(
     (action: () => void) => {
       if (settingsToggleBusy) return;
@@ -1420,118 +1419,15 @@ export default function SettingsScreen() {
         ) : null}
 
         {section === 'notifications' ? (
-          <>
-            <View
-              style={[
-                styles.prefRow,
-                {
-                  backgroundColor: glassFill(isDark),
-                  borderColor: glassBorder(0.08),
-                },
-              ]}>
-              <MaterialIcons
-                name={osNotifStatus === 'granted' ? 'notifications-active' : 'notifications-off'}
-                size={22}
-                color={osNotifStatus === 'granted' ? accentTheme.primary : orbitPalette.textMuted}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.memberName, { color: orbitPalette.text }]}>
-                  iPhone notifications
-                </Text>
-                <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>
-                  {osNotifStatus === 'granted'
-                    ? 'Banners and lock screen are on for ChoreMaxx.'
-                    : 'Turn on banners in Apple Settings so alerts aren’t silent.'}
-                </Text>
-              </View>
-            </View>
-            {osNotifStatus !== 'granted' ? (
-              <Pressable
-                style={[
-                  styles.linkRow,
-                  {
-                    backgroundColor: `${accentTheme.primary}18`,
-                    borderRadius: 12,
-                    marginBottom: 8,
-                    paddingHorizontal: 12,
-                    paddingVertical: 12,
-                  },
-                ]}
-                onPress={() => void enableAppleNotificationBanners()}>
-                <Text style={[styles.linkText, { color: accentTheme.primary }]}>
-                  Enable banners in Apple Settings
-                </Text>
-                <MaterialIcons name="open-in-new" size={16} color={accentTheme.primary} />
-              </Pressable>
-            ) : (
-              <Pressable
-                style={styles.linkRow}
-                onPress={() => void openAppleNotificationSettings()}>
-                <Text style={[styles.linkText, { color: accentTheme.primary }]}>
-                  Open Apple notification settings
-                </Text>
-                <MaterialIcons name="chevron-right" size={16} color={accentTheme.primary} />
-              </Pressable>
-            )}
-
-            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted }]}>
-              {speakAs(majordomo.displayName, 'Choose which Poppins alerts you want')} ({enabledCount} on)
-            </Text>
-            {(
-              [
-                [
-                  'smartDelivery',
-                  'Smart delivery',
-                  'One calm digest for same-day tasks — details stay in Activity. Urgent actions still push.',
-                  '✨',
-                ],
-                ['tasks', 'Tasks & streaks', 'Due tasks, photos, streak risk', '✅'],
-                ['rewards', 'Rewards & allowance', 'Claims, approvals, paid allowance', '🎁'],
-                ['groceries', 'Groceries', 'List updates that still use this channel', '🛒'],
-                ['itinerary', 'Plan & trips', 'Trip nudges when enabled', '🗺️'],
-                ['deals', 'Deal ideas', 'In-app suggestions only', '🏷️'],
-                ['plans', 'Plan ideas', 'In-app suggestions only', '🗺️'],
-                ['xpFairness', 'Fairness notes', 'In-app balance tips', '⚖️'],
-                ['nearShop', 'Near shop', 'Ask before opening your list at a store', '📍'],
-                ['missingOnTheWay', 'Missing on the way', 'Local reminder during a run', '🧾'],
-                [
-                  'quietHoursEnabled',
-                  'Quiet hours',
-                  'Hold non-urgent banners 21:00–07:00 (deadlines still fire)',
-                  '🌙',
-                ],
-              ] as const
-            ).map(([key, label, sub, emoji]) => (
-              <View
-                key={key}
-                style={[
-                  styles.prefRow,
-                  {
-                    backgroundColor: glassFill(isDark),
-                    borderColor: glassBorder(0.08),
-                  },
-                ]}>
-                <Moji emoji={emoji} size={24} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: orbitPalette.text }]}>{label}</Text>
-                  <Text style={[styles.caption, { color: orbitPalette.textSubtle }]}>{sub}</Text>
-                </View>
-                <Switch
-                  value={
-                    key === 'quietHoursEnabled' || key === 'smartDelivery'
-                      ? prefs[key] !== false
-                      : Boolean(prefs[key])
-                  }
-                  onValueChange={(value) => updateNotificationPrefs({ [key]: value })}
-                  trackColor={{ false: glassBorder(0.1), true: '#38BDF8' }}
-                  thumbColor="#fff"
-                />
-              </View>
-            ))}
-            <Text style={[styles.sectionHint, { color: orbitPalette.textMuted, marginTop: 8 }]}>
-              Your household inbox lives behind the bell icon — or Alerts → Inbox in Settings.
-            </Text>
-          </>
+          <NotificationPrefsPanel
+            prefs={prefs}
+            osStatus={osNotifStatus}
+            accent={accentTheme.primary}
+            majordomoName={majordomo.displayName}
+            onUpdate={(patch) => updateNotificationPrefs(patch)}
+            onEnableOsBanners={() => void enableAppleNotificationBanners()}
+            onOpenOsSettings={() => void openAppleNotificationSettings()}
+          />
         ) : null}
       </KeyboardScreen>
     </View>
