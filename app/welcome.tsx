@@ -1276,10 +1276,10 @@ export default function WelcomeOnboardingScreen() {
             <KeyboardScreen contentContainerStyle={styles.scroll}>
               <Header progress={progressIndex} accent={accent} onBack={goBack} />
               <Text style={[typography.title1, styles.stepTitle, { color: orbitPalette.text }]}>
-                Pick a reward starter pack
+                Pick a Reward
               </Text>
               <Text style={[typography.footnote, styles.mb, { color: orbitPalette.textMuted }]}>
-                Cute, ready-made prizes for your household. You can change these anytime.
+                Additional rewards can be created.
               </Text>
               <RewardPackagePicker
                 selectedId={selectedRewardPackageId}
