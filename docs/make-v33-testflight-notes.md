@@ -63,9 +63,11 @@ Product authorized TestFlight push. Remaining dashboard / ASC follow-ups:
 
 | | |
 |--|--|
-| Version | **1.3.0** (EAS autoIncrement build number) |
-| Branch | `cursor/make-v33` |
-| Prior build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2c539a10-c16a-41f8-83ae-a274342b7d74 |
+| Version | **1.3.0 (117)** |
+| Branch | `cursor/make-v33` @ `3a60743` |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/ea48c92c-6156-4918-a329-b9d172f2f614 |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/3a16f87b-0de6-4703-8177-97ffb57d8300 |
+| Prior (116) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2c539a10-c16a-41f8-83ae-a274342b7d74 |
 | ASC | https://appstoreconnect.apple.com/apps/6796850110/testflight/ios |
 
 ## External tester prompt (short — paste as-is)
