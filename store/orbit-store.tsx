@@ -5631,6 +5631,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       members: current.members.map((item) => (item.id === memberId ? updated : item)),
     }));
     void saveMemberAvatarOverride(household.id, memberId, avatar);
+    // Keep Playground / photo faces in the on-device gallery so Activity + You
+    // still resolve them after sign-out / sign-in.
+    if (currentUser?.id) {
+      try {
+        const { isAvatarImageUri } = await import('@/lib/game-levels');
+        if (isAvatarImageUri(avatar)) {
+          const { rememberAvatarInLibrary } = await import('@/lib/profile/avatar-library');
+          void rememberAvatarInLibrary({
+            userId: currentUser.id,
+            uri: avatar,
+            source: 'import',
+          });
+        }
+      } catch {
+        /* gallery is best-effort */
+      }
+    }
     if (currentUser?.name === member.name) {
       setCurrentUser((prev) => (prev ? { ...prev, avatar } : prev));
     }
