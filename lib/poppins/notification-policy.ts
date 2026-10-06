@@ -428,7 +428,7 @@ export function coalesceFacts(
           urgency: 'today',
           title: 'Poppins · Today',
           body: stripExampleCopy(
-            `${name}, ${count} tasks are ready on your list. Open Activity to see them.`
+            `${name}, ${count} tasks are ready for you. Open Activity to see who’s on what.`
           ),
           cta: 'Open Activity',
           category: 'tasks',
@@ -631,6 +631,8 @@ export function factToActivityItem(fact: HouseholdFact): {
   detail: string;
   createdAt: string;
   category: string;
+  memberId?: string;
+  memberName?: string;
 } {
   const trophy = fact.trophyName ? displayTrophyName(fact.trophyName) : '';
   const action =
@@ -649,5 +651,7 @@ export function factToActivityItem(fact: HouseholdFact): {
     detail: stripExampleCopy(detail),
     createdAt: new Date(fact.at).toISOString(),
     category: fact.category ?? 'ai',
+    memberId: fact.memberId,
+    memberName: fact.memberName,
   };
 }
