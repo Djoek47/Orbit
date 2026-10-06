@@ -15,7 +15,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
+  cancelAnimation,
   runOnJS,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -27,6 +29,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
+import { playVoicePreview, stopVoicePreview } from '@/lib/ai/play-voice-preview';
 import {
   angleForPosition,
   poppinsVoice,
@@ -49,6 +52,14 @@ const CENTER = SIZE / 2;
 const KNOB = 28;
 /** Extra pad around the dial so a finger near the rim never hits the back chevron / sheet. */
 const HIT_PAD = 28;
+/** Wait after a deliberate settle before the warm-up starts (~couple of seconds total with fill). */
+const PREVIEW_SETTLE_MS = 850;
+/** Fill the hub orb / ring, then speak — long enough that a slow drag never stacks clips. */
+const PREVIEW_WARM_MS = 1200;
+const HUB_RING_R = 30;
+const HUB_RING_C = 2 * Math.PI * HUB_RING_R;
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 function pointOnArc(deg: number, radius = R): { x: number; y: number } {
   const rad = ((deg - 90) * Math.PI) / 180;
@@ -63,14 +74,17 @@ function arcPath(fromDeg: number, toDeg: number): string {
   return `M ${a.x} ${a.y} A ${R} ${R} 0 ${large} 1 ${b.x} ${b.y}`;
 }
 
+type PreviewPhase = 'idle' | 'warming' | 'speaking';
+
 type Props = {
   voiceId: MajordomoVoiceId;
   disabled?: boolean;
   /** Fires once per voice as a drag crosses it, and when a tap / release settles. */
   onSelect: (voiceId: MajordomoVoiceId) => void;
-  /** Play a line in this voice. Omit to hide the button. */
-  onPreview?: (voice: PoppinsVoice) => void;
-  previewBusy?: boolean;
+  /** Auto-play a short line after a deliberate settle (default on). */
+  autoPreview?: boolean;
+  /** First name for “Hi {name}…” on the free device fallback line. */
+  memberFirstName?: string | null;
   /** True while a finger is on the dial — parent should lock scroll / sheet gestures. */
   onInteractionChange?: (active: boolean) => void;
 };
@@ -79,8 +93,8 @@ export function VoiceWheel({
   voiceId,
   disabled,
   onSelect,
-  onPreview,
-  previewBusy,
+  autoPreview = true,
+  memberFirstName,
   onInteractionChange,
 }: Props) {
   const { c, isDark } = useOrbitColors();
@@ -89,6 +103,7 @@ export function VoiceWheel({
   // Displayed voice (hub + swatches). Follows the finger while dragging, snaps on release.
   const [liveId, setLiveId] = useState(selected.id);
   const [dragging, setDragging] = useState(false);
+  const [previewPhase, setPreviewPhase] = useState<PreviewPhase>('idle');
   const live = poppinsVoice(liveId);
   const liveColor = live.color;
 
@@ -102,6 +117,7 @@ export function VoiceWheel({
   const positionSV = useSharedValue(selected.position);
   const pulse = useSharedValue(0);
   const lift = useSharedValue(0);
+  const warmProgress = useSharedValue(0);
 
   const wheelRef = useRef<View>(null);
   const centerRef = useRef({ x: 0, y: 0 });
@@ -109,12 +125,82 @@ export function VoiceWheel({
   const disabledRef = useRef(disabled);
   const onSelectRef = useRef(onSelect);
   const onInteractionRef = useRef(onInteractionChange);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewTokenRef = useRef(0);
+  const memberNameRef = useRef(memberFirstName);
+  const autoPreviewRef = useRef(autoPreview);
 
   useEffect(() => {
     disabledRef.current = disabled;
     onSelectRef.current = onSelect;
     onInteractionRef.current = onInteractionChange;
-  }, [disabled, onSelect, onInteractionChange]);
+    memberNameRef.current = memberFirstName;
+    autoPreviewRef.current = autoPreview;
+  }, [disabled, onSelect, onInteractionChange, memberFirstName, autoPreview]);
+
+  const clearPreviewTimers = () => {
+    if (settleTimerRef.current) {
+      clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
+    if (warmTimerRef.current) {
+      clearTimeout(warmTimerRef.current);
+      warmTimerRef.current = null;
+    }
+  };
+
+  const runPreview = (voice: PoppinsVoice) => {
+    const token = ++previewTokenRef.current;
+    setPreviewPhase('speaking');
+    void playVoicePreview({
+      voiceId: voice.id,
+      memberFirstName: memberNameRef.current,
+      onDone: () => {
+        if (previewTokenRef.current !== token) return;
+        warmProgress.value = withTiming(0, { duration: 180 });
+        setPreviewPhase('idle');
+      },
+    });
+  };
+
+  const beginWarmPreview = (voice: PoppinsVoice) => {
+    const token = ++previewTokenRef.current;
+    setPreviewPhase('warming');
+    warmProgress.value = 0;
+    warmProgress.value = withTiming(1, {
+      duration: PREVIEW_WARM_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+    warmTimerRef.current = setTimeout(() => {
+      if (previewTokenRef.current !== token) return;
+      runPreview(voice);
+    }, PREVIEW_WARM_MS);
+  };
+
+  /** After a deliberate settle — debounce so a slow drag only previews the final colour. */
+  const schedulePreview = (voice: PoppinsVoice) => {
+    if (!autoPreviewRef.current || disabledRef.current) return;
+    clearPreviewTimers();
+    void stopVoicePreview();
+    cancelAnimation(warmProgress);
+    warmProgress.value = 0;
+    setPreviewPhase('idle');
+    settleTimerRef.current = setTimeout(() => {
+      settleTimerRef.current = null;
+      beginWarmPreview(voice);
+    }, PREVIEW_SETTLE_MS);
+  };
+
+  useEffect(
+    () => () => {
+      clearPreviewTimers();
+      previewTokenRef.current += 1;
+      void stopVoicePreview();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   // Keep the knob in sync when the saved voice changes from outside (and we're not dragging).
   useEffect(() => {
@@ -167,6 +253,12 @@ export function VoiceWheel({
       lastVoiceRef.current = voice.id;
       setLiveId(voice.id);
       void Haptics.selectionAsync();
+      // Crossing colours mid-drag — cancel any pending / in-flight preview.
+      clearPreviewTimers();
+      void stopVoicePreview();
+      cancelAnimation(warmProgress);
+      warmProgress.value = 0;
+      setPreviewPhase('idle');
     } else {
       setLiveId(voice.id);
     }
@@ -174,6 +266,11 @@ export function VoiceWheel({
 
   const beginFinger = (pageX: number, pageY: number) => {
     const finish = () => {
+      clearPreviewTimers();
+      void stopVoicePreview();
+      cancelAnimation(warmProgress);
+      warmProgress.value = 0;
+      setPreviewPhase('idle');
       setInteraction(true);
       applyFinger(pageX, pageY);
     };
@@ -187,17 +284,18 @@ export function VoiceWheel({
     });
   };
 
-  const settleTo = (voice: PoppinsVoice, announce: boolean) => {
+  const settleTo = (voice: PoppinsVoice, announce: boolean, preview: boolean) => {
     positionSV.value = withSpring(voice.position, { damping: 18, stiffness: 220, mass: 0.7 });
     setLiveId(voice.id);
     lastVoiceRef.current = voice.id;
     if (announce) void Haptics.selectionAsync();
     onSelectRef.current(voice.id);
+    if (preview) schedulePreview(voice);
   };
 
   const releaseFinger = () => {
     const voice = voiceAtPosition(positionSV.value);
-    settleTo(voice, false);
+    settleTo(voice, false, true);
     setInteraction(false);
   };
 
@@ -207,7 +305,14 @@ export function VoiceWheel({
 
   const pickVoice = (voice: PoppinsVoice) => {
     if (disabledRef.current) return;
-    settleTo(voice, true);
+    settleTo(voice, true, true);
+  };
+
+  const hearNow = () => {
+    if (disabledRef.current) return;
+    clearPreviewTimers();
+    void stopVoicePreview();
+    beginWarmPreview(live);
   };
 
   const pan = useMemo(
@@ -252,6 +357,21 @@ export function VoiceWheel({
       transform: [{ translateX: x }, { translateY: y }, { scale }],
     };
   });
+
+  const warmRingProps = useAnimatedProps(() => ({
+    strokeDashoffset: HUB_RING_C * (1 - warmProgress.value),
+    opacity: warmProgress.value > 0.02 ? 1 : 0,
+  }));
+
+  /** Soft fill grows inside the annotated Poppins orb while the voice warms up. */
+  const orbFillStyle = useAnimatedStyle(() => ({
+    opacity: 0.18 + warmProgress.value * 0.55,
+    transform: [{ scale: 0.55 + warmProgress.value * 0.45 }],
+  }));
+
+  const orbPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + warmProgress.value * 0.04 }],
+  }));
 
   // Slight overlap so neighbouring strokes never leave a hairline of track showing through.
   const OVERLAP_DEG = 1.2;
@@ -356,14 +476,52 @@ export function VoiceWheel({
             </Animated.View>
 
             <View style={styles.hub} pointerEvents="none">
-              <View style={[styles.hubMoji, { backgroundColor: `${liveColor}26` }]}>
-                <Moji name="poppins" size={34} />
+              <View style={styles.hubMojiWrap}>
+                {/* Warm-up on the Poppins orb (screenshot mark) — ring + fill, then the line plays. */}
+                <Svg width={68} height={68} style={styles.hubRing}>
+                  <Circle
+                    cx={34}
+                    cy={34}
+                    r={HUB_RING_R}
+                    stroke={
+                      previewPhase === 'idle'
+                        ? 'transparent'
+                        : isDark
+                          ? 'rgba(255,255,255,0.12)'
+                          : 'rgba(15,28,42,0.1)'
+                    }
+                    strokeWidth={3}
+                    fill="none"
+                  />
+                  <AnimatedCircle
+                    cx={34}
+                    cy={34}
+                    r={HUB_RING_R}
+                    stroke={liveColor}
+                    strokeWidth={3.5}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${HUB_RING_C} ${HUB_RING_C}`}
+                    animatedProps={warmRingProps}
+                    transform="rotate(-90 34 34)"
+                  />
+                </Svg>
+                <Animated.View style={[styles.hubMoji, { backgroundColor: `${liveColor}26` }, orbPulseStyle]}>
+                  <Animated.View
+                    style={[styles.hubFill, { backgroundColor: liveColor }, orbFillStyle]}
+                  />
+                  <Moji name="poppins" size={34} />
+                </Animated.View>
               </View>
               <Text style={[styles.hubName, { color: c.text }]} numberOfLines={1}>
                 {live.label}
               </Text>
               <Text style={[styles.hubHint, { color: liveColor }]} numberOfLines={1}>
-                {live.hint}
+                {previewPhase === 'warming'
+                  ? 'Loading voice…'
+                  : previewPhase === 'speaking'
+                    ? 'Speaking…'
+                    : live.hint}
               </Text>
             </View>
           </View>
@@ -401,11 +559,12 @@ export function VoiceWheel({
         })}
       </View>
 
-      {onPreview ? (
+      {autoPreview ? (
         <Pressable
-          disabled={disabled || previewBusy}
-          onPress={() => onPreview(live)}
+          disabled={disabled || previewPhase === 'warming'}
+          onPress={hearNow}
           accessibilityRole="button"
+          accessibilityLabel={`Hear ${live.label}`}
           style={[
             styles.hear,
             {
@@ -416,7 +575,11 @@ export function VoiceWheel({
           ]}>
           <Moji name="poppins" size={16} />
           <Text style={[styles.hearText, { color: c.text }]}>
-            {previewBusy ? 'Speaking…' : `Hear ${live.label}`}
+            {previewPhase === 'warming'
+              ? 'Loading voice…'
+              : previewPhase === 'speaking'
+                ? 'Speaking…'
+                : `Hear ${live.label}`}
           </Text>
         </Pressable>
       ) : null}
@@ -424,7 +587,7 @@ export function VoiceWheel({
       <Text style={[styles.footnote, { color: c.textSubtle }]}>
         {disabled
           ? 'Only an admin can change the voice.'
-          : 'Drag round the wheel, or tap a colour. Poppins keeps this voice everywhere it speaks.'}
+          : 'Drag round the wheel, or tap a colour. Pause on one and Poppins will say a short line so you can hear the difference.'}
       </Text>
     </View>
   );
@@ -463,13 +626,25 @@ const styles = StyleSheet.create({
   },
   knobDot: { borderRadius: 5, height: 10, width: 10 },
   hub: { alignItems: 'center', gap: 4, paddingHorizontal: 30, position: 'absolute' },
+  hubMojiWrap: {
+    alignItems: 'center',
+    height: 68,
+    justifyContent: 'center',
+    marginBottom: 2,
+    width: 68,
+  },
+  hubRing: { ...StyleSheet.absoluteFill },
   hubMoji: {
     alignItems: 'center',
     borderRadius: 18,
     height: 54,
     justifyContent: 'center',
-    marginBottom: 2,
+    overflow: 'hidden',
     width: 54,
+  },
+  hubFill: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 18,
   },
   hubName: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   hubHint: { fontSize: 12.5, fontWeight: '700' },
