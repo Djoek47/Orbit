@@ -97,3 +97,36 @@ where table_schema = 'public' and table_name = 'households'
 --    Run FULL file if household_transfer_tokens is missing.
 select table_name from information_schema.tables
 where table_schema = 'public' and table_name = 'household_transfer_tokens';
+
+-- 10) make-v32 CRITICAL RLS (from 20261006013743_security_harden_rls_v32.sql)
+--     RUN THE FULL FILE on staging before public launch (strongly recommended before TF).
+--     - invites_select: members only (no or true)
+--     - members_insert: admin or bootstrap owner
+--     - role/status lock trigger on household_members
+--     - token_grants: drop client INSERT; consume-only UPDATE trigger
+--     - generate_member_invite: admin gate
+--     - RLS on itineraries/stops/templates/xp_ledger/streak/day/recess/crown/monitor_cursor
+--     Also redeploy Edge function: grant-token-pack (auth + admin check).
+
+-- Verify invites are not world-readable
+select polname, pg_get_expr(polqual, polrelid) as using_expr
+from pg_policy
+where polrelid = 'public.household_invites'::regclass
+  and polname = 'invites_select';
+
+-- Verify token_grants has no authenticated INSERT policy
+select polname, polcmd
+from pg_policy
+where polrelid = 'public.token_grants'::regclass;
+
+-- Verify previously open tables have RLS
+select c.relname, c.relrowsecurity
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and c.relname in (
+    'itineraries', 'itinerary_stops', 'task_templates',
+    'xp_ledger_entries', 'streak_rescues', 'day_classifications',
+    'recess_periods', 'crown_awards', 'monitor_cron_cursor'
+  )
+order by c.relname;

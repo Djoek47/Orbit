@@ -80,19 +80,23 @@ This is the living checklist for “ready for TestFlight” vs “ready for publ
 - Pending signup password cleared on local wipe (audit polish)
 - Realtime voice designed not to ship long-lived OpenAI keys to the device
 
-### CRITICAL — fix before public App Store (staging may already be exposed)
+### CRITICAL — shipped in repo (apply on staging)
 
-1. **`household_invites` SELECT `or true`** — world-readable invite codes  
-   `supabase/migrations/20260715000000_orbit_foundation.sql`
-2. **`members_insert` allows any auth user into any household** (`user_id = auth.uid()`)
-3. **Members may escalate `role` via UPDATE** without admin gate
-4. **`token_grants` client INSERT + `grant-token-pack` without StoreKit verify** — free credits
+Migration: `supabase/migrations/20261006013743_security_harden_rls_v32.sql`  
+Edge: `supabase/functions/grant-token-pack` (auth + admin membership)
+
+1. **`household_invites` SELECT** — members only (removed `or true`); join uses service role  
+2. **`members_insert`** — admin or bootstrap owner (`households.owner_id = auth.uid()`, role `owner`)  
+3. **Role/status lock trigger** — non-admins cannot escalate membership  
+4. **`token_grants`** — no client INSERT; consume-only UPDATE trigger; edge requires admin JWT  
+
+Still open before **public** App Store (not blocking held TestFlight): StoreKit server verify inside `grant-token-pack`.
 
 ### HIGH
-5. Tables without RLS (itineraries, xp ledger, recess, …) — enable RLS + policies  
-6. `generate_member_invite` security definer without admin check  
+5. ~~Tables without RLS~~ — enabled in same migration (itineraries, stops, templates, xp ledger, streak, day, recess, crown, monitor cursor)  
+6. ~~`generate_member_invite`~~ — admin gate added in same migration  
 7. Profile-code Sidekick edge paths = capability URL (service role)  
-8. Keys once pasted in agent terminals — **rotate** (see checklist)  
+8. Keys once pasted in agent terminals — **rotate later** (see `docs/key-rotation-checklist.md`)  
 9. `POPPINS_VOICE_GRANT_ALL` must be unset in production  
 
 ### MEDIUM
@@ -104,7 +108,7 @@ This is the living checklist for “ready for TestFlight” vs “ready for publ
 
 ## 5. Key / password rotation checklist (names only)
 
-Rotate in dashboards **before public launch** if ever shared in chat/terminals/CI logs:
+**Full list:** `docs/key-rotation-checklist.md` — rotate later; no values in git/chats.
 
 | Secret | Where |
 |--------|--------|
@@ -119,16 +123,32 @@ Rotate in dashboards **before public launch** if ever shared in chat/terminals/C
 | App Review demo password | `REVIEW_DEMO_*` / ASC notes |
 | Confirm `POPPINS_VOICE_GRANT_ALL` ≠ `1` on prod |
 
-**Do not paste secret values into git, PRs, or agent chats.**
+---
+
+## 5b. EAS / Apple TestFlight readiness (verified 2026-10-06)
+
+| Check | Result |
+|-------|--------|
+| `eas whoami` | `djoek47` authenticated (`EXPO_TOKEN`); owner of `choremaxx-team` |
+| Project | `@choremaxx-team/choremaxx` (`01af7128-865e-4d2e-b0b1-836f03105fc8`) |
+| Bundle id | `app.choremaxx.household` |
+| Profile `testflight` | Present in `eas.json`; `ascAppId` `6796850110`; store distribution |
+| EAS env (production) | Loads `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, privacy/terms URLs |
+| Remote iOS buildNumber | **110** (next build auto-increments) |
+| Recent TF builds | **110 / 109 / 108** finished successfully (not `make-v32` tip) |
+| Interactive credentials UI | Not usable non-interactively in this agent; prior finished builds imply Apple creds are already on EAS |
+
+**Verdict:** EAS + Apple pipeline is ready to build/submit when you say so. **Held — do not push TestFlight until you ask.** Apply RLS migration on staging before or with the next TF cut.
 
 ---
 
 ## 6. Final-shape backlog (priority)
 
 ### P0 — before App Store (not blocking private TestFlight)
-- [ ] Ship RLS migrations for CRITICAL items 1–4  
-- [ ] StoreKit verify in `grant-token-pack`; revoke client grant writes  
-- [ ] Rotate secrets in checklist  
+- [x] Ship RLS migrations for CRITICAL items 1–4 (in repo; **apply on staging**)  
+- [x] Revoke client grant INSERT + authZ on `grant-token-pack`  
+- [ ] StoreKit verify in `grant-token-pack`  
+- [ ] Rotate secrets in checklist (later)  
 - [ ] Production voice grant off  
 
 ### P1 — next Make line
@@ -151,4 +171,4 @@ Rotate in dashboards **before public launch** if ever shared in chat/terminals/C
 | Key rotation | Recommended if keys leaked | **Required** |
 | StoreKit live | Optional (mock OK) | Required |
 
-Private TestFlight can validate UX on `make-v32` while RLS migrations land on staging in parallel.
+**Status:** TestFlight push **held** per product owner. Code + migration are on `cursor/make-v32`.

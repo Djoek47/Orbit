@@ -630,16 +630,27 @@ create policy households_delete on public.households for delete using (owner_id 
 -- Members
 create policy members_select on public.household_members for select
   using (public.is_household_member(household_id) or user_id = auth.uid());
+-- Hardened in 20261006013743_security_harden_rls_v32: admin or bootstrap owner only
 create policy members_insert on public.household_members for insert
-  with check (public.is_household_admin(household_id) or user_id = auth.uid());
+  with check (
+    public.is_household_admin(household_id)
+    or (
+      user_id = auth.uid()
+      and role = 'owner'
+      and exists (
+        select 1 from public.households h
+        where h.id = household_id and h.owner_id = auth.uid()
+      )
+    )
+  );
 create policy members_update on public.household_members for update
   using (public.is_household_admin(household_id) or user_id = auth.uid());
 create policy members_delete on public.household_members for delete
   using (public.is_household_admin(household_id));
 
--- Invites: admins manage; anyone authenticated can read by code via edge/join
+-- Invites: members read; join-household edge uses service role by code
 create policy invites_select on public.household_invites for select
-  using (public.is_household_member(household_id) or true);
+  using (public.is_household_member(household_id));
 create policy invites_insert on public.household_invites for insert
   with check (public.is_household_admin(household_id));
 create policy invites_update on public.household_invites for update
