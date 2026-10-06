@@ -492,7 +492,9 @@ create table if not exists public.push_tokens (
 );
 
 -- Legacy alias view for older app code that referenced nova_briefings
-create or replace view public.nova_briefings as
+create or replace view public.nova_briefings
+  with (security_invoker = true)
+as
   select id, household_id, title, summary, actions, metadata, created_at, updated_at
   from public.ai_briefings
   where briefing_type = 'daily';
@@ -616,9 +618,9 @@ alter table public.smart_home_scenes enable row level security;
 alter table public.push_tokens enable row level security;
 
 -- Profiles
-create policy profiles_select_own on public.profiles for select using (id = auth.uid());
-create policy profiles_update_own on public.profiles for update using (id = auth.uid());
-create policy profiles_insert_own on public.profiles for insert with check (id = auth.uid());
+create policy profiles_select_own on public.profiles for select using (id = (select auth.uid()));
+create policy profiles_update_own on public.profiles for update using (id = (select auth.uid()));
+create policy profiles_insert_own on public.profiles for insert with check (id = (select auth.uid()));
 
 -- Households
 create policy households_select on public.households for select
