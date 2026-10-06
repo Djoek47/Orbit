@@ -923,7 +923,9 @@ export default function SettingsScreen() {
                 last
                 onPress={() => {
                   collapseSettingsOverlays();
-                  // Native ActionSheet/Alert only — never orbitAlert (RN Modal over Settings).
+                  // Dismiss Settings first — glass legal sheet is a root Modal; nesting
+                  // it over Expo Settings modal can leave an invisible touch blocker.
+                  closeSettingsModal();
                   requestAnimationFrame(() => showPrivacyLegalMenu());
                 }}
               />

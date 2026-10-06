@@ -214,9 +214,10 @@ export function SidekickSettingsScreen() {
               label="Privacy & legal"
               last
               onPress={() => {
-                // Close look sheet first — orphan BottomSheet eats legal / Sign Out taps.
-                // Native ActionSheet/Alert only — never orbitAlert (RN Modal over Settings).
+                // Close look sheet + Settings first — root legal Modal must not nest
+                // over Expo Settings (same freeze class as orbitAlert).
                 setPersonalizeOpen(false);
+                closeSettingsModal();
                 requestAnimationFrame(() => showPrivacyLegalMenu());
               }}
             />

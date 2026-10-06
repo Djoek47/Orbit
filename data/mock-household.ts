@@ -216,16 +216,17 @@ export const mockHousehold: HouseholdSnapshot = {
     },
     {
       id: 'm8',
-      name: 'Josh',
+      name: 'Jack',
       role: 'child',
       status: 'active',
-      avatar: '🧑',
+      avatar: '👦',
       xp: 120,
       weekXp: 20,
       streak: 1,
       loadShare: 5,
-      accentThemeId: 'citrus',
-      profileInviteCode: 'CMX-JOSH',
+      /** Coral orange — designated shared-device look (pairs with Emma citrus). */
+      accentThemeId: 'coral',
+      profileInviteCode: 'CMX-JACK',
     },
     {
       id: 'm9',
@@ -250,8 +251,8 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 0,
       streak: 0,
       loadShare: 0,
-      // One device · two switchable accounts (Josh & Todd) with their own XP / redeem
-      sharedWithMemberIds: ['m8', 'm9'],
+      // One device · Emma (citrus yellow) + Jack (coral orange) for Switch theme QA
+      sharedWithMemberIds: ['m3', 'm8'],
     },
   ],
   tasks: [

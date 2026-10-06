@@ -54,6 +54,12 @@ export async function wipeLocalAuthAndResetClient(): Promise<void> {
   } catch {
     /* ignore */
   }
+  try {
+    const { clearPendingSignup } = await import('@/lib/auth/email-confirmation');
+    clearPendingSignup();
+  } catch {
+    /* ignore */
+  }
   resetSupabaseClient();
 }
 

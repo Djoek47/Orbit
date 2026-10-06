@@ -48,6 +48,8 @@ assert.match(tabBar, /accentPrimary/);
 assert.match(tabBar, /LinearGradient\s*\n\s*colors=\{\[accentPrimary, accentSecondary\]\}/);
 
 const emmaMock = readFileSync(join(process.cwd(), 'data/mock-household.ts'), 'utf8');
-assert.match(emmaMock, /name: 'Emma'[\s\S]{0,220}accentThemeId: 'citrus'/);
+assert.match(emmaMock, /name: 'Emma'[\s\S]{0,400}?accentThemeId: 'citrus'/);
+assert.match(emmaMock, /name: 'Jack'[\s\S]{0,400}?accentThemeId: 'coral'/);
+assert.match(emmaMock, /sharedWithMemberIds: \['m3', 'm8'\]/);
 
 console.log('member-accent: ok');
