@@ -161,7 +161,7 @@ async function finishPurchaseWithRetry(
   }
   throw lastError instanceof Error
     ? lastError
-    : new Error(`finishTransaction failed: ${String(lastError)}`);
+    : new Error(`finishTransaction failed: ${formatUnknownError(lastError, 'finish failed')}`);
 }
 
 export async function fetchEntitlement(): Promise<EntitlementState> {
@@ -228,9 +228,14 @@ export async function purchasePremium(
 
     const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const removeUpdated = iap.purchaseUpdatedListener((event) => {
+        const row = event as unknown as Record<string, unknown>;
+        const eventProductId = String(row.productId ?? row.id ?? '');
+        if (eventProductId && eventProductId !== product.productId) {
+          return;
+        }
         removeUpdated.remove();
         removeError.remove();
-        resolve(event as unknown as Record<string, unknown>);
+        resolve(row);
       });
       const removeError = iap.purchaseErrorListener((error) => {
         removeUpdated.remove();
@@ -332,9 +337,15 @@ export async function purchaseTokens(
 
     const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const removeUpdated = iap.purchaseUpdatedListener((event) => {
+        const row = event as unknown as Record<string, unknown>;
+        const eventProductId = String(row.productId ?? row.id ?? '');
+        // Ignore subscription renewals / other SKUs while waiting for this pack.
+        if (eventProductId && eventProductId !== pack.productId) {
+          return;
+        }
         removeUpdated.remove();
         removeError.remove();
-        resolve(event as unknown as Record<string, unknown>);
+        resolve(row);
       });
       const removeError = iap.purchaseErrorListener((error) => {
         removeUpdated.remove();
@@ -374,7 +385,16 @@ export async function purchaseTokens(
       productId,
     });
 
-    await finishPurchaseWithRetry(iap, purchase, true);
+    // Credits already granted — finish is bookkeeping. Never reverse a good grant
+    // into a "purchase failed" alert (that invites a second charge).
+    try {
+      await finishPurchaseWithRetry(iap, purchase, true);
+    } catch (finishError) {
+      console.warn(
+        'purchaseTokens finish after grant',
+        formatUnknownError(finishError, 'finishTransaction failed')
+      );
+    }
     return grant;
   });
 }

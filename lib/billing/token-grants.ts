@@ -193,14 +193,19 @@ export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenG
       },
     });
     if (error) {
-      const { formatUnknownError } = await import('@/lib/errors/unknown-error');
+      // supabase-js hides the body behind "non-2xx" — dig out `{ error }` so
+      // friendly copy can say "payment may have gone through" instead of offline.
+      const { edgeErrorMessage } = await import('@/lib/supabase/edge-error');
+      const detail = await edgeErrorMessage(error, 'grant_token_pack_failed');
       throw new Error(
-        formatUnknownError(error, 'grant_token_pack_failed') || 'grant_token_pack_failed'
+        detail.includes('grant_token_pack') || detail.includes('grant failed')
+          ? detail
+          : `grant_token_pack_failed: ${detail}`
       );
     }
     const payload = data as { grant?: TokenGrant; error?: string } | null;
     if (payload?.error) {
-      throw new Error(String(payload.error));
+      throw new Error(`grant_token_pack_failed: ${String(payload.error)}`);
     }
     const row = payload?.grant;
     if (row) {

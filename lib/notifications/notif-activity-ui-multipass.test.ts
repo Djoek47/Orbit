@@ -63,7 +63,10 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
   assert.match(showcase, /signals today/);
   assert.match(showcase, /StreakDots/);
   assert.match(showcase, /bestStreakAmongRows/);
-  assert.match(showcase, /heroStreak/);
+  assert.match(showcase, /selfStreakAmongRows/);
+  assert.match(showcase, /heroPair/);
+  assert.match(showcase, /Best/);
+  assert.match(showcase, /You/);
   assert.doesNotMatch(
     showcase,
     /reduce\(\(sum, r\) => sum \+ Math\.max\(0, r\.streak\)/,

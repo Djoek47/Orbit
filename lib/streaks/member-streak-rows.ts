@@ -61,8 +61,8 @@ export function bestStreakAmongRows(rows: readonly MemberStreakRow[]): number {
   return Math.max(...rows.map((r) => Math.max(0, r.streak)));
 }
 
-/** Viewer's personal streak from showcase rows (falls back to first row). */
+/** Viewer's personal streak from showcase rows (0 when viewer isn't in the list). */
 export function selfStreakAmongRows(rows: readonly MemberStreakRow[]): number {
   const self = rows.find((r) => r.isSelf);
-  return Math.max(0, self?.streak ?? rows[0]?.streak ?? 0);
+  return Math.max(0, self?.streak ?? 0);
 }

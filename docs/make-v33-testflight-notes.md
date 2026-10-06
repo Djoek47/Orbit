@@ -48,11 +48,11 @@ Reply with: device + iOS version, role tested (admin / Sidekick / tablet face), 
 
 Do **not** cut another TF or App Store build until these are cleared:
 
-- [ ] **Supabase Auth — Leaked password protection (HaveIBeenPwned)**  
+- [ ] **Supabase Auth — Leaked password protection (HaveIBeenPwned)** — **noted; flip later (not blocking today’s code work)**  
   Staging project `dejrbyufotcvcillnneo` → Dashboard → **Authentication** → **Providers** / **Password** → enable **Leaked password protection**.  
   Advisor: `auth_leaked_password_protection`. Not settable from SQL.  
   See `docs/supabase-security-advisors-2026-10-06.md`.
-- [ ] ASC consumable IAP packs live for Credits (`docs/asc-iap-setup.md`) if Credits buy is in scope for that cut
+- [ ] **Credits ↔ Apple StoreKit end-to-end** — packs must be live in ASC so real buys add credits + send receipt email (`docs/asc-iap-setup.md`). Client grant/error paths hardened; wire/verify tomorrow before final push.
 - [ ] Product explicitly says “push TestFlight”
 
 ## Cut checklist

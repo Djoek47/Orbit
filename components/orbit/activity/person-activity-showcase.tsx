@@ -81,11 +81,13 @@ export function PersonActivityShowcase({
     });
   }, [accentColor, dayStart, rows, signals]);
 
-  // Same personal-streak source as Home / Health — never sum streaks, never
-  // show "faces active today" as the hero streak number (that mismatched 2 vs 0).
+  // Personal streaks only (same source as Home / Health). Household mode shows
+  // best-in-house above and the viewer's personal streak beside it — never sum,
+  // never swap in "faces active today" as the hero number.
   const houseBest = bestStreakAmongRows(rows);
   const selfStreak = selfStreakAmongRows(rows);
   const heroStreak = mode === 'household' ? houseBest : selfStreak;
+  const bestLeader = rows.find((r) => Math.max(0, r.streak) === houseBest && houseBest > 0);
   const activeToday = byPerson.filter((p) => p.todayCount > 0).length;
 
   if (!rows.length) return null;
@@ -108,19 +110,35 @@ export function PersonActivityShowcase({
               </Text>
               <Text style={[styles.heroTitle, { color: c.text }]}>
                 {mode === 'household'
-                  ? heroStreak === 1
-                    ? '1-day best streak in the house'
-                    : `${heroStreak} day best streak in the house`
+                  ? houseBest <= 0
+                    ? 'No active streaks yet'
+                    : bestLeader
+                      ? `${bestLeader.isSelf ? 'You' : bestLeader.name} leads · ${houseBest}d best`
+                      : `${houseBest}d best in the house`
                   : `${heroStreak} day streak`}
               </Text>
             </View>
-            <Text style={[styles.heroBig, { color: STREAK_TONE }]}>{heroStreak}</Text>
+            {mode === 'household' ? (
+              <View style={styles.heroPair}>
+                <View style={styles.heroStat}>
+                  <Text style={[styles.heroStatLabel, { color: c.textSubtle }]}>Best</Text>
+                  <Text style={[styles.heroBig, { color: STREAK_TONE }]}>{houseBest}</Text>
+                </View>
+                <View style={[styles.heroStatDivider, { backgroundColor: `${STREAK_TONE}44` }]} />
+                <View style={styles.heroStat}>
+                  <Text style={[styles.heroStatLabel, { color: c.textSubtle }]}>You</Text>
+                  <Text style={[styles.heroBig, { color: accentColor }]}>{selfStreak}</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={[styles.heroBig, { color: STREAK_TONE }]}>{heroStreak}</Text>
+            )}
           </View>
           <Text style={[styles.heroSub, { color: c.textMuted }]}>
             {mode === 'household'
               ? activeToday > 0
-                ? `${activeToday} face${activeToday === 1 ? '' : 's'} lit up today`
-                : 'Waiting for today’s first signals'
+                ? `${activeToday} face${activeToday === 1 ? '' : 's'} lit up today · your streak matches Home`
+                : 'Waiting for today’s first signals · your streak matches Home'
               : 'Finish-by keeps Late Credit safe'}
           </Text>
           {mode === 'personal' ? (
@@ -234,6 +252,16 @@ const styles = StyleSheet.create({
   heroEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
   heroTitle: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
   heroBig: { fontSize: 28, fontWeight: '900', letterSpacing: -1 },
+  heroPair: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  heroStat: { alignItems: 'center', minWidth: 36 },
+  heroStatLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    marginBottom: 1,
+    textTransform: 'uppercase',
+  },
+  heroStatDivider: { borderRadius: 1, height: 28, width: 2 },
   heroSub: { fontSize: 12.5, fontWeight: '600', lineHeight: 17 },
   dots: { marginTop: 4 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },

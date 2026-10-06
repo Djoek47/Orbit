@@ -55,6 +55,22 @@ test('Pass C2: purchase errors never stringify to [object Object]', () => {
   assert.match(fmt, /\[object Object\]/);
 });
 
+test('Pass C3: token pack listener ignores other SKUs; grant errors dig edge body', () => {
+  const iap = read('lib/billing/iap.ts');
+  assert.match(iap, /eventProductId !== pack\.productId/);
+  assert.match(iap, /finish after grant/);
+  const grants = read('lib/billing/token-grants.ts');
+  assert.match(grants, /edgeErrorMessage/);
+  assert.match(grants, /grant_token_pack_failed/);
+  const friendly = read('lib/errors/friendly-error.ts');
+  const grantCheck = friendly.indexOf("lower.includes('grant_token_pack')");
+  const non2xxCheck = friendly.indexOf("lower.includes('non-2xx')");
+  assert.ok(
+    grantCheck > 0 && non2xxCheck > grantCheck,
+    'grant copy must beat non-2xx offline copy'
+  );
+});
+
 test('Pass D: congratulations email template still celebrates purchase', async () => {
   const mod = await import('../../emails/credit-purchase');
   const props = {

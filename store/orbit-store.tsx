@@ -3547,20 +3547,45 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const merged = applyHouseholdTaskExpiry([...created, ...nextTasks], live, now);
     const relabeled = refreshStaleDueLabels(merged, now);
 
-    // Wire cliffs / Rescue: classify each caught-up day for every member.
+    // Wire cliffs / Rescue — only for days not yet classified on this device.
+    // First mount seeds the in-memory engine from persisted personal streaks and
+    // records yesterday as caught up (no 7-day rebuild from empty → wipe).
     const { applyRolloverStreaksForDay } = await import('@/lib/streaks/apply-rollover-streaks');
+    const {
+      loadStreakCatchUpCursor,
+      saveStreakCatchUpCursor,
+      pendingCatchUpDays,
+    } = await import('@/lib/streaks/rollover-catchup-cursor');
+    const { syncMemberStreakCurrent } = await import('@/lib/streaks/mock-streak-store');
+    const yesterdayKey = addCalendarDays(todayKey, -1);
     const streakByMember = new Map<string, number>();
-    for (let offset = LOOKBACK_DAYS; offset >= 1; offset -= 1) {
-      const dayKey = addCalendarDays(todayKey, -offset);
-      const recessNames = new Set(recessSkipAssignees(live, dayKey));
-      const applied = applyRolloverStreaksForDay({
-        localDate: dayKey,
-        members: live.members,
-        tasks: relabeled,
-        recessMemberNames: recessNames,
-      });
-      for (const row of applied) {
-        streakByMember.set(row.memberId, row.streak);
+    if (live.id) {
+      for (const member of live.members) {
+        if (member.status !== 'active' || member.role === 'shared-device') continue;
+        syncMemberStreakCurrent(member.id, Math.max(0, member.streak ?? 0));
+      }
+      const cursor = await loadStreakCatchUpCursor(live.id);
+      const daysToClassify = cursor
+        ? pendingCatchUpDays(cursor, yesterdayKey)
+        : [];
+      if (!cursor) {
+        await saveStreakCatchUpCursor(live.id, yesterdayKey);
+      } else {
+        for (const dayKey of daysToClassify) {
+          const recessNames = new Set(recessSkipAssignees(live, dayKey));
+          const applied = applyRolloverStreaksForDay({
+            localDate: dayKey,
+            members: live.members,
+            tasks: relabeled,
+            recessMemberNames: recessNames,
+          });
+          for (const row of applied) {
+            streakByMember.set(row.memberId, row.streak);
+          }
+        }
+        if (daysToClassify.length > 0) {
+          await saveStreakCatchUpCursor(live.id, yesterdayKey);
+        }
       }
     }
 

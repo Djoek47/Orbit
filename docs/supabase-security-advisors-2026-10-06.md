@@ -16,7 +16,9 @@ Project: `dejrbyufotcvcillnneo` (Choremaxx-Staging)
 
 `authenticated_security_definer_function_executable` for client RPCs that **must** stay callable by signed-in users via PostgREST / edge (`create_household_transfer_token`, `accept_household_transfer`, `is_household_member`, deletion RPCs, etc.). Revoking those would break the app. Definer + auth checks inside the function body is the model.
 
-## BLOCKER — Manual Auth dashboard step (before next TF / password ship)
+## NOTE — Manual Auth dashboard step (flip later; code work can continue)
+
+Product noted: enable before final App Store / password ship; not blocking today’s client fixes.
 
 | Advisor | Status | Action |
 |---------|--------|--------|
