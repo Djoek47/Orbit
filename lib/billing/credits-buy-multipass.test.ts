@@ -1,0 +1,60 @@
+/**
+ * Multipass: credit pack buy must never nest orbitAlert under Settings,
+ * must grant via purchaseTokens, and must celebrate + email on success.
+ */
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import test from 'node:test';
+
+const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
+
+test('Pass A: credits buy uses native Alert confirm, never orbitAlert', () => {
+  const credits = read('app/poppins-credits.tsx');
+  const menus = read('lib/ui/settings-native-menus.ts');
+  assert.match(credits, /confirmCreditPackPurchase/);
+  assert.match(menus, /confirmCreditPackPurchase/);
+  assert.match(menus, /Alert\.alert/);
+  assert.doesNotMatch(credits, /from ['"]@\/components\/orbit\/orbit-alert['"]/);
+  assert.doesNotMatch(credits, /orbitAlert\s*\(/);
+  assert.match(credits, /Buy \(test\)/);
+});
+
+test('Pass B: successful buy grants tokens, files receipt, sends email', () => {
+  const credits = read('app/poppins-credits.tsx');
+  assert.match(credits, /purchaseTokens/);
+  assert.match(credits, /fileReceipt/);
+  assert.match(credits, /sendCreditReceiptEmail/);
+  assert.match(credits, /setCongrats/);
+  assert.match(credits, /Congratulations!/);
+  assert.match(credits, /readBalance/);
+  assert.match(credits, /setBuying\(null\)/);
+});
+
+test('Pass C: errors use native Alert so Settings stack stays touchable', () => {
+  const credits = read('app/poppins-credits.tsx');
+  assert.match(credits, /Alert\.alert\([\s\S]*That didn't go through/);
+  assert.doesNotMatch(credits, /orbitAlert\([\s\S]*didn't go through/);
+});
+
+test('Pass D: congratulations email template still celebrates purchase', async () => {
+  const mod = await import('../../emails/credit-purchase');
+  const props = {
+    name: 'Alex',
+    tokens: 200,
+    price: '$1.99',
+    orderId: 'CMX-0001-0002-0003',
+    householdName: 'House',
+    mock: true,
+    creditsUrl: 'https://www.choremaxx.app',
+  };
+  assert.match(mod.subjectFor(props), /200 Poppins actions/);
+  assert.match(mod.textFor(props), /congratulations/i);
+});
+
+test('Pass E: IAP mock path grants and appends to bank', () => {
+  const iap = read('lib/billing/iap.ts');
+  assert.match(iap, /grantTokenPack/);
+  assert.match(iap, /mock-\$\{packKey\}/);
+  assert.match(iap, /isNativeIapAvailable/);
+});

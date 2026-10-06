@@ -146,10 +146,12 @@ test('Pass C2b: Privacy & legal dismisses Settings then opens root sheet', () =>
   const admin = read('app/settings.tsx');
   const menus = read('lib/ui/settings-native-menus.ts');
   assert.match(sidekick, /Privacy & legal[\s\S]{0,500}?closeSettingsModal\(\)/);
-  assert.match(sidekick, /Privacy & legal[\s\S]{0,500}?showPrivacyLegalMenu/);
+  assert.match(sidekick, /Privacy & legal[\s\S]{0,500}?showPrivacyLegalMenuAfterSettingsDismiss/);
   assert.match(admin, /Privacy & legal[\s\S]{0,500}?closeSettingsModal\(\)/);
-  assert.match(admin, /Privacy & legal[\s\S]{0,500}?showPrivacyLegalMenu/);
+  assert.match(admin, /Privacy & legal[\s\S]{0,500}?showPrivacyLegalMenuAfterSettingsDismiss/);
   assert.match(menus, /openLegalLinksSheet/);
+  assert.match(menus, /SESSION_NAV_DELAY_MS/);
+  assert.match(menus, /showPrivacyLegalMenuAfterSettingsDismiss/);
   assert.match(
     read('components/orbit/settings/legal-links-sheet-host.tsx'),
     /CHOREMAXX_LEGAL\.privacyUrl/
