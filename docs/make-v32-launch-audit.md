@@ -21,8 +21,8 @@ This is the living checklist for “ready for TestFlight” vs “ready for publ
 | Mock token buy | **PASS** | Packs append; Settings/Credits refresh via `notifyTokenGrantsChanged` |
 | Jack/Emma accents | **PASS** | Coral / Citrus; Switch + Who’s on + tab Switch follow person |
 | Sign-in | **PASS** (prior) | Email confirm + review demo path unchanged this pass |
-| Admin task reassign | **PASS** (this pass) | Who in Edit + view; after deadline → tomorrow; streak-safe handoff |
-| Streak cliffs / Rescue | **CRITICAL GAP** | Engine present; production rollover not wired — see logic audit §7 |
+| Admin task reassign | **PASS** | Who in Edit; grace night + next day full XP; this-occurrence; streak-safe |
+| Streak cliffs / Rescue | **WIRED** | Rollover → `applyRolloverStreaksForDay`; validate on device over real days |
 
 \*Hardened in the audit polish commit: Privacy now calls `closeSettingsModal()` before opening the legal sheet.
 
@@ -175,4 +175,4 @@ Still open before **public** App Store (not blocking held TestFlight): StoreKit 
 | Key rotation | Recommended if keys leaked | **Required** |
 | StoreKit live | Optional (mock OK) | Required |
 
-**Status:** TestFlight push **held** per product owner. Code + migration are on `cursor/make-v32`.
+**Status:** Private TestFlight **authorized** from tip `cursor/make-v32`. Aggregate audit: `docs/make-v32-three-day-audit.md`.
