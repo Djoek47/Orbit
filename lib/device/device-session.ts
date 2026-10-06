@@ -115,14 +115,12 @@ export async function reconcileHostedDeviceSession(
 
   let rosterSharedDeviceId = current.sharedDeviceId ?? null;
   let rosterLabel = current.deviceLabel;
-  // Only expand from the household shared-device roster when this phone is
-  // already a shared tablet (QR / hosted). Personal admin login must stay personal.
-  const alreadySharedHost =
-    current.mode === 'shared' ||
-    current.hostKind === 'shared-tablet' ||
-    Boolean(current.sharedDeviceId) ||
-    current.profileMemberIds.length > 0;
-  if (alreadySharedHost && members && members.length > 0) {
+  // Expand Kitchen iPad roster ONLY for a real shared-tablet (QR / tablet host).
+  // Personal Sidekick (`hostKind: 'sidekick'`) must stay 4-tab — even when that
+  // person is also linked to a tablet roster (Emma has her phone + Kitchen iPad).
+  const expandFromRoster =
+    current.hostKind === 'shared-tablet' || Boolean(current.sharedDeviceId);
+  if (expandFromRoster && members && members.length > 0) {
     const { profilesForSharedDeviceSwitch, resolveSwitchDeviceShell } = await import(
       '@/lib/device/profiles-for-switch'
     );
@@ -149,6 +147,30 @@ export async function reconcileHostedDeviceSession(
     Boolean(current.activeMemberId) &&
     merged.includes(current.activeMemberId!) &&
     !current.needsProfilePick;
+
+  // Personal Sidekick host: never promote to shared-tablet / Switch tab.
+  if (current.hostKind === 'sidekick' && !current.sharedDeviceId) {
+    const soleOrMulti = merged;
+    const unchanged =
+      current.mode === 'shared' &&
+      current.hostKind === 'sidekick' &&
+      current.profileMemberIds.length === soleOrMulti.length &&
+      soleOrMulti.every((id) => current.profileMemberIds.includes(id));
+    if (unchanged) return current;
+    const next: DeviceSession = {
+      ...current,
+      mode: 'shared',
+      hostKind: 'sidekick',
+      profileMemberIds: soleOrMulti,
+      sharedDeviceId: null,
+      needsProfilePick:
+        soleOrMulti.length > 1
+          ? current.needsProfilePick
+          : current.needsProfilePick && current.profileMemberIds.includes(soleOrMulti[0]!),
+    };
+    await saveDeviceSession(next);
+    return next;
+  }
 
   if (merged.length === 1) {
     const sole = merged[0]!;

@@ -53,8 +53,13 @@ function listNames(names: string[]): string {
 export function memberSettingsModel(input: {
   member: Pick<HouseholdMember, 'id' | 'name' | 'role'> | null | undefined;
   members: HouseholdMember[];
+  /**
+   * True when this physical device is a shared-tablet session.
+   * Roster link alone must not turn a personal Sidekick phone into Switch Settings.
+   */
+  onSharedTablet?: boolean;
 }): MemberSettingsModel | null {
-  const { member, members } = input;
+  const { member, members, onSharedTablet = false } = input;
   if (!member) return null;
 
   // The shared device itself: nobody has tapped a face yet.
@@ -80,7 +85,8 @@ export function memberSettingsModel(input: {
   }
 
   const device = findSharedDeviceForMember(member.id, members);
-  if (device) {
+  // Linked to Kitchen iPad AND currently on that tablet → shared-account + Switch.
+  if (device && onSharedTablet) {
     const deviceName = normalizeSharedDeviceLabel(device.name);
     const people = resolveSharedDevicePeople(device, members)
       .map((person) => person.name)
@@ -102,6 +108,7 @@ export function memberSettingsModel(input: {
     };
   }
 
+  // Personal Sidekick phone (even if also roster-linked to a tablet).
   return {
     kind: 'sidekick',
     sharedWith: [],
