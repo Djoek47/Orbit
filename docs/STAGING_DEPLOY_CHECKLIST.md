@@ -30,6 +30,7 @@ Apply **in order** if not already on staging. Prefer the full migration files:
 | 1 | `supabase/migrations/20261005120000_support_uploads_storage.sql` |
 | 2 | `supabase/migrations/20261005140000_household_deletion_v2.sql` |
 | 3 | `supabase/migrations/20261005150000_household_transfer.sql` |
+| 4 | `supabase/migrations/20261005160000_member_avatars_storage.sql` |
 
 Also skim `supabase/migrations/PENDING_APPLY_ON_STAGING.sql` for older columns / verify queries.
 
@@ -59,6 +60,7 @@ where table_schema = 'public' and table_name = 'households'
   );
 
 select id from storage.buckets where id = 'support-uploads';
+select id from storage.buckets where id = 'member-avatars';
 ```
 
 ---
@@ -90,6 +92,17 @@ Secrets the edges need (Dashboard → Edge Functions → Secrets, or CLI):
 Schedule **household-deletion-cron** hourly (Dashboard → Edge Functions → Schedules, or `pg_cron` + `net.http_post`). Staging: set `DELETION_REMINDER_STAGING=1` to compress the ladder.
 
 Full command list: `supabase/functions/README.md`.
+
+---
+
+## 2b) Supabase Auth — blockers before TestFlight / password ship
+
+These are **not** SQL migrations. Clear before any new TestFlight or App Store push:
+
+- [ ] **Leaked password protection (HaveIBeenPwned)** — Dashboard → project `dejrbyufotcvcillnneo` → **Authentication** → **Providers** / **Password** → enable **Leaked password protection**.  
+  Security advisor: `auth_leaked_password_protection`. Details: `docs/supabase-security-advisors-2026-10-06.md` and `docs/make-v33-testflight-notes.md` § Blockers.
+
+Until that box is checked, treat password / Auth as incomplete for ship.
 
 ---
 

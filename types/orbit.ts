@@ -486,7 +486,10 @@ export type OrbitMetrics = {
   upcomingEvents: number;
   /** Week XP spread fairness 0–100 (admin health). */
   fairnessScore?: number;
-  /** Best active-member streak days (admin health). */
+  /**
+   * Best personal streak among active members (informational).
+   * Home Today’s Tasks + Household Health Streak chips use `member.streak` instead.
+   */
   householdStreak?: number;
 };
 
@@ -626,10 +629,14 @@ export type PoppinsNotificationPrefs = {
   /** Nudge missing items before / during a grocery run. */
   missingOnTheWay?: boolean;
   /**
-   * Quiet hours 21:00–07:00 (weekend A5). When true, non-urgent OS banners
-   * are deferred; deadline reminders still fire.
+   * Quiet hours window. When true, non-urgent OS banners are deferred;
+   * deadline reminders still fire. Bounds are household-local HH:mm.
    */
   quietHoursEnabled?: boolean;
+  /** Quiet window start HH:mm (default 21:00). */
+  quietHoursStart?: string;
+  /** Quiet window end HH:mm (default 07:00). May wrap past midnight. */
+  quietHoursEnd?: string;
   /**
    * Smart delivery (default ON): same-day assignment noise becomes one digest
    * push; full detail lives in Activity. Urgent interrupts still push.

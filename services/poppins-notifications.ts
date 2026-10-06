@@ -19,6 +19,8 @@ export const DEFAULT_POPPINS_NOTIFICATION_PREFS: PoppinsNotificationPrefs = {
   nearShop: true,
   missingOnTheWay: true,
   quietHoursEnabled: true,
+  quietHoursStart: '21:00',
+  quietHoursEnd: '07:00',
   smartDelivery: true,
 };
 

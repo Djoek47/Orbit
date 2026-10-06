@@ -45,7 +45,7 @@ export function buildTaskDigestCopy(input: {
   const prefix = who ? `${who}, ` : '';
   return {
     title,
-    body: `${prefix}${count} tasks are ready on your list. Open Activity to see them.`,
+    body: `${prefix}${count} tasks are ready for you. Open Activity to see who’s on what.`,
   };
 }
 

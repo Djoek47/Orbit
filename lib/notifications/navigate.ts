@@ -9,6 +9,9 @@ export function getNotificationRoute(item: NotificationItem): string | null {
   const kind = typeof data.kind === 'string' ? data.kind : null;
   const notificationId = typeof data.notificationId === 'string' ? data.notificationId : null;
 
+  if (kind === 'trip_arrived' && data.openShopping === '1') {
+    return '/shopping-mode';
+  }
   if (itineraryId) {
     return `/itinerary/${itineraryId}`;
   }

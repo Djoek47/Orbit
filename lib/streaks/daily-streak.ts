@@ -58,8 +58,18 @@ export async function awardDailyStreakIfNeeded(input: {
     return { awarded: false, streak: existing.streak };
   }
 
-  const continued = existing?.lastAwardDate === yesterdayKey(timeZone);
-  const nextStreak = continued ? (existing?.streak ?? currentStreak) + 1 : 1;
+  const yesterday = yesterdayKey(timeZone);
+  let nextStreak: number;
+  if (!existing) {
+    // No device-local award record (fresh install / new face) — continue from
+    // the household streak already on the member row. Never hard-reset to 1.
+    nextStreak = Math.max(1, Math.max(0, currentStreak) + 1);
+  } else if (existing.lastAwardDate === yesterday) {
+    nextStreak = Math.max(0, existing.streak) + 1;
+  } else {
+    // Confirmed gap on this device.
+    nextStreak = 1;
+  }
   await saveRecord(householdId, memberId, { lastAwardDate: today, streak: nextStreak });
   return { awarded: true, streak: nextStreak };
 }

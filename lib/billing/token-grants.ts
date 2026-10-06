@@ -192,8 +192,22 @@ export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenG
         productId: pack.productId,
       },
     });
-    if (error) throw new Error(error.message || 'grant_token_pack_failed');
-    const row = (data as { grant?: TokenGrant } | null)?.grant;
+    if (error) {
+      // supabase-js hides the body behind "non-2xx" — dig out `{ error }` so
+      // friendly copy can say "payment may have gone through" instead of offline.
+      const { edgeErrorMessage } = await import('@/lib/supabase/edge-error');
+      const detail = await edgeErrorMessage(error, 'grant_token_pack_failed');
+      throw new Error(
+        detail.includes('grant_token_pack') || detail.includes('grant failed')
+          ? detail
+          : `grant_token_pack_failed: ${detail}`
+      );
+    }
+    const payload = data as { grant?: TokenGrant; error?: string } | null;
+    if (payload?.error) {
+      throw new Error(`grant_token_pack_failed: ${String(payload.error)}`);
+    }
+    const row = payload?.grant;
     if (row) {
       const existing = await loadTokenGrants(input.householdId);
       const merged = existing.some((g) => g.transactionId === row.transactionId)

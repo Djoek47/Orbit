@@ -69,6 +69,8 @@ export function applyRolloverStreaksForDay(input: {
     if (member.status !== 'active') continue;
     if (member.role === 'shared-device') continue;
 
+    ensureMemberStreak(member.id);
+
     const dayTasks = input.tasks.filter(
       (task) =>
         taskMatchesAssignee(task, member.name) &&

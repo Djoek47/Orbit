@@ -27,6 +27,10 @@ export type TripRunState = {
   remainingStops: TripBannerStop[];
   /** Arrived at the current stop — Lock Screen still advances on check-off. */
   arrived?: boolean;
+  /** Metres to the current stop (GPS). Shown while en route. */
+  distanceMeters?: number | null;
+  /** Current stop has a grocery / shopping list to open on arrival. */
+  hasShoppingList?: boolean;
 };
 
 export type TripBannerState = {
@@ -35,11 +39,27 @@ export type TripBannerState = {
   progressBar: { progress: number };
 };
 
+/** Short distance for the banner head — Uber / Waze style. */
+export function formatTripDistance(meters: number | null | undefined): string | null {
+  if (meters == null || !Number.isFinite(meters) || meters < 0) return null;
+  if (meters < 80) return 'Here';
+  if (meters < 1000) return `${Math.round(meters / 10) * 10} m`;
+  const km = meters / 1000;
+  return km >= 10 ? `${Math.round(km)} km` : `${km.toFixed(1)} km`;
+}
+
 export function tripBannerState(run: TripRunState): TripBannerState {
   const total = Math.max(run.total, 1);
   const done = Math.max(0, Math.min(run.index, total));
   const progress = done / total;
-  const phase = run.arrived ? 'Arrived' : 'Next';
+  const dist = formatTripDistance(run.distanceMeters);
+  const phase = run.arrived
+    ? run.hasShoppingList
+      ? 'Arrived · open list'
+      : 'Arrived'
+    : dist
+      ? dist
+      : 'Next';
   const head = `Stop ${done + 1} of ${total} · ${phase} · ${run.currentLabel}`;
   const lines = [
     head,

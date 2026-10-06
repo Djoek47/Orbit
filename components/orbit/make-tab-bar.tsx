@@ -118,14 +118,24 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
     .join('|');
   useEffect(() => {
     let mounted = true;
-    void reconcileHostedDeviceSession(members).then((next) => {
+    void (async () => {
+      // Personal admin: never reconcile into a Switch tablet binding.
+      if (memberRole === 'owner' || memberRole === 'admin') {
+        const { demoteSharedSessionForPersonalAdmin, loadDeviceSession } = await import(
+          '@/lib/device/device-session'
+        );
+        const next = await demoteSharedSessionForPersonalAdmin(memberRole);
+        if (mounted) setDeviceSession(next ?? (await loadDeviceSession()));
+        return;
+      }
+      const next = await reconcileHostedDeviceSession(members);
       if (mounted) setDeviceSession(next);
-    });
+    })();
     return () => {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orbit?.currentMember?.id, fifthSlot, rosterKey]);
+  }, [orbit?.currentMember?.id, fifthSlot, rosterKey, memberRole]);
   // How many faces share this tablet — drives the Switch glyph (2–6 arrows).
   const switchPeopleCount = useMemo(() => {
     const rosterPeople = profilesForSharedDeviceSwitch(deviceSession, members);

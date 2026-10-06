@@ -31,6 +31,7 @@ import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   buildHomeHealthMetrics,
+  personalStreakDays,
   resolveHomeHealthRole,
 } from '@/lib/home-health-metrics';
 import {
@@ -202,7 +203,7 @@ export default function HomeScreen() {
 
   const personalWeekXp = currentMember?.weekXp ?? 0;
   const personalTotalXp = currentMember?.xp ?? 0;
-  const personalStreak = currentMember?.streak ?? 0;
+  const personalStreak = personalStreakDays(currentMember);
 
   const todayLocal = formatLocalDate(new Date(), household.timezone);
   const recessPeriods = household.recessPeriods ?? [];
@@ -497,7 +498,7 @@ export default function HomeScreen() {
             timeZone={household.timezone}
             canFocusMembers={permissions.canManageHousehold}
             mineOnly={sharedKidMode}
-            streak={currentMember?.streak ?? 0}
+            streak={personalStreak}
             onAwardDailyStreak={() => {
               void awardDailyStreak();
             }}

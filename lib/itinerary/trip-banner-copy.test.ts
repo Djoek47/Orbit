@@ -34,3 +34,28 @@ test('arrived phase shows in the banner head', () => {
   });
   assert.match(state.subtitle, /Arrived/);
 });
+
+test('en-route distance shows like Uber / Waze', () => {
+  const state = tripBannerState({
+    tripTitle: 'Errands',
+    index: 0,
+    total: 3,
+    currentLabel: 'Metro',
+    distanceMeters: 840,
+    remainingStops: [{ id: 's1', label: 'Metro', emoji: '🛒' }],
+  });
+  assert.match(state.subtitle, /840 m/);
+});
+
+test('arrived grocery stop invites opening the list', () => {
+  const state = tripBannerState({
+    tripTitle: 'Errands',
+    index: 0,
+    total: 3,
+    currentLabel: 'Metro',
+    arrived: true,
+    hasShoppingList: true,
+    remainingStops: [{ id: 's1', label: 'Metro', emoji: '🛒' }],
+  });
+  assert.match(state.subtitle, /Arrived · open list/);
+});

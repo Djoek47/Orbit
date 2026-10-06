@@ -98,6 +98,18 @@ where table_schema = 'public' and table_name = 'households'
 select table_name from information_schema.tables
 where table_schema = 'public' and table_name = 'household_transfer_tokens';
 
+-- 9b) Transfer QR fix + security advisors (20261006062055_fix_gen_random_bytes_and_security_advisors.sql)
+--     Applied on staging 2026-10-06: extensions.gen_random_bytes, anon revoke,
+--     search_path locks, monitor_cron_cursor service policy.
+--
+-- BLOCKER before next TestFlight / App Store push (manual — not SQL):
+--   Advisor auth_leaked_password_protection
+--   Dashboard → Authentication → Password → enable Leaked password protection (HaveIBeenPwned)
+--   Tracked in docs/make-v33-testflight-notes.md § Blockers
+select pg_get_functiondef(p.oid) like '%extensions.gen_random_bytes%' as transfer_uses_ext
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'create_household_transfer_token';
+
 -- 10) make-v32 CRITICAL RLS
 --     If you already ran 20261006013743 and got:
 --       ERROR: 42P01: relation "public.xp_ledger_entries" does not exist

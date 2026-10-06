@@ -93,10 +93,16 @@ if [[ "${EXPO_PUBLIC_DATA_MODE:-mock}" == "mock" ]]; then
   warn "EXPO_PUBLIC_DATA_MODE=mock — TestFlight builds use supabase via eas.json env"
 fi
 
+# 10) Auth security blocker (manual dashboard — cannot verify from this script)
+warn "BLOCKER before TF push: enable Supabase Auth → Leaked password protection (HaveIBeenPwned) on staging"
+warn "  Dashboard → dejrbyufotcvcillnneo → Authentication → Password → Leaked password protection"
+warn "  See docs/make-v33-testflight-notes.md § Blockers + docs/supabase-security-advisors-2026-10-06.md"
+
 echo
 if [[ "$FAIL" -ne 0 ]]; then
   echo "TestFlight preflight FAILED — fix items above before eas build"
   exit 1
 fi
 echo "TestFlight preflight PASSED — next: eas login && eas build --platform ios --profile testflight"
+echo "Remember: clear Leaked password protection blocker before any new TF push."
 exit 0

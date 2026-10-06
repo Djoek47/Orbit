@@ -22,18 +22,41 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function mapCreateError(message: string) {
+  const lower = message.toLowerCase();
+  if (lower.includes('only the household owner')) {
+    return json({ error: 'Only the household owner can transfer ownership.', code: 'TRANSFER_FORBIDDEN' }, 403);
+  }
+  if (lower.includes('not authenticated') || lower.includes('unauthorized')) {
+    return json({ error: 'Unauthorized', code: 'TRANSFER_UNAUTHORIZED' }, 401);
+  }
+  if (lower.includes('gen_random_bytes') || lower.includes('does not exist')) {
+    return json(
+      {
+        error: 'Transfer isn’t ready on this server yet. Try again after an update.',
+        code: 'TRANSFER_CREATE_FAILED',
+      },
+      500
+    );
+  }
+  return json(
+    { error: 'Could not create the transfer QR. Try again in a moment.', code: 'TRANSFER_CREATE_FAILED' },
+    400
+  );
+}
+
 function mapAcceptError(message: string) {
   if (message.includes('TRANSFER_USED')) {
-    return json({ error: 'This transfer QR was already used.' }, 409);
+    return json({ error: 'This transfer QR was already used.', code: 'TRANSFER_USED' }, 409);
   }
   if (message.includes('TRANSFER_EXPIRED') || message.includes('TRANSFER_INVALID')) {
-    return json({ error: 'This transfer QR expired. Ask the owner for a new one.' }, 410);
+    return json({ error: 'This transfer QR expired. Ask the owner for a new one.', code: 'TRANSFER_EXPIRED' }, 410);
   }
   if (message.includes('TRANSFER_NOT_FOUND')) {
-    return json({ error: 'This transfer QR was not found.' }, 404);
+    return json({ error: 'This transfer QR was not found.', code: 'TRANSFER_NOT_FOUND' }, 404);
   }
   if (message.includes('TRANSFER_SELF')) {
-    return json({ error: 'Scan this QR on a different empty account.' }, 400);
+    return json({ error: 'Scan this QR on a different empty account.', code: 'TRANSFER_SELF' }, 400);
   }
   if (message.includes('TRANSFER_NOT_EMPTY')) {
     return json(
@@ -46,12 +69,12 @@ function mapAcceptError(message: string) {
     );
   }
   if (message.includes('TRANSFER_OWNER_CHANGED')) {
-    return json({ error: 'Ownership changed. Ask the current owner for a new QR.' }, 409);
+    return json({ error: 'Ownership changed. Ask the current owner for a new QR.', code: 'TRANSFER_OWNER_CHANGED' }, 409);
   }
   if (message.includes('Unauthorized') || message.includes('Not authenticated')) {
-    return json({ error: 'Unauthorized' }, 401);
+    return json({ error: 'Unauthorized', code: 'TRANSFER_UNAUTHORIZED' }, 401);
   }
-  return json({ error: 'Could not complete the transfer.' }, 400);
+  return json({ error: 'Could not complete the transfer.', code: 'TRANSFER_ACCEPT_FAILED' }, 400);
 }
 
 Deno.serve(async (req) => {
@@ -105,7 +128,7 @@ Deno.serve(async (req) => {
         p_household_id: householdId,
       });
       if (error) {
-        return json({ error: error.message || 'Could not create transfer QR.' }, 400);
+        return mapCreateError(error.message || 'TRANSFER_CREATE_FAILED');
       }
       const row = Array.isArray(data) ? data[0] : data;
       if (!row || typeof row !== 'object') {

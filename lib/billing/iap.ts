@@ -25,6 +25,7 @@ import {
   type IapTokenPackKey,
 } from '@/constants/billing';
 import type { TokenGrant } from '@/lib/billing/token-grants';
+import { formatUnknownError } from '@/lib/errors/unknown-error';
 
 export { IAP_PRODUCTS, IAP_CONSUMABLES, ASC_IAP_SETUP_NOTES, isPremiumActive };
 export type { EntitlementState, IapProductKey, IapTokenPackKey };
@@ -160,7 +161,7 @@ async function finishPurchaseWithRetry(
   }
   throw lastError instanceof Error
     ? lastError
-    : new Error(`finishTransaction failed: ${String(lastError)}`);
+    : new Error(`finishTransaction failed: ${formatUnknownError(lastError, 'finish failed')}`);
 }
 
 export async function fetchEntitlement(): Promise<EntitlementState> {
@@ -227,9 +228,14 @@ export async function purchasePremium(
 
     const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const removeUpdated = iap.purchaseUpdatedListener((event) => {
+        const row = event as unknown as Record<string, unknown>;
+        const eventProductId = String(row.productId ?? row.id ?? '');
+        if (eventProductId && eventProductId !== product.productId) {
+          return;
+        }
         removeUpdated.remove();
         removeError.remove();
-        resolve(event as unknown as Record<string, unknown>);
+        resolve(row);
       });
       const removeError = iap.purchaseErrorListener((error) => {
         removeUpdated.remove();
@@ -270,6 +276,18 @@ export async function purchasePremium(
   });
 }
 
+function rejectPurchaseError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  if (error && typeof error === 'object') {
+    const row = error as { message?: string; code?: string; isEmptyProductList?: boolean | null };
+    if (row.isEmptyProductList) {
+      return new Error('sku_not_found: App Store returned no credit packs for this build.');
+    }
+    return new Error(formatUnknownError(error, 'Failed to request purchase'));
+  }
+  return new Error(formatUnknownError(error, 'Failed to request purchase'));
+}
+
 /**
  * Purchase a consumable token pack.
  * Order: validate product → grant tokens → finish (isConsumable: true).
@@ -298,21 +316,41 @@ export async function purchaseTokens(
 
   return withNativeIap(async (iap) => {
     await iap.initConnection();
-    await iap.fetchProducts({
+    const listed = await iap.fetchProducts({
       skus: [pack.productId],
       type: 'in-app',
     });
+    const products = Array.isArray(listed) ? listed : [];
+    const found = products.some((item) => {
+      const id = String(
+        (item as { productId?: string; id?: string }).productId ??
+          (item as { id?: string }).id ??
+          ''
+      );
+      return id === pack.productId;
+    });
+    if (!found) {
+      throw new Error(
+        `sku_not_found: ${pack.productId} is not available from App Store Connect for this build.`
+      );
+    }
 
     const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const removeUpdated = iap.purchaseUpdatedListener((event) => {
+        const row = event as unknown as Record<string, unknown>;
+        const eventProductId = String(row.productId ?? row.id ?? '');
+        // Ignore subscription renewals / other SKUs while waiting for this pack.
+        if (eventProductId && eventProductId !== pack.productId) {
+          return;
+        }
         removeUpdated.remove();
         removeError.remove();
-        resolve(event as unknown as Record<string, unknown>);
+        resolve(row);
       });
       const removeError = iap.purchaseErrorListener((error) => {
         removeUpdated.remove();
         removeError.remove();
-        reject(error);
+        reject(rejectPurchaseError(error));
       });
 
       void iap
@@ -328,7 +366,7 @@ export async function purchaseTokens(
         .catch((error: unknown) => {
           removeUpdated.remove();
           removeError.remove();
-          reject(error);
+          reject(rejectPurchaseError(error));
         });
     });
 
@@ -347,7 +385,16 @@ export async function purchaseTokens(
       productId,
     });
 
-    await finishPurchaseWithRetry(iap, purchase, true);
+    // Credits already granted — finish is bookkeeping. Never reverse a good grant
+    // into a "purchase failed" alert (that invites a second charge).
+    try {
+      await finishPurchaseWithRetry(iap, purchase, true);
+    } catch (finishError) {
+      console.warn(
+        'purchaseTokens finish after grant',
+        formatUnknownError(finishError, 'finishTransaction failed')
+      );
+    }
     return grant;
   });
 }

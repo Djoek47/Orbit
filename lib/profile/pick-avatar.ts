@@ -2,11 +2,10 @@
  * Shared avatar picker — Photos + Apple Image Playground (native iOS only).
  *
  * Whatever the source, the chosen image is copied into the app's document directory
- * before it is stored on `member.avatar`. Image Playground and the Photos picker both
- * hand back URIs in a temporary location the system reclaims, which is how avatars used
- * to turn into blank circles a day later.
- *
- * Cross-device photo sync needs Supabase Storage later (out of scope here).
+ * first (so the picker temp URI isn't reclaimed). In supabase mode, `updateMemberAvatar`
+ * then uploads that file to the `member-avatars` bucket and stores the https URL on
+ * `household_members.avatar_symbol` — so Playground pictures survive app delete and
+ * show on every household device. See `lib/profile/upload-avatar.ts`.
  */
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';

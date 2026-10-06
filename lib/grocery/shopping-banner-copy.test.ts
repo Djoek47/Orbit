@@ -22,9 +22,9 @@ assert.match(mid.title, /Shopping run|run/);
 assert.match(mid.subtitle, /3 of 8/);
 assert.ok(mid.progressBar.progress > 0 && mid.progressBar.progress < 1);
 
-// One Lock Screen page is roomy — three rows, then "+N more" for the rest of that preview helper.
+// One Lock Screen page shows BANNER_PAGE_SIZE (2) rows, then "+N more".
 assert.deepEqual(shoppingBannerList(['Milk', 'Eggs']), ['Milk', 'Eggs']);
-assert.deepEqual(shoppingBannerList(['a', 'b', 'c', 'd', 'e', 'f']), ['a', 'b', 'c', '+3 more']);
+assert.deepEqual(shoppingBannerList(['a', 'b', 'c', 'd', 'e', 'f']), ['a', 'b', '+4 more']);
 assert.deepEqual(shoppingBannerList(['a', 'b', 'c', 'd', 'e', 'f'], 3, 1), ['d', 'e', 'f']);
 assert.deepEqual(shoppingBannerList([' Milk ', '', '  ']), ['Milk']);
 

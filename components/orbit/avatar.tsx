@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 
 import { radius } from '@/constants/orbit-theme';
@@ -44,7 +45,12 @@ export function Avatar({
   const accent = orbit?.accentTheme.primary ?? '#38BDF8';
   const shell = orbit?.orbitPalette.background ?? '#070D1C';
   const dimension = SIZES[size];
-  const photo = imageUri && isAvatarImageUri(imageUri) ? imageUri : null;
+  const [photoFailed, setPhotoFailed] = useState(false);
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [imageUri]);
+  const photo =
+    !photoFailed && imageUri && isAvatarImageUri(imageUri) ? imageUri : null;
   const glyph = emoji || name.trim().charAt(0).toUpperCase() || '?';
 
   return (
@@ -67,6 +73,7 @@ export function Avatar({
           style={{ width: dimension, height: dimension }}
           contentFit="cover"
           accessibilityIgnoresInvertColors
+          onError={() => setPhotoFailed(true)}
         />
       ) : (
         <Text style={{ fontSize: dimension * FONT_RATIO }}>{glyph}</Text>

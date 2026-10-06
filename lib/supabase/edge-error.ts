@@ -21,21 +21,46 @@ export async function edgeErrorMessage(error: unknown, fallback: string): Promis
   return fallback;
 }
 
-/** Map transfer RPC / edge failures to short owner-facing copy. */
-export function friendlyTransferError(raw: string): string {
+export type TransferErrorIntent = 'create' | 'accept' | 'eligibility';
+
+const TRANSFER_FAILED_LEAD: Record<TransferErrorIntent, string> = {
+  create: 'Couldn’t create the transfer QR.',
+  accept: 'Couldn’t complete the transfer.',
+  eligibility: 'Couldn’t check this account.',
+};
+
+/**
+ * Map transfer RPC / edge failures to short copy for the person on screen.
+ * Accept runs on the receiver's phone — never tell them they failed to "create" a QR.
+ */
+export function friendlyTransferError(raw: string, intent: TransferErrorIntent = 'create'): string {
   const text = raw.trim();
   const lower = text.toLowerCase();
-  if (lower.includes('only the household owner')) {
+  const lead = TRANSFER_FAILED_LEAD[intent];
+  if (lower.includes('only the household owner') || lower.includes('transfer_forbidden')) {
     return 'Only the household owner can transfer ownership.';
   }
   if (lower.includes('not authenticated') || lower.includes('unauthorized')) {
     return 'Sign in again, then try the transfer.';
   }
-  if (lower.includes('could not find the function') || lower.includes('404')) {
+  if (
+    lower.includes('gen_random_bytes') ||
+    lower.includes('could not find the function') ||
+    lower.includes('transfer isn’t ready') ||
+    lower.includes('transfer isn\'t ready') ||
+    (intent !== 'accept' && lower.includes('404'))
+  ) {
     return 'Transfer isn’t available on this server yet. Try again after an update.';
   }
-  if (lower.includes('non-2xx') || lower.includes('edge function')) {
-    return 'Couldn’t create the transfer QR. Check your connection and try again.';
+  if (lower.includes('transfer_create_failed') || lower.includes('could not create the transfer qr')) {
+    return 'Couldn’t create the transfer QR. Try again in a moment.';
   }
-  return text || 'Could not create transfer QR.';
+  if (lower.includes('non-2xx') || lower.includes('edge function')) {
+    return `${lead} Check your connection and try again.`;
+  }
+  // Never surface raw Postgres / object dumps.
+  if (lower.includes('does not exist') || text === '[object Object]' || text.length > 180) {
+    return `${lead} Try again, or send feedback from Support.`;
+  }
+  return text || lead;
 }

@@ -194,7 +194,7 @@ begin
   where member_id = p_member_id
     and status = 'active';
 
-  v_token := encode(gen_random_bytes(16), 'hex');
+  v_token := encode(extensions.gen_random_bytes(16), 'hex');
 
   insert into public.member_invite_tokens (
     token, household_id, member_id, role, status, created_by, expires_at

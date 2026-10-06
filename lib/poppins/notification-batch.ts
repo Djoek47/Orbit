@@ -4,6 +4,11 @@
 
 import { DEADLINE_REMINDER_MINUTES } from '@/constants/scoring';
 import { VOCAB } from '@/constants/vocabulary';
+import {
+  DEFAULT_QUIET_HOURS_END,
+  DEFAULT_QUIET_HOURS_START,
+  isInQuietHoursWindow,
+} from '@/lib/notifications/quiet-hours';
 
 export type PendingDeadlineTask = {
   id: string;
@@ -45,23 +50,49 @@ export const DEFAULT_NOTIFICATION_TOGGLES: Record<NotificationCategory, boolean>
   reward_ready: true,
 };
 
-/** Quiet hours 21:00–07:00 household-local. Deadline reminders still fire (18:30). */
-export function isQuietHour(localHour: number): boolean {
-  return localHour >= 21 || localHour < 7;
+/**
+ * Quiet hours — default 21:00–07:00 household-local.
+ * Pass custom start/end HH:mm from notification prefs when set.
+ * Deadline reminders still fire.
+ */
+export function isQuietHour(
+  localHour: number,
+  startHm: string = DEFAULT_QUIET_HOURS_START,
+  endHm: string = DEFAULT_QUIET_HOURS_END,
+  localMinute = 0
+): boolean {
+  return isInQuietHoursWindow({
+    localHour,
+    localMinute,
+    startHm,
+    endHm,
+  });
 }
 
 /**
- * Queue non-urgent notifications past quiet hours to 07:00 next morning.
- * Deadline reminders are exempt.
+ * Queue non-urgent notifications past quiet hours to the configured end time.
+ * Deadline reminders are exempt. `nextQuietEndIso` is the next local end wall-time as ISO.
  */
 export function resolveSendAt(input: {
   generatedAtIso: string;
   localHour: number;
   kind: string;
   nextSevenAmIso: string;
+  startHm?: string;
+  endHm?: string;
+  localMinute?: number;
 }): string {
   if (input.kind === 'deadline_reminder') return input.generatedAtIso;
-  if (isQuietHour(input.localHour)) return input.nextSevenAmIso;
+  if (
+    isQuietHour(
+      input.localHour,
+      input.startHm ?? DEFAULT_QUIET_HOURS_START,
+      input.endHm ?? DEFAULT_QUIET_HOURS_END,
+      input.localMinute ?? 0
+    )
+  ) {
+    return input.nextSevenAmIso;
+  }
   return input.generatedAtIso;
 }
 

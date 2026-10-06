@@ -69,11 +69,16 @@ export default function TabLayout() {
     () => resolveUiRole(currentMember?.role, onboardingRole, sharedKid),
     [currentMember?.role, onboardingRole, sharedKid],
   );
-  const fifthSlot = useTabFifthSlot({
+  const fifthSlotRaw = useTabFifthSlot({
     role: currentMember?.role,
     members: household.members,
     memberId: currentMember?.id,
   });
+  // Belt-and-suspenders with the tab bar: personal admin always keeps Poppins.
+  const fifthSlot =
+    currentMember?.role === 'owner' || currentMember?.role === 'admin'
+      ? 'poppins'
+      : fifthSlotRaw;
 
   if (isLoading) {
     return null;
@@ -96,7 +101,8 @@ export default function TabLayout() {
     return <Redirect href={'/select-profile' as never} />;
   }
 
-  const showPlan = true;
+  // Make IA: Sidekicks / shared-tablet faces have no Plan tab.
+  const showPlan = uiRole !== 'child';
   const showRewards = true;
   // The fifth slot is Poppins only for an adult on their own device; a shared tablet shows
   // "Switch who's on" there, and a Sidekick gets four tabs.

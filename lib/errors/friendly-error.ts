@@ -16,6 +16,25 @@ export function friendlyErrorMessage(raw: string | null | undefined): string {
   if (lower.includes('proof_decode') || lower.includes('could not read the photo')) {
     return 'That photo couldn’t be read. Try another shot.';
   }
+  // Grant failures first — often arrive wrapped as "non-2xx" from supabase-js.
+  if (
+    lower.includes('grant_token_pack') ||
+    lower.includes('grant failed') ||
+    lower.includes('payment may have gone through')
+  ) {
+    return 'Payment may have gone through, but we couldn’t add credits to your household. Send feedback and we’ll fix it — don’t buy again until we confirm.';
+  }
+  if (
+    lower.includes('failed to request purchase') ||
+    lower.includes('empty product') ||
+    lower.includes('sku_not_found') ||
+    lower.includes('product_not_found') ||
+    lower.includes('item_unavailable') ||
+    lower.includes('storekit') ||
+    lower.includes('token_pack_product_mismatch')
+  ) {
+    return 'Apple couldn’t start this purchase. The credit pack may not be live in App Store Connect yet — try again later, or send feedback so we can check.';
+  }
   if (
     lower.includes('non-2xx') ||
     lower.includes('edge function') ||
@@ -44,6 +63,9 @@ export function looksLikeErrorAlert(title: string, message?: string): boolean {
     blob.includes('failed') ||
     blob.includes('error') ||
     blob.includes('went wrong') ||
-    blob.includes('try again')
+    blob.includes('try again') ||
+    blob.includes("didn't go through") ||
+    blob.includes('didn’t go through') ||
+    blob.includes('unavailable')
   );
 }
