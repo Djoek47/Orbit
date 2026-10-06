@@ -53,7 +53,7 @@ export function OrbitBrief({
       <Animated.View entering={FadeIn.duration(280)} style={styles.brand}>
         <ChoremaxxLogo size="md" />
         <Text style={[typography.title1, styles.title, { color: c.text }]}>
-          Before scoring, the shape of home
+          Turn Chores into XP. Run Your Household Like Never Before.
         </Text>
         <Text style={[styles.lede, { color: c.textMuted }]}>
           ChoreMaxx is the operating system for your household — shared work, Poppins, then you
