@@ -1,31 +1,42 @@
 /**
- * First screen after Get Started — plain context before reward-model choices.
- * One composition: what ChoreMaxx is, then Continue into reward strategy.
+ * First screen after Get Started — visual brief (House Rules energy), then Continue.
+ * Short labels + Moji cards; long explanations live later in the flow.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  ZoomIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
+import { Moji } from '@/components/orbit/moji/moji';
+import type { MojiName } from '@/components/orbit/moji/art';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { space, typography } from '@/constants/orbit-theme';
+import { space } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
-const POINTS = [
-  {
-    title: 'One household, shared work',
-    body: 'Tasks, groceries, and ranks live in one place so everyone sees the same picture.',
-  },
-  {
-    title: 'Poppins helps you run it',
-    body: 'Speak or type — chores, lists, and plans fill in without hunting through menus.',
-  },
-  {
-    title: 'You pick how effort pays off',
-    body: 'Next you’ll choose XP, rewards, allowance, or a mix — and whether harder chores earn more points or everyone earns the same. Change any of it later in Settings.',
-  },
-] as const;
+const PILLARS: ReadonlyArray<{
+  moji: MojiName;
+  color: string;
+  label: string;
+  hint: string;
+}> = [
+  { moji: 'home', color: '#7FC24A', label: 'One home', hint: 'Shared picture' },
+  { moji: 'poppins', color: '#4FA3FF', label: 'Poppins', hint: 'Speak it in' },
+  { moji: 'star', color: '#FF9F1C', label: 'Your XP', hint: 'You set the rules' },
+];
 
 export function OrbitBrief({
   accent,
@@ -50,36 +61,76 @@ export function OrbitBrief({
         <Text style={[styles.back, { color: accent }]}>Back</Text>
       </Pressable>
 
-      <Animated.View entering={FadeIn.duration(280)} style={styles.brand}>
+      <Animated.View entering={FadeIn.duration(280)} style={styles.heroBlock}>
         <ChoremaxxLogo size="md" />
-        <Text style={[typography.title1, styles.title, { color: c.text }]}>
-          Turn Chores into XP. Run Your Household Like Never Before.
-        </Text>
-        <Text style={[styles.lede, { color: c.textMuted }]}>
-          ChoreMaxx is the operating system for your household — shared work, Poppins, then you
-          choose how effort pays off.
-        </Text>
+        <Text style={[styles.title, { color: c.text }]}>Chores into XP</Text>
+        <Text style={[styles.lede, { color: c.textMuted }]}>Three beats. Then you choose.</Text>
       </Animated.View>
 
-      <View style={styles.points}>
-        {POINTS.map((point, index) => (
-          <Animated.View
-            key={point.title}
-            entering={FadeInDown.delay(80 + index * 70).duration(320)}
-            style={styles.point}>
-            <View style={[styles.mark, { backgroundColor: `${accent}28` }]}>
-              <Text style={[styles.markText, { color: accent }]}>{index + 1}</Text>
-            </View>
-            <View style={styles.pointCopy}>
-              <Text style={[styles.pointTitle, { color: c.text }]}>{point.title}</Text>
-              <Text style={[styles.pointBody, { color: c.textMuted }]}>{point.body}</Text>
-            </View>
-          </Animated.View>
+      <View style={styles.pillars}>
+        {PILLARS.map((pillar, index) => (
+          <PillarCard key={pillar.label} pillar={pillar} index={index} />
         ))}
       </View>
 
-      <OrbitButton onPress={onContinue}>Continue</OrbitButton>
+      <Animated.View entering={FadeInDown.delay(360).duration(320)} style={styles.cta}>
+        <OrbitButton onPress={onContinue}>Continue</OrbitButton>
+      </Animated.View>
     </View>
+  );
+}
+
+function PillarCard({
+  pillar,
+  index,
+}: {
+  pillar: (typeof PILLARS)[number];
+  index: number;
+}) {
+  const { c } = useOrbitColors();
+  const bob = useSharedValue(0);
+
+  useEffect(() => {
+    bob.set(
+      withDelay(
+        index * 120,
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.sin) })
+          ),
+          -1
+        )
+      )
+    );
+  }, [bob, index]);
+
+  const bobStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: -3.5 * bob.value },
+      { rotate: `${(bob.value - 0.5) * 4}deg` },
+    ],
+  }));
+
+  return (
+    <Animated.View
+      entering={ZoomIn.delay(100 + index * 90)
+        .springify()
+        .damping(16)}
+      style={styles.pillarWrap}>
+      <LinearGradient
+        colors={[`${pillar.color}44`, `${pillar.color}12`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.pillar, { borderColor: `${pillar.color}66` }]}>
+        <Animated.View
+          style={[styles.mojiWrap, { backgroundColor: `${pillar.color}2E` }, bobStyle]}>
+          <Moji name={pillar.moji} size={36} />
+        </Animated.View>
+        <Text style={[styles.pillarLabel, { color: c.text }]}>{pillar.label}</Text>
+        <Text style={[styles.pillarHint, { color: pillar.color }]}>{pillar.hint}</Text>
+      </LinearGradient>
+    </Animated.View>
   );
 }
 
@@ -87,6 +138,7 @@ const styles = StyleSheet.create({
   root: {
     flexGrow: 1,
     gap: space.lg,
+    justifyContent: 'center',
     paddingBottom: space.xl,
   },
   backRow: {
@@ -101,49 +153,61 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
   },
-  brand: {
-    gap: 12,
+  heroBlock: {
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 8,
   },
   title: {
-    letterSpacing: -0.6,
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    lineHeight: 40,
+    textAlign: 'center',
   },
   lede: {
     fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 23,
+    fontWeight: '600',
+    lineHeight: 22,
+    textAlign: 'center',
   },
-  points: {
-    gap: 18,
-  },
-  point: {
+  pillars: {
     flexDirection: 'row',
-    gap: 14,
-    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 4,
   },
-  mark: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
+  pillarWrap: {
+    flex: 1,
+  },
+  pillar: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
+    borderCurve: 'continuous',
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 8,
+    minHeight: 148,
+    paddingHorizontal: 8,
+    paddingVertical: 16,
   },
-  markText: {
+  mojiWrap: {
+    alignItems: 'center',
+    borderRadius: 22,
+    height: 64,
+    justifyContent: 'center',
+    width: 64,
+  },
+  pillarLabel: {
     fontSize: 15,
     fontWeight: '800',
-  },
-  pointCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  pointTitle: {
-    fontSize: 17,
-    fontWeight: '700',
     letterSpacing: -0.2,
+    textAlign: 'center',
   },
-  pointBody: {
-    fontSize: 15,
-    fontWeight: '500',
-    lineHeight: 21,
+  pillarHint: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  cta: {
+    marginTop: 8,
   },
 });
