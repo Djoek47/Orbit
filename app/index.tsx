@@ -63,6 +63,12 @@ export default function SplashEntry() {
     };
   }, [hasHousehold, isSignedIn]);
 
+  // Unsigned users: don't wait on invite peek forever — Get Started is the home.
+  // Invite deep-links still win once resolved below.
+  if (!isLoading && !isSignedIn && inviteRoute === undefined && needsPick === null) {
+    return <Redirect href="/welcome" />;
+  }
+
   if (isLoading || needsPick === null || inviteRoute === undefined) {
     return null;
   }

@@ -97,6 +97,17 @@ export async function signOutAndLeave(signOut: () => Promise<void>): Promise<voi
       }
       // Hold cover through scheduled dismiss+replace so X / Home cannot re-enter.
       await delay(SESSION_NAV_DELAY_MS + 80);
+      // Second shove — if dismiss/replace raced Settings close, land Get Started anyway.
+      try {
+        const { router } = await import('expo-router');
+        try {
+          router.dismissTo('/welcome' as never);
+        } catch {
+          router.replace('/welcome' as never);
+        }
+      } catch (retryError) {
+        console.warn('signOutAndLeave.navRetry', retryError);
+      }
     }
   })();
 

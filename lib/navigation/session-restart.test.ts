@@ -53,16 +53,17 @@ function main() {
   resetSessionEpochForTests();
 
   {
+    assert.equal(SESSION_RESTART_ROUTE, '/welcome');
     const calls: string[] = [];
     applySignedOutNavigation({
       canDismiss: () => true,
       dismissAll: () => calls.push('dismissAll'),
+      dismissTo: (href) => calls.push(`dismissTo:${href}`),
       replace: (href) => calls.push(`replace:${href}`),
     });
-    assert.equal(SESSION_RESTART_ROUTE, '/');
-    assert.deepEqual(calls, ['dismissAll', 'replace:/']);
+    assert.deepEqual(calls, ['dismissTo:/welcome']);
     assert.equal(getSessionEpoch(), 0);
-    pass('navigation dismisses and replaces without remounting');
+    pass('navigation prefers dismissTo Get Started (no remount)');
   }
 
   {
@@ -72,9 +73,9 @@ function main() {
       dismissAll: () => calls.push('dismissAll'),
       replace: (href) => calls.push(`replace:${href}`),
     });
-    assert.deepEqual(calls, ['dismissAll', 'replace:/']);
+    assert.deepEqual(calls, ['dismissAll', 'replace:/welcome']);
     assert.equal(getSessionEpoch(), 0);
-    pass('sync restart does not remount (IPA 50 login crash)');
+    pass('sync restart falls back to dismissAll + replace /welcome');
   }
 
   {
@@ -84,7 +85,7 @@ function main() {
       dismissAll: () => calls.push('dismissAll'),
       replace: (href) => calls.push(`replace:${href}`),
     });
-    assert.deepEqual(calls, ['replace:/']);
+    assert.deepEqual(calls, ['replace:/welcome']);
     pass('restart skips dismiss when nothing is presented');
   }
 
@@ -96,12 +97,26 @@ function main() {
       },
       dismissAll: () => calls.push('dismissAll'),
       replace: (href) => {
-        if (href === '/') throw new Error('replace failed');
+        if (href === '/welcome') throw new Error('replace welcome failed');
         calls.push(`replace:${href}`);
       },
     });
-    assert.deepEqual(calls, ['replace:/welcome']);
-    pass('restart falls back to /welcome if / replace throws');
+    assert.deepEqual(calls, ['replace:/']);
+    pass('restart falls back to / if /welcome replace throws');
+  }
+
+  {
+    const calls: string[] = [];
+    restartSignedOutSession({
+      dismissTo: () => {
+        throw new Error('dismissTo failed');
+      },
+      canDismiss: () => true,
+      dismissAll: () => calls.push('dismissAll'),
+      replace: (href) => calls.push(`replace:${href}`),
+    });
+    assert.deepEqual(calls, ['dismissAll', 'replace:/welcome']);
+    pass('dismissTo failure falls back to dismissAll + replace');
   }
 
   resetSessionEpochForTests();
@@ -115,6 +130,7 @@ function main() {
       {
         canDismiss: () => true,
         dismissAll: () => calls.push('dismissAll'),
+        dismissTo: (href) => calls.push(`dismissTo:${href}`),
         replace: (href) => calls.push(`replace:${href}`),
       },
       (fn, ms) => {
@@ -138,7 +154,7 @@ function main() {
       'IPA 50 must not remount Stack after Get Started',
     );
     scheduled[0].fn();
-    assert.deepEqual(calls, ['dismissAll', 'replace:/']);
+    assert.deepEqual(calls, ['dismissTo:/welcome']);
     assert.equal(getSessionEpoch(), 0);
     pass('scheduled restart navigates only — no remount');
   }
@@ -179,7 +195,11 @@ function main() {
     assert.equal(
       signedOut.includes('return <Redirect'),
       false,
-      'tabs must not stack /welcome',
+      'tabs must not stack /welcome via Redirect',
+    );
+    assert.ok(
+      tabs.includes("router.replace('/welcome'") || tabs.includes('router.replace("/welcome"'),
+      'tabs safety net must replace /welcome when signed out',
     );
     const layout = readFileSync(join(root, 'app/_layout.tsx'), 'utf8');
     assert.equal(
@@ -198,6 +218,11 @@ function main() {
     const reset = readFileSync(join(root, 'lib/navigation/reset-to-get-started.ts'), 'utf8');
     assert.ok(reset.includes('scheduleSignedOutRestart'));
     assert.ok(reset.includes('cancelSignedOutRestart'));
+    assert.ok(reset.includes('dismissTo'), 'expo nav must wire dismissTo');
+    const leave = readFileSync(join(root, 'lib/auth/sign-out-and-leave.ts'), 'utf8');
+    assert.ok(leave.includes("dismissTo('/welcome'") || leave.includes('dismissTo("/welcome"'));
+    const index = readFileSync(join(root, 'app/index.tsx'), 'utf8');
+    assert.ok(index.includes('Redirect href="/welcome"'), 'index sends unsigned users to Get Started');
     const signIn = readFileSync(join(root, 'app/sign-in.tsx'), 'utf8');
     const welcome = readFileSync(join(root, 'app/welcome.tsx'), 'utf8');
     const confirm = readFileSync(join(root, 'app/confirm-email.tsx'), 'utf8');

@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, router, Tabs } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -50,6 +50,20 @@ export default function TabLayout() {
     };
   }, [currentMember?.id, isSignedIn]);
 
+  // Safety net: tabs used to return null when signed out and wait for root
+  // replace('/'). If that handoff missed, users stayed on a blank dark screen.
+  useEffect(() => {
+    if (isLoading || isSignedIn) return;
+    const t = setTimeout(() => {
+      try {
+        router.replace('/welcome' as never);
+      } catch (error) {
+        console.warn('tabs.signedOut.replaceWelcome', error);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [isLoading, isSignedIn]);
+
   const sharedKid = isSharedDeviceAccount(currentMember, household.members);
   const uiRole = useMemo(
     () => resolveUiRole(currentMember?.role, onboardingRole, sharedKid),
@@ -66,8 +80,7 @@ export default function TabLayout() {
   }
 
   if (!isSignedIn) {
-    // Do not Redirect to /welcome from inside tabs — that stacks Get Started
-    // on Home/Tasks after sign-out. Root index remounts to Get Started.
+    // Brief blank while replace('/welcome') runs (sign-out leave + safety net).
     return null;
   }
 

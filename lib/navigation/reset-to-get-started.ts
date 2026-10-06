@@ -26,6 +26,9 @@ function expoRestartNav(): RestartNav {
     dismissAll: () => {
       router.dismissAll();
     },
+    dismissTo: (href) => {
+      router.dismissTo(href);
+    },
     replace: (href) => {
       router.replace(href);
     },

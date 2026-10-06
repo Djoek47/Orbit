@@ -179,8 +179,10 @@ test('Pass C3: orbitAlert defers destructive until Modal settles', () => {
   assert.equal(alert.includes('requestAnimationFrame(() => btn.onPress'), false);
 });
 
-test('Pass C4: session restart dismisses modals then replaces root (no auto remount)', () => {
+test('Pass C4: session restart dismisses modals then lands Get Started (no auto remount)', () => {
   const restart = read('lib/navigation/session-restart.ts');
+  assert.match(restart, /SESSION_RESTART_ROUTE = '\/welcome'/);
+  assert.match(restart, /dismissTo/);
   assert.match(restart, /dismissAll/);
   assert.match(restart, /SESSION_NAV_DELAY_MS/);
   assert.match(restart, /applySignedOutNavigation/);
@@ -193,4 +195,6 @@ test('Pass C4: session restart dismisses modals then replaces root (no auto remo
     restart,
     /schedule\(\(\) => remountSignedOutSession/
   );
+  assert.match(read('lib/navigation/reset-to-get-started.ts'), /dismissTo/);
+  assert.match(read('lib/auth/sign-out-and-leave.ts'), /dismissTo\('\/welcome'/);
 });
