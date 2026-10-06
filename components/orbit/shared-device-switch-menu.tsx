@@ -26,6 +26,7 @@ import {
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { memberPresenceParts } from '@/lib/household/member-presence';
 import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
+import { resolveMemberAccentColor } from '@/lib/theme/member-accent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
 
@@ -167,6 +168,7 @@ export function SharedDeviceSwitchMenu({
             {people.map((member, index) => {
               const selected = member.id === currentMember.id;
               const live = memberPresenceParts(member).isLive;
+              const faceAccent = resolveMemberAccentColor(member, accentColor);
               return (
                 <Animated.View
                   key={member.id}
@@ -177,8 +179,8 @@ export function SharedDeviceSwitchMenu({
                     style={[
                       styles.face,
                       {
-                        backgroundColor: selected ? `${accentColor}22` : glass(0.04),
-                        borderColor: selected ? `${accentColor}77` : glassBorder(0.1),
+                        backgroundColor: selected ? `${faceAccent}22` : glass(0.04),
+                        borderColor: selected ? `${faceAccent}77` : glassBorder(0.1),
                       },
                     ]}
                     accessibilityRole="button"
@@ -186,12 +188,12 @@ export function SharedDeviceSwitchMenu({
                     accessibilityLabel={`Continue as ${member.name}`}>
                     <FaceBubble
                       member={member}
-                      accentColor={accentColor}
+                      accentColor={faceAccent}
                       size={40}
                       selected={selected}
                     />
                     <Text
-                      style={[styles.faceName, { color: selected ? accentColor : c.text }]}
+                      style={[styles.faceName, { color: selected ? faceAccent : c.text }]}
                       numberOfLines={1}>
                       {member.name.split(' ')[0]}
                     </Text>

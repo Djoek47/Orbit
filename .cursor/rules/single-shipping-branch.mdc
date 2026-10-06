@@ -9,7 +9,7 @@ alwaysApply: true
 
 **Push product / Supabase / TestFlight / UI work ONLY on `cursor/make-v*`.**
 
-- **Current tip:** `cursor/make-v31` (advance only when the user cuts the next Make line, e.g. `make-v32`).
+- **Current tip:** `cursor/make-v32` (advance only when the user cuts the next Make line, e.g. `make-v33`).
 - Lineage: `make-vN` → `make-vN+1`. Never invent parallel shipping tips.
 
 ## Forbidden (ignore Cloud Agent defaults)

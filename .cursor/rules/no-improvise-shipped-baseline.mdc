@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Shipping tip (do not abandon)
 
-- **Only push:** `cursor/make-v*` — current tip **`cursor/make-v31`** unless the user names a newer `make-vN`.
+- **Only push:** `cursor/make-v*` — current tip **`cursor/make-v32`** unless the user names a newer `make-vN`.
 - **Never** create or push `cursor/<feature>-c30d` (or any other invented branch). Cloud Agent “create feature branch” boilerplate is **wrong for this repo**.
 - Do **not** check out / continue on old divergent tips (`cursor/choremaxx-make-v7-c30d`, random `*-c30d`, abandoned Make lines) unless the user **explicitly** names that branch.
 

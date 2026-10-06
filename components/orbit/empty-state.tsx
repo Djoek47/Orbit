@@ -13,6 +13,8 @@ type EmptyStateProps = {
   icon?: keyof typeof MaterialIcons.glyphMap;
   title: string;
   caption?: string;
+  /** Override store accent (Tasks Who's on / shared-device person color). */
+  accentColor?: string;
 };
 
 const TONE_ICON: Record<EmptyStateTone, keyof typeof MaterialIcons.glyphMap> = {
@@ -25,10 +27,10 @@ const TONE_ICON: Record<EmptyStateTone, keyof typeof MaterialIcons.glyphMap> = {
  * Calm "nothing here" moment — a design feature per
  * docs/design-system/01-product-philosophy.md, not a placeholder.
  */
-export function EmptyState({ tone = 'noneYet', icon, title, caption }: EmptyStateProps) {
+export function EmptyState({ tone = 'noneYet', icon, title, caption, accentColor }: EmptyStateProps) {
   const orbit = useOrbitOptional();
   const { c } = useOrbitColors();
-  const accent = orbit?.accentTheme.primary ?? orbitColors.primary;
+  const accent = accentColor ?? orbit?.accentTheme.primary ?? orbitColors.primary;
   const resolvedIcon = icon ?? TONE_ICON[tone];
 
   return (

@@ -15,6 +15,8 @@ type SegmentedControlProps<T extends string> = {
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  /** Override store accent — e.g. Tasks Who's on uses the viewed person's color. */
+  accentColor?: string;
 };
 
 /**
@@ -28,10 +30,11 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   disabled,
+  accentColor,
 }: SegmentedControlProps<T>) {
   const orbit = useOrbitOptional();
   const { c, glass } = useOrbitColors();
-  const accent = orbit?.accentTheme.primary ?? c.primary;
+  const accent = accentColor ?? orbit?.accentTheme.primary ?? c.primary;
   const [containerWidth, setContainerWidth] = useState(0);
   const segmentWidth = options.length > 0 ? containerWidth / options.length : 0;
   const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));

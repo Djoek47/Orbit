@@ -295,6 +295,7 @@ import {
   saveAccentThemeId,
   saveMemberAccentThemeId,
 } from '@/lib/theme/accent-prefs';
+import { resolveMemberAccentTheme } from '@/lib/theme/member-accent';
 import {
   loadAppearanceMode,
   loadBackgroundThemeId,
@@ -5368,14 +5369,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
   const resolvedPaletteId = useMemo<ColorPaletteId>(() => {
-    if (currentMember?.accentThemeId) {
-      return migrateColorPaletteId(currentMember.accentThemeId);
+    // Shared-device Switch: Jack/Emma (and personal accentThemeId) drive the whole chrome.
+    if (currentMember) {
+      return resolveMemberAccentTheme(currentMember, household.accentThemeId).id;
     }
     if (household.accentThemeId) {
       return migrateColorPaletteId(household.accentThemeId);
     }
     return migrateColorPaletteId(paletteId ?? DEFAULT_COLOR_PALETTE_ID);
-  }, [currentMember?.accentThemeId, household.accentThemeId, paletteId]);
+  }, [currentMember, household.accentThemeId, paletteId]);
 
   const accentTheme = useMemo(
     () => getAccentTheme(resolvedPaletteId),

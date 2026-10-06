@@ -171,7 +171,8 @@ export const mockHousehold: HouseholdSnapshot = {
       weekXp: 45,
       streak: 3,
       loadShare: 8,
-      accentThemeId: 'berry',
+      /** Citrus yellow — designated shared-device look */
+      accentThemeId: 'citrus',
       profileInviteCode: 'CMX-EMMA',
       homeworkProofRequired: true,
     },
