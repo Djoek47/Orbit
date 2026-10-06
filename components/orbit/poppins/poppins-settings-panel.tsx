@@ -28,6 +28,7 @@ import { getMajordomoProfile } from '@/lib/ai/majordomo-profiles';
 import { poppinsVoice, resolvePoppinsVoice } from '@/lib/ai/poppins-voices';
 import type { PoppinsInteractionPrefs } from '@/lib/poppins/poppins-prefs';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbit } from '@/store/orbit-store';
 
 type Props = {
   prefs: PoppinsInteractionPrefs;
@@ -52,6 +53,8 @@ export function PoppinsSettingsPanel({
   onVoiceWheelInteraction,
 }: Props) {
   const { c, glassBorder, isDark } = useOrbitColors();
+  const { currentMember } = useOrbit();
+  const memberFirstName = currentMember?.name?.split(' ')[0] ?? null;
   const voiceId = useMemo(
     () =>
       resolvePoppinsVoice({
@@ -116,6 +119,7 @@ export function PoppinsSettingsPanel({
           <VoiceWheel
             voiceId={voiceId}
             disabled={readOnly}
+            memberFirstName={memberFirstName}
             onSelect={(next) => onPrefs({ ...prefs, voiceId: next })}
             onInteractionChange={onVoiceWheelInteraction}
           />
