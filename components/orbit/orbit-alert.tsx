@@ -8,6 +8,7 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import {
   createContext,
   useCallback,
@@ -57,8 +58,44 @@ export function orbitAlert(
 ): void {
   const isError = options?.record ?? looksLikeErrorAlert(title, message);
   const displayMessage = isError ? friendlyErrorMessage(message) : message;
-  const resolvedButtons =
-    buttons && buttons.length > 0 ? buttons : [{ text: 'OK', style: 'default' as const }];
+  const hasCustomButtons = Boolean(buttons && buttons.length > 0);
+
+  const presentWith = (resolvedButtons: OrbitAlertButton[]) => {
+    if (!hostApi) {
+      // Provider not mounted yet — fall back so we never swallow the message.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { Alert } = require('react-native') as typeof import('react-native');
+      Alert.alert(title, displayMessage, resolvedButtons as never);
+      return;
+    }
+    hostApi.present({
+      title,
+      message: displayMessage,
+      buttons: resolvedButtons,
+      record: isError,
+    });
+  };
+
+  // Error loop: record, then offer Send feedback → Support (docs/error-feedback-loop.md).
+  if (isError && (message || title) && !hasCustomButtons) {
+    void recordAppError({
+      title,
+      message: message?.trim() || title,
+      source: options?.source ?? 'alert',
+      category: options?.category,
+    }).then((entry) => {
+      presentWith([
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Send feedback',
+          onPress: () => {
+            router.push(`/support?errorId=${encodeURIComponent(entry.id)}` as never);
+          },
+        },
+      ]);
+    });
+    return;
+  }
 
   if (isError && (message || title)) {
     void recordAppError({
@@ -69,20 +106,7 @@ export function orbitAlert(
     });
   }
 
-  if (!hostApi) {
-    // Provider not mounted yet — fall back so we never swallow the message.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Alert } = require('react-native') as typeof import('react-native');
-    Alert.alert(title, displayMessage, resolvedButtons as never);
-    return;
-  }
-
-  hostApi.present({
-    title,
-    message: displayMessage,
-    buttons: resolvedButtons,
-    record: isError,
-  });
+  presentWith(hasCustomButtons ? buttons! : [{ text: 'OK', style: 'default' }]);
 }
 
 const OrbitAlertContext = createContext<{ dismiss: () => void } | null>(null);

@@ -59,8 +59,8 @@ const KIND_OPTIONS: KindMeta[] = [
 ];
 
 const MAPS_OPTS: { value: PreferredMapsApp; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'apple', label: 'Apple' },
+  { value: 'auto', label: 'AutoNav' },
+  { value: 'apple', label: 'Plans' },
   { value: 'google', label: 'Google' },
   { value: 'waze', label: 'Waze' },
 ];

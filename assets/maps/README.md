@@ -1,10 +1,12 @@
 # Maps brand assets (WO14 §5)
 
-Put official brand marks here when licensed:
+Shipped marks for Settings → Places and the Places sheet:
 
-- `apple-maps.png`
-- `google-maps.png`
-- `waze.png`
+| File | App |
+| --- | --- |
+| `autonav.png` | AutoNav (automatic / best available) |
+| `apple-maps.png` | Apple Maps (Plans) |
+| `google-maps.png` | Google Maps |
+| `waze.png` | Waze |
 
-Until these files exist, Settings → Places shows **neutral letter tiles**
-(Auto / A / G / W). Do not hand-draw brand logos.
+`MapsAppMark` loads these via `require`. Keep square PNGs (~256×256).

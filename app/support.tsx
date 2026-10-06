@@ -4,7 +4,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -40,6 +40,8 @@ export default function SupportScreen() {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const { accentTheme, currentMember, household, redemptions } = useOrbit();
   const accent = accentTheme.primary;
+  const params = useLocalSearchParams<{ errorId?: string | string[] }>();
+  const focusErrorId = Array.isArray(params.errorId) ? params.errorId[0] : params.errorId;
   const [entries, setEntries] = useState<AppErrorEntry[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [note, setNote] = useState('');
@@ -51,12 +53,18 @@ export default function SupportScreen() {
     const next = await loadErrorLog();
     setEntries(next);
     setSelectedIds((prev) => {
+      if (focusErrorId && next.some((e) => e.id === focusErrorId)) {
+        return new Set([focusErrorId]);
+      }
       if (prev.size === 0 && next[0]) return new Set([next[0]!.id]);
       const keep = new Set([...prev].filter((id) => next.some((e) => e.id === id)));
       if (keep.size === 0 && next[0]) keep.add(next[0].id);
       return keep;
     });
-  }, []);
+    if (focusErrorId && next.some((e) => e.id === focusErrorId)) {
+      setExpandedId(focusErrorId);
+    }
+  }, [focusErrorId]);
 
   useEffect(() => {
     void refresh();
@@ -144,7 +152,9 @@ export default function SupportScreen() {
           <Text style={[styles.eyebrow, { color: accent }]}>Help</Text>
           <Text style={[styles.title, { color: isDark ? '#F7F2EC' : c.text }]}>Support</Text>
           <Text style={[styles.subtitle, { color: c.textMuted }]}>
-            Pick saved errors, add a screenshot if you want, then send.
+            {focusErrorId
+              ? 'This error is selected from the alert — add a note if you want, then send.'
+              : 'Pick saved errors, add a screenshot if you want, then send.'}
           </Text>
         </Animated.View>
 
