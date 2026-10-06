@@ -67,6 +67,23 @@ assert.match(read('components/orbit/shared-device-switch-menu.tsx'), /no sign-ou
 assert.match(read('components/orbit/make-tab-bar.tsx'), /markNeedsProfilePick\(members\)/);
 assert.match(read('components/orbit/switch-people-icon.tsx'), /Switch \$\{n\} people/);
 
+// Pass 2b — Connected chip is device-level (same for Jack and Emma), not lastSeen.
+{
+  const menu = read('components/orbit/shared-device-switch-menu.tsx');
+  assert.match(menu, /isSharedTabletDeviceSession\(session\)/);
+  assert.match(menu, /connected \? 'Connected' : 'Not connected'/);
+  assert.doesNotMatch(
+    menu,
+    /memberPresenceParts\(currentMember\)/,
+    'status chip must not use per-face Sidekick presence'
+  );
+  assert.doesNotMatch(
+    menu,
+    /connected \? 'Connected' : deviceName/,
+    'must not fall back to Emma\'s device / shell name on the status chip'
+  );
+}
+
 // Pass 3 — select-profile never auto-splash when roster has 2+.
 const select = read('app/select-profile.tsx');
 assert.match(select, /showPersonalSplash/);

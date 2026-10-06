@@ -14,6 +14,7 @@ import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { Moji } from '@/components/orbit/moji/moji';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import {
+  isSharedTabletDeviceSession,
   reconcileHostedDeviceSession,
   selectDeviceProfile,
   type DeviceSession,
@@ -72,8 +73,12 @@ export function SharedDeviceSwitchMenu({
 
   const firstName = currentMember.name.trim().split(/\s+/)[0] || currentMember.name;
   const deviceName = normalizeSharedDeviceLabel(session?.deviceLabel || shell?.name);
-  const presence = memberPresenceParts(currentMember);
-  const connected = presence.isLive || presence.connectionLabel === 'Connected';
+  // Shared-tablet status is the *device* link — same blue "Connected" for Jack
+  // and Emma. Do not key off each face's Sidekick lastSeen (that made one face
+  // show "Connected" and the other fall back to "Emma's device").
+  const connected =
+    isSharedTabletDeviceSession(session) ||
+    (session?.mode === 'shared' && people.length >= 2);
 
   const pick = async (member: HouseholdMember) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -128,9 +133,7 @@ export function SharedDeviceSwitchMenu({
             },
           ]}
           accessibilityLabel={
-            connected
-              ? `Connected on ${deviceName}`
-              : `Shared device ${deviceName}`
+            connected ? `Connected on ${deviceName}` : `Shared device ${deviceName}`
           }>
           <View
             style={[
@@ -144,7 +147,7 @@ export function SharedDeviceSwitchMenu({
               { color: connected ? '#38BDF8' : c.textMuted },
             ]}
             numberOfLines={1}>
-            {connected ? 'Connected' : deviceName}
+            {connected ? 'Connected' : 'Not connected'}
           </Text>
         </View>
       </View>
