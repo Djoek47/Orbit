@@ -1739,7 +1739,10 @@ async function loadHouseholdSnapshot(householdId: string, userId: string): Promi
     accentThemeId: 'sky',
     taskTemplates: [],
     notificationPrefs: mergeNotificationPrefs({
-      server: (household as { notification_prefs?: Record<string, boolean> }).notification_prefs,
+      server: (household as { notification_prefs?: Record<string, unknown> }).notification_prefs as
+        | import('@/types/orbit').PoppinsNotificationPrefs
+        | null
+        | undefined,
       local: null,
     }),
     customHouseRules: mappedCustomRules,

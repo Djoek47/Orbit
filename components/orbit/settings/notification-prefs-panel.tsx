@@ -5,12 +5,21 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
 import type { MojiName } from '@/components/orbit/moji/art';
+import {
+  DEFAULT_QUIET_HOURS_END,
+  DEFAULT_QUIET_HOURS_START,
+  formatQuietHmDisplay,
+  normalizeQuietHm,
+  quietHoursChipLabel,
+  quietHoursPickerValues,
+} from '@/lib/notifications/quiet-hours';
 import {
   SMART_DELIVERY_CHIPS,
   SMART_DELIVERY_HERO,
@@ -24,6 +33,10 @@ import type { PoppinsNotificationPrefs } from '@/types/orbit';
 const SMART_TONE = '#8E7CFF';
 const QUIET_TONE = '#7C9CFF';
 const OS_TONE = '#FF9F1C';
+const QUIET_HOURS = quietHoursPickerValues();
+const HOUR_CHIP_W = 64;
+
+type QuietEdit = 'start' | 'end' | null;
 
 type Props = {
   prefs: PoppinsNotificationPrefs;
@@ -33,12 +46,15 @@ type Props = {
   onUpdate: (patch: Partial<PoppinsNotificationPrefs>) => void;
   onEnableOsBanners: () => void;
   onOpenOsSettings: () => void;
+  /** Household clock — Quiet chips follow 12h/24h. */
+  use24h?: boolean;
 };
 
 function isOn(prefs: PoppinsNotificationPrefs, key: NotifPrefKey): boolean {
   if (key === 'quietHoursEnabled' || key === 'smartDelivery') {
     return prefs[key] !== false;
   }
+  if (key === 'quietHoursStart' || key === 'quietHoursEnd') return true;
   return Boolean(prefs[key]);
 }
 
@@ -50,34 +66,61 @@ export function NotificationPrefsPanel({
   onUpdate,
   onEnableOsBanners,
   onOpenOsSettings,
+  use24h = true,
 }: Props) {
   const { c, glassBorder, isDark } = useOrbitColors();
   const smartOn = isOn(prefs, 'smartDelivery');
   const quietOn = isOn(prefs, 'quietHoursEnabled');
+  const quietStart = normalizeQuietHm(prefs.quietHoursStart, DEFAULT_QUIET_HOURS_START);
+  const quietEnd = normalizeQuietHm(prefs.quietHoursEnd, DEFAULT_QUIET_HOURS_END);
+  const [quietEdit, setQuietEdit] = useState<QuietEdit>(null);
+  const hourScrollRef = useRef<ScrollView>(null);
   const channelOn = channelGroups()
     .flatMap((g) => g.keys)
     .filter((key) => isOn(prefs, key)).length;
 
-  const facts = [
-    {
-      moji: (osStatus === 'granted' ? 'bell' : 'bell') as MojiName,
-      value: osStatus === 'granted' ? 'On' : 'Off',
-      label: 'banners',
-      color: OS_TONE,
-    },
-    {
-      moji: 'sparkles' as MojiName,
-      value: smartOn ? 'Smart' : 'Manual',
-      label: 'delivery',
-      color: SMART_TONE,
-    },
-    {
-      moji: 'moon' as MojiName,
-      value: quietOn ? '21–7' : 'Off',
-      label: 'quiet',
-      color: QUIET_TONE,
-    },
-  ];
+  const activeQuietHm = quietEdit === 'end' ? quietEnd : quietStart;
+
+  useEffect(() => {
+    if (!quietOn) setQuietEdit(null);
+  }, [quietOn]);
+
+  useEffect(() => {
+    if (!quietEdit) return;
+    const index = QUIET_HOURS.indexOf(activeQuietHm);
+    if (index < 0) return;
+    const timer = setTimeout(() => {
+      hourScrollRef.current?.scrollTo({
+        x: Math.max(0, index * (HOUR_CHIP_W + 8) - 40),
+        animated: true,
+      });
+    }, 40);
+    return () => clearTimeout(timer);
+  }, [quietEdit, activeQuietHm]);
+
+  const facts = useMemo(
+    () => [
+      {
+        moji: (osStatus === 'granted' ? 'bell' : 'bell') as MojiName,
+        value: osStatus === 'granted' ? 'On' : 'Off',
+        label: 'banners',
+        color: OS_TONE,
+      },
+      {
+        moji: 'sparkles' as MojiName,
+        value: smartOn ? 'Smart' : 'Manual',
+        label: 'delivery',
+        color: SMART_TONE,
+      },
+      {
+        moji: 'moon' as MojiName,
+        value: quietOn ? quietHoursChipLabel(quietStart, quietEnd, use24h) : 'Off',
+        label: 'quiet',
+        color: QUIET_TONE,
+      },
+    ],
+    [osStatus, smartOn, quietOn, quietStart, quietEnd, use24h]
+  );
 
   return (
     <View style={styles.root}>
@@ -191,31 +234,124 @@ export function NotificationPrefsPanel({
         </LinearGradient>
       </Animated.View>
 
-      {/* Quiet hours — compact companion to Smart */}
+      {/* Quiet hours — toggle + premium adjustable window */}
       <Animated.View entering={FadeInDown.delay(160).duration(260)}>
-        <View
+        <LinearGradient
+          colors={
+            quietOn
+              ? [`${QUIET_TONE}40`, `${QUIET_TONE}14`, `${SMART_TONE}10`]
+              : [`${QUIET_TONE}18`, `${QUIET_TONE}08`]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={[
-            styles.quietRow,
-            {
-              backgroundColor: `${QUIET_TONE}14`,
-              borderColor: quietOn ? `${QUIET_TONE}66` : `${QUIET_TONE}33`,
-            },
+            styles.quietCard,
+            { borderColor: quietOn ? `${QUIET_TONE}88` : `${QUIET_TONE}33` },
           ]}>
-          <View style={[styles.quietIcon, { backgroundColor: `${QUIET_TONE}28` }]}>
-            <Moji name="moon" size={20} />
+          <View style={styles.quietTop}>
+            <View style={[styles.quietIcon, { backgroundColor: `${QUIET_TONE}28` }]}>
+              <Moji name="moon" size={20} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <Text style={[styles.rowTitle, { color: c.text }]}>Quiet hours</Text>
+              <Text style={[styles.rowSub, { color: c.textMuted }]}>
+                {quietHoursCopy(quietStart, quietEnd, use24h)}
+              </Text>
+            </View>
+            <Switch
+              value={quietOn}
+              onValueChange={(value) => {
+                if (!value) setQuietEdit(null);
+                onUpdate({ quietHoursEnabled: value });
+              }}
+              trackColor={{ false: glassBorder(0.14), true: QUIET_TONE }}
+              thumbColor="#fff"
+              accessibilityLabel="Quiet hours"
+            />
           </View>
-          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <Text style={[styles.rowTitle, { color: c.text }]}>Quiet hours</Text>
-            <Text style={[styles.rowSub, { color: c.textMuted }]}>{quietHoursCopy()}</Text>
-          </View>
-          <Switch
-            value={quietOn}
-            onValueChange={(value) => onUpdate({ quietHoursEnabled: value })}
-            trackColor={{ false: glassBorder(0.14), true: QUIET_TONE }}
-            thumbColor="#fff"
-            accessibilityLabel="Quiet hours"
-          />
-        </View>
+
+          {quietOn ? (
+            <View style={styles.quietSchedule}>
+              <View style={styles.quietEnds}>
+                <QuietBoundChip
+                  label="Starts"
+                  value={formatQuietHmDisplay(quietStart, use24h)}
+                  selected={quietEdit === 'start'}
+                  tone={QUIET_TONE}
+                  textColor={c.text}
+                  mutedColor={c.textMuted}
+                  onPress={() => setQuietEdit((cur) => (cur === 'start' ? null : 'start'))}
+                />
+                <View style={[styles.quietArrow, { backgroundColor: `${QUIET_TONE}22` }]}>
+                  <MaterialIcons name="arrow-forward" size={14} color={QUIET_TONE} />
+                </View>
+                <QuietBoundChip
+                  label="Ends"
+                  value={formatQuietHmDisplay(quietEnd, use24h)}
+                  selected={quietEdit === 'end'}
+                  tone={QUIET_TONE}
+                  textColor={c.text}
+                  mutedColor={c.textMuted}
+                  onPress={() => setQuietEdit((cur) => (cur === 'end' ? null : 'end'))}
+                />
+              </View>
+
+              {quietEdit ? (
+                <View style={styles.quietPicker}>
+                  <Text style={[styles.quietPickerLabel, { color: QUIET_TONE }]}>
+                    {quietEdit === 'start' ? 'Start time' : 'End time'}
+                  </Text>
+                  <ScrollView
+                    ref={hourScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.hourRow}>
+                    {QUIET_HOURS.map((hm) => {
+                      const on = hm === activeQuietHm;
+                      return (
+                        <Pressable
+                          key={hm}
+                          onPress={() => {
+                            if (quietEdit === 'start') {
+                              onUpdate({ quietHoursStart: hm });
+                            } else {
+                              onUpdate({ quietHoursEnd: hm });
+                            }
+                          }}
+                          style={[
+                            styles.hourChip,
+                            {
+                              width: HOUR_CHIP_W,
+                              backgroundColor: on ? `${QUIET_TONE}33` : glassFill(isDark),
+                              borderColor: on ? `${QUIET_TONE}99` : glassBorder(0.1),
+                            },
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: on }}
+                          accessibilityLabel={`Quiet ${quietEdit} ${formatQuietHmDisplay(hm, use24h)}`}>
+                          <Text
+                            style={[
+                              styles.hourChipText,
+                              { color: on ? c.text : c.textMuted },
+                            ]}>
+                            {formatQuietHmDisplay(hm, use24h)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                  <Text style={[styles.quietHint, { color: c.textSubtle }]}>
+                    Tap Starts or Ends again to close. Window can wrap past midnight.
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.quietHint, { color: c.textSubtle }]}>
+                  Tap Starts or Ends to set the window.
+                </Text>
+              )}
+            </View>
+          ) : null}
+        </LinearGradient>
       </Animated.View>
 
       <Text style={[styles.sectionLabel, { color: c.textMuted }]}>
@@ -280,6 +416,45 @@ export function NotificationPrefsPanel({
         <MaterialIcons name="chevron-right" size={18} color={accent} />
       </Pressable>
     </View>
+  );
+}
+
+function QuietBoundChip({
+  label,
+  value,
+  selected,
+  tone,
+  textColor,
+  mutedColor,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  selected: boolean;
+  tone: string;
+  textColor: string;
+  mutedColor: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.boundChip,
+        {
+          backgroundColor: selected ? `${tone}2E` : `${tone}14`,
+          borderColor: selected ? `${tone}AA` : `${tone}44`,
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${label} ${value}`}>
+      <Text style={[styles.boundLabel, { color: tone }]}>{label}</Text>
+      <Text style={[styles.boundValue, { color: textColor }]}>{value}</Text>
+      <Text style={[styles.boundHint, { color: mutedColor }]}>
+        {selected ? 'Scroll hours' : 'Tap to edit'}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -350,15 +525,18 @@ const styles = StyleSheet.create({
   },
   chipText: { fontSize: 11, fontWeight: '800' },
   smartFoot: { fontSize: 11.5, fontWeight: '600', lineHeight: 15 },
-  quietRow: {
-    alignItems: 'center',
+  quietCard: {
     borderCurve: 'continuous',
-    borderRadius: 18,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    gap: 12,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  quietTop: {
+    alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
   },
   quietIcon: {
     alignItems: 'center',
@@ -367,6 +545,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 34,
   },
+  quietSchedule: { gap: 10 },
+  quietEnds: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quietArrow: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  boundChip: {
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    gap: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  boundLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  boundValue: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
+  boundHint: { fontSize: 10.5, fontWeight: '600' },
+  quietPicker: { gap: 8 },
+  quietPickerLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.35,
+    textTransform: 'uppercase',
+  },
+  hourRow: { gap: 8, paddingRight: 8 },
+  hourChip: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  hourChipText: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  quietHint: { fontSize: 11, fontWeight: '600', lineHeight: 15 },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '800',

@@ -38,6 +38,8 @@ const panel = read('components/orbit/settings/notification-prefs-panel.tsx');
 assert.match(panel, /Smart delivery/, 'Smart hero on prefs panel');
 assert.match(panel, /SMART_DELIVERY_CHIPS/, 'Smart mode chips explain the difference');
 assert.doesNotMatch(panel, /deadlines still fire/, 'no code-like quiet hours copy');
+assert.match(panel, /quietHoursStart/, 'quiet window start is adjustable');
+assert.match(panel, /quietHoursEnd/, 'quiet window end is adjustable');
 
 const ui = read('lib/notifications/smart-delivery-ui.ts');
 assert.match(ui, /channelGroups/, 'channels condensed into groups');

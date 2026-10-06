@@ -43,6 +43,8 @@ function PoppinsAdvancedScreenInner() {
   const [prefs, setPrefs] = useState<PoppinsInteractionPrefs>(DEFAULT_POPPINS_INTERACTION_PREFS);
   const readOnly = !permissions.canManageHousehold;
   const quietHours = household.notificationPrefs?.quietHoursEnabled !== false;
+  const quietStart = household.notificationPrefs?.quietHoursStart ?? '21:00';
+  const quietEnd = household.notificationPrefs?.quietHoursEnd ?? '07:00';
 
   useEffect(() => {
     void loadPoppinsInteractionPrefs(household.id).then(setPrefs);
@@ -176,7 +178,7 @@ function PoppinsAdvancedScreenInner() {
               moji="moon"
               tone={TONE.home}
               label="Quiet hours"
-              sub="Hold non-urgent banners 21:00–07:00. Deadlines still fire."
+              sub={`Hold non-urgent banners ${quietStart}–${quietEnd}. Adjust the window in Settings → Alerts. Deadlines still fire.`}
               value={quietHours}
               disabled={readOnly}
               onChange={(value) => {

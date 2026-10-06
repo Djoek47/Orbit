@@ -25,11 +25,15 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
   assert.match(panel, /SMART_DELIVERY_HERO/);
   assert.match(panel, /smartDelivery/);
   assert.match(panel, /Quiet hours/);
+  assert.match(panel, /quietHoursStart/);
+  assert.match(panel, /quietHoursEnd/);
+  assert.match(panel, /Starts/);
+  assert.match(panel, /Ends/);
   assert.match(panel, /Open household inbox/);
   const ui = read('lib/notifications/smart-delivery-ui.ts');
   assert.match(ui, /Recommended/);
   assert.match(ui, /Task digests/);
-  assert.match(ui, /Evenings stay calm/);
+  assert.match(ui, /quietHoursBodyCopy|Evenings stay calm/);
   assert.doesNotMatch(ui, /deadlines still fire/);
   assert.doesNotMatch(ui, /still use this channel/);
 }

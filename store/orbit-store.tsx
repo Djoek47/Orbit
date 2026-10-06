@@ -4649,7 +4649,16 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
     const urgent = decision.urgency === 'needs_action' || decision.priority === 'high';
     const quietEnabled = prefs.quietHoursEnabled !== false;
-    const deferBanner = quietEnabled && isQuietHour(new Date().getHours()) && !urgent;
+    const nowLocal = new Date();
+    const deferBanner =
+      quietEnabled &&
+      isQuietHour(
+        nowLocal.getHours(),
+        prefs.quietHoursStart,
+        prefs.quietHoursEnd,
+        nowLocal.getMinutes()
+      ) &&
+      !urgent;
 
     if (!deferBanner && decision.banner) {
       const taskIdFromData =
@@ -5741,7 +5750,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const runPoppinsMonitor = useCallback(async () => {
     const prefs = household.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS;
     const quietEnabled = prefs.quietHoursEnabled !== false;
-    const inQuiet = quietEnabled && isQuietHour(new Date().getHours());
+    const nowLocal = new Date();
+    const inQuiet =
+      quietEnabled &&
+      isQuietHour(
+        nowLocal.getHours(),
+        prefs.quietHoursStart,
+        prefs.quietHoursEnd,
+        nowLocal.getMinutes()
+      );
 
     // Live edge monitor when OpenAI path is on; always merge local rule pass.
     const local = runMonitorPass(household, metrics, prefs);

@@ -335,6 +335,8 @@ export default function SettingsScreen() {
         nearShop: true,
         missingOnTheWay: true,
         quietHoursEnabled: true,
+        quietHoursStart: '21:00',
+        quietHoursEnd: '07:00',
         smartDelivery: true,
       },
     [household.notificationPrefs]
@@ -1428,6 +1430,7 @@ export default function SettingsScreen() {
             osStatus={osNotifStatus}
             accent={accentTheme.primary}
             majordomoName={majordomo.displayName}
+            use24h={houseRulesView.use24h}
             onUpdate={(patch) => updateNotificationPrefs(patch)}
             onEnableOsBanners={() => void enableAppleNotificationBanners()}
             onOpenOsSettings={() => void openAppleNotificationSettings()}

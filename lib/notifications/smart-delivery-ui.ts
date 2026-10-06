@@ -3,9 +3,13 @@
  * Smart delivery is a delivery *mode* (rules-first digests) — not another channel toggle.
  */
 import type { MojiName } from '@/components/orbit/moji/art';
+import { quietHoursBodyCopy } from '@/lib/notifications/quiet-hours';
 import type { PoppinsNotificationPrefs } from '@/types/orbit';
 
 export type NotifPrefKey = keyof PoppinsNotificationPrefs;
+
+/** Pref keys that are modes / schedule — not channel toggles. */
+export type NotifHeroKey = 'smartDelivery' | 'quietHoursEnabled' | 'quietHoursStart' | 'quietHoursEnd';
 
 export const SMART_DELIVERY_HERO = {
   eyebrow: 'Recommended',
@@ -23,8 +27,12 @@ export const SMART_DELIVERY_CHIPS: { label: string; moji: MojiName; color: strin
   { label: 'Quiet nights', moji: 'moon', color: '#7C9CFF' },
 ];
 
-export function quietHoursCopy(): string {
-  return 'Evenings stay calm 21:00–07:00. Time-sensitive asks still get through.';
+export function quietHoursCopy(
+  startHm?: string | null,
+  endHm?: string | null,
+  use24h = true
+): string {
+  return quietHoursBodyCopy(startHm, endHm, use24h);
 }
 
 type ChannelMeta = { label: string; sub: string; emoji: string };
@@ -33,7 +41,7 @@ type ChannelGroup = {
   id: string;
   title: string;
   color: string;
-  keys: Exclude<NotifPrefKey, 'smartDelivery' | 'quietHoursEnabled'>[];
+  keys: Exclude<NotifPrefKey, NotifHeroKey>[];
   meta: Record<string, ChannelMeta>;
 };
 
