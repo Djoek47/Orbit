@@ -70,6 +70,11 @@ const withMark = (run: TripRunState) => ({
   dynamicIslandImageName: 'choremaxx_mark',
 });
 
+function deepLinkForRun(tripId: string, run: TripRunState): string {
+  if (run.arrived && run.hasShoppingList) return '/shopping-mode';
+  return `/itinerary/${tripId}`;
+}
+
 export function startTripBanner(
   tripId: string,
   run: TripRunState,
@@ -91,7 +96,7 @@ export function startTripBanner(
       subtitleColor: '#C9B8AA',
       progressViewTint: accent,
       progressViewLabelColor: '#F5F7FA',
-      deepLinkUrl: `/itinerary/${tripId}`,
+      deepLinkUrl: deepLinkForRun(tripId, run),
     });
     currentId = id ?? null;
     currentTripId = tripId;

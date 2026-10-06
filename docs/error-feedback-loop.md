@@ -20,7 +20,8 @@ without hunting through logs.
    ```
 
    or plain `orbitAlert(title, message)` when `looksLikeErrorAlert` is enough —
-   both record + offer feedback.
+   both record + offer feedback. Legal / network open failures use the same path
+   (`openChoremaxxUrl`).
 
 ## Rules
 
@@ -32,5 +33,6 @@ without hunting through logs.
 
 ## Follow-ups
 
-- Wire remaining bare `Alert.alert` / string-only failures through `showAppError`.
-- Optional: deep-link from push / crash recovery into the same Support compose.
+- Prefer `showAppError` / bare `orbitAlert` (auto Send feedback) for new failures.
+- Remaining intentional natives: Settings confirm menus (`settings-native-menus`) — keep native, not the error loop.
+- Optional: deep-link from crash recovery into the same Support compose.

@@ -24,6 +24,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { space } from '@/constants/orbit-theme';
 import {
+  isGroceryStop,
   makeStopNextIds,
   moveOpenStopIds,
   stopPlaceLine,
@@ -36,6 +37,10 @@ import {
   stopTripBanner,
   updateTripBanner,
 } from '@/lib/itinerary/trip-live-activity';
+import {
+  getTripLiveSnapshot,
+  subscribeTripLive,
+} from '@/lib/itinerary/trip-live-session';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { drainLockScreenCheckOffs } from '@/modules/shopping-banner-bridge';
 import { useOrbit } from '@/store/orbit-store';
@@ -81,6 +86,7 @@ export default function ItineraryDetailScreen() {
   const [editingRoute, setEditingRoute] = useState(false);
   /** Local: arrived at current stop → show I'm done before advancing. */
   const [arrivedStopId, setArrivedStopId] = useState<string | null>(null);
+  const [liveDistance, setLiveDistance] = useState<number | null>(null);
   const bannerStarted = useRef(false);
 
   const itinerary = household.itineraries?.find((item) => item.id === id);
@@ -99,6 +105,21 @@ export default function ItineraryDetailScreen() {
       setArrivedStopId(null);
     }
   }, [intent?.current?.id, arrivedStopId]);
+
+  // GPS arrival / distance from TripLiveWatcher (works even after leaving this screen).
+  useEffect(() => {
+    const sync = () => {
+      const snap = getTripLiveSnapshot();
+      if (itinerary && snap.itineraryId === itinerary.id) {
+        setLiveDistance(snap.distanceMeters);
+        if (snap.stopId && snap.arrived && snap.stopId === intent?.current?.id) {
+          setArrivedStopId(snap.stopId);
+        }
+      }
+    };
+    sync();
+    return subscribeTripLive(sync);
+  }, [itinerary, intent?.current?.id]);
 
   const tripColor = accentTheme.primary;
   // Warm brown canvases can report isDark=false while still being dark — never trust that
@@ -122,9 +143,11 @@ export default function ItineraryDetailScreen() {
       total: itinerary.stops.length,
       currentLabel: intent.current.label,
       arrived,
+      distanceMeters: liveDistance,
+      hasShoppingList: isGroceryStop(intent.current),
       remainingStops: stopsToBannerItems(remaining, (kind) => STOP_EMOJI[kind]),
     };
-  }, [itinerary, intent, arrived]);
+  }, [itinerary, intent, arrived, liveDistance]);
 
   const syncBanner = useCallback(() => {
     if (!itinerary || !bannerRun || !intent?.current) {
@@ -381,10 +404,22 @@ export default function ItineraryDetailScreen() {
                   </OrbitButton>
                 ) : null}
 
+                {arrived && intent.showShopping ? (
+                  <OrbitButton onPress={() => router.push('/shopping-mode' as never)}>
+                    Open shopping list
+                  </OrbitButton>
+                ) : null}
+
                 {arrived ? (
                   <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)}>
                     <DoneSlideButton
-                      label={isLastStop ? 'I’m done · finish' : 'I’m done · next'}
+                      label={
+                        isLastStop
+                          ? 'I’m done · finish'
+                          : intent.showShopping
+                            ? 'List done · next stop'
+                            : 'I’m done · next'
+                      }
                       onDone={() => void onImDone()}
                     />
                   </Animated.View>

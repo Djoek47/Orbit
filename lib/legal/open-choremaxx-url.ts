@@ -2,8 +2,10 @@
  * Open Choremaxx legal URLs in an in-app browser (Safari VC on iOS).
  * Surfaces a calm error when the site is down — yesterday's outage looked like a dead tap.
  */
-import { Alert, Linking, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
+
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 
 export async function openChoremaxxUrl(url: string, label: string): Promise<void> {
   try {
@@ -26,9 +28,11 @@ export async function openChoremaxxUrl(url: string, label: string): Promise<void
     } catch {
       /* fall through */
     }
-    Alert.alert(
+    orbitAlert(
       `${label} unavailable`,
-      'We could not open the Choremaxx website. Check your connection and try again, or use Support in Settings.'
+      'We could not open the Choremaxx website. Check your connection and try again, or use Support in Settings.',
+      undefined,
+      { source: 'legal-url', category: 'network' }
     );
   }
 }
