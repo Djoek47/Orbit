@@ -94,7 +94,14 @@ export async function reconcileHostedDeviceSession(
 
   let rosterSharedDeviceId = current.sharedDeviceId ?? null;
   let rosterLabel = current.deviceLabel;
-  if (members && members.length > 0) {
+  // Only expand from the household shared-device roster when this phone is
+  // already a shared tablet (QR / hosted). Personal admin login must stay personal.
+  const alreadySharedHost =
+    current.mode === 'shared' ||
+    current.hostKind === 'shared-tablet' ||
+    Boolean(current.sharedDeviceId) ||
+    current.profileMemberIds.length > 0;
+  if (alreadySharedHost && members && members.length > 0) {
     const { profilesForSharedDeviceSwitch, resolveSwitchDeviceShell } = await import(
       '@/lib/device/profiles-for-switch'
     );

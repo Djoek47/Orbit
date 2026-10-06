@@ -70,7 +70,20 @@ export function SharedDeviceSwitchMenu({
     [session, members]
   );
 
-  if (people.length < 2 || !currentMember) return null;
+  // Personal admin / Sidekick phones never show Switch — only a real shared-tablet
+  // session where the signed-in face is one of the hosted people (or the shell).
+  const onSharedRoster =
+    Boolean(currentMember) &&
+    (currentMember!.role === 'shared-device' ||
+      people.some((person) => person.id === currentMember!.id));
+  if (
+    !isSharedTabletDeviceSession(session) ||
+    people.length < 2 ||
+    !currentMember ||
+    !onSharedRoster
+  ) {
+    return null;
+  }
 
   const firstName = currentMember.name.trim().split(/\s+/)[0] || currentMember.name;
   const deviceName = normalizeSharedDeviceLabel(session?.deviceLabel || shell?.name);

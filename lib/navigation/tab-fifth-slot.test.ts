@@ -23,9 +23,14 @@ const ipad = {
 } as HouseholdMember;
 const members = [owner, jack, ama, ipad];
 
-// An adult on their own phone keeps Poppins.
+// An adult on their own phone keeps Poppins — even if a shared-tablet session leaked in.
 assert.equal(tabFifthSlot({ role: 'owner', members, memberId: 'o' }), 'poppins');
 assert.equal(tabFifthSlot({ role: 'admin', members, memberId: 'o' }), 'poppins');
+assert.equal(
+  tabFifthSlot({ role: 'owner', members, memberId: 'o', sharedTabletSession: true }),
+  'poppins',
+  'admin never inherits Switch from a leftover shared-tablet binding'
+);
 
 // A Sidekick's own phone: four tabs, no fifth button to nowhere.
 assert.equal(tabFifthSlot({ role: 'child', members, memberId: 'm1' }), 'none');
@@ -70,9 +75,18 @@ assert.equal(
   'two hosted profiles use Switch UX'
 );
 
-// On a shared iPad, the fifth button hands it over — for the device and for whoever is on it.
+// Shared-device shell → Switch. A child linked to that iPad on their *own* phone → no Switch.
 assert.equal(tabFifthSlot({ role: 'shared-device', members, memberId: 'd' }), 'switch');
-assert.equal(tabFifthSlot({ role: 'child', members, memberId: 'm2' }), 'switch');
+assert.equal(
+  tabFifthSlot({ role: 'child', members, memberId: 'm2' }),
+  'none',
+  'roster link alone must not turn a personal Sidekick phone into Switch'
+);
+assert.equal(
+  tabFifthSlot({ role: 'child', members, memberId: 'm2', sharedTabletSession: true }),
+  'switch',
+  'only a real shared-tablet session gets Switch'
+);
 
 // The bar and the layout agree.
 const bar = read('components/orbit/make-tab-bar.tsx');

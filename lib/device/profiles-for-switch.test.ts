@@ -53,6 +53,22 @@ const members = [owner, emma, jack, testTablet];
   assert.equal(resolveSwitchDeviceShell(session, members)?.name, 'Test');
 }
 
+{
+  // Personal admin phone — must not inherit the household’s only shared tablet.
+  const personal: DeviceSession = {
+    mode: 'personal',
+    profileMemberIds: [],
+    activeMemberId: null,
+    needsProfilePick: false,
+  };
+  assert.equal(
+    resolveSwitchDeviceShell(personal, members),
+    undefined,
+    'sole shared-device shell must not attach to a personal session'
+  );
+  assert.deepEqual(profilesForSharedDeviceSwitch(personal, members), []);
+}
+
 const home = readFileSync(join(process.cwd(), 'app/(tabs)/index.tsx'), 'utf8');
 assert.match(home, /SharedDeviceSwitchMenu/, 'Home mounts Switch · Name menu');
 
@@ -62,6 +78,7 @@ const menu = readFileSync(
 );
 assert.match(menu, /Switch ·/, 'chip label');
 assert.match(menu, /Connected/, 'connected status chip');
+assert.match(menu, /isSharedTabletDeviceSession/, 'gated to shared-tablet sessions only');
 assert.match(menu, /onSwitchPersona/, 'switches face without sign-out');
 assert.match(menu, /selectDeviceProfile/, 'updates device session');
 assert.doesNotMatch(menu, /signOut|clearSidekickSession/, 'never signs out on switch');

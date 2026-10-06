@@ -258,11 +258,18 @@ export default function HomeScreen() {
   const [streakLost, setStreakLost] = useState<{
     streakDays: number;
     reason: string | null;
+    streakEndedAt: string;
   } | null>(null);
 
   useEffect(() => {
     if (!currentMember) return;
-    void import('@/lib/streaks/mock-streak-store').then(({ getMemberStreak }) => {
+    let cancelled = false;
+    void (async () => {
+      const [{ getMemberStreak }, { hasAcknowledgedStreakLost }] = await Promise.all([
+        import('@/lib/streaks/mock-streak-store'),
+        import('@/lib/streaks/streak-lost-ack'),
+      ]);
+      if (cancelled) return;
       const streak = getMemberStreak(currentMember.id);
       if (streak?.pendingRescue) {
         setRescueOffer({
@@ -275,13 +282,24 @@ export default function HomeScreen() {
         return;
       }
       if (streak?.streakEndedAt && streak.current === 0 && !streak.pendingRescue) {
+        const seen = await hasAcknowledgedStreakLost(currentMember.id, streak.streakEndedAt);
+        if (cancelled || seen) {
+          setStreakLostVisible(false);
+          return;
+        }
         setStreakLost({
           streakDays: Math.max(streak.longest ?? 0, 1),
           reason: streak.streakEndedReason ?? null,
+          streakEndedAt: streak.streakEndedAt,
         });
         setStreakLostVisible(true);
+        return;
       }
-    });
+      setStreakLostVisible(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [currentMember?.id, personalStreak]);
 
   return (
@@ -706,8 +724,15 @@ export default function HomeScreen() {
         streakDays={streakLost?.streakDays ?? 0}
         reason={streakLost?.reason}
         onDismiss={() => {
+          const memberId = currentMember?.id;
+          const endedAt = streakLost?.streakEndedAt;
           setStreakLostVisible(false);
           setStreakLost(null);
+          if (memberId && endedAt) {
+            void import('@/lib/streaks/streak-lost-ack').then(({ acknowledgeStreakLost }) =>
+              acknowledgeStreakLost(memberId, endedAt)
+            );
+          }
         }}
       />
     </>

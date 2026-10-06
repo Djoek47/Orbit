@@ -60,6 +60,12 @@ export async function wipeLocalAuthAndResetClient(): Promise<void> {
   } catch {
     /* ignore */
   }
+  try {
+    const { clearStreakLostAcks } = await import('@/lib/streaks/streak-lost-ack');
+    await clearStreakLostAcks();
+  } catch {
+    /* ignore */
+  }
   resetSupabaseClient();
 }
 
