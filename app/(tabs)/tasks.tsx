@@ -67,6 +67,7 @@ import { canAdminRequestTaskProof, needsSidekickPhotoReply } from '@/lib/tasks/p
 import { isDueToday } from '@/lib/tasks/today';
 import { displayDueLabel, homeworkDueChip } from '@/lib/tasks/due-label';
 import {
+  countExpiredHistory,
   groupExpiredByDay,
   isActiveTask,
   isCompletedTask,
@@ -959,6 +960,10 @@ export default function TasksScreen() {
     [...(proofReplyTask?.proofRounds ?? [])].reverse().find((round) => round.note)?.note ?? null;
 
   const expiredGroups = useMemo(() => groupExpiredByDay(grouped.expired), [grouped.expired]);
+  const expiredHistoryCount = useMemo(
+    () => countExpiredHistory(household.tasks),
+    [household.tasks]
+  );
   const expiredCount = useMemo(() => {
     return household.tasks.filter((task) => {
       if (!isExpiredVisibleInTab(task)) return false;
@@ -1292,8 +1297,11 @@ export default function TasksScreen() {
           <MaterialIcons name="schedule" size={16} color={c.textMuted} />
           <Text style={[typography.footnote, styles.expiredNoticeText, { color: c.textMuted }]}>
             {domainTab === 'homework'
-              ? 'Expired homework is automatically deleted 7 days after it expires.'
-              : 'Expired tasks are automatically deleted 7 days after they expire.'}
+              ? 'Expired homework leaves this tab after 7 days. History stays in household health.'
+              : 'Expired work leaves this tab after 7 days — kept in history, not deleted.'}
+            {expiredHistoryCount > 0
+              ? ` ${expiredHistoryCount} older ${expiredHistoryCount === 1 ? 'item' : 'items'} in history.`
+              : ''}
           </Text>
         </View>
       ) : null}

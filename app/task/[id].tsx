@@ -474,7 +474,8 @@ export default function TaskDetailScreen() {
       orbitAlert('Can’t reassign', plan.message);
       return;
     }
-    const confirmLabel = plan.mode === 'next_day' ? `Give to ${name} tomorrow` : `Give to ${name}`;
+    const confirmLabel =
+      plan.mode === 'next_day_grace' ? `Give to ${name} tomorrow` : `Give to ${name}`;
     orbitAlert('Reassign task', plan.summary, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -766,8 +767,8 @@ export default function TaskDetailScreen() {
                 <>
                   <Text style={[styles.label, { color: c.textMuted }]}>Who</Text>
                   <Text style={[typography.footnote, { color: c.textSoft, marginBottom: 4 }]}>
-                    After the household deadline, reassigning moves the job to tomorrow so it
-                    doesn’t expire tonight and doesn’t break {task.assignee}’s streak.
+                    Handoff gives the new person full XP tonight or tomorrow. Unfinished overnight
+                    carries over — {task.assignee} won’t take a miss. This occurrence only.
                   </Text>
                   <View style={styles.chipWrap}>
                     {memberNames.map((name) => {
@@ -936,9 +937,16 @@ export default function TaskDetailScreen() {
               ) : null}
               {whoOpen && canAdjust && !split ? (
                 <Text style={[styles.body, { color: c.textSoft }]}>
-                  {stateView.state === 'overdue'
-                    ? 'Past the deadline — handing off moves this job to tomorrow so it won’t expire tonight.'
-                    : 'Applies from this day on. After the deadline, a handoff rolls to tomorrow.'}
+                  {task.reassignedFrom
+                    ? `Reassigned from ${task.reassignedFrom}. Full XP until tomorrow’s deadline.`
+                    : stateView.state === 'overdue'
+                      ? 'Past the deadline — handoff moves to tomorrow with a full-XP grace day.'
+                      : 'This occurrence only. Full XP tonight or tomorrow; overnight carry if unfinished.'}
+                </Text>
+              ) : null}
+              {task.reassignCarriedOvernight && isOpenWork ? (
+                <Text style={[styles.body, { color: c.warning, marginTop: 6 }]}>
+                  Reassigned yesterday — finish before today’s deadline for full XP.
                 </Text>
               ) : null}
             </View>
@@ -952,8 +960,8 @@ export default function TaskDetailScreen() {
               <View style={styles.detailRow}>
                 <Text style={[styles.label, { color: c.textMuted }]}>Reassign</Text>
                 <Text style={[styles.body, { color: c.textSoft }]}>
-                  Hand this to someone else for tomorrow. {task.assignee} will not take a miss.
-                  They earn the XP when they finish.
+                  Hand to someone else with a full-XP grace night + next day. {task.assignee} will
+                  not take a miss.
                 </Text>
                 <View style={styles.chipWrap}>
                   {memberNames

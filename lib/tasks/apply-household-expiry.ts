@@ -10,7 +10,7 @@ import type { HouseholdSnapshot, HouseholdTask } from '@/types/orbit';
 
 export type HouseholdExpiryContext = Pick<
   HouseholdSnapshot,
-  'members' | 'recessPeriods' | 'timezone'
+  'members' | 'recessPeriods' | 'timezone' | 'dailyDeadline'
 >;
 
 export function applyHouseholdTaskExpiry(
@@ -21,6 +21,7 @@ export function applyHouseholdTaskExpiry(
   const expiryHm = getHouseRulesDoc().constants.expiryTime;
   return expireOpenTasksAtBoundary(tasks, now, {
     expiryHm,
+    dailyDeadlineHm: household.dailyDeadline?.trim() || '19:00',
     timezone: resolveHouseholdTimezone(household.timezone),
     assigneeOnRecess: (name, dateKey) =>
       household.members.some(

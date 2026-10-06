@@ -177,6 +177,20 @@ export type HouseholdTask = {
   roomId?: string;
   /** When set, task was created via this shared-device profile. */
   sharedDeviceId?: string;
+  /** Admin handoff — when this occurrence was reassigned. */
+  reassignedAt?: string;
+  /** Previous assignee display name at handoff. */
+  reassignedFrom?: string;
+  /**
+   * Full-XP grace through this instant (usually next day's household deadline).
+   * Late Credit only applies after this for reassigned work.
+   */
+  reassignFullXpUntil?: string;
+  /**
+   * True after the overnight carry (or when handed off already onto the grace day).
+   * A second unfinished night expires normally.
+   */
+  reassignCarriedOvernight?: boolean;
 };
 
 export type CancelTaskScope = 'this' | 'future';

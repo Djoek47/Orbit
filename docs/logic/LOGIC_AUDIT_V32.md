@@ -192,33 +192,38 @@ How to read each row: **Rule** (what should happen) → **App today** → **Verd
 
 ---
 
-## 13. Questions for you (please answer)
+## 13. Decisions (locked 2026-10-06)
 
-These block finishing streak + reassign edge cases cleanly:
+| # | Decision | Shipping behavior |
+|---|----------|-------------------|
+| 1 | **New assign only** — no revive of Expired | Expired stays Expired; assign a fresh occurrence |
+| 2 | **Hygiene B** | Hygiene does **not** feed the chore daily streak (`countsTowardDailyStreak`) |
+| 3 | **Smart reassign grace** | New person: full XP tonight **or** next day until deadline; unfinished night **carries** (no expire that night); Late Credit only if late on **day 2**. Normal (non-reassigned) Late Credit window unchanged through expiry. |
+| 4 | **This occurrence only** | Handoff does not rewrite future series days |
+| 5 | **Reassign enough for now** | Unassign UI deferred |
+| 6 | **Hide after 7 days, keep history** | Expired tab filters; rows remain for household health / history |
+| 7 | **Same Late Credit table for splits** | Split shares dock like solo |
+| 8 | **Yes — wire cliffs / Rescue** | Rollover calls `applyRolloverStreaksForDay` (engine was built; live path was the gap) |
 
-1. **Expired reassign:** If a task already Expired, should an admin be able to **revive it as tomorrow for someone else**, or must they assign a **new** occurrence from the library? (Current: blocked — new assign only.)
+### Why #8 (Rescue / cliffs) is better than leaving the simple streak
 
-2. **Hygiene streaks:** EARN-05 says hygiene builds streaks. Master Brief / older streak companion treat hygiene as separate from the chore daily streak. Which is shipping law?
-   - A) Hygiene feeds the **same** daily streak  
-   - B) Hygiene has its **own** per-task streak only  
-   - C) Something else  
+House Rules already tell kids: three misses end it; Rescue costs 10% per day. The **engine for that already exists** (`lib/streaks/streak-engine.ts`) with tests. What was broken is that production only did “all today’s chores done → +1”, so:
 
-3. **After-deadline handoff window:** We roll to tomorrow at the **daily deadline** (same as new assign). Or do you want a later cutover (e.g. still same-day Late Credit until 30 minutes before `{expiryTime}`)?
+- Rescue sheets almost never got real offers  
+- Cliffs never fired  
+- The in-app House Rules chapter described a product you didn’t actually run  
 
-4. **Series after handoff:** When we reassign an overdue Daily to Jack tomorrow, should **future** series days also flip to Jack immediately? (Current: yes.)
+Wiring rollover → classify day → `applyDayToStreak` makes the rules true without rewriting them. That’s why it’s P0: **stop lying to the household about streaks.**
 
-5. **Unassign copy:** Rev F wants `Remove for today` vs `Remove permanently`. Ship that next, or is smart reassign enough for now?
-
-6. **DEAD-08:** Auto-delete Expired after 7 days, or keep rows forever and only hide from the tab?
-
-7. **Split Late Credit:** Should split shares use the same Late Credit table as solo tasks? (Rules say yes; code currently does not dock.)
-
-8. **Streak Rescue live:** Confirm we should wire Master Brief cliffs/Rescue into the real rollover job as the next P0 after reassign — yes/no?
+Normal completion Late Credit still works until expiry (deadline = full XP boundary; after = Late Credit; night close = Expired). Reassign is the special grace path above.
 
 ---
 
-## 14. Files touched for reassign this pass
+## 14. Files for this decision pass
 
-- `lib/tasks/reassign-policy.ts` (+ test)
-- `store/orbit-store.tsx` — `reassignTask` permission + plan
-- `app/task/[id].tsx` — Who in Edit; smart confirm; EARN-04 Complete gate
+- `lib/tasks/reassign-policy.ts` — grace / carry / effective due  
+- `lib/tasks/expire-at-boundary.ts` + `recurring.ts` — carry instead of expire once  
+- `lib/scoring/counts-toward-daily-streak.ts` — hygiene B  
+- `lib/streaks/apply-rollover-streaks.ts` — live cliffs / Rescue hook  
+- `store/orbit-store.tsx` — split Late Credit + rollover streak sync  
+- `app/task/[id].tsx` / `app/(tabs)/tasks.tsx` — copy + expired history note  
