@@ -94,6 +94,12 @@ test('transfer UI and migration are wired', () => {
   const settings = readFileSync(join(process.cwd(), 'app/settings.tsx'), 'utf8');
   assert.match(settings, /Transfer ownership/);
   assert.match(settings, /transfer-household/);
+  assert.match(settings, /House ownership/);
+  assert.doesNotMatch(
+    settings,
+    /subtitle="Transfer ownership · delete"/,
+    'transfer/delete stay nested under You, not a main House hub'
+  );
 
   const transfer = readFileSync(join(process.cwd(), 'app/transfer-household.tsx'), 'utf8');
   assert.match(transfer, /createHouseholdTransferToken/);
@@ -124,4 +130,8 @@ test('transfer UI and migration are wired', () => {
   assert.match(edge, /action === 'create'/);
   assert.match(edge, /action === 'accept'/);
   assert.match(edge, /not_empty/);
+
+  const send = readFileSync(join(process.cwd(), 'lib/household/send-household-transfer.ts'), 'utf8');
+  assert.match(send, /edgeErrorMessage/);
+  assert.match(send, /friendlyTransferError/);
 });

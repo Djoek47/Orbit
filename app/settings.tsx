@@ -19,6 +19,7 @@ import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { HouseholdSwitchSheet } from '@/components/orbit/household-switch-sheet';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { PaletteWheel } from '@/components/orbit/palette-wheel';
+import { AvatarLibraryStrip } from '@/components/orbit/avatar-library-strip';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { ProfileInviteSheet } from '@/components/orbit/profile-invite-sheet';
@@ -44,6 +45,10 @@ import {
 } from '@/lib/poppins/poppins-prefs';
 import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
+import {
+  listAvatarLibrary,
+  type AvatarLibraryEntry,
+} from '@/lib/profile/avatar-library';
 import { memberUsesProfileInvite } from '@/lib/household/member-invite-routing';
 import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
 import {
@@ -121,7 +126,6 @@ const SECTIONS = [
   'main',
   'you',
   'members',
-  'house',
   'rewards',
   'sidekick-perms',
   'notifications',
@@ -134,7 +138,6 @@ type Section =
   | 'main'
   | 'you'
   | 'members'
-  | 'house'
   | 'rewards'
   | 'sidekick-perms'
   | 'notifications'
@@ -205,9 +208,12 @@ export default function SettingsScreen() {
   // ?invite=<memberId> opens that Sidekick's QR straight away (?invite=pick just shows the
   // roster). Before, every one of those rows dropped you on the Settings root.
   const params = useLocalSearchParams<{ section?: string; add?: string; invite?: string }>();
+  // Legacy ?section=house → You (House ownership nested under Household default).
   const requestedSection = SECTIONS.includes(params.section as Section)
     ? (params.section as Section)
-    : null;
+    : params.section === 'house'
+      ? ('you' as Section)
+      : null;
   const [section, setSection] = useState<Section>(requestedSection ?? 'main');
   /** Voice-wheel drag — lock the sheet scroll so the dial owns the gesture. */
   const [wheelDragging, setWheelDragging] = useState(false);
@@ -282,6 +288,8 @@ export default function SettingsScreen() {
   const [householdSwitchOpen, setHouseholdSwitchOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
+  const [houseDangerOpen, setHouseDangerOpen] = useState(() => params.section === 'house');
+  const [avatarGallery, setAvatarGallery] = useState<AvatarLibraryEntry[]>([]);
   const [settingsToggleBusy, setSettingsToggleBusy] = useState(false);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [poppinsPrefs, setPoppinsPrefs] = useState<PoppinsInteractionPrefs>(
@@ -294,6 +302,13 @@ export default function SettingsScreen() {
     if (section !== 'poppins') return;
     void loadPoppinsInteractionPrefs(household.id).then(setPoppinsPrefs);
   }, [section, household.id]);
+
+  useEffect(() => {
+    if (section !== 'you' || !currentUser?.id) {
+      return;
+    }
+    void listAvatarLibrary(currentUser.id).then(setAvatarGallery);
+  }, [section, currentUser?.id, currentMember?.avatar]);
 
   const updatePoppinsPrefs = useCallback(
     async (next: PoppinsInteractionPrefs) => {
@@ -745,15 +760,6 @@ export default function SettingsScreen() {
                       onPress={() => router.navigate('/house-rules' as never)}
                     />
                   </TourTarget>
-                  {currentMember?.role === 'owner' ? (
-                    <SettingsNavRow
-                      icon="home-work"
-                      iconColor="#FBBF24"
-                      label="House"
-                      subtitle="Transfer ownership · delete"
-                      onPress={() => setSection('house')}
-                    />
-                  ) : null}
                   <SettingsNavRow
                     icon="emoji-events"
                     iconColor="#A78BFA"
@@ -964,30 +970,92 @@ export default function SettingsScreen() {
 
         {section === 'you' ? (
           <>
-            {/* Your picture lives with your colour — this is where you make yourself. */}
+            <Animated.View entering={FadeInDown.duration(260)}>
+              <LinearGradient
+                colors={[`${accentTheme.primary}3D`, `${accentTheme.primary}0F`]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.youHero, { borderColor: `${accentTheme.primary}55` }]}>
+                <Pressable
+                  onPress={() => setPersonalizeMemberId(currentMember?.id ?? null)}
+                  disabled={!currentMember}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change your picture"
+                  style={styles.youHeroFace}>
+                  <View
+                    style={[
+                      styles.youHeroRing,
+                      {
+                        borderColor: `${accentTheme.primary}88`,
+                        backgroundColor: `${accentTheme.primary}22`,
+                      },
+                    ]}>
+                    <MemberGlyph
+                      member={currentMember ?? { name: currentUser?.name ?? 'You' }}
+                      size={72}
+                    />
+                  </View>
+                  <View style={[styles.youHeroBadge, { backgroundColor: accentTheme.primary }]}>
+                    <MaterialIcons name="auto-awesome" size={14} color="#111" />
+                  </View>
+                </Pressable>
+                <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
+                  <Text style={[styles.youHeroEyebrow, { color: accentTheme.primary }]}>You</Text>
+                  <Text style={[styles.youHeroTitle, { color: c.text }]} numberOfLines={1}>
+                    {currentMember?.name ?? currentUser?.name ?? 'Your profile'}
+                  </Text>
+                  <Text style={[styles.caption, { color: c.textMuted }]}>
+                    Playground · Photos · Emoji — faces stay in Your gallery on this iPhone
+                  </Text>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+
             <SectionCard title="Your picture">
-              <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 10 }]}>
-                Draw a character with Apple Image Playground, pick a photo, or choose an emoji.
-              </Text>
+              {avatarGallery.length ? (
+                <View style={{ marginBottom: 12 }}>
+                  <AvatarLibraryStrip
+                    entries={avatarGallery}
+                    selectedUri={
+                      isAvatarImageUri(currentMember?.avatar) ? currentMember?.avatar : null
+                    }
+                    accent={accentTheme.primary}
+                    onSelect={(uri) => {
+                      if (!currentMember) return;
+                      void updateMemberAvatar(currentMember.id, uri);
+                    }}
+                  />
+                </View>
+              ) : (
+                <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 10 }]}>
+                  Create with Image Playground and we&apos;ll keep a small gallery here after sign-out.
+                </Text>
+              )}
               <Pressable
                 onPress={() => setPersonalizeMemberId(currentMember?.id ?? null)}
                 disabled={!currentMember}
                 accessibilityRole="button"
-                accessibilityLabel="Change your picture"
+                accessibilityLabel="Make or change your character"
                 style={({ pressed }) => [styles.avatarRow, { opacity: pressed ? 0.85 : 1 }]}>
                 <View
                   style={[
                     styles.avatarRing,
-                    { borderColor: `${accentTheme.primary}66`, backgroundColor: `${accentTheme.primary}14` },
+                    {
+                      borderColor: `${accentTheme.primary}66`,
+                      backgroundColor: `${accentTheme.primary}14`,
+                    },
                   ]}>
-                  <MemberGlyph member={currentMember ?? { name: currentUser?.name ?? 'You' }} size={54} />
+                  <MemberGlyph
+                    member={currentMember ?? { name: currentUser?.name ?? 'You' }}
+                    size={54}
+                  />
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[styles.nameText, { color: orbitPalette.text }]}>
                     {currentMember?.avatar ? 'Change your picture' : 'Make your character'}
                   </Text>
                   <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
-                    Playground · Photos · Emoji
+                    Open Playground · Photos · Emoji
                   </Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
@@ -1066,7 +1134,9 @@ export default function SettingsScreen() {
                   <Pressable
                     style={styles.nestedHeader}
                     onPress={() => setHouseholdDefaultOpen((value) => !value)}>
-                    <Text style={[styles.nestedTitle, { color: orbitPalette.textSoft }]}>Household default</Text>
+                    <Text style={[styles.nestedTitle, { color: orbitPalette.textSoft }]}>
+                      Household default
+                    </Text>
                     <MaterialIcons
                       name={householdDefaultOpen ? 'expand-less' : 'expand-more'}
                       size={20}
@@ -1085,6 +1155,45 @@ export default function SettingsScreen() {
                         label=""
                       />
                     </>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {currentMember?.role === 'owner' ? (
+                <View style={[styles.nestedGroup, { marginTop: 12 }]}>
+                  <Pressable
+                    style={styles.nestedHeader}
+                    onPress={() => setHouseDangerOpen((value) => !value)}>
+                    <Text style={[styles.nestedTitle, { color: orbitPalette.textSoft }]}>
+                      House ownership
+                    </Text>
+                    <MaterialIcons
+                      name={houseDangerOpen ? 'expand-less' : 'expand-more'}
+                      size={20}
+                      color={orbitPalette.textMuted}
+                    />
+                  </Pressable>
+                  {houseDangerOpen ? (
+                    <View style={{ gap: 8, marginTop: 4 }}>
+                      <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
+                        Quiet tools — transfer this house or schedule deletion. Not on the main menu.
+                      </Text>
+                      <SettingsNavRow
+                        icon="qr-code-2"
+                        iconColor="#38BDF8"
+                        label="Transfer ownership"
+                        subtitle="15-minute QR · empty account only"
+                        onPress={() => router.push('/transfer-household' as never)}
+                      />
+                      <SettingsNavRow
+                        icon="delete-forever"
+                        iconColor="#F87171"
+                        label="Delete household"
+                        subtitle="30-day recovery window"
+                        last
+                        onPress={() => router.push('/delete-household' as never)}
+                      />
+                    </View>
                   ) : null}
                 </View>
               ) : null}
@@ -1146,34 +1255,6 @@ export default function SettingsScreen() {
               guardSettingsToggle(() => updateMemberCapabilityOverrides(memberId, patch))
             }
           />
-        ) : null}
-
-        {section === 'house' ? (
-          <>
-            {currentMember?.role === 'owner' ? (
-              <SettingsGroup header="Ownership">
-                <SettingsNavRow
-                  icon="qr-code-2"
-                  iconColor="#38BDF8"
-                  label="Transfer ownership"
-                  subtitle="15-minute QR · empty account only"
-                  onPress={() => router.push('/transfer-household' as never)}
-                />
-                <SettingsNavRow
-                  icon="delete-forever"
-                  iconColor="#F87171"
-                  label="Delete household"
-                  subtitle="30-day recovery window"
-                  last
-                  onPress={() => router.push('/delete-household' as never)}
-                />
-              </SettingsGroup>
-            ) : (
-              <Text style={[styles.caption, { color: c.textMuted, textAlign: 'center' }]}>
-                Only the household owner can transfer or delete this house.
-              </Text>
-            )}
-          </>
         ) : null}
 
         {section === 'places' ? (
@@ -1338,13 +1419,9 @@ export default function SettingsScreen() {
             }}
           />
           {currentMember?.role === 'owner' ? (
-            <Pressable
-              onPress={() => router.push('/delete-household' as never)}
-              style={[styles.accountBtn, { backgroundColor: '#F8717110', marginTop: 16 }]}>
-              <Text style={[styles.accountBtnText, { color: '#F87171', textAlign: 'center' }]}>
-                Delete household
-              </Text>
-            </Pressable>
+            <Text style={[styles.caption, { color: c.textMuted, textAlign: 'center', marginTop: 16 }]}>
+              Transfer ownership and delete household live under You → House ownership.
+            </Text>
           ) : null}
           </>
         ) : null}
@@ -1469,9 +1546,15 @@ export default function SettingsScreen() {
     <PersonalizeLookSheet
       visible={Boolean(personalizeMember)}
       memberName={personalizeMember?.name ?? 'you'}
+      userId={currentUser?.id}
       otherNames={household.members.map((m) => m.name)}
       currentAvatar={personalizeMember?.avatar}
-      onDismiss={() => setPersonalizeMemberId(null)}
+      onDismiss={() => {
+        setPersonalizeMemberId(null);
+        if (currentUser?.id) {
+          void listAvatarLibrary(currentUser.id).then(setAvatarGallery);
+        }
+      }}
       onSelect={async (avatar) => {
         if (!personalizeMember) return;
         await updateMemberAvatar(personalizeMember.id, avatar);
@@ -1639,6 +1722,49 @@ const styles = StyleSheet.create({
     height: 72,
     justifyContent: 'center',
     width: 72,
+  },
+  youHero: {
+    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  youHeroFace: {
+    position: 'relative',
+  },
+  youHeroRing: {
+    alignItems: 'center',
+    borderRadius: 28,
+    borderWidth: 2,
+    height: 84,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 84,
+  },
+  youHeroBadge: {
+    alignItems: 'center',
+    borderRadius: 12,
+    bottom: -2,
+    height: 26,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -2,
+    width: 26,
+  },
+  youHeroEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  youHeroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    lineHeight: 28,
   },
   sectionHeading: {
     fontSize: 28,

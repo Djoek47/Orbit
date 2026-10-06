@@ -41,6 +41,7 @@ export function SidekickSettingsScreen() {
     accentTheme,
     appearanceMode,
     currentMember,
+    currentUser,
     household,
     orbitPalette,
     paletteId,
@@ -258,6 +259,7 @@ export function SidekickSettingsScreen() {
       <PersonalizeLookSheet
         visible={personalizeOpen}
         memberName={currentMember.name}
+        userId={currentUser?.id}
         currentAvatar={currentMember.avatar}
         onDismiss={() => setPersonalizeOpen(false)}
         onSelect={async (avatar) => {

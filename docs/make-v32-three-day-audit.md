@@ -92,7 +92,7 @@ Nothing in this list should block the TF binary.
 
 ## 4. TF smoke matrix (device)
 
-- [ ] Admin sign-out → Get Started (no freeze)  
+- [ ] Admin sign-out → Get Started / scan / have account (no blank dark screen; TF 113)  
 - [ ] Privacy & legal opens after Settings dismisses  
 - [ ] Shared tablet Jack/Emma accents + Connected  
 - [ ] Edit task → Who → reassign before/after deadline (grace copy)  
