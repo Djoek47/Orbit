@@ -10,20 +10,43 @@
  * press cannot stack two wipes or two restarts.
  *
  * Hard ceiling: if wipe hangs (network), still navigate so the user is
- * never stuck on Settings forever.
+ * never stuck on Settings forever. Overlay stays up through the nav delay
+ * so Settings unmount cannot flash Home mid-wipe.
  */
+
+import { SESSION_NAV_DELAY_MS } from '@/lib/navigation/session-restart';
 
 const SIGNOUT_HARD_MS = 12_000;
 
 let inFlight: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+function notifySignOutListeners(): void {
+  for (const listener of listeners) {
+    try {
+      listener();
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 export function isSignOutInFlight(): boolean {
   return inFlight != null;
 }
 
+/** Root layout / overlays subscribe so SigningOutOverlay survives Settings unmount. */
+export function subscribeSignOutInFlight(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 /** Test helper — never call from product UI. */
 export function resetSignOutInFlightForTests(): void {
   inFlight = null;
+  notifySignOutListeners();
 }
 
 function withHardCeiling(promise: Promise<void>, ms: number): Promise<void> {
@@ -45,10 +68,15 @@ function withHardCeiling(promise: Promise<void>, ms: number): Promise<void> {
   });
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function signOutAndLeave(signOut: () => Promise<void>): Promise<void> {
   if (inFlight) return inFlight;
 
   inFlight = (async () => {
+    notifySignOutListeners();
     try {
       await withHardCeiling(
         (async () => {
@@ -67,6 +95,8 @@ export async function signOutAndLeave(signOut: () => Promise<void>): Promise<voi
       } catch (navError) {
         console.warn('signOutAndLeave.nav', navError);
       }
+      // Hold cover through scheduled dismiss+replace so X / Home cannot re-enter.
+      await delay(SESSION_NAV_DELAY_MS + 80);
     }
   })();
 
@@ -74,5 +104,6 @@ export async function signOutAndLeave(signOut: () => Promise<void>): Promise<voi
     await inFlight;
   } finally {
     inFlight = null;
+    notifySignOutListeners();
   }
 }

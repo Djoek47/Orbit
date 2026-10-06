@@ -65,6 +65,8 @@ export type HouseholdMemberRow = {
   planned_task_frequencies?: Record<string, string> | null;
   /** Admin pre-approval — join lands active when household requires approval. */
   join_pre_approved?: boolean | null;
+  /** Sidekick / device activity for admin Connected roster. */
+  last_seen_at?: Timestamp | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

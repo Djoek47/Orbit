@@ -2744,6 +2744,27 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const sharedTablet = isSharedTabletDeviceSession(device);
     // Personal Sidekick: keep Continue-as. Shared tablet: wipe every hosted face.
     const sidekickSigningOut = isSidekickRole(currentMember?.role) && !sharedTablet;
+
+    // Stamp Disconnected before wiping auth so admin roster flips immediately.
+    try {
+      const { markPresenceDisconnected } = await import(
+        '@/lib/household/mark-presence-disconnected'
+      );
+      const { loadSidekickSession } = await import('@/lib/sidekick/session');
+      const sidekick = await loadSidekickSession().catch(() => null);
+      const memberIds = sharedTablet
+        ? device.profileMemberIds
+        : currentMember?.id
+          ? [currentMember.id]
+          : [];
+      await markPresenceDisconnected({
+        memberIds,
+        profileInviteCode: sidekick?.profileInviteCode ?? null,
+      });
+    } catch (error) {
+      console.warn('orbit.signOut.presence', error);
+    }
+
     try {
       await authRepository.signOut();
     } catch (error) {

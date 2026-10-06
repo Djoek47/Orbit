@@ -26,17 +26,17 @@ test('admin Settings X uses closeSettingsModal, not router.back alone', () => {
   const settings = read('app/settings.tsx');
   assert.match(settings, /closeSettingsModal/);
   assert.match(settings, /closeSettings/);
-  assert.match(settings, /SigningOutOverlay/);
+  assert.match(read('app/_layout.tsx'), /GlobalSigningOutCover/);
   assert.doesNotMatch(settings, /onPress=\{\(\) => router\.back\(\)\}/);
   assert.doesNotMatch(settings, /Email tests/);
   assert.doesNotMatch(settings, /Send test email/);
 });
 
-test('sidekick Settings X uses closeSettingsModal + signing-out overlay', () => {
+test('sidekick Settings X uses closeSettingsModal + root signing-out cover', () => {
   const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
   assert.match(sidekick, /closeSettingsModal/);
   assert.match(sidekick, /closeSidekickSettings|setPersonalizeOpen\(false\)/);
-  assert.match(sidekick, /SigningOutOverlay/);
+  assert.match(read('app/_layout.tsx'), /GlobalSigningOutCover/);
   assert.doesNotMatch(sidekick, /onPress=\{\(\) => router\.back\(\)\}/);
 });
 

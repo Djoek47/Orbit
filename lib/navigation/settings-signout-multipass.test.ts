@@ -96,10 +96,20 @@ test('Pass B3: sidekick close + sign-out clear look sheet', () => {
   assert.match(sidekick, /setPersonalizeOpen\(false\);\s*setSigningOut\(true\)/s);
 });
 
-test('Pass C1: SigningOutOverlay on admin + sidekick', () => {
-  assert.match(read('app/settings.tsx'), /SigningOutOverlay/);
-  assert.match(read('components/orbit/sidekick-settings-screen.tsx'), /SigningOutOverlay/);
+test('Pass C1: SigningOutOverlay hoisted to root (survives Settings unmount)', () => {
+  assert.match(read('app/_layout.tsx'), /GlobalSigningOutCover/);
+  assert.match(read('components/orbit/global-signing-out-cover.tsx'), /subscribeSignOutInFlight/);
   assert.match(read('components/orbit/signing-out-overlay.tsx'), /Signing out…/);
+  assert.doesNotMatch(read('app/settings.tsx'), /SigningOutOverlay/);
+  assert.doesNotMatch(read('components/orbit/sidekick-settings-screen.tsx'), /SigningOutOverlay/);
+});
+
+test('Pass C1b: Settings X disabled while sign-out in flight', () => {
+  const settings = read('app/settings.tsx');
+  const sidekick = read('components/orbit/sidekick-settings-screen.tsx');
+  assert.match(settings, /disabled=\{signingOut \|\| isSignOutInFlight\(\)\}/);
+  assert.match(sidekick, /disabled=\{signingOut \|\| isSignOutInFlight\(\)\}/);
+  assert.match(read('lib/auth/sign-out-and-leave.ts'), /SESSION_NAV_DELAY_MS/);
 });
 
 test('Pass C2: signOutAndLeave coalesces + hard ceiling + always navigates', async () => {
@@ -125,6 +135,15 @@ test('Pass C2: signOutAndLeave coalesces + hard ceiling + always navigates', asy
   const leave = read('lib/auth/sign-out-and-leave.ts');
   assert.match(leave, /SIGNOUT_HARD_MS/);
   assert.match(leave, /resetToGetStarted/);
+});
+
+test('Pass C2b: Privacy & legal collapses look sheet before alert', () => {
+  assert.match(
+    read('components/orbit/sidekick-settings-screen.tsx'),
+    /Privacy & legal[\s\S]*setPersonalizeOpen\(false\)/
+  );
+  assert.match(read('app/settings.tsx'), /Privacy & legal[\s\S]*collapseSettingsOverlays\(\)/);
+  assert.match(read('components/orbit/sidekick-settings-screen.tsx'), /Linking\.openURL\(CHOREMAXX_LEGAL/);
 });
 
 test('Pass C3: orbitAlert defers destructive until Modal settles', () => {

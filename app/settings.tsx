@@ -9,7 +9,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { SigningOutOverlay } from '@/components/orbit/signing-out-overlay';
 import {
   DEFAULT_ACCENT_THEME_ID,
   migrateAccentThemeId,
@@ -499,9 +498,10 @@ export default function SettingsScreen() {
   }, []);
 
   const closeSettings = useCallback(() => {
+    if (signingOut || isSignOutInFlight()) return;
     collapseSettingsOverlays();
     closeSettingsModal();
-  }, [collapseSettingsOverlays]);
+  }, [collapseSettingsOverlays, signingOut]);
 
   const confirmAdminSignOut = () => {
     if (signingOut || isSignOutInFlight()) return;
@@ -543,8 +543,6 @@ export default function SettingsScreen() {
           fullScreenGestureEnabled: !wheelDragging,
         }}
       />
-      <SigningOutOverlay visible={signingOut} />
-
       <View style={styles.handleRow} pointerEvents={wheelDragging ? 'none' : 'auto'}>
         <View style={[styles.handle, { backgroundColor: glassBorder(0.2) }]} />
       </View>
@@ -570,10 +568,18 @@ export default function SettingsScreen() {
           </View>
         )}
         <Pressable
-          style={[styles.close, { backgroundColor: glass(0.08) }]}
+          style={[
+            styles.close,
+            {
+              backgroundColor: glass(0.08),
+              opacity: signingOut || isSignOutInFlight() ? 0.4 : 1,
+            },
+          ]}
           onPress={closeSettings}
+          disabled={signingOut || isSignOutInFlight()}
           accessibilityRole="button"
           accessibilityLabel="Close settings"
+          accessibilityState={{ disabled: signingOut || isSignOutInFlight() }}
           hitSlop={12}
           pointerEvents="auto">
           <MaterialIcons name="close" size={16} color={orbitPalette.textMuted} />
@@ -890,7 +896,8 @@ export default function SettingsScreen() {
                 iconColor="#34D399"
                 label="Privacy & legal"
                 last
-                onPress={() =>
+                onPress={() => {
+                  collapseSettingsOverlays();
                   orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
                     {
                       text: 'Privacy Policy',
@@ -905,8 +912,8 @@ export default function SettingsScreen() {
                       onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
                     },
                     { text: 'Cancel', style: 'cancel' },
-                  ])
-                }
+                  ]);
+                }}
               />
             </SettingsGroup>
 

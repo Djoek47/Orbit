@@ -80,7 +80,12 @@ Deno.serve(async (req) => {
 
     const householdId = member.household_id;
     const memberId = member.id;
-    const seenAt = new Date().toISOString();
+    // Sign-out can pass disconnect:true so admin roster flips to Disconnected
+    // immediately (live window is 5 minutes client-side).
+    const disconnect = Boolean((body as { disconnect?: boolean } | null)?.disconnect);
+    const seenAt = disconnect
+      ? new Date(Date.now() - 6 * 60 * 1000).toISOString()
+      : new Date().toISOString();
 
     await admin
       .from('household_members')

@@ -18,7 +18,6 @@ import { VOCAB } from '@/constants/vocabulary';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { markNeedsProfilePick } from '@/lib/device/device-session';
-import { SigningOutOverlay } from '@/components/orbit/signing-out-overlay';
 import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
 import { memberSettingsModel } from '@/lib/settings/member-settings-model';
@@ -70,6 +69,7 @@ export function SidekickSettingsScreen() {
   };
 
   const closeSidekickSettings = () => {
+    if (signingOut || isSignOutInFlight()) return;
     setPersonalizeOpen(false);
     closeSettingsModal();
   };
@@ -78,7 +78,6 @@ export function SidekickSettingsScreen() {
     <>
       <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: orbitPalette.backgroundSoft }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <SigningOutOverlay visible={signingOut} />
 
         <View style={styles.handleRow}>
           <View style={[styles.handle, { backgroundColor: glassBorder(0.2) }]} />
@@ -92,10 +91,18 @@ export function SidekickSettingsScreen() {
             <Text style={[styles.title, { color: orbitPalette.text }]}>Settings</Text>
           </View>
           <Pressable
-            style={[styles.close, { backgroundColor: glass(0.08) }]}
+            style={[
+              styles.close,
+              {
+                backgroundColor: glass(0.08),
+                opacity: signingOut || isSignOutInFlight() ? 0.4 : 1,
+              },
+            ]}
             onPress={closeSidekickSettings}
+            disabled={signingOut || isSignOutInFlight()}
             accessibilityRole="button"
             accessibilityLabel="Close settings"
+            accessibilityState={{ disabled: signingOut || isSignOutInFlight() }}
             hitSlop={12}>
             <MaterialIcons name="close" size={16} color={orbitPalette.textMuted} />
           </Pressable>
@@ -206,7 +213,9 @@ export function SidekickSettingsScreen() {
               iconColor="#34D399"
               label="Privacy & legal"
               last
-              onPress={() =>
+              onPress={() => {
+                // Close look sheet first — orphan BottomSheet eats legal / Sign Out taps.
+                setPersonalizeOpen(false);
                 orbitAlert('Privacy & legal', 'Open Choremaxx legal pages', [
                   {
                     text: 'Privacy Policy',
@@ -221,8 +230,8 @@ export function SidekickSettingsScreen() {
                     onPress: () => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`),
                   },
                   { text: 'Cancel', style: 'cancel' },
-                ])
-              }
+                ]);
+              }}
             />
           </SettingsGroup>
 
