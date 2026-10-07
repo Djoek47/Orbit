@@ -39,7 +39,14 @@ import {
   summarizeCredits,
   type CreditSummary,
 } from '@/lib/billing/credit-ledger';
-import { isNativeIapAvailable, isUserCancelledPurchase, purchaseTokens } from '@/lib/billing/iap';
+import {
+  isNativeIapAvailable,
+  isTokenPackAvailable,
+  isUserCancelledPurchase,
+  probeAvailableTokenPacks,
+  purchaseTokens,
+  type IapTokenPackKey,
+} from '@/lib/billing/iap';
 import { sendCreditReceiptEmail } from '@/lib/billing/send-credit-receipt';
 import { loadTokenGrants } from '@/lib/billing/token-grants';
 import { summarizeActUsage } from '@/lib/ai/act-events';
@@ -87,6 +94,9 @@ function PoppinsCreditsScreenInner() {
   const [billingEmail, setBillingEmail] = useState('');
   const [receiptMail, setReceiptMail] = useState<ReceiptMail | null>(null);
   const [congrats, setCongrats] = useState<Congrats | null>(null);
+  /** null = probe pending/failed (keep tappable); array = StoreKit-listed packs only */
+  const [availablePacks, setAvailablePacks] = useState<IapTokenPackKey[] | null>(null);
+  const [storeProbeDone, setStoreProbeDone] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollToReceipt = useRef(false);
   const purchaseSeq = useRef(0);
@@ -141,14 +151,34 @@ function PoppinsCreditsScreenInner() {
       void readBalance().then((next) => {
         if (next) setCredits(next);
       });
+      let cancelled = false;
+      void (async () => {
+        const listed = await probeAvailableTokenPacks();
+        if (cancelled) return;
+        setAvailablePacks(listed);
+        setStoreProbeDone(true);
+      })();
+      return () => {
+        cancelled = true;
+      };
     }, [readBalance])
   );
 
   const packs = useMemo(() => topUpPacks(), []);
   const mockBuy = !isNativeIapAvailable();
+  const anyPackForSale =
+    availablePacks == null ? true : packs.some((pack) => availablePacks.includes(pack.key));
 
   const runPurchase = useCallback(
     async (pack: TopUpPack) => {
+      if (!isTokenPackAvailable(pack.key, availablePacks)) {
+        await showNativeAppError(
+          "That didn't go through",
+          new Error(`sku_not_found: ${pack.productId} is not available from App Store Connect for this build.`),
+          { source: 'poppins-credits', category: 'billing' }
+        );
+        return;
+      }
       const seq = ++purchaseSeq.current;
       setBuying(pack.key);
       setCongrats(null);
@@ -211,6 +241,7 @@ function PoppinsCreditsScreenInner() {
       }
     },
     [
+      availablePacks,
       billingEmail,
       currentMember?.name,
       currentUser?.email,
@@ -225,6 +256,7 @@ function PoppinsCreditsScreenInner() {
   const buy = useCallback(
     (pack: TopUpPack) => {
       if (buying != null) return;
+      if (!isTokenPackAvailable(pack.key, availablePacks)) return;
       confirmCreditPackPurchase({
         title: `${pack.label} · ${formatPrice(pack.priceUsd)}`,
         message: mockBuy
@@ -236,7 +268,7 @@ function PoppinsCreditsScreenInner() {
         },
       });
     },
-    [buying, mockBuy, runPurchase]
+    [availablePacks, buying, mockBuy, runPurchase]
   );
 
   return (
@@ -346,21 +378,33 @@ function PoppinsCreditsScreenInner() {
               </View>
 
               <View style={styles.packRow}>
-                {packs.map((pack, index) => (
-                  <PackCard
-                    key={pack.key}
-                    pack={pack}
-                    busy={buying === pack.key}
-                    disabled={buying != null}
-                    index={index}
-                    onPress={() => buy(pack)}
-                  />
-                ))}
+                {packs.map((pack, index) => {
+                  const forSale = isTokenPackAvailable(pack.key, availablePacks);
+                  return (
+                    <PackCard
+                      key={pack.key}
+                      pack={pack}
+                      busy={buying === pack.key}
+                      disabled={buying != null || !forSale}
+                      unavailable={storeProbeDone && !forSale}
+                      index={index}
+                      onPress={() => buy(pack)}
+                    />
+                  );
+                })}
               </View>
 
               {mockBuy ? (
                 <Text style={[styles.mockNote, { color: c.textSubtle }]}>
                   Test mode — buys are free and still add to your bank.
+                </Text>
+              ) : storeProbeDone && !anyPackForSale ? (
+                <Text style={[styles.mockNote, { color: c.textSubtle }]}>
+                  Credit packs aren’t for sale on this build yet. Send feedback if this sticks.
+                </Text>
+              ) : storeProbeDone && availablePacks != null && availablePacks.length < packs.length ? (
+                <Text style={[styles.mockNote, { color: c.textSubtle }]}>
+                  Some sizes aren’t for sale on this build yet — pick an available pack.
                 </Text>
               ) : null}
             </Animated.View>
@@ -620,37 +664,45 @@ function PackCard({
   pack,
   busy,
   disabled,
+  unavailable,
   index,
   onPress,
 }: {
   pack: TopUpPack;
   busy: boolean;
   disabled: boolean;
+  unavailable?: boolean;
   index: number;
   onPress: () => void;
 }) {
   const { c, glassBorder, isDark } = useOrbitColors();
-  const tone = pack.best ? TOPUP_TONE : c.textMuted;
+  const tone = unavailable ? c.textSubtle : pack.best ? TOPUP_TONE : c.textMuted;
   return (
     <Animated.View entering={FadeInDown.delay(100 + index * 60).duration(280)} style={{ flex: 1 }}>
       <Pressable
         onPress={onPress}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={`${pack.label} for ${formatPrice(pack.priceUsd)}, ${formatPerAction(
-          pack.centsPerAction
-        )}${pack.best ? ', best value' : ''}`}
+        accessibilityState={{ disabled }}
+        accessibilityLabel={
+          unavailable
+            ? `${pack.label} not for sale on this build yet`
+            : `${pack.label} for ${formatPrice(pack.priceUsd)}, ${formatPerAction(
+                pack.centsPerAction
+              )}${pack.best ? ', best value' : ''}`
+        }
         style={({ pressed }) => [
           styles.pack,
           {
-            borderColor: pack.best ? `${TOPUP_TONE}AA` : glassBorder(0.12),
-            opacity: disabled && !busy ? 0.5 : pressed ? 0.88 : 1,
-            transform: [{ scale: pressed ? 0.97 : 1 }],
+            borderColor:
+              unavailable ? glassBorder(0.08) : pack.best ? `${TOPUP_TONE}AA` : glassBorder(0.12),
+            opacity: unavailable ? 0.45 : disabled && !busy ? 0.5 : pressed ? 0.88 : 1,
+            transform: [{ scale: pressed && !unavailable ? 0.97 : 1 }],
           },
         ]}>
         <LinearGradient
           colors={
-            pack.best
+            pack.best && !unavailable
               ? [`${TOPUP_TONE}38`, `${TOPUP_DEEP}18`, isDark ? '#1A1208' : `${TOPUP_TONE}08`]
               : [isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)', 'transparent']
           }
@@ -658,7 +710,7 @@ function PackCard({
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {pack.savingLabel ? (
+        {pack.savingLabel && !unavailable ? (
           <View style={[styles.saveTag, { backgroundColor: TOPUP_TONE }]}>
             <Text style={styles.saveText}>{pack.savingLabel}</Text>
           </View>
@@ -671,21 +723,30 @@ function PackCard({
         <Text style={[styles.packTokens, { color: c.text }]}>{pack.tokens}</Text>
         <Text style={[styles.packUnit, { color: c.textMuted }]}>actions</Text>
         <Text style={[styles.packPrice, { color: tone }]}>
-          {busy ? 'Adding…' : formatPrice(pack.priceUsd)}
+          {busy ? 'Adding…' : unavailable ? 'Soon' : formatPrice(pack.priceUsd)}
         </Text>
         <Text style={[styles.packEach, { color: c.textSubtle }]}>
-          {formatPerAction(pack.centsPerAction)}
+          {unavailable ? 'Not on this build' : formatPerAction(pack.centsPerAction)}
         </Text>
         <View
           style={[
             styles.packCta,
             {
-              backgroundColor: pack.best ? TOPUP_TONE : `${TOPUP_TONE}22`,
-              borderColor: pack.best ? TOPUP_TONE : `${TOPUP_TONE}44`,
+              backgroundColor:
+                unavailable ? glassFill(isDark, 0.04) : pack.best ? TOPUP_TONE : `${TOPUP_TONE}22`,
+              borderColor: unavailable
+                ? glassBorder(0.1)
+                : pack.best
+                  ? TOPUP_TONE
+                  : `${TOPUP_TONE}44`,
             },
           ]}>
-          <Text style={[styles.packCtaText, { color: pack.best ? '#1A1006' : TOPUP_TONE }]}>
-            {busy ? '…' : 'Get'}
+          <Text
+            style={[
+              styles.packCtaText,
+              { color: unavailable ? c.textSubtle : pack.best ? '#1A1006' : TOPUP_TONE },
+            ]}>
+            {busy ? '…' : unavailable ? '—' : 'Get'}
           </Text>
         </View>
       </Pressable>

@@ -12,7 +12,9 @@ import {
 import {
   clearEntitlementForTests,
   isNativeIapAvailable,
+  isTokenPackAvailable,
   premiumCopy,
+  probeAvailableTokenPacks,
   purchasePremium,
   purchaseTokens,
 } from '@/lib/billing/iap';
@@ -156,4 +158,12 @@ test('premium onboarding href defaults to onboarding source', () => {
 
 test('native IAP is unavailable in this Node/unit environment', () => {
   assert.equal(isNativeIapAvailable(), false);
+});
+
+test('probeAvailableTokenPacks returns full catalog when StoreKit is unavailable', async () => {
+  const listed = await probeAvailableTokenPacks();
+  assert.deepEqual(listed, ['tokensSmall', 'tokensMedium', 'tokensLarge']);
+  assert.equal(isTokenPackAvailable('tokensMedium', listed), true);
+  assert.equal(isTokenPackAvailable('tokensMedium', ['tokensSmall', 'tokensLarge']), false);
+  assert.equal(isTokenPackAvailable('tokensMedium', null), true, 'null = unknown, keep tappable');
 });
