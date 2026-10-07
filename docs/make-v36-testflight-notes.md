@@ -101,8 +101,17 @@ make-v36 is the Premium + shared-device fold after TF 120. The household pays on
 5. [x] Staging: `20261007120000_household_premium.sql` applied (8 `premium_*` columns)
 6. [x] Payment final pass (see below) — code ready; ASC product Apple-verify still pending
 7. [ ] ASC: products attached to 1.3.0 / Apple clears review (user) — packs show **Soon** until StoreKit lists them
-8. [ ] **Push `cursor/make-v36-c30d` + EAS TestFlight 1.3.0 (121)**
+8. [x] **Push `cursor/make-v36-c30d` + EAS TestFlight 1.3.0 (121)** — queued
 9. [ ] Seed review household Premium in SQL; put real ASC review credentials
+
+| | |
+|--|--|
+| Version | **1.3.0 (121)** — make-v36 |
+| Branch | `cursor/make-v36-c30d` |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/9d650e20-249f-4214-ae59-67b73434b9b2 |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/b3ced264-4df1-4d2a-a2f6-e139daef891c |
+| PR | https://github.com/Djoek47/Orbit/pull/124 |
+| Prior (120) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/fbf0926f-6f4a-4d9e-89ba-7947b2c8b653 |
 
 ### Payment final pass (build 121)
 
