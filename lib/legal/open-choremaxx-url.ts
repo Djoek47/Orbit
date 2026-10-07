@@ -1,8 +1,10 @@
 /**
- * Open Choremaxx legal URLs in an in-app browser (Safari VC on iOS).
+ * Open Choremaxx legal URLs in the system browser.
+ * Prefer Linking.openURL (Safari / Chrome) — matches “Policies open in your browser”
+ * and survives Modal dismiss better than nesting SFSafariViewController.
+ *
  * Callers that just closed an RN Modal must wait until Modal.onDismiss
- * (or ~SESSION_NAV_DELAY_MS) before invoking this — opening a browser during
- * Modal dismiss locks touch on iOS (same class as nesting orbitAlert).
+ * (or ~LEGAL_OPEN_DELAY_MS) before invoking this.
  */
 import { Linking, Platform } from 'react-native';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
@@ -21,35 +23,34 @@ export async function openChoremaxxUrl(url: string, label: string): Promise<void
     return;
   }
 
+  // System browser first — reliable after Settings / sheet dismiss on iOS.
   try {
-    if (trimmed.startsWith('mailto:') || Platform.OS === 'web') {
+    if (Platform.OS !== 'web') {
       const can = await Linking.canOpenURL(trimmed);
-      if (!can && Platform.OS !== 'web') {
+      if (can === false && trimmed.startsWith('mailto:')) {
         throw new Error('cannot open mailto');
       }
-      await Linking.openURL(trimmed);
-      return;
     }
-
-    await openBrowserAsync(trimmed, {
-      presentationStyle: WebBrowserPresentationStyle.FULL_SCREEN,
-      enableBarCollapsing: true,
-      showTitle: true,
-      createTask: false,
-    });
-    return;
-  } catch {
-    /* try system browser before alerting */
-  }
-
-  try {
     await Linking.openURL(trimmed);
     return;
   } catch {
-    /* fall through */
+    /* fall through to in-app browser */
   }
 
-  // Deferred-safe: callers already closed any parent Modal.
+  if (!trimmed.startsWith('mailto:') && Platform.OS !== 'web') {
+    try {
+      await openBrowserAsync(trimmed, {
+        presentationStyle: WebBrowserPresentationStyle.FULL_SCREEN,
+        enableBarCollapsing: true,
+        showTitle: true,
+        createTask: false,
+      });
+      return;
+    } catch {
+      /* fall through */
+    }
+  }
+
   orbitAlert(
     `${label} unavailable`,
     'We could not open the Choremaxx website. Check your connection and try again, or use Support in Settings.',
