@@ -84,10 +84,27 @@ test('Pass B — switchPersona awaits code bind; loadSidekickSession never cross
   assert.match(store, /switchingPersona/);
   assert.match(store, /profileAuth\.memberId !== currentMember\.id/);
   assert.match(store, /Still switching profiles/);
+  // Same-face re-pick still binds DeviceSession (clears needsProfilePick).
+  assert.match(store, /sameFace/);
+  assert.match(store, /selectDeviceProfile\(target\.id\)/);
+  assert.doesNotMatch(
+    store.slice(store.indexOf('const switchPersona = async'), store.indexOf('const approveMember')),
+    /if \(target\.id === currentMember\?\.id\) return;/
+  );
   const session = read('lib/sidekick/session.ts');
   assert.match(session, /do not silently use someone else/i);
   const taskAction = read('lib/sidekick/task-action.ts');
   assert.match(taskAction, /not_assignee|Switch/i);
+});
+
+test('Pass B2 — connectSharedTabletProfiles resolves codes via findChildByProfileCode', () => {
+  const store = read('store/orbit-store.tsx');
+  const connect = store.slice(store.indexOf('const connectSharedTabletProfiles'));
+  const lookupAt = connect.indexOf('findChildByProfileCode');
+  const saveAt = connect.indexOf('saveSidekickSession');
+  assert.ok(lookupAt > 0 && lookupAt < saveAt, 'edge lookup before saving sessions');
+  assert.match(connect, /sessionHouseholdId/);
+  assert.match(connect, /Could not resolve household/);
 });
 
 test('Pass C — live sync rebinds on currentMember.id and drops stale polls', () => {
