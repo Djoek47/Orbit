@@ -35,6 +35,8 @@ export default function JoinProfileScreen() {
   const [chooserDismissed, setChooserDismissed] = useState(false);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [joiningDevice, setJoiningDevice] = useState(false);
+  /** Bumped on failure so the welcome card can come back from its exit animation. */
+  const [joinFailed, setJoinFailed] = useState(0);
 
   useEffect(() => {
     const parsed =
@@ -93,12 +95,27 @@ export default function JoinProfileScreen() {
    * said this is a shared device, so nothing is asked — the card confirms and goes in.
    */
   const joinSharedDevice = async () => {
-    const shell = findSharedDeviceForMember(memberId ?? undefined, household.members);
-    const people = welcome.people.map((person) => person.id);
     setJoiningDevice(true);
+    setError('');
     try {
+      // Join as this person first. Without it there is no session, and /select-profile sends
+      // an unauthenticated Sidekick to the admin sign-in screen with no password to type.
+      await completeProfileJoin({
+        code: parseInvitePayload(code) ?? normalizeInviteCode(code),
+        displayName: name.trim() || 'Me',
+        avatar: avatar.trim() || undefined,
+      });
+
+      const shell = findSharedDeviceForMember(memberId ?? undefined, household.members);
+      const people = welcome.people.map((person) => person.id);
+      const roster = people.length > 0 ? people : memberId ? [memberId] : [];
+      if (roster.length === 0) {
+        // Binding a device to nobody leaves a tablet that opens on an empty picker.
+        throw new Error('This code is not on a shared device yet. Ask an admin to add you.');
+      }
+
       await setupSharedDeviceSession({
-        profileMemberIds: people.length > 0 ? people : memberId ? [memberId] : [],
+        profileMemberIds: roster,
         deviceLabel: welcome.deviceLabel,
         sharedDeviceId: shell?.id ?? null,
         hostKind: 'shared-tablet',
@@ -106,6 +123,7 @@ export default function JoinProfileScreen() {
       router.replace('/select-profile' as never);
     } catch (err) {
       setJoiningDevice(false);
+      setJoinFailed((n) => n + 1);
       setError(userFacingMessage(err, 'Could not join this device.'));
     }
   };
@@ -119,6 +137,7 @@ export default function JoinProfileScreen() {
         <SharedDeviceWelcomeCard
           welcome={welcome}
           busy={joiningDevice}
+          resetToken={joinFailed}
           onJoin={() => void joinSharedDevice()}
           personalName={name.trim().split(/\s+/)[0] || undefined}
           onUseAsPersonal={() => {

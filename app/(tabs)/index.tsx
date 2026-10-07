@@ -45,6 +45,7 @@ import {
 } from '@/lib/rewards/reward-mode';
 import { formatLocalDate } from '@/lib/streaks/local-date';
 import { visibleEventsForMember } from '@/lib/calendar/plan-visibility';
+import { useDayRollover } from '@/lib/refresh/use-day-rollover';
 import { useHomeLiveRefresh } from '@/lib/refresh/use-home-live-refresh';
 import { useHouseholdRefresh } from '@/lib/refresh/use-household-refresh';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -76,6 +77,8 @@ export default function HomeScreen() {
   const tour = useTourControls();
   const { refreshing, onRefresh } = useHouseholdRefresh();
   useHomeLiveRefresh();
+  // Keeping the data fresh and rolling the day are different jobs — this is the second.
+  const { lastRefreshedAt, refreshNow } = useDayRollover();
   const majordomoName = useMajordomoName();
   const { c, glass } = useOrbitColors();
   const scrollRef = useRef<ScrollView>(null);
@@ -502,6 +505,8 @@ export default function HomeScreen() {
             onAwardDailyStreak={() => {
               void awardDailyStreak();
             }}
+            lastRefreshedAt={lastRefreshedAt}
+            onRefresh={refreshNow}
           />
           </TourTarget>
           <View style={styles.destRow}>

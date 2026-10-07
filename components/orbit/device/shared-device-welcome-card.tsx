@@ -24,7 +24,7 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -50,6 +50,12 @@ type Props = {
   busy?: boolean;
   /** Runs once the card has animated out, so the next screen starts as this one ends. */
   onJoin: () => void;
+  /**
+   * Bumped by the parent when a join fails. The card animates itself out on Join, so without
+   * this it stays invisible and disabled over an error message, with no back button — a dead
+   * screen that can only be escaped by force-quitting.
+   */
+  resetToken?: number;
   /** The old behaviour, kept but demoted: host this phone as one person's own. */
   onUseAsPersonal?: () => void;
   personalName?: string;
@@ -61,6 +67,7 @@ export function SharedDeviceWelcomeCard({
   onJoin,
   onUseAsPersonal,
   personalName,
+  resetToken = 0,
 }: Props) {
   const { c, glass, glassBorder } = useOrbitColors();
   const [leaving, setLeaving] = useState(false);
@@ -72,6 +79,18 @@ export function SharedDeviceWelcomeCard({
     opacity: opacity.get(),
     transform: [{ translateY: lift.get() }],
   }));
+
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    // Come back from the exit animation so the buttons are usable again.
+    setLeaving(false);
+    opacity.set(withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) }));
+    lift.set(withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) }));
+  }, [resetToken, opacity, lift]);
 
   const join = () => {
     if (leaving || busy) return;
@@ -97,17 +116,16 @@ export function SharedDeviceWelcomeCard({
           </Text>
         </View>
 
-        <View style={[styles.divider, { backgroundColor: glassBorder(0.08) }]} />
-
-        <View style={styles.cardRow}>
-          <Text style={[styles.codeLabel, { color: c.textMuted }]}>Household code</Text>
-          <View style={{ flex: 1 }} />
-          <Text style={[styles.code, { color: c.text }]}>{welcome.matchCode}</Text>
-        </View>
-        <Text style={[styles.codeHint, { color: c.textSubtle }]}>
-          Your admin sees the same four characters. If they don&apos;t match, this is the wrong
-          household.
-        </Text>
+        {welcome.hasMatchCode ? (
+          <>
+            <View style={[styles.divider, { backgroundColor: glassBorder(0.08) }]} />
+            <View style={styles.cardRow}>
+              <Text style={[styles.codeLabel, { color: c.textMuted }]}>Household code</Text>
+              <View style={{ flex: 1 }} />
+              <Text style={[styles.code, { color: c.text }]}>{welcome.matchCode}</Text>
+            </View>
+          </>
+        ) : null}
 
         {welcome.people.length > 0 ? (
           <>

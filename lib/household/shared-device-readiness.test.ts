@@ -103,4 +103,14 @@ const screen = readFileSync('app/setup-kid-device.tsx', 'utf8');
 assert.match(screen, /sharedDeviceReadiness/, 'the step asks before it blames');
 assert.match(screen, /readiness\.blocked/, 'and Next respects the answer');
 
+// The wizard's grid renders role === 'child' only. Counting an active adult as "connected"
+// would show an empty grid with no banner — the exact bug this module exists to prevent.
+const adults = sharedDeviceReadiness([admin, member('m', 'Marie', 'active', 'adult')]);
+assert.equal(adults.state, 'no-sidekicks', 'an adult with no tile is not a connected Sidekick');
+assert.equal(adults.connected.length, 0);
+
+// And the readiness count must match what the grid filters on, exactly.
+const wizard = readFileSync('app/setup-kid-device.tsx', 'utf8');
+assert.match(wizard, /member\.role === 'child'/, 'the grid still renders children only');
+
 console.log('shared-device-readiness: ok');

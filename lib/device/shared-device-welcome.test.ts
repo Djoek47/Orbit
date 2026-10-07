@@ -121,4 +121,27 @@ const picker = read('components/orbit/shared-device-profile-picker.tsx');
 assert.match(picker, /selectedId/, 'the picker knows which face was tapped');
 assert.match(picker, /FadeInDown|withDelay/, 'faces arrive one after another');
 
+// Before sign-in the household id is null, so the code would read "----". The screen must not
+// then tell anyone to check four dashes against their admin's screen.
+const preSignIn = sharedDeviceWelcome({
+  householdId: null,
+  householdName: 'Somewhere',
+  shell: null,
+  members: [],
+});
+assert.equal(preSignIn.hasMatchCode, false);
+assert.equal(card.hasMatchCode, true);
+assert.doesNotMatch(welcome, /don&apos;t match|wrong household/, 'no unverifiable claim');
+assert.match(welcome, /hasMatchCode/, 'the code is only shown when it is real');
+
+// Join animates the card out. If the join then fails, it has to come back — otherwise the
+// buttons sit invisible and disabled over an error, with no back button on this AuthShell.
+assert.match(welcome, /resetToken/, 'the card can be brought back');
+assert.match(join, /setJoinFailed/, 'and the screen bumps it on failure');
+
+// Binding a device to nobody leaves a tablet that opens on an empty picker, and joining
+// without completeProfileJoin lands an unauthenticated Sidekick on the admin sign-in screen.
+assert.match(join, /await completeProfileJoin\(/, 'the session is created first');
+assert.match(join, /roster\.length === 0/, 'and a device is never bound to nobody');
+
 console.log('shared-device-welcome: ok');

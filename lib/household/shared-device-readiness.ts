@@ -12,7 +12,6 @@
  *
  * Pure: no React Native, no storage.
  */
-import { isSharedDeviceEligiblePerson } from '@/lib/household/shared-device';
 import type { HouseholdMember } from '@/types/orbit';
 
 export type SharedDeviceReadinessState =
@@ -57,21 +56,20 @@ export function listNames(members: HouseholdMember[]): string {
 /**
  * A Sidekick-shaped member, whatever their status.
  *
- * `isSharedDeviceEligiblePerson` cannot answer this on its own: it requires `active`, and the
- * whole point here is to see the people who are not active yet.
+ * `isSharedDeviceEligiblePerson` cannot answer this: it requires `active`, and the whole point
+ * here is to see the people who are not active yet. It is also wider than the wizard's own
+ * grid, which renders `role === 'child'` only — counting an active adult as "connected" while
+ * giving them no tile reproduces the silent empty grid this module exists to prevent.
  */
 function isSidekickProfile(member: HouseholdMember): boolean {
   if (member.status === 'removed' || member.status === 'inactive') return false;
-  if (member.role === 'owner' || member.role === 'admin') return false;
-  if (member.role === 'guest' || member.role === 'shared-device') return false;
-  return true;
+  return member.role === 'child';
 }
 
 export function sharedDeviceReadiness(members: HouseholdMember[]): SharedDeviceReadiness {
   const profiles = members.filter(isSidekickProfile);
-  const connected = profiles.filter(
-    (member) => member.status === 'active' && isSharedDeviceEligiblePerson(member)
-  );
+  // Exactly who the wizard's grid will render — see isSidekickProfile.
+  const connected = profiles.filter((member) => member.status === 'active');
   const waiting = profiles.filter((member) => member.status !== 'active');
 
   if (connected.length === 0 && waiting.length === 0) {

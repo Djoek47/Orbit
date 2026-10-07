@@ -1,7 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -14,6 +15,7 @@ import Animated, {
 import { Avatar } from '@/components/orbit/avatar';
 import { FireEdgeProgress } from '@/components/orbit/fire-edge-progress';
 import { GlassCard } from '@/components/orbit/glass-card';
+import { freshnessLabel } from '@/lib/refresh/day-rollover';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { isAvatarImageUri, MEMBER_ACCENTS, memberDisplayEmoji } from '@/lib/game-levels';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
@@ -38,6 +40,10 @@ type TodayTasksCardProps = {
   mineOnly?: boolean;
   streak: number;
   onAwardDailyStreak?: () => void;
+  /** When the figures on this card were last settled. Drives the freshness line. */
+  lastRefreshedAt?: number | null;
+  /** Tapping the time re-runs the catch-up. Omitted on screens that cannot refresh. */
+  onRefresh?: () => void;
 };
 
 function PersonChipEnter({ index, children }: { index: number; children: ReactNode }) {
@@ -67,6 +73,8 @@ export function TodayTasksCard({
   mineOnly = false,
   streak,
   onAwardDailyStreak,
+  lastRefreshedAt,
+  onRefresh,
 }: TodayTasksCardProps) {
   const { c, isDark, glass, glassBorder } = useOrbitColors();
   // Recompute “today” when the store ticks (poll / expiry) without waiting for midnight remount.
@@ -74,6 +82,27 @@ export function TodayTasksCard({
   useEffect(() => {
     setNowTick(Date.now());
   }, [tasks]);
+
+  const [spinning, setSpinning] = useState(false);
+  // The freshness line ages on its own, so "just now" does not sit there for an hour.
+  const [freshTick, setFreshTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (lastRefreshedAt == null) return;
+    const id = setInterval(() => setFreshTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [lastRefreshedAt]);
+
+  const freshness = freshnessLabel(lastRefreshedAt ?? null, freshTick);
+
+  const tapRefresh = useCallback(() => {
+    if (!onRefresh || spinning) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSpinning(true);
+    onRefresh();
+    // The catch-up resolves through the store, so the spin is timed rather than awaited —
+    // long enough to read as deliberate, short enough not to feel stuck.
+    setTimeout(() => setSpinning(false), 900);
+  }, [onRefresh, spinning]);
 
   const scoped = useMemo(() => {
     const now = new Date(nowTick);
@@ -166,10 +195,36 @@ export function TodayTasksCard({
                 <Text style={[styles.sectionTitle, { color: c.text }]}>
                   {mineOnly ? 'My tasks today' : "Today's Tasks"}
                 </Text>
-                <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
-                  {done} of {scoped.length} complete
-                  {complete ? ' · daily streak ready' : openCount > 0 ? ` · ${openCount} still open` : ''}
-                </Text>
+                <View style={styles.eyebrowRow}>
+                  <Text style={[styles.eyebrow, { color: c.textSubtle }]}>
+                    {done} of {scoped.length} complete
+                    {complete ? ' · daily streak ready' : openCount > 0 ? ` · ${openCount} still open` : ''}
+                  </Text>
+                  {onRefresh && freshness ? (
+                    <Pressable
+                      onPress={tapRefresh}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Updated ${freshness}. Tap to update now.`}
+                      style={({ pressed }) => [styles.freshBtn, { opacity: pressed ? 0.6 : 1 }]}>
+                      <Animated.View
+                        style={spinning ? styles.freshSpinning : undefined}>
+                        <MaterialIcons
+                          name="refresh"
+                          size={12}
+                          color={spinning ? accentTheme.primary : c.textSubtle}
+                        />
+                      </Animated.View>
+                      <Text
+                        style={[
+                          styles.freshText,
+                          { color: spinning ? accentTheme.primary : c.textSubtle },
+                        ]}>
+                        {spinning ? 'Updating…' : freshness}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
               <View style={styles.rightMeta}>
                 <View style={[styles.streakChip, complete && styles.streakChipHot]}>
@@ -356,6 +411,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  eyebrowRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  freshBtn: { alignItems: 'center', flexDirection: 'row', gap: 3, minHeight: 20 },
+  freshText: { fontSize: 11, fontWeight: '600' },
+  freshSpinning: { opacity: 0.9 },
   eyebrow: { fontSize: 12 },
   rightMeta: { alignItems: 'flex-end', gap: 6 },
   streakChip: {

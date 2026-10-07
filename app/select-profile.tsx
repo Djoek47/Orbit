@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { Redirect, router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -77,6 +77,12 @@ export default function SelectProfileScreen() {
   const [ready, setReady] = useState(false);
   /** Who was tapped. Holds the picker's chosen-face animation while the profile opens. */
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /**
+   * The same latch, set synchronously. State is a render closure, so two faces tapped in one
+   * JS turn — two kids, two fingers, which is exactly what a family tablet invites — both saw
+   * null and both opened a profile.
+   */
+  const pickingRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -117,6 +123,7 @@ export default function SelectProfileScreen() {
       router.replace('/(tabs)' as never);
     } catch (error) {
       setSelectedId(null);
+      pickingRef.current = false;
       orbitAlert(
         'Could not open profile',
         error instanceof Error
@@ -153,7 +160,8 @@ export default function SelectProfileScreen() {
   }
 
   const handleSelect = async (member: HouseholdMember) => {
-    if (selectedId) return;
+    if (pickingRef.current) return;
+    pickingRef.current = true;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedId(member.id);
     // Let the chosen face finish growing before the screen changes under it.

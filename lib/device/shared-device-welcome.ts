@@ -48,6 +48,11 @@ export type SharedDeviceWelcome = {
   householdName: string;
   deviceLabel: string;
   matchCode: string;
+  /**
+   * False before sign-in, when the store's household id is still null. The code would read
+   * "----", and the screen must not then tell anyone to check it against the admin's screen.
+   */
+  hasMatchCode: boolean;
   /** Everyone already on the tablet, capped at what the picker can lay out. */
   people: HouseholdMember[];
   /** "Emma and Jack" · "Emma, Jack and 2 others" — never a bare list that runs off screen. */
@@ -79,6 +84,7 @@ export function sharedDeviceWelcome(input: {
     householdName: input.householdName?.trim() || 'your household',
     deviceLabel: normalizeSharedDeviceLabel(input.shell?.name),
     matchCode: householdMatchCode(input.householdId),
+    hasMatchCode: Boolean(input.householdId?.trim()),
     people,
     peopleLabel: describePeople(people),
     full: people.length >= SHARED_DEVICE_MAX_PEOPLE,
