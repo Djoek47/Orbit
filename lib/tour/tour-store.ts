@@ -338,6 +338,8 @@ type TourUiHooks = {
   setPlanSubTab?: (tab: 'calendar' | 'itinerary') => void;
   setPlanTripsSection?: (section: 'trips' | 'places') => void;
   setRewardsSegment?: (segment: 'rewards' | 'allowance' | 'ranks') => void;
+  /** Groceries: open aisle Browse grid vs list (search + Start shopping). */
+  setGroceryBrowse?: (open: boolean) => void;
 };
 
 let uiHooks: TourUiHooks = {};
@@ -364,6 +366,8 @@ export function applyTourStepEnter(
     | 'rewards.vault'
     | 'rewards.allowance'
     | 'rewards.ranks'
+    | 'groceries.browse'
+    | 'groceries.list'
 ): void {
   if (onEnter === 'tasks.homework') {
     uiHooks.setTasksDomain?.('homework');
@@ -394,6 +398,12 @@ export function applyTourStepEnter(
   }
   if (onEnter === 'rewards.ranks') {
     uiHooks.setRewardsSegment?.('ranks');
+  }
+  if (onEnter === 'groceries.browse') {
+    uiHooks.setGroceryBrowse?.(true);
+  }
+  if (onEnter === 'groceries.list') {
+    uiHooks.setGroceryBrowse?.(false);
   }
 }
 
