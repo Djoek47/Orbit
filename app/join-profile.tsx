@@ -30,16 +30,12 @@ export default function JoinProfileScreen() {
   const [error, setError] = useState('');
   const [redirecting, setRedirecting] = useState(false);
   const redirectedRef = useRef(false);
-  /** Avoid re-lookup when post-join `setHousehold` would otherwise re-fire this effect. */
-  const lookedUpCodeRef = useRef<string | null>(null);
 
   useEffect(() => {
     const parsed =
       parseInvitePayload(rawCode ?? '') ??
       (rawCode?.trim() ? normalizeInviteCode(rawCode) : null);
     if (!parsed) return;
-    if (lookedUpCodeRef.current === parsed) return;
-    lookedUpCodeRef.current = parsed;
     setCode(parsed);
     let cancelled = false;
     void lookupProfileInvite(parsed).then((result) => {
