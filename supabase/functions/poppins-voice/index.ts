@@ -11,6 +11,15 @@ import {
   getOpenAIPoppinsChatModel,
 } from '../_shared/openai-models.ts';
 import { recordAiUsageEvent, usageFromOpenAIPayload } from '../_shared/ai-usage.ts';
+import {
+  MIN_WHISPER_AUDIO_BYTES,
+  normalizeVoiceMimeType,
+  openaiWhisperErrorDetail,
+  QUIET_AUDIO_FILENAME,
+  QUIET_AUDIO_MIME,
+  shouldRetryWhisperFallback,
+  WHISPER_FALLBACK_MODEL,
+} from '../_shared/whisper-audio.ts';
 
 const FALLBACK_FOCUS_QUESTION = 'What should our household focus on right now?';
 /** ~6 MB of audio as base64 — far above a 30 s Quiet capture. */
@@ -32,6 +41,19 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
   return buffer;
 }
 
+function asAudioFile(value: FormDataEntryValue | File | null, mimeHint?: string): File | null {
+  if (value instanceof File) {
+    const mime = normalizeVoiceMimeType(value.type || mimeHint);
+    if (value.type === mime && value.name) return value;
+    return new File([value], value.name || QUIET_AUDIO_FILENAME, { type: mime });
+  }
+  if (value instanceof Blob) {
+    const mime = normalizeVoiceMimeType(value.type || mimeHint);
+    return new File([value], QUIET_AUDIO_FILENAME, { type: mime });
+  }
+  return null;
+}
+
 /**
  * Two shapes. JSON with `audioBase64` is what current clients send — it avoids the
  * multipart upload that iOS 27's RCTBlobManager breaks. Multipart stays for older builds.
@@ -43,8 +65,10 @@ async function readVoiceRequest(req: Request): Promise<VoiceRequest> {
     const b64 = typeof body.audioBase64 === 'string' ? body.audioBase64 : '';
     let audio: File | null = null;
     if (b64 && b64.length <= MAX_AUDIO_BASE64_CHARS) {
-      const mimeType = typeof body.mimeType === 'string' ? body.mimeType : 'audio/m4a';
-      audio = new File([base64ToArrayBuffer(b64)], 'poppins.m4a', { type: mimeType });
+      const mimeType = normalizeVoiceMimeType(
+        typeof body.mimeType === 'string' ? body.mimeType : QUIET_AUDIO_MIME
+      );
+      audio = new File([base64ToArrayBuffer(b64)], QUIET_AUDIO_FILENAME, { type: mimeType });
     }
     return {
       audio,
@@ -64,6 +88,36 @@ async function readVoiceRequest(req: Request): Promise<VoiceRequest> {
   };
 }
 
+async function transcribeWithOpenAI(
+  openaiKey: string,
+  audio: File,
+  model: string
+): Promise<{ ok: true; text: string } | { ok: false; detail: string; status: number; body: unknown }> {
+  const whisperForm = new FormData();
+  whisperForm.append('file', audio, audio.name || QUIET_AUDIO_FILENAME);
+  whisperForm.append('model', model);
+  whisperForm.append('language', 'en');
+  // gpt-4o-mini-transcribe only accepts json; whisper-1 accepts json too.
+  whisperForm.append('response_format', 'json');
+
+  const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${openaiKey}` },
+    body: whisperForm,
+  });
+  const whisperPayload = await whisperRes.json().catch(() => ({}));
+  if (!whisperRes.ok) {
+    return {
+      ok: false,
+      status: whisperRes.status,
+      body: whisperPayload,
+      detail: openaiWhisperErrorDetail(whisperRes.status, whisperPayload),
+    };
+  }
+  const text = String((whisperPayload as { text?: unknown }).text ?? '').trim();
+  return { ok: true, text };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -71,7 +125,7 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
-    const { audio, householdId, metricsRaw, householdRaw, transcriptOnly } =
+    const { audio: rawAudio, householdId, metricsRaw, householdRaw, transcriptOnly } =
       await readVoiceRequest(req);
 
     const auth = await requireActiveMember(authHeader, householdId);
@@ -82,13 +136,16 @@ Deno.serve(async (req) => {
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiKey) {
       if (transcriptOnly) {
-        return jsonResponse({
-          transcript: '',
-          answer: '',
-          error: 'whisper_failed',
-          detail: 'OPENAI_API_KEY missing',
-          source: 'fallback',
-        });
+        return jsonResponse(
+          {
+            transcript: '',
+            answer: '',
+            error: 'whisper_failed',
+            detail: 'OPENAI_API_KEY missing',
+            source: 'fallback',
+          },
+          503
+        );
       }
       return jsonResponse({
         transcript: FALLBACK_FOCUS_QUESTION,
@@ -110,96 +167,183 @@ Deno.serve(async (req) => {
     // must never invent a user sentence (A3 / WO9.1).
     let transcript = transcriptOnly ? '' : FALLBACK_FOCUS_QUESTION;
     let whisperDetail: string | undefined;
+    let usedModel = getOpenAIInputTranscribeModel();
 
-    if (!(audio instanceof File)) {
+    const audio = asAudioFile(rawAudio);
+
+    if (!audio) {
       whisperDetail = 'audio_not_file';
       if (transcriptOnly) {
         console.error(
           JSON.stringify({
             event: 'poppins_voice.whisper_failed',
             detail: whisperDetail,
-            audioType: typeof audio,
+            audioType: typeof rawAudio,
           })
         );
-        return jsonResponse({
-          transcript: '',
-          answer: '',
-          error: 'whisper_failed',
-          detail: whisperDetail,
-          source: 'whisper',
-        });
-      }
-    } else {
-      // Listening only. Always pin English — a French-region phone must never drift the STT.
-      const transcribeModel = getOpenAIInputTranscribeModel();
-      const whisperForm = new FormData();
-      whisperForm.append('file', audio, 'poppins.m4a');
-      whisperForm.append('model', transcribeModel);
-      whisperForm.append('language', 'en');
-
-      const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${openaiKey}` },
-        body: whisperForm,
-      });
-      const whisperPayload = await whisperRes.json();
-      if (!whisperRes.ok) {
-        whisperDetail = `http_${whisperRes.status}`;
-        console.error(
-          JSON.stringify({
-            event: 'poppins_voice.whisper_failed',
-            model: transcribeModel,
-            httpStatus: whisperRes.status,
-            body: whisperPayload,
-          })
-        );
-        if (transcriptOnly) {
-          return jsonResponse({
+        return jsonResponse(
+          {
             transcript: '',
             answer: '',
             error: 'whisper_failed',
             detail: whisperDetail,
             source: 'whisper',
-          });
-        }
-      } else if (whisperPayload.text) {
-        transcript = String(whisperPayload.text).trim();
-      } else if (transcriptOnly) {
+          },
+          400
+        );
+      }
+    } else if (audio.size > 0 && audio.size < MIN_WHISPER_AUDIO_BYTES) {
+      whisperDetail = `audio_too_small:${audio.size}`;
+      if (transcriptOnly) {
         console.error(
           JSON.stringify({
             event: 'poppins_voice.whisper_failed',
-            model: transcribeModel,
-            detail: 'empty_text',
-            httpStatus: whisperRes.status,
-            body: whisperPayload,
+            detail: whisperDetail,
+            bytes: audio.size,
           })
         );
-        return jsonResponse({
-          transcript: '',
-          answer: '',
-          error: 'whisper_failed',
-          detail: 'empty_text',
-          source: 'whisper',
-        });
+        return jsonResponse(
+          {
+            transcript: '',
+            answer: '',
+            error: 'whisper_failed',
+            detail: whisperDetail,
+            source: 'whisper',
+          },
+          400
+        );
+      }
+    } else if (audio.size === 0) {
+      whisperDetail = 'audio_empty';
+      if (transcriptOnly) {
+        return jsonResponse(
+          {
+            transcript: '',
+            answer: '',
+            error: 'whisper_failed',
+            detail: whisperDetail,
+            source: 'whisper',
+          },
+          400
+        );
+      }
+    } else {
+      // Listening only. Always pin English — a French-region phone must never drift the STT.
+      const primaryModel = getOpenAIInputTranscribeModel();
+      let result = await transcribeWithOpenAI(openaiKey, audio, primaryModel);
+      usedModel = primaryModel;
+
+      if (!result.ok && shouldRetryWhisperFallback(result.status)) {
+        console.warn(
+          JSON.stringify({
+            event: 'poppins_voice.whisper_retry_fallback',
+            primaryModel,
+            fallbackModel: WHISPER_FALLBACK_MODEL,
+            detail: result.detail,
+            mime: audio.type,
+            bytes: audio.size,
+          })
+        );
+        const retry = await transcribeWithOpenAI(openaiKey, audio, WHISPER_FALLBACK_MODEL);
+        if (retry.ok) {
+          result = retry;
+          usedModel = WHISPER_FALLBACK_MODEL;
+        } else {
+          // Keep the more specific primary failure when fallback also fails.
+          whisperDetail = `${result.detail};fallback_${retry.detail}`;
+          console.error(
+            JSON.stringify({
+              event: 'poppins_voice.whisper_failed',
+              model: primaryModel,
+              fallbackModel: WHISPER_FALLBACK_MODEL,
+              httpStatus: result.status,
+              body: result.body,
+              fallbackDetail: retry.detail,
+              mime: audio.type,
+              bytes: audio.size,
+            })
+          );
+          if (transcriptOnly) {
+            return jsonResponse(
+              {
+                transcript: '',
+                answer: '',
+                error: 'whisper_failed',
+                detail: whisperDetail,
+                source: 'whisper',
+              },
+              502
+            );
+          }
+        }
+      } else if (!result.ok) {
+        whisperDetail = result.detail;
+        console.error(
+          JSON.stringify({
+            event: 'poppins_voice.whisper_failed',
+            model: primaryModel,
+            httpStatus: result.status,
+            body: result.body,
+            mime: audio.type,
+            bytes: audio.size,
+          })
+        );
+        if (transcriptOnly) {
+          return jsonResponse(
+            {
+              transcript: '',
+              answer: '',
+              error: 'whisper_failed',
+              detail: whisperDetail,
+              source: 'whisper',
+            },
+            502
+          );
+        }
+      }
+
+      if (result.ok) {
+        if (result.text) {
+          transcript = result.text;
+        } else if (transcriptOnly) {
+          console.error(
+            JSON.stringify({
+              event: 'poppins_voice.whisper_failed',
+              model: usedModel,
+              detail: 'empty_text',
+              mime: audio.type,
+              bytes: audio.size,
+            })
+          );
+          return jsonResponse(
+            {
+              transcript: '',
+              answer: '',
+              error: 'whisper_failed',
+              detail: 'empty_text',
+              source: 'whisper',
+            },
+            502
+          );
+        }
       }
     }
 
     if (transcriptOnly) {
-      const transcribeModel = getOpenAIInputTranscribeModel();
       if (householdId) {
         await recordAiUsageEvent({
           householdId,
           clientKey: `voice-whisper-${householdId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           memberId: auth.user?.id,
           kind: 'voice',
-          model: transcribeModel,
+          model: usedModel,
           inputTokens: 0,
           outputTokens: 0,
           surface: 'poppins-voice',
           mode: 'whisper',
         });
       }
-      return jsonResponse({ transcript, answer: '', source: 'whisper', model: transcribeModel });
+      return jsonResponse({ transcript, answer: '', source: 'whisper', model: usedModel });
     }
 
     const context = buildCompactHouseholdContext(household);

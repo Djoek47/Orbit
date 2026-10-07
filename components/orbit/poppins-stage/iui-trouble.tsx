@@ -29,6 +29,10 @@ export const NOTHING_HEARD_COPY: Record<string, { title: string; reason: string 
     title: "Couldn't reach the transcriber",
     reason: 'Check your connection, then try again.',
   },
+  whisper_failed: {
+    title: "Couldn't reach the transcriber",
+    reason: 'Check your connection, then try again.',
+  },
 };
 
 type MissingSlotProps = {
