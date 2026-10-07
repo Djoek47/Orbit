@@ -260,60 +260,70 @@ def compose_header(w: int, h: int) -> Image.Image:
 
 
 def compose_search(w: int, h: int) -> Image.Image:
-    """Search card: single orange logo, roomy ExtraBold pills, balanced left/right."""
-    img = paint_background(w, h).convert("RGBA")
+    """Search card: white field, single coral logo (no glow), left copy nudged in."""
+    # Clean white canvas — no dark wash, no yellow bloom behind the icon
+    img = Image.new("RGBA", (w, h), (255, 255, 255, 255))
     d = ImageDraw.Draw(img)
 
-    left = int(w * 0.07)
-    text_col = int(w * 0.50)
+    # ~10% of width further from the left edge (closer to the logo)
+    left = int(w * 0.17)
+    text_col = int(w * 0.48)
     cx_icon_col = int(w * 0.76)
 
-    icon_size = int(min(w, h) * 0.42)
+    icon_size = int(min(w, h) * 0.40)
     icon = load_icon_rounded(ICON, icon_size)
     corner = int(icon_size * 0.2237)
-
-    glow_r = int(icon_size * 0.75)
-    glow = Image.new("RGBA", (glow_r * 2, glow_r * 2), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    for i in range(glow_r, 0, -3):
-        t = i / glow_r
-        a = int(95 * (t**2))
-        col = lerp(CITRUS, CORAL, 1 - t)
-        gd.ellipse([glow_r - i, glow_r - i, glow_r + i, glow_r + i], fill=(*col, a))
-    glow = glow.filter(ImageFilter.GaussianBlur(26))
 
     icon_left = min(cx_icon_col - icon_size // 2, w - icon_size - int(w * 0.05))
     icon_top = (h - icon_size) // 2 - int(h * 0.02)
     icon_top = max(int(h * 0.10), min(icon_top, h - icon_size - int(h * 0.10)))
 
-    img.alpha_composite(glow, (icon_left + icon_size // 2 - glow_r, icon_top + icon_size // 2 - glow_r))
-    shadow = rounded_shadow(icon_size, corner, blur=max(16, icon_size // 40))
-    sh_pad = (shadow.size[0] - icon_size) // 2
-    img.alpha_composite(shadow, (icon_left - sh_pad, icon_top - sh_pad))
+    # Soft contact shadow only — no circular glow
+    blur = max(10, icon_size // 48)
+    pad = blur * 2
+    shadow = Image.new("RGBA", (icon_size + pad * 2, icon_size + pad * 2), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.rounded_rectangle(
+        [pad, pad + 4, pad + icon_size, pad + icon_size + 4],
+        radius=corner,
+        fill=(0, 0, 0, 55),
+    )
+    shadow = shadow.filter(ImageFilter.GaussianBlur(blur))
+    img.alpha_composite(shadow, (icon_left - pad, icon_top - pad))
     img.alpha_composite(icon, (icon_left, icon_top))
+
+    # Hairline edge on white
+    ring = Image.new("RGBA", (icon_size, icon_size), (0, 0, 0, 0))
+    rd = ImageDraw.Draw(ring)
+    rd.rounded_rectangle(
+        [0, 0, icon_size - 1, icon_size - 1],
+        radius=corner,
+        outline=(0, 0, 0, 28),
+        width=max(1, icon_size // 200),
+    )
+    img.alpha_composite(ring, (icon_left, icon_top))
 
     f_title, title_size = fit_title(text_col - 20, h)
     title_y = int(h * 0.22)
     chore_w, _, _ = text_size(f_title, "chore")
     gap = max(2, int(title_size * 0.02))
-    d.text((left, title_y), "chore", font=f_title, fill=GOLD)
+    d.text((left, title_y), "chore", font=f_title, fill=BROWN)
     d.text((left + chore_w + gap, title_y), "maxx", font=f_title, fill=CORAL)
 
     f_sub = font(FONT_XB, max(26, int(title_size * 0.32)))
-    sub_y = title_y + int(title_size * 1.15)
-    d.text((left, sub_y), "The calm OS for your household", font=f_sub, fill=WHITE)
+    sub_y = title_y + int(title_size * 1.20)
+    d.text((left, sub_y), "The calm OS for your household", font=f_sub, fill=INK)
 
     f_tag = font(FONT_SB, max(20, int(title_size * 0.22)))
-    tag_y = sub_y + int(title_size * 0.55)
-    d.text((left, tag_y), "Tasks · Grocery · Ranks · Poppins", font=f_tag, fill=GOLD)
+    tag_y = sub_y + int(title_size * 0.58)
+    d.text((left, tag_y), "Tasks · Grocery · Ranks · Poppins", font=f_tag, fill=CORAL)
 
-    # Pills — same ExtraBold for both labels; ~38% smaller than prior pass
-    f_pill = font(FONT_XB, max(20, int(title_size * 0.21)))
-    pad_x = max(42, int(title_size * 0.48))
-    pad_y = max(22, int(title_size * 0.285))
+    # Pills — slightly larger type than last pass
+    f_pill = font(FONT_XB, max(24, int(title_size * 0.255)))
+    pad_x = max(44, int(title_size * 0.50))
+    pad_y = max(24, int(title_size * 0.30))
     pill_y = int(h * 0.70)
 
-    # Stack vertically on narrow canvases; side-by-side when wide
     labels = [("AI Household OS", CORAL, WHITE), ("Family · Shared tablet", CITRUS, BROWN)]
     if w < 2800:
         y = pill_y
