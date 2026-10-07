@@ -144,10 +144,25 @@ async function main() {
   }
 
   mkdirSync(outDir, { recursive: true });
-  const beats = loadBeats();
+  const only = new Set(
+    (process.env.HOW_IT_WORKS_ONLY ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+  const beats = loadBeats().filter((b) => (only.size ? only.has(b.id) : true));
+  if (!beats.length) {
+    console.error('No beats to bake — check HOW_IT_WORKS_ONLY or DEMO_BEATS.');
+    process.exit(1);
+  }
   console.log(`Baking ${beats.length} GPT voice lines (${model}; rose=${roseVoice}, indigo=${indigoVoice})`);
 
-  const ids = [];
+  // When rebaking a subset, keep every id already wired in RECORDINGS.
+  const existingIds = (() => {
+    if (!existsSync(audioTsPath)) return [];
+    return [...readFileSync(audioTsPath, 'utf8').matchAll(/'([^']+)':\s*require\(/g)].map((m) => m[1]);
+  })();
+  const ids = only.size ? [...new Set([...existingIds, ...beats.map((b) => b.id)])] : [];
   for (const beat of beats) {
     process.stdout.write(`  ${beat.id}… `);
     const wav = await synthesize(beat);
@@ -162,11 +177,11 @@ async function main() {
       /* keep wav if unlink fails */
     }
     if (!existsSync(m4aPath)) throw new Error(`missing ${m4aPath}`);
-    ids.push(beat.id);
+    if (!only.size) ids.push(beat.id);
     console.log('ok');
   }
 
-  writeAudioModule(ids);
+  writeAudioModule(only.size ? ids.sort() : ids);
   console.log(`Wrote ${ids.length} clips + ${audioTsPath}`);
   console.log('Commit assets/how-it-works/*.m4a and lib/poppins/how-it-works-audio.ts');
 }
