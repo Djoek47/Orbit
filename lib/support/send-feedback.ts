@@ -11,6 +11,7 @@ import {
   type ErrorCategory,
 } from '@/lib/errors/error-log';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { edgeErrorMessage } from '@/lib/supabase/edge-error';
 import type { SupportShot } from '@/lib/support/upload-support-shot';
 
 export type SupportDiagnostics = {
@@ -31,6 +32,10 @@ export type SupportFeedbackPayload = {
   diagnostics?: SupportDiagnostics;
   screenshots?: SupportShot[];
 };
+
+export type SupportFeedbackResult =
+  | { ok: true; ticketRef?: string; ackEmailed?: boolean }
+  | { ok: false; error: string };
 
 function buildMeta(diagnostics?: SupportDiagnostics) {
   const extras = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined;
@@ -60,7 +65,7 @@ function summarizeCategories(errors: AppErrorEntry[]): Partial<Record<ErrorCateg
 
 export async function sendSupportFeedback(
   input: SupportFeedbackPayload
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<SupportFeedbackResult> {
   const message = input.message.trim();
   if (!message) return { ok: false, error: 'Write a short note first.' };
 
@@ -96,6 +101,16 @@ export async function sendSupportFeedback(
     if (!supabase) {
       return { ok: false, error: 'Not connected. Try again when you’re online.' };
     }
+
+    // Edge requires JWT (verify_jwt). Profile-code / signed-out devices can't send.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.access_token) {
+      return {
+        ok: false,
+        error: 'Sign in with Apple or email on this device to send feedback.',
+      };
+    }
+
     const { data, error } = await supabase.functions.invoke('send-support-feedback', {
       body: {
         message,
@@ -109,13 +124,47 @@ export async function sendSupportFeedback(
         attachments: attachments.length ? attachments : undefined,
       },
     });
+
     if (error) {
-      return { ok: false, error: error.message || 'Could not send feedback.' };
+      const detail = await edgeErrorMessage(error, 'Could not send feedback.');
+      // Prefer inbox-specific copy over generic non-2xx.
+      if (/not configured|503/i.test(detail)) {
+        return { ok: false, error: 'Support email isn’t set up on the server yet. Try mailto below.' };
+      }
+      if (/unauthorized|jwt|sign in/i.test(detail)) {
+        return {
+          ok: false,
+          error: 'Sign in with Apple or email on this device to send feedback.',
+        };
+      }
+      return { ok: false, error: detail };
     }
-    if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
-      return { ok: false, error: String((data as { error: string }).error) };
+
+    const payload = data as {
+      ok?: boolean;
+      error?: string;
+      ticketRef?: string;
+      ackEmailed?: boolean;
+    } | null;
+
+    if (payload?.error || payload?.ok === false) {
+      return { ok: false, error: String(payload?.error ?? 'Could not send feedback.') };
     }
-    return { ok: true };
+
+    // Require an explicit success signal — never treat an empty body as "sent".
+    const ticketRef = typeof payload?.ticketRef === 'string' ? payload.ticketRef : undefined;
+    if (!payload || (payload.ok !== true && !ticketRef)) {
+      return {
+        ok: false,
+        error: 'Could not send feedback. Try again, or email support below.',
+      };
+    }
+
+    return {
+      ok: true,
+      ticketRef,
+      ackEmailed: payload.ackEmailed === true,
+    };
   } catch (error) {
     return {
       ok: false,
