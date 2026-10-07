@@ -28,6 +28,7 @@ import {
   listComplementSuggestions,
   listFavoriteProducts,
 } from '@/lib/grocery/suggest';
+import { registerTourUiHooks } from '@/lib/tour/tour-store';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import type { GroceryItem } from '@/types/orbit';
@@ -70,6 +71,16 @@ export default function GroceriesScreen() {
   useEffect(() => {
     markGroceriesOpened();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tour step 2 needs the aisle grid mounted; steps 1/3 need it closed.
+  useEffect(() => {
+    return registerTourUiHooks({
+      setGroceryBrowse: (open) => {
+        setShowBrowse(open);
+        if (open) setChip(null);
+      },
+    });
   }, []);
 
   const listItems = useMemo(
