@@ -34,6 +34,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
 import { SwitchPeopleIcon } from '@/components/orbit/switch-people-icon';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
+import { sharedDeviceReadiness } from '@/lib/household/shared-device-readiness';
 import { clearDeviceSession } from '@/lib/device/device-session';
 import { saveChildInviteRecord } from '@/lib/household/child-invites';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -133,6 +134,15 @@ export default function SetupKidDeviceScreen() {
       household.members.filter(
         (member) => member.status === 'active' && member.role === 'child'
       ),
+    [household.members]
+  );
+
+  /**
+   * Can this household put anyone on a device yet? A Sidekick is only pickable once they have
+   * signed in, so the grid can be empty for a reason the screen never used to give.
+   */
+  const readiness = useMemo(
+    () => sharedDeviceReadiness(household.members),
     [household.members]
   );
 
@@ -353,6 +363,11 @@ export default function SetupKidDeviceScreen() {
       setError('Give the device a name.');
       return;
     }
+    if (step === 2 && readiness.blocked) {
+      // Nobody can be picked yet — say why rather than asking for the impossible.
+      setError(readiness.body);
+      return;
+    }
     if (step === 2 && selectedIds.length === 0) {
       setError('Pick at least one person.');
       return;
@@ -501,6 +516,28 @@ export default function SetupKidDeviceScreen() {
               ? `Tap each Sidekick who shares it (max ${SHARED_DEVICE_MAX_PEOPLE}). Admins stay on their own phones.`
               : 'Scan or type a profile code.'}
           </Text>
+
+          {isAdmin && readiness.title ? (
+            <View
+              style={[
+                styles.readiness,
+                {
+                  backgroundColor: readiness.blocked ? `${c.danger}14` : glassFill(isDark),
+                  borderColor: readiness.blocked ? `${c.danger}55` : glassBorder(0.12),
+                },
+              ]}>
+              <View style={styles.readinessHead}>
+                <MaterialIcons
+                  name={readiness.blocked ? 'hourglass-empty' : 'lightbulb-outline'}
+                  size={18}
+                  color={readiness.blocked ? c.danger : c.textMuted}
+                />
+                <Text style={[styles.readinessTitle, { color: c.text }]}>{readiness.title}</Text>
+              </View>
+              <Text style={[styles.readinessBody, { color: c.textMuted }]}>{readiness.body}</Text>
+            </View>
+          ) : null}
+
           {isAdmin && sidekicks.length > 0 ? (
             <View style={styles.faceGrid}>
               {sidekicks.map((member) => {
@@ -1038,7 +1075,9 @@ export default function SetupKidDeviceScreen() {
                 }
                 goNextStep();
               }}
-              disabled={busy || (step === 2 && selectedIds.length === 0)}
+              disabled={
+                busy || (step === 2 && (readiness.blocked || selectedIds.length === 0))
+              }
               style={styles.navNext}>
               {nextLabel}
             </OrbitButton>
@@ -1153,6 +1192,17 @@ const styles = StyleSheet.create({
   faceTile: { alignItems: 'center', gap: 6, width: 80 },
   faceRing: { borderRadius: 36, borderWidth: 3, padding: 2 },
   faceName: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  readiness: {
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 6,
+    marginTop: 12,
+    padding: 14,
+  },
+  readinessHead: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  readinessTitle: { flex: 1, fontSize: 15, fontWeight: '800' },
+  readinessBody: { fontSize: 13.5, lineHeight: 19 },
   codeBlock: { gap: 10 },
   codeRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
   codeInput: { flex: 1 },

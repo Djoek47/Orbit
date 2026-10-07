@@ -3,7 +3,7 @@
  * Presentation only; purchase logic lives in the screen / facade.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, Linking,} from 'react-native';
 import Animated, {
   FadeIn,
   FadeInUp,
@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
@@ -238,6 +239,32 @@ export function PremiumPaywall({
           Payment is charged to your Apple ID after the trial unless you cancel at least 24 hours
           before it ends. Manage in Settings → Apple ID → Subscriptions.
         </Text>
+
+        <Text style={[styles.legal, { color: c.textSubtle }]}>
+          Subscriptions renew automatically unless cancelled at least 24 hours before the end of
+          the period. Any unused part of a free trial is forfeited when a subscription is bought.
+        </Text>
+
+        {/* Guideline 3.1.2 — a subscription screen must link to both from the screen itself. */}
+        <View style={styles.links}>
+          <Pressable
+            onPress={() => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl)}
+            disabled={busy}
+            hitSlop={12}
+            accessibilityRole="link"
+            accessibilityLabel="Terms of Use">
+            <Text style={[styles.link, { color: c.textMuted }]}>Terms of Use</Text>
+          </Pressable>
+          <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
+          <Pressable
+            onPress={() => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl)}
+            disabled={busy}
+            hitSlop={12}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy">
+            <Text style={[styles.link, { color: c.textMuted }]}>Privacy Policy</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.links}>
           <Pressable onPress={onRestore} disabled={busy} hitSlop={12}>

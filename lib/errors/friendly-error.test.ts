@@ -31,7 +31,7 @@ test('detects error-like alert titles', () => {
 
 test('sku_not_found credit pack copy steers to another size or feedback', () => {
   const msg = friendlyErrorMessage(
-    'sku_not_found: app.choremaxx.household.premium.tokens.medium is not available from App Store Connect for this build.'
+    'sku_not_found: app.choremaxx.household.premium.tokens.mediumv is not available from App Store Connect for this build.'
   );
   assert.match(msg, /not for sale|another size|App Store Connect/i);
   assert.doesNotMatch(msg, /sku_not_found/);

@@ -22,7 +22,7 @@ const packs = topUpPacks();
 assert.equal(packs.length, 3);
 assert.deepEqual(
   packs.map((p) => p.tokens),
-  [200, 600, 1500]
+  [200, 700, 2000]
 );
 assert.deepEqual(
   packs.map((p) => p.priceUsd),
@@ -43,7 +43,7 @@ assert.equal(packs.filter((p) => p.best).length, 1);
 assert.equal(packs[packs.length - 1]!.best, true);
 assert.equal(packs[0]!.savingLabel, null, 'the smallest pack is the baseline');
 assert.match(packs[1]!.savingLabel!, /^Save \d+%$/);
-assert.equal(topUpPack('tokensMedium').tokens, 600);
+assert.equal(topUpPack('tokensMedium').tokens, 700);
 
 // Prices read the way people expect.
 assert.equal(formatPrice(4.99), '$4.99');
@@ -66,14 +66,14 @@ const receipt = buildTopUpReceipt({
   seed: 1_759_000_000_000,
 });
 assert.equal(receipt.to, 'alex@example.com', 'the address is trimmed');
-assert.equal(receipt.tokens, 600);
+assert.equal(receipt.tokens, 700);
 assert.equal(receipt.priceUsd, 4.99);
 assert.equal(receipt.taxUsd, 0);
 assert.equal(receipt.totalUsd, 4.99);
 assert.equal(receipt.productId, IAP_CONSUMABLES.tokensMedium.productId);
 assert.equal(receipt.mock, true);
 assert.equal(receipt.transactionId, `mock-${receipt.orderId}`);
-assert.match(receiptSubject(receipt), /600 Poppins actions/);
+assert.match(receiptSubject(receipt), /700 Poppins actions/);
 
 const body = receiptBody(receipt);
 assert.match(body, /The Rivera house/);
@@ -81,7 +81,7 @@ assert.match(body, /\$4\.99/);
 assert.match(body, new RegExp(receipt.orderId));
 assert.match(body, /never expire/);
 assert.match(body, /TEST — no charge/, 'it never pretends money moved');
-assert.match(receiptLine(receipt), /600 actions · \$4\.99 · CMX-/);
+assert.match(receiptLine(receipt), /700 actions · \$4\.99 · CMX-/);
 
 // An empty household name still reads as a sentence.
 assert.match(

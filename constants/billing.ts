@@ -19,14 +19,14 @@ export const BILLING_TRIAL_DAYS = 7;
  */
 export const IAP_SUBSCRIPTIONS = {
   monthly: {
-    productId: 'app.choremaxx.household.premium.monthly',
+    productId: 'app.choremaxx.household.premium.monthlyv',
     label: 'Premium Monthly',
     priceUsd: 6.99,
     period: 'month' as const,
     trialDays: BILLING_TRIAL_DAYS,
   },
   yearly: {
-    productId: 'app.choremaxx.household.premium.yearly',
+    productId: 'app.choremaxx.household.premium.yearlyv',
     label: 'Premium Yearly',
     priceUsd: 49.99,
     period: 'year' as const,
@@ -46,24 +46,24 @@ export function subscriptionPriceLine(): string {
 /** Consumable token packs — ASC product ids must match before TF ships strings. */
 export const IAP_CONSUMABLES = {
   tokensSmall: {
-    productId: 'app.choremaxx.household.premium.tokens.small',
+    productId: 'app.choremaxx.household.premium.tokens.smallv',
     label: '200 actions',
     priceUsd: 1.99,
     tokens: 200,
     pack: 'small' as const,
   },
   tokensMedium: {
-    productId: 'app.choremaxx.household.premium.tokens.medium',
-    label: '600 actions',
+    productId: 'app.choremaxx.household.premium.tokens.mediumv',
+    label: '700 actions',
     priceUsd: 4.99,
-    tokens: 600,
+    tokens: 700,
     pack: 'medium' as const,
   },
   tokensLarge: {
-    productId: 'app.choremaxx.household.premium.tokens.large',
-    label: '1500 actions',
+    productId: 'app.choremaxx.household.premium.tokens.largev',
+    label: '2000 actions',
     priceUsd: 9.99,
-    tokens: 1500,
+    tokens: 2000,
     pack: 'large' as const,
   },
 } as const;

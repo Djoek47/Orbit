@@ -54,6 +54,7 @@ import { showNativeAppError } from '@/lib/errors/show-native-app-error';
 import {
   buildTopUpReceipt,
   fileReceipt,
+  formatPackValue,
   formatPerAction,
   formatPrice,
   receiptBody,
@@ -726,7 +727,9 @@ function PackCard({
           {busy ? 'Adding…' : unavailable ? 'Soon' : formatPrice(pack.priceUsd)}
         </Text>
         <Text style={[styles.packEach, { color: c.textSubtle }]}>
-          {unavailable ? 'Not on this build' : formatPerAction(pack.centsPerAction)}
+          {unavailable
+            ? 'Not on this build'
+            : formatPackValue(pack.centsPerAction, pack.tokens)}
         </Text>
         <View
           style={[

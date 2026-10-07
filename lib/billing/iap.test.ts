@@ -31,7 +31,7 @@ import { join } from 'node:path';
 test('IAP catalog locks monthly/yearly pricing + trial', () => {
   assert.equal(IAP_PRODUCTS.monthly.priceUsd, 6.99);
   assert.equal(IAP_PRODUCTS.monthly.trialDays, 7);
-  assert.equal(IAP_PRODUCTS.monthly.productId, 'app.choremaxx.household.premium.monthly');
+  assert.equal(IAP_PRODUCTS.monthly.productId, 'app.choremaxx.household.premium.monthlyv');
   assert.equal(IAP_PRODUCTS.yearly.priceUsd, 49.99);
   assert.equal(IAP_PRODUCTS.yearly.savingsLabel, '40% off');
   assert.equal(subscriptionPriceLine(), '$6.99/mo · $49.99/yr (40% off)');
@@ -43,7 +43,7 @@ test('consumable token packs are catalogued', () => {
   assert.equal(IAP_CONSUMABLES.tokensLarge.tokens, 1500);
   assert.equal(
     IAP_PRODUCTS.consumables.tokensSmall.productId,
-    'app.choremaxx.household.premium.tokens.small'
+    'app.choremaxx.household.premium.tokens.smallv'
   );
 });
 
