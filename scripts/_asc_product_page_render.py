@@ -172,12 +172,43 @@ def fit_title(max_width: int, h: int) -> tuple[ImageFont.FreeTypeFont, int]:
     return font(FONT_XB, 40), 40
 
 
-def compose_header(w: int, h: int) -> Image.Image:
-    """Header only: small coral icon + choremaxx + tagline. No glow, no pills.
+def draw_tracked(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    xy: tuple[int, int],
+    fnt: ImageFont.FreeTypeFont,
+    fill,
+    tracking: float,
+) -> tuple[int, int]:
+    """Draw text with letter-spacing; returns (width, height)."""
+    x, y = xy
+    max_h = 0
+    cursor = x
+    for i, ch in enumerate(text):
+        bb = fnt.getbbox(ch)
+        cw, ch_h = bb[2] - bb[0], bb[3] - bb[1]
+        draw.text((cursor - bb[0], y - bb[1]), ch, font=fnt, fill=fill)
+        cursor += cw + (0 if i == len(text) - 1 else tracking)
+        max_h = max(max_h, ch_h)
+    return cursor - x, max_h
 
-    App Store product pages overlay a white sheet over the lower header, so the
-    lockup must sit in the upper band — not vertically centered — or the
-    tagline gets clipped.
+
+def tracked_width(text: str, fnt: ImageFont.FreeTypeFont, tracking: float) -> int:
+    total = 0
+    for i, ch in enumerate(text):
+        bb = fnt.getbbox(ch)
+        total += bb[2] - bb[0]
+        if i < len(text) - 1:
+            total += tracking
+    return total
+
+
+def compose_header(w: int, h: int) -> Image.Image:
+    """Header only: small coral icon + choremaxx + tagline. No glow blooms.
+
+    Sit in the mid dark band: below iPad/Apps chrome + Dynamic Island, above
+    the product-page white sheet. Tracked type + soft icon edge for a calmer
+    premium lockup.
     """
     img = paint_background(w, h, quiet=True).convert("RGBA")
     d = ImageDraw.Draw(img)
@@ -185,52 +216,79 @@ def compose_header(w: int, h: int) -> Image.Image:
     safe_w = int(w * (1 - 2 * SAFE_SIDE))
     cx = w // 2
 
-    # Compact icon — no glow, no heavy shadow
-    icon_size = int(min(safe_w * 0.12, h * 0.14))
+    # Compact icon with a soft, tight drop (not a glow disc)
+    icon_size = int(min(safe_w * 0.11, h * 0.12))
     icon = load_icon_rounded(ICON, icon_size)
+    corner = int(icon_size * 0.2237)
 
-    f_title, title_size = fit_title(int(safe_w * 0.78), h)
-    title_size = max(40, int(title_size * 0.72))
+    f_title, title_size = fit_title(int(safe_w * 0.72), h)
+    title_size = max(40, int(title_size * 0.68))
     f_title = font(FONT_XB, title_size)
 
-    f_sub = font(FONT_XB, max(22, int(title_size * 0.34)))
+    f_sub = font(FONT_SB, max(22, int(title_size * 0.36)))
     sub = "The calm OS for your household"
-    sw, sh_sub, sbb = text_size(f_sub, sub)
 
-    chore_w, title_h, _ = text_size(f_title, "chore")
-    gap = max(2, int(title_size * 0.02))
-    maxx_w, _, _ = text_size(f_title, "maxx")
-    total_w = chore_w + gap + maxx_w
+    title_track = max(1, int(title_size * 0.035))
+    sub_track = max(1, int(title_size * 0.045))
+    word_gap = max(6, int(title_size * 0.08))  # air between chore | maxx
 
-    gap_icon_title = int(h * 0.022)
-    gap_title_sub = int(title_size * 0.28)
+    chore_w = tracked_width("chore", f_title, title_track)
+    maxx_w = tracked_width("maxx", f_title, title_track)
+    _, title_h, _ = text_size(f_title, "chore")
+    sub_w = tracked_width(sub, f_sub, sub_track)
+    _, sh_sub, _ = text_size(f_sub, sub)
+    total_w = chore_w + word_gap + maxx_w
+
+    gap_icon_title = int(h * 0.028)
+    gap_title_sub = int(title_size * 0.42)
     stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
 
-    # Visible dark band between Dynamic Island / top chrome (~16%) and the
-    # App Store white sheet (~42%). Center the lockup in that band.
-    band_top = int(h * 0.16)
-    band_bottom = int(h * 0.40)
-    band_h = max(stack_h, band_bottom - band_top)
-    stack_top = band_top + max(0, (band_h - stack_h) // 2)
+    # iPad Apps pill + island cover ~top 22–26%; white sheet from ~48%.
+    band_top = int(h * 0.26)
+    band_bottom = int(h * 0.48)
+    stack_top = band_top + max(0, (band_bottom - band_top - stack_h) // 2)
     if stack_top + stack_h > band_bottom:
         overflow = stack_top + stack_h - band_bottom
-        gap_icon_title = max(8, gap_icon_title - overflow // 2)
-        gap_title_sub = max(6, gap_title_sub - overflow // 2)
+        gap_icon_title = max(10, gap_icon_title - overflow // 2)
+        gap_title_sub = max(8, gap_title_sub - overflow // 2)
         stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
         stack_top = band_top + max(0, (band_bottom - band_top - stack_h) // 2)
 
     icon_left = cx - icon_size // 2
     icon_top = stack_top
 
+    # Soft premium contact shadow (tight, low opacity — not a glow disc)
+    blur = max(8, icon_size // 56)
+    pad = blur * 2
+    shadow = Image.new("RGBA", (icon_size + pad * 2, icon_size + pad * 2), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.rounded_rectangle(
+        [pad, pad + 3, pad + icon_size, pad + icon_size + 3],
+        radius=corner,
+        fill=(0, 0, 0, 70),
+    )
+    shadow = shadow.filter(ImageFilter.GaussianBlur(blur))
+    img.alpha_composite(shadow, (icon_left - pad, icon_top - pad))
     img.alpha_composite(icon, (icon_left, icon_top))
+
+    # Hairline highlight ring for a finished edge
+    ring = Image.new("RGBA", (icon_size, icon_size), (0, 0, 0, 0))
+    rd = ImageDraw.Draw(ring)
+    rd.rounded_rectangle(
+        [0, 0, icon_size - 1, icon_size - 1],
+        radius=corner,
+        outline=(255, 255, 255, 38),
+        width=max(1, icon_size // 180),
+    )
+    img.alpha_composite(ring, (icon_left, icon_top))
 
     title_x = cx - total_w // 2
     title_y = icon_top + icon_size + gap_icon_title
-    d.text((title_x, title_y), "chore", font=f_title, fill=GOLD)
-    d.text((title_x + chore_w + gap, title_y), "maxx", font=f_title, fill=CORAL)
+    draw_tracked(d, "chore", (title_x, title_y), f_title, GOLD, title_track)
+    draw_tracked(d, "maxx", (title_x + chore_w + word_gap, title_y), f_title, CORAL, title_track)
 
     sub_y = title_y + title_h + gap_title_sub
-    d.text((cx - sw // 2 - sbb[0], sub_y), sub, font=f_sub, fill=WHITE)
+    draw_tracked(d, sub, (cx - sub_w // 2, sub_y), f_sub, (255, 255, 255, 230), sub_track)
 
     return img.convert("RGB")
 
