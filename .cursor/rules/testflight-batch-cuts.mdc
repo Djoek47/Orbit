@@ -1,0 +1,28 @@
+---
+description: TestFlight cuts must fold ALL work since the prior TF push — never single-feature builds
+alwaysApply: true
+---
+
+# TestFlight batch cuts — NON-NEGOTIABLE
+
+Apple / ASC internal TestFlight slots are **scarce (~15 builds per month)**. Never burn a slot on one PR or one feature.
+
+## When the user says push / cut TestFlight
+
+1. Identify the **previous TestFlight ship commit** (last `1.3.0 (N)` cut documented in `docs/make-v*-testflight-notes.md` or the last EAS `testflight` build commit).
+2. Fold **all product work since that cut** onto the current `cursor/make-v*` tip — every finished PR tip / commit that landed between the two pushes.
+3. Build **one** IPA from that fold tip (`eas build --profile testflight --auto-submit`).
+4. Record the cut in `docs/make-v*-testflight-notes.md` listing what was included.
+
+## Forbidden
+
+- Single-work TestFlight pushes (one bugfix, one feature branch, one agent task).
+- Cutting TF from a narrow `cursor/*-c30d` tip while sibling Oct-day fixes sit unmerged.
+- Opening a new EAS build “just to ship this one thing” when other finished work is waiting.
+
+## Allowed exceptions (user must say so explicitly)
+
+- Hotfix for a **production / store-blocking** crash where waiting to fold would strand testers.
+- User names a **specific** subset (“TF only shared-device, skip the rest”).
+
+Default when ambiguous: **fold everything since last TF**, then build once.

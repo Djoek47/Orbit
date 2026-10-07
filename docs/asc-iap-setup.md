@@ -21,6 +21,8 @@ Allowance copy: **300 Poppins actions a month, 30 a day.**
 
 Confirm tiers in ASC before creating — harder to change than to choose. Migration: `20260917040000_token_grants.sql` (user applies). Edge: `grant-token-pack`. Purchase order: **validate → grant → finish**.
 
+**StoreKit readiness:** each consumable must exist in App Store Connect as an In-App Purchase (Consumable), with metadata cleared, and be attached to the binary under review / TestFlight. If StoreKit omits a SKU, `probeAvailableTokenPacks` disables that pack in Credits and `purchaseTokens` throws `sku_not_found` (logged for Support). Feedback `sku_not_found: …tokens.medium…` means create/clear the medium product in ASC — not a client product-id typo.
+
 Consumption: monthly allowance first, then top-ups oldest-first. Top-ups never expire. Expo Go uses a clearly marked mock grant only.
 
 ## App paywall

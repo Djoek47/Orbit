@@ -82,19 +82,19 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'task-ask',
     chapter: 'task',
     speaker: 'rose',
-    line: 'Hey Poppins — can you give Nero the bins tonight?',
+    line: 'Hey Poppins — can you assign Nero to take out the bins tonight?',
     card: { kind: 'thinking', line: 'Listening…' },
-    // Slots sized to GPT conversational clips (+~250ms pad).
-    ms: 4300,
+    // Slots sized to GPT conversational clips (+~300ms pad).
+    ms: 4900,
     note: 'One sentence. No menus, no form.',
   },
   {
     id: 'task-fill-1',
     chapter: 'task',
     speaker: 'indigo',
-    line: 'Got it. Taking out the bins, for Nero.',
+    line: 'Got it — take out the bins for Nero.',
     card: { kind: 'task', title: 'Take out the bins', assignee: 'Nero', due: 'Tonight', filled: ['title'] },
-    ms: 4800,
+    ms: 3500,
   },
   {
     id: 'task-fill-2',
@@ -115,7 +115,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'task-ready',
     chapter: 'task',
     speaker: null,
-    line: 'Holding, so you can change it.',
+    line: 'Holding so you can change it.',
     card: {
       kind: 'task',
       title: 'Take out the bins',
@@ -130,10 +130,10 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'task-done',
     chapter: 'task',
     speaker: 'indigo',
-    line: 'Assigned. Nero has it for tonight.',
+    line: 'All set. Nero’s got the bins tonight.',
     card: { kind: 'done', label: 'Assigned', detail: 'Take out the bins · Nero · tonight' },
-    ms: 3900,
-    note: '1 action.',
+    ms: 3850,
+    note: 'One task, assigned.',
   },
 
   // ── The list ───────────────────────────────────────────────────────────────
@@ -141,9 +141,9 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'grocery-ask',
     chapter: 'groceries',
     speaker: 'rose',
-    line: 'Add milk, eggs, sourdough, and coffee to the list, please.',
+    line: 'Can you add milk, eggs, sourdough, and coffee to the grocery list?',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 5300,
+    ms: 6250,
     note: 'Four things in one breath.',
   },
   {
@@ -167,10 +167,10 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'grocery-done',
     chapter: 'groceries',
     speaker: 'indigo',
-    line: 'That’s four on the list.',
+    line: 'That’s four things on the list.',
     card: { kind: 'done', label: 'Added', detail: '4 items · Dairy, Bakery, Pantry' },
-    ms: 2800,
-    note: '1 action, not four.',
+    ms: 3000,
+    note: 'One ask, four items — not four separate adds.',
   },
 
   // ── The week ───────────────────────────────────────────────────────────────
@@ -221,9 +221,9 @@ export const DEMO_BEATS: DemoBeat[] = [
     id: 'trip-ask',
     chapter: 'trip',
     speaker: 'rose',
-    line: 'On Tuesday I’ll do the dentist, then the pharmacy, then groceries.',
+    line: 'On Tuesday I need to hit the dentist, then the pharmacy, then groceries.',
     card: { kind: 'thinking', line: 'Listening…' },
-    ms: 4900,
+    ms: 5400,
   },
   {
     id: 'trip-1',
@@ -232,7 +232,7 @@ export const DEMO_BEATS: DemoBeat[] = [
     line: 'Dentist first — two-ten Greenway Road.',
     card: { kind: 'trip', title: 'Tuesday run', stops: STOPS.slice(0, 1) },
     ms: 4400,
-    note: 'Saved places come with their address already.',
+    note: 'Saved places already know the address.',
   },
   {
     id: 'trip-2',
@@ -249,16 +249,16 @@ export const DEMO_BEATS: DemoBeat[] = [
     line: 'And the market on Rue Laval after that.',
     card: { kind: 'trip', title: 'Tuesday run', stops: STOPS },
     ms: 4500,
-    note: 'A place it doesn’t know yet? Say the address and it keeps it.',
+    note: 'New place? Say the address once and it remembers.',
   },
   {
     id: 'trip-done',
     chapter: 'trip',
     speaker: 'indigo',
-    line: 'Three stops, in order. You’ll be home by about half past five.',
+    line: 'Three stops, in order. You should be home around half past five.',
     card: { kind: 'done', label: 'Trip planned', detail: '3 stops · 3:45 – 5:30 PM' },
-    ms: 5700,
-    note: 'The grocery list comes along, so you shop once.',
+    ms: 5450,
+    note: 'Your grocery list comes along, so you only shop once.',
   },
 ];
 

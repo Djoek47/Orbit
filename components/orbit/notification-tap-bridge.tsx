@@ -157,9 +157,7 @@ export function NotificationTapBridge() {
         const targetMemberId = targetMemberIdFromPushData(payload);
         if (targetMemberId) {
           try {
-            const { loadDeviceSession, selectDeviceProfile } = await import(
-              '@/lib/device/device-session'
-            );
+            const { loadDeviceSession } = await import('@/lib/device/device-session');
             const session = await loadDeviceSession();
             if (
               shouldOpenNotificationAsMember({
@@ -168,8 +166,7 @@ export function NotificationTapBridge() {
                 session,
               })
             ) {
-              await selectDeviceProfile(targetMemberId);
-              writesRef.current.switchPersona(targetMemberId);
+              await writesRef.current.switchPersona(targetMemberId);
             }
           } catch {
             // Open-as is best-effort — still navigate.

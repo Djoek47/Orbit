@@ -112,7 +112,11 @@ export async function loadSidekickSessionFor(memberId: string): Promise<Sidekick
   return session && isValidSidekickSession(session) ? normalizeSidekickSession(session) : null;
 }
 
-/** Active profile: DeviceSession.activeMemberId → v2 entry (falls back to sole entry). */
+/**
+ * Active profile: DeviceSession.activeMemberId → v2 entry.
+ * Never fall back to another face’s code when activeMemberId is set — that made
+ * Switch show Jack while completeTask still authenticated as Emma.
+ */
 export async function loadSidekickSession(): Promise<SidekickSession | null> {
   const store = await readStore();
   const entries = Object.values(store.byMemberId).filter(isValidSidekickSession);
@@ -122,6 +126,8 @@ export async function loadSidekickSession(): Promise<SidekickSession | null> {
   if (device.activeMemberId) {
     const active = store.byMemberId[device.activeMemberId];
     if (active && isValidSidekickSession(active)) return normalizeSidekickSession(active);
+    // Active face has no local code — do not silently use someone else.
+    return null;
   }
 
   if (entries.length === 1) return normalizeSidekickSession(entries[0]!);

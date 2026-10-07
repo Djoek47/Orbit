@@ -595,6 +595,8 @@ export const householdRepository = {
     member: HouseholdMember;
     householdId: string;
     householdName: string;
+    /** True when this face is listed on a shared-device shell (tablet QR). */
+    onSharedShell: boolean;
   } | null> {
     const normalized = normalizeInviteCode(code);
 
@@ -614,7 +616,20 @@ export const householdRepository = {
             : mockHousehold.id ?? 'hh-rivera';
           const householdName =
             active?.id === householdId ? active.householdName : mockHousehold.householdName;
-          return { member, householdId: householdId ?? 'hh-rivera', householdName };
+          const roster =
+            active?.id === householdId ? (active?.members ?? members) : mockHousehold.members;
+          const onSharedShell = roster.some(
+            (item) =>
+              item.role === 'shared-device' &&
+              Array.isArray(item.sharedWithMemberIds) &&
+              item.sharedWithMemberIds.includes(member.id)
+          );
+          return {
+            member,
+            householdId: householdId ?? 'hh-rivera',
+            householdName,
+            onSharedShell,
+          };
         }
       }
       return null;
@@ -632,6 +647,7 @@ export const householdRepository = {
       member?: Parameters<typeof mapMemberRow>[0] & { household_id?: string };
       householdId?: string;
       householdName?: string;
+      onSharedShell?: boolean;
     };
     if (payload.error || !payload.member || !payload.householdId) {
       return null;
@@ -640,6 +656,7 @@ export const householdRepository = {
       member: mapMemberRow(payload.member),
       householdId: payload.householdId,
       householdName: payload.householdName ?? 'Household',
+      onSharedShell: Boolean(payload.onSharedShell),
     };
   },
 

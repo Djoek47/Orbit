@@ -10,13 +10,13 @@ import { LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } fro
 import Animated, { FadeIn, FadeInDown, Layout, ZoomIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { Moji } from '@/components/orbit/moji/moji';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import {
   isSharedTabletDeviceSession,
   reconcileHostedDeviceSession,
-  selectDeviceProfile,
   type DeviceSession,
 } from '@/lib/device/device-session';
 import {
@@ -28,6 +28,7 @@ import { memberPresenceParts } from '@/lib/household/member-presence';
 import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
 import { resolveMemberAccentColor } from '@/lib/theme/member-accent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -38,7 +39,7 @@ type Props = {
   members: HouseholdMember[];
   currentMember: HouseholdMember | null | undefined;
   accentColor: string;
-  onSwitchPersona: (memberId: string) => void;
+  onSwitchPersona: (memberId: string) => void | Promise<void>;
 };
 
 export function SharedDeviceSwitchMenu({
@@ -48,6 +49,7 @@ export function SharedDeviceSwitchMenu({
   onSwitchPersona,
 }: Props) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const { switchingPersona } = useOrbit();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<DeviceSession | null>(null);
   const role = currentMember?.role;
@@ -108,11 +110,24 @@ export function SharedDeviceSwitchMenu({
     (session?.mode === 'shared' && people.length >= 2);
 
   const pick = async (member: HouseholdMember) => {
+    if (switchingPersona) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await selectDeviceProfile(member.id);
-    onSwitchPersona(member.id);
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpen(false);
+    try {
+      // switchPersona binds DeviceSession + profile code, then syncs — do not
+      // flip the menu closed until that succeeds (else Mark complete fails).
+      await onSwitchPersona(member.id);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setOpen(false);
+    } catch (error) {
+      orbitAlert(
+        'Could not switch',
+        error instanceof Error
+          ? error.message
+          : 'Scan the shared-device QR again so this profile is on the tablet.',
+        undefined,
+        { record: true, source: 'shared-switch' }
+      );
+    }
   };
 
   return (
@@ -188,7 +203,7 @@ export function SharedDeviceSwitchMenu({
             { backgroundColor: glass(0.1), borderColor: glassBorder(0.14) },
           ]}>
           <Text style={[typography.caption1, { color: c.textMuted }]}>
-            {deviceName} · tap a face to carry on (no sign-out)
+            {deviceName} · tap a profile to carry on (no sign-out)
           </Text>
           <View style={styles.faces}>
             {people.map((member, index) => {

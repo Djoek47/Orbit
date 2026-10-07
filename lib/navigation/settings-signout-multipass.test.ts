@@ -102,6 +102,7 @@ test('Pass B3: sidekick close + sign-out clear look sheet', () => {
 test('Pass C1: SigningOutOverlay hoisted to root (survives Settings unmount)', () => {
   assert.match(read('app/_layout.tsx'), /GlobalSigningOutCover/);
   assert.match(read('app/_layout.tsx'), /LegalLinksSheetHost/);
+  assert.match(read('app/_layout.tsx'), /TourChapterSheetHost/);
   assert.match(read('components/orbit/global-signing-out-cover.tsx'), /subscribeSignOutInFlight/);
   assert.match(read('components/orbit/signing-out-overlay.tsx'), /Signing out…/);
   assert.doesNotMatch(read('app/settings.tsx'), /SigningOutOverlay/);
@@ -157,7 +158,7 @@ test('Pass C2b: Privacy & legal dismisses Settings then opens root sheet', () =>
   assert.match(legalHost, /FrostedPanel/);
   assert.match(legalHost, /onDismiss=\{flushAfterDismiss\}/);
   assert.match(legalHost, /beginDismiss/);
-  assert.match(legalHost, /SESSION_NAV_DELAY_MS/);
+  assert.match(legalHost, /LEGAL_SHEET_DISMISS_MS|InteractionManager/);
   assert.match(legalHost, /router\.push\('\/support'/);
   assert.match(read('lib/legal/open-choremaxx-url.ts'), /openBrowserAsync/);
   assert.match(read('components/orbit/frosted-panel.tsx'), /frostFill/);

@@ -47,11 +47,34 @@ export async function resolveSidekickMember(admin: SupabaseClient, code: string)
   return member;
 }
 
-export async function touchMemberSeen(admin: SupabaseClient, memberId: string) {
-  await admin
-    .from('household_members')
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq('id', memberId);
+/**
+ * Stamp presence. When hostKind is shared-tablet, updates shared_* columns;
+ * otherwise personal_last_seen_at. Always keeps last_seen_at for legacy clients.
+ */
+export async function touchMemberSeen(
+  admin: SupabaseClient,
+  memberId: string,
+  options?: {
+    hostKind?: 'sidekick' | 'shared-tablet' | string | null;
+    sharedDeviceId?: string | null;
+    disconnect?: boolean;
+  }
+) {
+  const seenAt = options?.disconnect
+    ? new Date(Date.now() - 6 * 60 * 1000).toISOString()
+    : new Date().toISOString();
+  const isShared =
+    options?.hostKind === 'shared-tablet' || options?.hostKind === 'shared';
+  const patch: Record<string, unknown> = { last_seen_at: seenAt };
+  if (isShared) {
+    patch.shared_last_seen_at = seenAt;
+    patch.shared_active_on_device_id = options?.disconnect
+      ? null
+      : options?.sharedDeviceId?.trim() || null;
+  } else {
+    patch.personal_last_seen_at = seenAt;
+  }
+  await admin.from('household_members').update(patch).eq('id', memberId);
 }
 
 export function serviceAdmin() {

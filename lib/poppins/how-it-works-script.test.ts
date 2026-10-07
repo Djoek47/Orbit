@@ -85,6 +85,20 @@ for (const beat of DEMO_BEATS) {
   assert.ok(!/\bIUI\b|\binterface\b|\bwidget\b|\bdraft\b/i.test(text), `${beat.id} copy`);
 }
 
+// Ask like a parent — never “give Nero the bins”.
+{
+  const ask = DEMO_BEATS.find((b) => b.id === 'task-ask')!;
+  assert.match(ask.line, /assign Nero to take out the bins/i);
+  assert.doesNotMatch(ask.line, /\bgive\b.+\bbins\b/i);
+  for (const beat of DEMO_BEATS) {
+    assert.doesNotMatch(
+      beat.line,
+      /\bgive\s+\w+\s+the\s+bins\b/i,
+      `${beat.id} must not say “give … the bins”`
+    );
+  }
+}
+
 // Timeline.
 const total = demoTotalMs();
 assert.equal(

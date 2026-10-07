@@ -216,6 +216,7 @@ const ADMIN_GROCERIES: TourChapter = {
       body: 'Type anything. It lands in the right aisle by itself.',
       route: '/(tabs)/groceries',
       advance: { kind: 'next_or_event', event: 'grocery_added' },
+      onEnter: 'groceries.list',
     }),
     step({
       id: 'groceries.aisles',
@@ -223,6 +224,8 @@ const ADMIN_GROCERIES: TourChapter = {
       title: 'Browse by aisle',
       body: 'Or tap an aisle to pick from thousands of items.',
       route: '/(tabs)/groceries',
+      // Aisle grid only mounts when Browse is open — open it or the step auto-skips.
+      onEnter: 'groceries.browse',
     }),
     step({
       id: 'groceries.store',
@@ -230,6 +233,7 @@ const ADMIN_GROCERIES: TourChapter = {
       title: 'At the store',
       body: 'Open this in the store. The list sorts by aisle and checks off as you go.',
       route: '/(tabs)/groceries',
+      onEnter: 'groceries.list',
     }),
   ],
 };
@@ -497,7 +501,7 @@ export const SIDEKICK_TOUR: TourDefinition = {
 export const FAMILY_IPAD_TOUR: TourDefinition = {
   tourId: 'family_ipad',
   welcomeTitle: 'Shared devices',
-  welcomeBody: 'Tap your face to open your own tasks, XP and rewards.',
+  welcomeBody: 'Tap your profile to open your own tasks, XP and rewards.',
   welcomePrimary: 'Got it',
   welcomeSecondary: 'Skip',
   chapters: [
@@ -509,7 +513,7 @@ export const FAMILY_IPAD_TOUR: TourDefinition = {
           id: 'ipad.faces',
           targetId: 'selectProfile.faces',
           title: "Who's using this device?",
-          body: 'Tap your face to start.',
+          body: 'Tap your profile to start.',
           route: '/select-profile',
           advance: { kind: 'action' },
         }),

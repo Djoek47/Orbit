@@ -366,7 +366,14 @@ async function main() {
     };
     const noKey = failure({ error: 'whisper_failed', detail: 'OPENAI_API_KEY missing' });
     assert.ok(noKey && /OPENAI_API_KEY missing/.test(noKey.message), 'the server detail survives');
-    assert.ok(noKey && /http 200/.test(noKey.message), 'and the HTTP status');
+    assert.ok(noKey && /edge 200/.test(noKey.message), 'and the edge HTTP status');
+    const openai400 = failure(
+      { error: 'whisper_failed', detail: 'openai_400:unsupported_format' },
+      502
+    );
+    assert.ok(openai400 && /openai_400:unsupported_format/.test(openai400.message));
+    assert.ok(openai400 && /edge 502/.test(openai400.message));
+    assert.doesNotMatch(openai400!.message, /http_400 · http 200/);
     assert.equal(failure({ error: 'Unauthorized' }, 401)?.causeCode, 'signed_out');
     console.log('F PASS Base upload + named failures');
   }

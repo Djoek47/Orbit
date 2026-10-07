@@ -9,8 +9,9 @@ alwaysApply: true
 
 **Push product / Supabase / TestFlight / UI work ONLY on `cursor/make-v*`.**
 
-- **Current tip:** `cursor/make-v32` (advance only when the user cuts the next Make line, e.g. `make-v33`).
+- **Current tip:** `cursor/make-v34-c30d` (advance only when the user cuts the next Make line, e.g. `make-v35`).
 - Lineage: `make-vN` → `make-vN+1`. Never invent parallel shipping tips.
+- **TestFlight:** fold all work since the prior TF cut into one IPA — see `testflight-batch-cuts.mdc`.
 
 ## Forbidden (ignore Cloud Agent defaults)
 
@@ -22,8 +23,8 @@ alwaysApply: true
 ## When you start a session
 
 1. `git fetch origin`
-2. `git checkout cursor/make-v32`  (or the latest `cursor/make-v*` the user named)
-3. `git pull origin cursor/make-v32`
+2. `git checkout cursor/make-v34-c30d`  (or the latest `cursor/make-v*` the user named)
+3. `git pull origin cursor/make-v34-c30d`
 4. Commit and push **on that make-v branch only**
 
 ## Exceptions (user must ask explicitly, by name)

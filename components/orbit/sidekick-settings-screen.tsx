@@ -174,7 +174,7 @@ export function SidekickSettingsScreen() {
                 subtitle={
                   model.sharedWith.length
                     ? `Hand it to ${model.sharedWith.join(', ')}`
-                    : 'Pick a face to carry on'
+                    : 'Pick a profile to carry on'
                 }
                 last
                 onPress={() => {

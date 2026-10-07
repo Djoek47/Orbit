@@ -69,11 +69,26 @@ Deno.serve(async (req) => {
       .eq('id', member.household_id)
       .maybeSingle();
 
+    const { data: shells } = await admin
+      .from('household_members')
+      .select('id, shared_with_member_ids')
+      .eq('household_id', member.household_id)
+      .eq('role', 'shared-device')
+      .eq('status', 'active');
+
+    const onSharedShell = (shells ?? []).some((shell) => {
+      const ids = Array.isArray(shell.shared_with_member_ids)
+        ? (shell.shared_with_member_ids as string[])
+        : [];
+      return ids.includes(member.id);
+    });
+
     return new Response(
       JSON.stringify({
         member,
         householdId: member.household_id,
         householdName: household?.name ?? 'Household',
+        onSharedShell,
       }),
       { headers: { ...cors, 'Content-Type': 'application/json' } }
     );

@@ -26,6 +26,7 @@ test('support screen selects errors and screenshots', () => {
   assert.match(support, /pickSupportScreenshot/);
   assert.match(support, /accessibilityRole="checkbox"/);
   assert.match(support, /ERROR_CATEGORY_LABEL/);
+  assert.match(support, /Feedback sent/);
 });
 
 test('send-feedback forwards selected ids and attachments', () => {
@@ -34,6 +35,8 @@ test('send-feedback forwards selected ids and attachments', () => {
   assert.match(src, /screenshotUrls/);
   assert.match(src, /attachments/);
   assert.match(src, /openTaskCount/);
+  assert.match(src, /getSession/);
+  assert.match(src, /ackEmailed/);
 });
 
 test('edge support function sends user ack', () => {
@@ -44,4 +47,5 @@ test('edge support function sends user ack', () => {
   assert.match(edge, /renderSupportAckEmail/);
   assert.match(edge, /ticketRef/);
   assert.match(edge, /attachments/);
+  assert.match(edge, /ackEmailed/);
 });

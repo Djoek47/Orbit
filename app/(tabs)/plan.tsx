@@ -31,6 +31,11 @@ import {
   weekStripDays,
 } from '@/lib/calendar/make-calendar';
 import {
+  filterPlanItemsForAdminCalendar,
+  loadAdminPlanShowHomework,
+  saveAdminPlanShowHomework,
+} from '@/lib/calendar/admin-plan-homework';
+import {
   buildPlanItems,
   groupPlanItemsByDate,
   planItemTypeLabel,
@@ -103,6 +108,9 @@ export default function PlanScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [layerFilter, setLayerFilter] = useState<PlanLayerFilter>('all');
   const [planAddOpen, setPlanAddOpen] = useState(false);
+  /** Admin-only: homework off on household calendar until they opt in. */
+  const [adminShowHomework, setAdminShowHomework] = useState(false);
+  const [adminHomeworkReady, setAdminHomeworkReady] = useState(false);
   const tour = useTourControls();
 
   useEffect(() => {
@@ -111,6 +119,24 @@ export default function PlanScreen() {
       setPlanTripsSection: (section) => setTripsSection(section),
     });
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadAdminPlanShowHomework().then((show) => {
+      if (cancelled) return;
+      setAdminShowHomework(show);
+      setAdminHomeworkReady(true);
+      // First paint for admins: Events layer so the main calendar isn't homework-heavy.
+      if (!show && permissions.canManageHousehold) {
+        setLayerFilter('events');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Only on mount / role change — don't re-run when toggling show.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permissions.canManageHousehold]);
 
   // Apply itinerary/places focus from the active tour step — hooks alone can race mount.
   useEffect(() => {
@@ -144,19 +170,35 @@ export default function PlanScreen() {
     [currentMember, household.tasks]
   );
 
-  const planItems = useMemo(() => {
-    const items = buildPlanItems(visibleEvents, visibleTasks);
-    if (layerFilter === 'homework') return items.filter((item) => item.kind === 'homework');
-    if (layerFilter === 'events') return items.filter((item) => item.kind !== 'homework');
-    return items;
-  }, [layerFilter, visibleEvents, visibleTasks]);
-  const itemsByDate = useMemo(() => groupPlanItemsByDate(planItems), [planItems]);
-
   const sharedKidMode =
     isSharedDeviceAccount(currentMember, household.members) || currentMember?.role === 'child';
   const caps = resolveMemberCapabilities(household);
   const isAdmin = permissions.canManageHousehold;
   const isSidekick = isSidekickRole(currentMember?.role);
+
+  const planItems = useMemo(() => {
+    const built = buildPlanItems(visibleEvents, visibleTasks);
+    // Admins: homework stays on Sidekick calendars; household calendar omits it
+    // until they turn “Show homework” on.
+    const items = filterPlanItemsForAdminCalendar(built, {
+      isAdmin,
+      showHomework: isAdmin ? adminShowHomework : true,
+    });
+    if (layerFilter === 'homework') return items.filter((item) => item.kind === 'homework');
+    if (layerFilter === 'events') return items.filter((item) => item.kind !== 'homework');
+    return items;
+  }, [adminShowHomework, isAdmin, layerFilter, visibleEvents, visibleTasks]);
+  const itemsByDate = useMemo(() => groupPlanItemsByDate(planItems), [planItems]);
+
+  const setAdminHomeworkVisible = (show: boolean) => {
+    setAdminShowHomework(show);
+    void saveAdminPlanShowHomework(show);
+    if (show) {
+      setLayerFilter('all');
+    } else {
+      setLayerFilter('events');
+    }
+  };
   const planAddOptions = planAddOptionsForActor({ isAdmin, isSidekick, caps });
   const canOpenPlanAdd = planAddOptions.length > 0;
   const pendingEvents = useMemo(
@@ -303,15 +345,58 @@ export default function PlanScreen() {
           </View>
 
           <View style={styles.legend}>
-            {(['homework', 'event'] as const).map((key) => {
-              const cfg = TYPE_CONFIG[key];
-              return (
-              <View key={key} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: cfg.color }]} />
-                <Text style={[styles.legendLabel, { color: c.textSubtle }]}>{cfg.label}</Text>
+            {isAdmin ? (
+              <Pressable
+                onPress={() => setAdminHomeworkVisible(!adminShowHomework)}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: adminShowHomework }}
+                accessibilityLabel="Show homework on household calendar"
+                style={[
+                  styles.legendToggle,
+                  {
+                    backgroundColor: adminShowHomework ? `${TYPE_CONFIG.homework.color}22` : glass(0.06),
+                    borderColor: adminShowHomework
+                      ? `${TYPE_CONFIG.homework.color}55`
+                      : glassBorder(0.1),
+                  },
+                ]}>
+                <View
+                  style={[
+                    styles.legendDot,
+                    {
+                      backgroundColor: adminShowHomework
+                        ? TYPE_CONFIG.homework.color
+                        : c.textSubtle,
+                      opacity: adminShowHomework ? 1 : 0.45,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.legendLabel,
+                    {
+                      color: adminShowHomework ? TYPE_CONFIG.homework.color : c.textMuted,
+                      fontWeight: '700',
+                    },
+                  ]}>
+                  {adminShowHomework ? 'Homework on' : 'Homework off'}
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: TYPE_CONFIG.homework.color }]} />
+                <Text style={[styles.legendLabel, { color: c.textSubtle }]}>Homework</Text>
               </View>
-              );
-            })}
+            )}
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: TYPE_CONFIG.event.color }]} />
+              <Text style={[styles.legendLabel, { color: c.textSubtle }]}>Event</Text>
+            </View>
+            {isAdmin && adminHomeworkReady && !adminShowHomework ? (
+              <Text style={[styles.legendHint, { color: c.textSubtle }]} numberOfLines={1}>
+                Sidekicks still see theirs
+              </Text>
+            ) : null}
           </View>
 
           {view === 'month' ? (
@@ -609,17 +694,25 @@ export default function PlanScreen() {
 
           <View style={[styles.layerFilterRow, { backgroundColor: glass(0.06), borderColor: glassBorder(0.08) }]}>
             {(
-              [
-                { id: 'all' as const, label: 'All' },
-                { id: 'homework' as const, label: 'Homework' },
-                { id: 'events' as const, label: 'Events' },
-              ] as const
+              isAdmin && !adminShowHomework
+                ? ([{ id: 'events' as const, label: 'Events' }] as const)
+                : ([
+                    { id: 'all' as const, label: 'All' },
+                    { id: 'homework' as const, label: 'Homework' },
+                    { id: 'events' as const, label: 'Events' },
+                  ] as const)
             ).map((chip) => {
               const active = layerFilter === chip.id;
               return (
                 <Pressable
                   key={chip.id}
-                  onPress={() => setLayerFilter(chip.id)}
+                  onPress={() => {
+                    if (chip.id === 'homework' && isAdmin && !adminShowHomework) {
+                      setAdminHomeworkVisible(true);
+                      return;
+                    }
+                    setLayerFilter(chip.id);
+                  }}
                   style={[styles.layerChip, active && styles.layerChipActive]}>
                   <Text style={[styles.layerChipText, { color: active ? '#A78BFA' : c.textMuted }]}>
                     {chip.label}
@@ -627,6 +720,17 @@ export default function PlanScreen() {
                 </Pressable>
               );
             })}
+            {isAdmin && !adminShowHomework ? (
+              <Pressable
+                onPress={() => setAdminHomeworkVisible(true)}
+                style={[styles.layerChip, styles.layerChipGhost]}
+                accessibilityRole="button"
+                accessibilityLabel="Show homework on this calendar">
+                <Text style={[styles.layerChipText, { color: TYPE_CONFIG.homework.color }]}>
+                  Show homework
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </>
       ) : (
@@ -701,10 +805,21 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 14, fontWeight: '600' },
   eyebrow: { fontSize: 12 },
   h1: { fontSize: 24, fontWeight: '700', lineHeight: 29 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  legend: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   legendDot: { borderRadius: 4, height: 8, width: 8 },
+  legendHint: { fontSize: 11, fontWeight: '600', marginLeft: 2 },
   legendItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   legendLabel: { fontSize: 12 },
+  legendToggle: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
   meta: { fontSize: 12 },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   monthNav: {
@@ -824,6 +939,7 @@ const styles = StyleSheet.create({
   },
   layerChip: { borderRadius: 8, flex: 1, paddingVertical: 8 },
   layerChipActive: { backgroundColor: 'rgba(167,139,250,0.18)' },
+  layerChipGhost: { flex: 1.15 },
   layerChipText: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
   weekCell: {
     alignItems: 'center',

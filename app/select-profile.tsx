@@ -110,9 +110,19 @@ export default function SelectProfileScreen() {
   const deviceLabel = normalizeSharedDeviceLabel(session?.deviceLabel || shell?.name);
 
   const enterAsMember = async (member: HouseholdMember) => {
-    await selectDeviceProfile(member.id);
-    switchPersona(member.id);
-    router.replace('/(tabs)' as never);
+    try {
+      await switchPersona(member.id);
+      router.replace('/(tabs)' as never);
+    } catch (error) {
+      orbitAlert(
+        'Could not open profile',
+        error instanceof Error
+          ? error.message
+          : 'Scan the shared-device QR again so this profile is on the tablet.',
+        undefined,
+        { record: true, source: 'select-profile' }
+      );
+    }
   };
 
   if (isLoading || !ready) {
@@ -179,7 +189,7 @@ export default function SelectProfileScreen() {
           <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
           <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this device?</Text>
           <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-            Tap your face. Switch anytime from the Switch tab or Switch · name on Home.
+            Tap your profile. Switch anytime from the Switch tab or Switch · name on Home.
           </Text>
         </View>
 

@@ -3,7 +3,7 @@
  *
  * Three shapes, one screen:
  *   sidekick        a Sidekick's own phone
- *   shared-account  a person on a shared device (they tapped their face)
+ *   shared-account  a person on a shared device (they tapped their profile)
  *   shared-device   the shared device itself, before anyone has
  *
  * Pure, so the rules can be tested without React Native. "Lock app" used to sit here on a
@@ -74,7 +74,7 @@ export function memberSettingsModel(input: {
       deviceName,
       sharedWith: people,
       canSwitchProfiles: true,
-      lookNote: 'Colors here are the ones everyone sees until they tap their face.',
+      lookNote: 'Colors here are the ones everyone sees until they tap their profile.',
       signOut: {
         label: 'Sign this device out',
         title: `Sign ${deviceName} out?`,
@@ -96,7 +96,7 @@ export function memberSettingsModel(input: {
       deviceName,
       sharedWith: people,
       canSwitchProfiles: true,
-      lookNote: `Colors follow your face on ${deviceName} — Day and Night included.`,
+      lookNote: `Colors follow your profile on ${deviceName} — Day and Night included.`,
       signOut: {
         label: 'Sign this device out',
         title: `Sign ${deviceName} out?`,

@@ -97,7 +97,9 @@ export type TourStep = {
     | 'plan.places'
     | 'rewards.vault'
     | 'rewards.allowance'
-    | 'rewards.ranks';
+    | 'rewards.ranks'
+    | 'groceries.browse'
+    | 'groceries.list';
   /** Override primary button label (default Next / Done). */
   primaryLabel?: string;
   /** Special primary action instead of advancing. */

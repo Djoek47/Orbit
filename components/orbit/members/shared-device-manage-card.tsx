@@ -149,7 +149,7 @@ export function SharedDeviceManageCard({
                     const latest = times.length ? Math.max(...times) : null;
                     return latest
                       ? `${onDevice.length} people · last active ${formatLastSeen(new Date(latest).toISOString())}`
-                      : `${onDevice.length} of ${SHARED_DEVICE_MAX_PEOPLE} people · tap a face to edit`;
+                      : `${onDevice.length} of ${SHARED_DEVICE_MAX_PEOPLE} people · tap a profile to edit`;
                   })()}
           </Text>
         </View>
@@ -199,7 +199,12 @@ export function SharedDeviceManageCard({
                 <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
                   {person.name}
                 </Text>
-                <MemberPresencePill member={person} variant="compact" />
+                <MemberPresencePill
+                  member={person}
+                  variant="compact"
+                  channel="shared"
+                  sharedDeviceId={device.id}
+                />
               </View>
               <View style={[styles.faceRemove, { backgroundColor: `${accent}33` }]}>
                 <MaterialIcons name="close" size={12} color={accent} />
