@@ -753,8 +753,8 @@ export default function AssignTaskScreen() {
                   color: !canAssign || busy ? c.textSubtle : requireProof ? c.ink : PROOF_ACCENT,
                 },
               ]}
-              numberOfLines={1}>
-              Proof
+              numberOfLines={2}>
+              request proof
             </Text>
           </Pressable>
         </View>
@@ -964,13 +964,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
     gap: 2,
-    minWidth: 72,
-    paddingHorizontal: 8,
+    minWidth: 78,
+    paddingHorizontal: 6,
   },
   proofBtnLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
+    lineHeight: 12,
+    textAlign: 'center',
   },
   pickerOverlay: {
     ...StyleSheet.absoluteFill,
