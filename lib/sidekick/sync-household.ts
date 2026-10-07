@@ -95,9 +95,11 @@ export async function fetchSidekickSyncDetailed(
 
   let hostKind: string | undefined;
   let sharedDeviceId: string | undefined;
+  let activeMemberId: string | undefined;
   try {
     const { loadDeviceSession } = await import('@/lib/device/device-session');
     const device = await loadDeviceSession();
+    activeMemberId = device.activeMemberId ?? undefined;
     if (device.hostKind === 'shared-tablet' || device.mode === 'shared') {
       hostKind = 'shared-tablet';
       sharedDeviceId = device.sharedDeviceId ?? undefined;
@@ -113,6 +115,7 @@ export async function fetchSidekickSyncDetailed(
       code: profileInviteCode,
       ...(hostKind ? { hostKind } : {}),
       ...(sharedDeviceId ? { sharedDeviceId } : {}),
+      ...(activeMemberId ? { activeMemberId } : {}),
     },
   });
   if (error || !data || typeof data !== 'object') {

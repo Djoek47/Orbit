@@ -28,6 +28,7 @@ import { memberPresenceParts } from '@/lib/household/member-presence';
 import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
 import { resolveMemberAccentColor } from '@/lib/theme/member-accent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useOrbit } from '@/store/orbit-store';
 import type { HouseholdMember } from '@/types/orbit';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -48,6 +49,7 @@ export function SharedDeviceSwitchMenu({
   onSwitchPersona,
 }: Props) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const { switchingPersona } = useOrbit();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<DeviceSession | null>(null);
   const role = currentMember?.role;
@@ -108,6 +110,7 @@ export function SharedDeviceSwitchMenu({
     (session?.mode === 'shared' && people.length >= 2);
 
   const pick = async (member: HouseholdMember) => {
+    if (switchingPersona) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       // switchPersona binds DeviceSession + profile code, then syncs — do not

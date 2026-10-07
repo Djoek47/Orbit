@@ -27,7 +27,7 @@ import {
   nestedSharedAccountIds,
   resolveSharedDevicePeople,
 } from '@/lib/household/shared-device';
-import { memberPresenceParts } from '@/lib/household/member-presence';
+import { personalPresenceParts } from '@/lib/household/member-presence';
 import { isHouseholdSwitchDisabled } from '@/lib/feature-flags';
 import { memberCanReceiveInvite } from '@/lib/household/member-invite-routing';
 import { formatHouseholdRole } from '@/lib/permissions';
@@ -263,7 +263,7 @@ export function HouseholdMembersRoster({
         const age = ageLabel(member);
         const device = findSharedDeviceForMember(member.id, household.members);
         // SIDEKICKS list: personal phone only — tablet activity shows under Shared tablets.
-        const presence = memberPresenceParts(member, { channel: 'personal' });
+        const presence = personalPresenceParts(member);
         const presenceBit =
           presence.isLive
             ? 'Connected'

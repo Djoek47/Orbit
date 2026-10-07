@@ -119,6 +119,19 @@ export function memberPresenceParts(
   };
 }
 
+/** SIDEKICKS list — personal phone channel only. */
+export function personalPresenceParts(member: HouseholdMember): MemberPresenceParts {
+  return memberPresenceParts(member, { channel: 'personal' });
+}
+
+/** Shared tablets “Who can use it” — active face on this device. */
+export function sharedPresenceParts(
+  member: HouseholdMember,
+  sharedDeviceId: string | null | undefined
+): MemberPresenceParts {
+  return memberPresenceParts(member, { channel: 'shared', sharedDeviceId });
+}
+
 /** Roster status line — Connected, Disconnected, or Needs invite. */
 export function memberPresenceLabel(
   member: HouseholdMember,

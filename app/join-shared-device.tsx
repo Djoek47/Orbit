@@ -89,7 +89,7 @@ export default function JoinSharedDeviceScreen() {
         title="Join shared device"
         purpose="This tablet will host everyone on the QR — not a personal Sidekick login.">
         <View style={[styles.body, { paddingBottom: insets.bottom + 24 }]}>
-          <Text style={[styles.eyebrow, { color: accent }]}>Shared device</Text>
+          <Text style={[styles.eyebrow, { color: accent }]}>Join shared device</Text>
           <Text style={[styles.hero, { color: isDark ? '#F7F2EC' : c.text }]}>
             Join {householdLabel}
           </Text>
@@ -159,8 +159,8 @@ export default function JoinSharedDeviceScreen() {
             {busy
               ? 'Joining…'
               : people.length > 1
-                ? `Join household · ${people.length} people`
-                : 'Join household'}
+                ? `Accept · ${people.length} people`
+                : 'Accept · Join household'}
           </OrbitButton>
           <Text style={[styles.footnote, { color: c.textSubtle }]}>
             Personal Sidekick phones use a single profile code. This QR is for the shared tablet only.

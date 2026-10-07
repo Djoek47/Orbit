@@ -12,13 +12,14 @@ import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { consumeInviteCode, peekInviteCode } from '@/lib/invite/invite-code-store';
 import { hrefForLoggedOutInvite } from '@/lib/invites/join-session';
 import { parseSharedDeviceInvitePayload } from '@/lib/household/shared-device-invite';
+import { routeInvitePayload } from '@/lib/invites/route-invite-payload';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function JoinHouseholdScreen() {
   const params = useLocalSearchParams<{ code?: string }>();
-  const { joinHousehold } = useOrbit();
+  const { joinHousehold, isSignedIn, isPendingMember, hasHousehold } = useOrbit();
   const { c } = useOrbitColors();
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
@@ -26,7 +27,18 @@ export default function JoinHouseholdScreen() {
   const [busy, setBusy] = useState(false);
   const autoJoinCode = useRef<string | null>(null);
 
+  const redirectIfSharedDevice = (raw: string): boolean => {
+    const routed = routeInvitePayload(raw, { isSignedIn, isPendingMember, hasHousehold });
+    if (routed?.kind === 'shared-device') {
+      router.replace(routed.href as never);
+      return true;
+    }
+    return false;
+  };
+
   const handleJoinHousehold = async (code = inviteCode) => {
+    if (redirectIfSharedDevice(code)) return;
+
     const parsed = parseInvitePayload(code) ?? (code.trim() ? normalizeInviteCode(code) : null);
     if (!parsed) {
       setError('Enter a valid invite code.');
@@ -54,11 +66,14 @@ export default function JoinHouseholdScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const fromParam =
-        typeof params.code === 'string' && params.code.trim()
-          ? parseInvitePayload(params.code) ?? normalizeInviteCode(params.code)
-          : null;
+      const rawParam =
+        typeof params.code === 'string' && params.code.trim() ? params.code.trim() : null;
+      if (rawParam && redirectIfSharedDevice(rawParam)) return;
+      const fromParam = rawParam
+        ? parseInvitePayload(rawParam) ?? normalizeInviteCode(rawParam)
+        : null;
       const fromStash = fromParam ? null : await peekInviteCode();
+      if (fromStash && redirectIfSharedDevice(fromStash)) return;
       const next = fromParam || (fromStash ? normalizeInviteCode(fromStash) : '');
       if (cancelled || !next) return;
       setInviteCode(next);

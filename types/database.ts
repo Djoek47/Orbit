@@ -67,6 +67,12 @@ export type HouseholdMemberRow = {
   join_pre_approved?: boolean | null;
   /** Sidekick / device activity for admin Connected roster. */
   last_seen_at?: Timestamp | null;
+  /** Personal Sidekick phone presence (hostKind=sidekick). */
+  personal_last_seen_at?: Timestamp | null;
+  /** Shared-tablet presence while this face is active. */
+  shared_last_seen_at?: Timestamp | null;
+  /** Shared-device shell member id this person is currently active on. */
+  shared_active_on_device_id?: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

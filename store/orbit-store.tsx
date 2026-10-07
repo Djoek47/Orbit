@@ -618,7 +618,13 @@ type OrbitContextValue = {
   }>;
   lookupProfileInvite: (
     code: string
-  ) => Promise<{ member: HouseholdMember; householdName: string } | null>;
+  ) => Promise<{
+    member: HouseholdMember;
+    householdName: string;
+    onSharedShell?: boolean;
+  } | null>;
+  /** True while shared-tablet Switch is binding the next face’s profile code. */
+  switchingPersona: boolean;
   householdMemberships: {
     householdId: string;
     householdName: string;
@@ -797,6 +803,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     OrbitContextValue['householdMemberships']
   >([]);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
+  const [switchingPersona, setSwitchingPersona] = useState(false);
   const [poppinsAskCount, setPoppinsAskCount] = useState(0);
   const [aiUsageEvents, setAiUsageEvents] = useState<AiUsageEvent[]>([]);
   const aiUsageRef = useRef<AiUsageEvent[]>([]);
@@ -2465,7 +2472,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!code) return null;
     const lookedUp = await householdRepository.findChildByProfileCode(code);
     if (!lookedUp?.member) return null;
-    return { member: lookedUp.member, householdName: lookedUp.householdName };
+    return {
+      member: lookedUp.member,
+      householdName: lookedUp.householdName,
+      onSharedShell: lookedUp.onSharedShell,
+    };
   };
 
   const completeProfileJoin = async (
@@ -2796,6 +2807,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       await markPresenceDisconnected({
         memberIds,
         profileInviteCode: sidekick?.profileInviteCode ?? null,
+        hostKind: sharedTablet ? 'shared-tablet' : 'sidekick',
+        sharedDeviceId: sharedTablet ? device.sharedDeviceId : null,
       });
     } catch (error) {
       console.warn('orbit.signOut.presence', error);
@@ -3738,6 +3751,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       !options?.forAssignee
     ) {
       return null;
+    }
+
+    if (switchingPersona) {
+      throw new Error('Still switching profiles — try Mark complete again in a moment.');
     }
 
     const profileAuth = await usesProfileCodeAuth();
@@ -6150,49 +6167,89 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
 
-    // Bind DeviceSession + require a local profile code BEFORE flipping UI identity.
-    // Otherwise Mark complete still authenticates as the previous face.
-    const { loadDeviceSession, selectDeviceProfile } = await import('@/lib/device/device-session');
-    const device = await loadDeviceSession();
-    if (device.mode === 'shared' || device.hostKind === 'shared-tablet') {
-      await selectDeviceProfile(target.id);
-    }
+    if (target.id === currentMember?.id) return;
 
-    const sidekick = await loadSidekickSessionFor(target.id);
-    if (!sidekick?.profileInviteCode?.trim()) {
-      throw new Error(
-        `${target.name} is not on this tablet yet. Scan the shared-device QR again so everyone is added.`
-      );
-    }
-
-    const nextUser: OrbitUser = {
-      id: `tablet-local-${target.id}`,
-      email: `tablet-${target.id}@kids.choremaxx.local`,
-      name: target.name,
-      avatar: target.avatar,
-      profileComplete: true,
-    };
-    setActiveMemberId(target.id);
-    setCurrentUser(nextUser);
-    setHousehold((current) => ({ ...current, greetingName: target.name }));
-    await authRepository.persistLocalSession(nextUser, target.id);
-    await saveActiveMemberId(target.id);
-
-    const code = normalizeInviteCode(sidekick.profileInviteCode);
-    if (dataMode === 'supabase' && code) {
-      const auth = await usesProfileCodeAuth();
-      if (auth && auth.memberId !== target.id) {
-        throw new Error(`Could not switch to ${target.name}. Try the shared-device QR again.`);
+    setSwitchingPersona(true);
+    const previousMemberId = currentMember?.id ?? null;
+    try {
+      // Bind DeviceSession + require a local profile code BEFORE flipping UI identity.
+      // Otherwise Mark complete still authenticates as the previous face.
+      const { loadDeviceSession, selectDeviceProfile } = await import('@/lib/device/device-session');
+      const device = await loadDeviceSession();
+      if (device.mode === 'shared' || device.hostKind === 'shared-tablet') {
+        await selectDeviceProfile(target.id);
       }
-      const sync = await fetchSidekickSync(code);
-      if (sync) {
-        await applySidekickSyncPayload(sync, { announceNewTasks: false });
+
+      const sidekick = await loadSidekickSessionFor(target.id);
+      if (!sidekick?.profileInviteCode?.trim()) {
+        throw new Error(
+          `${target.name} is not on this tablet yet. Scan the shared-device QR again so everyone is added.`
+        );
       }
-      registerSidekickPushNotifications(code).catch((error) => {
-        console.warn('Sidekick push registration skipped', error);
-      });
+
+      const nextUser: OrbitUser = {
+        id: `tablet-local-${target.id}`,
+        email: `tablet-${target.id}@kids.choremaxx.local`,
+        name: target.name,
+        avatar: target.avatar,
+        profileComplete: true,
+      };
+      setActiveMemberId(target.id);
+      setCurrentUser(nextUser);
+      const sharedDeviceId = device.sharedDeviceId ?? null;
+      const nowIso = new Date().toISOString();
+      setHousehold((current) => ({
+        ...current,
+        greetingName: target.name,
+        // Mock / local: stamp shared channel so People “Who can use it” moves on Switch.
+        members: current.members.map((item) => {
+          if (item.id === target.id) {
+            return {
+              ...item,
+              sharedLastSeenAt: nowIso,
+              sharedActiveOnDeviceId: sharedDeviceId ?? item.sharedActiveOnDeviceId ?? null,
+              lastSeenAt: nowIso,
+            };
+          }
+          if (
+            previousMemberId &&
+            item.id === previousMemberId &&
+            sharedDeviceId &&
+            item.sharedActiveOnDeviceId === sharedDeviceId
+          ) {
+            return { ...item, sharedActiveOnDeviceId: null };
+          }
+          return item;
+        }),
+      }));
+      await authRepository.persistLocalSession(nextUser, target.id);
+      await saveActiveMemberId(target.id);
+
+      const code = normalizeInviteCode(sidekick.profileInviteCode);
+      if (dataMode === 'supabase' && code) {
+        const auth = await usesProfileCodeAuth();
+        if (auth && auth.memberId !== target.id) {
+          throw new Error(`Could not switch to ${target.name}. Try the shared-device QR again.`);
+        }
+        const sync = await fetchSidekickSync(code);
+        if (sync) {
+          await applySidekickSyncPayload(sync, { announceNewTasks: false });
+        }
+        registerSidekickPushNotifications(code).catch((error) => {
+          console.warn('Sidekick push registration skipped', error);
+        });
+      } else {
+        // Expo Go / mock: refresh domains so Tasks/Home match the new face immediately.
+        try {
+          await reloadHouseholdDomains();
+        } catch (error) {
+          console.warn('switchPersona.reloadHouseholdDomains', error);
+        }
+      }
+      await touchSidekickSession();
+    } finally {
+      setSwitchingPersona(false);
     }
-    await touchSidekickSession();
   };
 
   const approveMember = async (memberId: string) => {
@@ -7685,6 +7742,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       recordActEvent,
       appendPoppinsTurn,
       switchPersona,
+      switchingPersona,
       approveMember,
       declineMember,
       setMemberJoinPreApproved,
