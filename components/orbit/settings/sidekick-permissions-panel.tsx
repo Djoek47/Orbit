@@ -257,7 +257,7 @@ export function SidekickPermissionsPanel({
           <Text style={[styles.purpose, { color: c.textMuted }]}>
             {onCount} of {total} on · {who}
             {scope === 'all'
-              ? ' · tap a face for one kid only'
+              ? ' · tap a profile for one kid only'
               : ' · overrides Everyone for this person'}
           </Text>
         </View>
