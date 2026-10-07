@@ -206,17 +206,18 @@ def compose_header(w: int, h: int) -> Image.Image:
     gap_title_sub = int(title_size * 0.28)
     stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
 
-    # Sit in the upper third so the ASC white sheet doesn't cover the tagline.
-    # Leave a small top inset for the back/share chrome.
-    stack_top = int(h * 0.10)
-    # Keep the whole stack above ~42% of the frame (below that is sheet territory).
-    max_bottom = int(h * 0.42)
-    if stack_top + stack_h > max_bottom:
-        # Shrink gaps slightly rather than dropping into the sheet zone
-        overflow = stack_top + stack_h - max_bottom
+    # Visible dark band between Dynamic Island / top chrome (~16%) and the
+    # App Store white sheet (~42%). Center the lockup in that band.
+    band_top = int(h * 0.16)
+    band_bottom = int(h * 0.40)
+    band_h = max(stack_h, band_bottom - band_top)
+    stack_top = band_top + max(0, (band_h - stack_h) // 2)
+    if stack_top + stack_h > band_bottom:
+        overflow = stack_top + stack_h - band_bottom
         gap_icon_title = max(8, gap_icon_title - overflow // 2)
         gap_title_sub = max(6, gap_title_sub - overflow // 2)
         stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
+        stack_top = band_top + max(0, (band_bottom - band_top - stack_h) // 2)
 
     icon_left = cx - icon_size // 2
     icon_top = stack_top
