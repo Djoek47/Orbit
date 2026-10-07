@@ -870,6 +870,11 @@ export default function TasksScreen() {
     if (next) setFilter('all');
   }, [memberParam]);
 
+  // After a shared-tablet Switch, drop Who's-on so the new face sees their own tasks.
+  useEffect(() => {
+    setFocusMember(null);
+  }, [currentMember?.id]);
+
   useFocusEffect(
     useCallback(() => {
       if (statusParam === undefined) return;

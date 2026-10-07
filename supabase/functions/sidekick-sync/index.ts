@@ -83,14 +83,40 @@ Deno.serve(async (req) => {
     // Sign-out can pass disconnect:true so admin roster flips to Disconnected
     // immediately (live window is 5 minutes client-side).
     const disconnect = Boolean((body as { disconnect?: boolean } | null)?.disconnect);
+    const hostKind = String((body as { hostKind?: string } | null)?.hostKind ?? '');
+    const sharedDeviceId = String(
+      (body as { sharedDeviceId?: string } | null)?.sharedDeviceId ?? ''
+    ).trim();
     const seenAt = disconnect
       ? new Date(Date.now() - 6 * 60 * 1000).toISOString()
       : new Date().toISOString();
 
-    await admin
-      .from('household_members')
-      .update({ last_seen_at: seenAt })
-      .eq('id', memberId);
+    const isSharedHost = hostKind === 'shared-tablet' || hostKind === 'shared';
+    const presencePatch: Record<string, unknown> = {
+      last_seen_at: seenAt,
+    };
+    if (isSharedHost) {
+      presencePatch.shared_last_seen_at = seenAt;
+      presencePatch.shared_active_on_device_id = disconnect
+        ? null
+        : sharedDeviceId || null;
+      // Only one active face per shared tablet.
+      if (!disconnect && sharedDeviceId) {
+        await admin
+          .from('household_members')
+          .update({ shared_active_on_device_id: null })
+          .eq('household_id', householdId)
+          .eq('shared_active_on_device_id', sharedDeviceId)
+          .neq('id', memberId);
+      }
+    } else {
+      presencePatch.personal_last_seen_at = seenAt;
+      if (disconnect) {
+        // Personal sign-out does not clear shared-tablet presence on another device.
+      }
+    }
+
+    await admin.from('household_members').update(presencePatch).eq('id', memberId);
 
     const [
       { data: household },

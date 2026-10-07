@@ -110,9 +110,19 @@ export default function SelectProfileScreen() {
   const deviceLabel = normalizeSharedDeviceLabel(session?.deviceLabel || shell?.name);
 
   const enterAsMember = async (member: HouseholdMember) => {
-    await selectDeviceProfile(member.id);
-    switchPersona(member.id);
-    router.replace('/(tabs)' as never);
+    try {
+      await switchPersona(member.id);
+      router.replace('/(tabs)' as never);
+    } catch (error) {
+      orbitAlert(
+        'Could not open profile',
+        error instanceof Error
+          ? error.message
+          : 'Scan the shared-device QR again so this profile is on the tablet.',
+        undefined,
+        { record: true, source: 'select-profile' }
+      );
+    }
   };
 
   if (isLoading || !ready) {

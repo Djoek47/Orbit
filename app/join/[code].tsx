@@ -3,11 +3,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { stashInviteCode } from '@/lib/invite/invite-code-store';
-import {
-  classifyInviteCode,
-  inviteHref,
-  nextInviteDestination,
-} from '@/lib/invites/invite-intent';
+import { routeInvitePayload } from '@/lib/invites/route-invite-payload';
 import { useOrbit } from '@/store/orbit-store';
 
 /** Deep link entry: choremaxx://join/CODE → the right join / sign-in / kid path. */
@@ -17,7 +13,9 @@ export default function JoinCodeRedirectScreen() {
   const raw = String(code ?? '');
 
   useEffect(() => {
-    if (raw) {
+    if (!raw) return;
+    // Shared-device URLs are multi-param; only stash simple CMX codes.
+    if (!raw.includes('shared-device') && !raw.includes('://')) {
       void stashInviteCode(raw);
     }
   }, [raw]);
@@ -30,7 +28,10 @@ export default function JoinCodeRedirectScreen() {
     );
   }
 
-  const kind = classifyInviteCode(raw) ?? 'household';
-  const dest = nextInviteDestination(kind, { isSignedIn, isPendingMember, hasHousehold });
-  return <Redirect href={inviteHref(dest, raw || 'invite') as never} />;
+  const routed = routeInvitePayload(raw || 'invite', {
+    isSignedIn,
+    isPendingMember,
+    hasHousehold,
+  });
+  return <Redirect href={(routed?.href ?? '/welcome') as never} />;
 }

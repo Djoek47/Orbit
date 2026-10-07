@@ -7,7 +7,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { InteractionManager, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -21,7 +21,6 @@ import {
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { openChoremaxxUrl } from '@/lib/legal/open-choremaxx-url';
-import { SESSION_NAV_DELAY_MS } from '@/lib/navigation/session-restart';
 import {
   closeLegalLinksSheet,
   openLegalLinksSheet,
@@ -45,8 +44,12 @@ const SEPARATOR_INSET = ROW_PAD_X + ICON_WELL + ROW_GAP;
 
 type PendingAction = (() => void) | null;
 
-/** Match orbitAlert: Android often skips Modal.onDismiss. */
-const LEGAL_SHEET_DISMISS_MS = SESSION_NAV_DELAY_MS;
+/**
+ * Wait for Modal dismiss + interactions before opening Safari.
+ * A short timeout used to fire while the sheet was still animating out,
+ * mark flushed, and swallow the real onDismiss — so Privacy/Terms never opened.
+ */
+const LEGAL_SHEET_DISMISS_MS = 700;
 
 export function LegalLinksSheetHost() {
   const [visible, setVisible] = useState(false);
@@ -67,8 +70,7 @@ export function LegalLinksSheetHost() {
     const next = pendingAction.current;
     pendingAction.current = null;
     if (!next) return;
-    // Two frames past native dismiss — safe for SFSafariViewController / router.
-    requestAnimationFrame(() => {
+    InteractionManager.runAfterInteractions(() => {
       requestAnimationFrame(() => {
         try {
           next();
@@ -79,7 +81,7 @@ export function LegalLinksSheetHost() {
     });
   }, []);
 
-  // Android / some hosts skip onDismiss — still run after the fade.
+  // Android / some hosts skip onDismiss — still run after the fade settles.
   useEffect(() => {
     if (visible) {
       flushedRef.current = false;

@@ -1,7 +1,8 @@
 /**
  * Shared-device invite redeem — tablet scans admin's QR, then hosts the faces.
- * Same accept pattern as Sidekick join-profile, but multi-code.
+ * Distinct from Sidekick join-profile (single CMX code).
  */
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -9,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Avatar } from '@/components/orbit/avatar';
+import { FrostedPanel } from '@/components/orbit/frosted-panel';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
@@ -25,8 +27,9 @@ import type { HouseholdMember } from '@/types/orbit';
 export default function JoinSharedDeviceScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ payload?: string; label?: string; codes?: string }>();
-  const { connectSharedTabletProfiles, household } = useOrbit();
+  const { connectSharedTabletProfiles, household, accentTheme } = useOrbit();
   const { c, isDark, glassBorder } = useOrbitColors();
+  const accent = accentTheme.primary;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -75,30 +78,47 @@ export default function JoinSharedDeviceScreen() {
     }
   };
 
+  const householdLabel = household.householdName?.trim() || 'the household';
+  const deviceLabel = invite?.label?.trim() || 'Shared device';
+
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={{ headerShown: false, title: 'Join shared device' }} />
       <SettingsModalChrome
         backLabel="Back"
-        title={invite?.label || 'Shared device'}
-        purpose="Accept this tablet invite">
+        title="Join shared device"
+        purpose="This tablet will host everyone on the QR — not a personal Sidekick login.">
         <View style={[styles.body, { paddingBottom: insets.bottom + 24 }]}>
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
-            ]}>
-            <Text style={[styles.title, { color: c.text }]}>Set up this tablet</Text>
-            <Text style={[styles.sub, { color: c.textMuted }]}>
-              {invite
-                ? `${invite.codes.length} face${invite.codes.length === 1 ? '' : 's'} will share ${invite.label}. Tap Accept, then pick who you are.`
-                : 'Waiting for a valid invite…'}
-            </Text>
+          <Text style={[styles.eyebrow, { color: accent }]}>Join shared device</Text>
+          <Text style={[styles.hero, { color: isDark ? '#F7F2EC' : c.text }]}>
+            Join {householdLabel}
+          </Text>
+          <Text style={[styles.sub, { color: c.textMuted }]}>
+            You&apos;re setting up <Text style={{ fontWeight: '800', color: c.text }}>{deviceLabel}</Text>
+            . Everyone below will share this tablet — Switch to change who&apos;s on.
+          </Text>
 
+          <FrostedPanel borderColor={`${accent}44`} style={styles.card}>
+            <LinearGradient
+              colors={[`${accent}28`, `${accent}08`]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <Text style={[styles.cardLabel, { color: accent }]}>Who can use it</Text>
             {people.length > 0 ? (
               <View style={styles.faces}>
                 {people.map((person) => (
-                  <View key={person.id} style={styles.face}>
+                  <View
+                    key={person.id}
+                    style={[
+                      styles.face,
+                      {
+                        backgroundColor: glassFill(isDark),
+                        borderColor: glassBorder(0.12),
+                      },
+                    ]}>
                     <Avatar
                       name={person.name}
                       emoji={memberDisplayEmoji(person)}
@@ -112,11 +132,22 @@ export default function JoinSharedDeviceScreen() {
                 ))}
               </View>
             ) : invite ? (
-              <Text style={[styles.sub, { color: c.textSubtle }]}>
-                Codes: {invite.codes.join(', ')}
-              </Text>
-            ) : null}
-          </View>
+              <View style={styles.codeList}>
+                {invite.codes.map((code) => (
+                  <Text key={code} style={[styles.codeChip, { color: c.textSoft }]}>
+                    {code}
+                  </Text>
+                ))}
+              </View>
+            ) : (
+              <Text style={[styles.sub, { color: c.textSubtle }]}>Waiting for a valid invite…</Text>
+            )}
+            <Text style={[styles.hint, { color: c.textSubtle }]}>
+              {invite
+                ? `${invite.codes.length} profile${invite.codes.length === 1 ? '' : 's'} on this QR`
+                : 'Ask an admin to open Shared devices → Show QR'}
+            </Text>
+          </FrostedPanel>
 
           {error ? (
             <Text style={styles.error} accessibilityLiveRegion="polite">
@@ -125,8 +156,15 @@ export default function JoinSharedDeviceScreen() {
           ) : null}
 
           <OrbitButton onPress={() => void accept()} disabled={busy || !invite}>
-            {busy ? 'Setting up…' : 'Accept shared device'}
+            {busy
+              ? 'Joining…'
+              : people.length > 1
+                ? `Accept · ${people.length} people`
+                : 'Accept · Join household'}
           </OrbitButton>
+          <Text style={[styles.footnote, { color: c.textSubtle }]}>
+            Personal Sidekick phones use a single profile code. This QR is for the shared tablet only.
+          </Text>
         </View>
       </SettingsModalChrome>
     </>
@@ -135,11 +173,36 @@ export default function JoinSharedDeviceScreen() {
 
 const styles = StyleSheet.create({
   body: { gap: 14, paddingHorizontal: 20, paddingTop: 8 },
-  card: { borderRadius: 20, borderWidth: 1, gap: 12, padding: 16 },
-  title: { fontSize: 22, fontWeight: '600', letterSpacing: -0.3 },
-  sub: { fontSize: 14, lineHeight: 20 },
-  faces: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  face: { alignItems: 'center', gap: 6, width: 72 },
-  faceName: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
-  error: { color: '#F87171', fontSize: 14 },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  hero: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  sub: { fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  card: { gap: 12, overflow: 'hidden', padding: 16 },
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  faces: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  face: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    width: 96,
+  },
+  faceName: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  codeList: { gap: 6 },
+  codeChip: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
+  hint: { fontSize: 12, fontWeight: '600' },
+  error: { color: '#F87171', fontSize: 14, fontWeight: '600' },
+  footnote: { fontSize: 12, fontWeight: '600', lineHeight: 18, textAlign: 'center' },
 });

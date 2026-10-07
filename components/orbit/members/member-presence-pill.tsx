@@ -8,6 +8,7 @@ import { typography } from '@/constants/orbit-theme';
 import {
   memberPresenceLabel,
   memberPresenceParts,
+  type MemberPresenceChannel,
 } from '@/lib/household/member-presence';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import type { HouseholdMember } from '@/types/orbit';
@@ -16,13 +17,22 @@ type Props = {
   member: HouseholdMember;
   /** Compact = dot + short word; full = Connected · Last seen … */
   variant?: 'compact' | 'full';
+  /** personal = SIDEKICKS list; shared = tablet Who can use it. */
+  channel?: MemberPresenceChannel;
+  sharedDeviceId?: string | null;
 };
 
-export function MemberPresencePill({ member, variant = 'compact' }: Props) {
+export function MemberPresencePill({
+  member,
+  variant = 'compact',
+  channel = 'any',
+  sharedDeviceId,
+}: Props) {
   const { c } = useOrbitColors();
-  const parts = memberPresenceParts(member);
+  const opts = { channel, sharedDeviceId };
+  const parts = memberPresenceParts(member, opts);
   const label =
-    variant === 'full' ? memberPresenceLabel(member) : parts.connectionLabel;
+    variant === 'full' ? memberPresenceLabel(member, opts) : parts.connectionLabel;
 
   let dot = c.textSubtle;
   if (parts.isLive) dot = '#38BDF8';

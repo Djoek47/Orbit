@@ -93,8 +93,30 @@ export async function fetchSidekickSyncDetailed(
   const supabase = getSupabaseClient();
   if (!supabase) return { status: 'unavailable' };
 
+  let hostKind: string | undefined;
+  let sharedDeviceId: string | undefined;
+  let activeMemberId: string | undefined;
+  try {
+    const { loadDeviceSession } = await import('@/lib/device/device-session');
+    const device = await loadDeviceSession();
+    activeMemberId = device.activeMemberId ?? undefined;
+    if (device.hostKind === 'shared-tablet' || device.mode === 'shared') {
+      hostKind = 'shared-tablet';
+      sharedDeviceId = device.sharedDeviceId ?? undefined;
+    } else if (device.hostKind === 'sidekick') {
+      hostKind = 'sidekick';
+    }
+  } catch {
+    /* optional — sync still works without channel hints */
+  }
+
   const { data, error } = await supabase.functions.invoke('sidekick-sync', {
-    body: { code: profileInviteCode },
+    body: {
+      code: profileInviteCode,
+      ...(hostKind ? { hostKind } : {}),
+      ...(sharedDeviceId ? { sharedDeviceId } : {}),
+      ...(activeMemberId ? { activeMemberId } : {}),
+    },
   });
   if (error || !data || typeof data !== 'object') {
     const message = error?.message?.toLowerCase() ?? '';

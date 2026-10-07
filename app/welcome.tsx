@@ -310,7 +310,7 @@ export default function WelcomeOnboardingScreen() {
     router.replace(`/redeem-member-invite?token=${encodeURIComponent(raw.trim())}` as never);
   }, [inviteParams.memberInvite]);
 
-  // Deep link / stashed invite codes → join-profile or legacy unsupported.
+  // Deep link / stashed invite codes → shared-device, join-profile, or household.
   useEffect(() => {
     let cancelled = false;
     const memberInviteRaw = Array.isArray(inviteParams.memberInvite)
@@ -318,11 +318,38 @@ export default function WelcomeOnboardingScreen() {
       : inviteParams.memberInvite;
     if (memberInviteRaw?.trim()) return;
     void import('@/lib/invite/invite-code-store').then(async ({ peekInviteCode }) => {
-      const fromParam =
+      const { routeInvitePayload } = await import('@/lib/invites/route-invite-payload');
+      const rawParam =
         typeof inviteParams.invite === 'string' && inviteParams.invite.trim()
-          ? parseInvitePayload(inviteParams.invite) ?? normalizeInviteCode(inviteParams.invite)
+          ? inviteParams.invite.trim()
           : null;
-      const pending = fromParam || (await peekInviteCode());
+      if (rawParam) {
+        const sharedFirst = routeInvitePayload(rawParam, {
+          isSignedIn,
+          isPendingMember: false,
+          hasHousehold,
+        });
+        if (sharedFirst?.kind === 'shared-device') {
+          if (!cancelled) router.replace(sharedFirst.href as never);
+          return;
+        }
+      }
+      const fromParam = rawParam
+        ? parseInvitePayload(rawParam) ?? normalizeInviteCode(rawParam)
+        : null;
+      const stashed = fromParam ? null : await peekInviteCode();
+      if (stashed) {
+        const sharedStash = routeInvitePayload(stashed, {
+          isSignedIn,
+          isPendingMember: false,
+          hasHousehold,
+        });
+        if (sharedStash?.kind === 'shared-device') {
+          if (!cancelled) router.replace(sharedStash.href as never);
+          return;
+        }
+      }
+      const pending = fromParam || (stashed ? normalizeInviteCode(stashed) : null);
       if (cancelled || !pending) return;
       await stashInviteCode(pending);
       const kind = inviteParams.kind === 'child' ? 'profile' : classifyInviteCode(pending) ?? 'household';

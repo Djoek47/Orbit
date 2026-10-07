@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { AuthShell } from '@/components/orbit/auth-shell';
@@ -8,15 +8,15 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { Avatar } from '@/components/orbit/avatar';
-import { Pressable } from 'react-native';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
+import { memberIsOnSharedShell } from '@/lib/invites/route-invite-payload';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function JoinProfileScreen() {
   const params = useLocalSearchParams<{ code?: string }>();
-  const { completeProfileJoin, lookupProfileInvite } = useOrbit();
+  const { completeProfileJoin, lookupProfileInvite, household } = useOrbit();
   const { c } = useOrbitColors();
   const rawCode = Array.isArray(params.code) ? params.code[0] : params.code;
   const [code, setCode] = useState('');
@@ -26,6 +26,9 @@ export default function JoinProfileScreen() {
   const [lookOpen, setLookOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /** When this CMX is also on a shared tablet shell — don't silently host as Sidekick. */
+  const [sharedShellChooser, setSharedShellChooser] = useState(false);
+  const [chooserDismissed, setChooserDismissed] = useState(false);
 
   useEffect(() => {
     const parsed =
@@ -38,8 +41,12 @@ export default function JoinProfileScreen() {
       setName(result.member.name?.trim() ?? '');
       setAvatar(result.member.avatar ?? '');
       setHouseholdName(result.householdName);
+      const onShell =
+        Boolean(result.onSharedShell) ||
+        memberIsOnSharedShell(result.member.id, household.members);
+      setSharedShellChooser(onShell && !chooserDismissed);
     });
-  }, [rawCode, lookupProfileInvite]);
+  }, [rawCode, lookupProfileInvite, household.members, chooserDismissed]);
 
   const handleContinue = async () => {
     const parsed = parseInvitePayload(code) ?? (code.trim() ? normalizeInviteCode(code) : null);
@@ -54,7 +61,7 @@ export default function JoinProfileScreen() {
     setBusy(true);
     setError('');
     try {
-      const outcome = await completeProfileJoin({
+      await completeProfileJoin({
         code: parsed,
         displayName: name.trim(),
         avatar: avatar.trim() || undefined,
@@ -66,6 +73,37 @@ export default function JoinProfileScreen() {
       setBusy(false);
     }
   };
+
+  if (sharedShellChooser && !chooserDismissed) {
+    const who = name.trim() || 'This person';
+    return (
+      <AuthShell
+        kicker="Which device?"
+        title={`${who} is on a shared tablet`}
+        subtitle="A personal Sidekick code logs in one phone. A shared tablet needs the admin’s tablet QR with everyone on it.">
+        <View style={{ gap: 12 }}>
+          <OrbitButton
+            onPress={() => {
+              setChooserDismissed(true);
+              setSharedShellChooser(false);
+            }}>
+            Continue as {who}&apos;s Sidekick phone
+          </OrbitButton>
+          <OrbitButton
+            tone="secondary"
+            onPress={() => {
+              router.replace('/welcome' as never);
+            }}>
+            I need the shared tablet QR
+          </OrbitButton>
+          <Text style={{ color: c.textSubtle, fontSize: 13, lineHeight: 18, textAlign: 'center' }}>
+            Ask an admin: People → Shared tablets → Show QR. That QR lists everyone who shares the
+            tablet.
+          </Text>
+        </View>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell
