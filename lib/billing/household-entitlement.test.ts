@@ -4,6 +4,8 @@ import {
   effectiveEntitlement,
   entitlementFromHousehold,
   HOUSEHOLD_PREMIUM_GRACE_MS,
+  HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS,
+  householdPremiumKnown,
   isFreeTrialOffer,
   syncPayloadFromPurchase,
 } from './household-entitlement';
@@ -20,6 +22,7 @@ const house = (p: Partial<HouseholdPremium>): HouseholdPremium => ({
   expiresAt: at(20 * DAY),
   environment: 'Production',
   updatedAt: NOW.toISOString(),
+  willRenew: true,
   ...p,
 });
 
@@ -41,13 +44,29 @@ assert.equal(entitlementFromHousehold(house({ expiresAt: 'garbage' }), NOW), nul
 const fromRow = entitlementFromHousehold(house({}), NOW)!;
 assert.equal(isPremiumActive(fromRow, NOW), true);
 
-// The grace period: a renewal Apple charged for only reaches the row when an admin opens the
-// app. The Sidekick's phone keeps working meanwhile.
-const justLapsed = entitlementFromHousehold(house({ expiresAt: at(-1 * DAY) }), NOW)!;
-assert.equal(isPremiumActive(justLapsed, NOW), true, 'a day late still works');
-const longLapsed = entitlementFromHousehold(house({ expiresAt: at(-3 * DAY) }), NOW)!;
-assert.equal(isPremiumActive(longLapsed, NOW), false, 'three days late does not');
+// The grace period. A renewal Apple charged for only reaches the row when an admin opens the
+// app, so a household that has not cancelled keeps working on the children's devices for
+// Apple's whole billing grace period. One that cancelled gets two days.
+const renewingWeekLate = entitlementFromHousehold(house({ expiresAt: at(-7 * DAY), willRenew: true }), NOW)!;
+assert.equal(isPremiumActive(renewingWeekLate, NOW), true, 'renewing: a week late still works');
+const renewingTooLate = entitlementFromHousehold(house({ expiresAt: at(-17 * DAY), willRenew: true }), NOW)!;
+assert.equal(isPremiumActive(renewingTooLate, NOW), false, 'renewing: past 16 days does not');
+
+const cancelledDayLate = entitlementFromHousehold(house({ expiresAt: at(-1 * DAY), willRenew: false }), NOW)!;
+assert.equal(isPremiumActive(cancelledDayLate, NOW), true, 'cancelled: a day late still works');
+const cancelledLate = entitlementFromHousehold(house({ expiresAt: at(-3 * DAY), willRenew: false }), NOW)!;
+assert.equal(isPremiumActive(cancelledLate, NOW), false, 'cancelled: three days late does not');
+
+// Rows written before the field existed lean towards the family, not the lockout.
+const legacy = entitlementFromHousehold(house({ expiresAt: at(-7 * DAY), willRenew: null }), NOW)!;
+assert.equal(isPremiumActive(legacy, NOW), true);
 assert.equal(HOUSEHOLD_PREMIUM_GRACE_MS, 2 * DAY);
+assert.equal(HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS, 16 * DAY);
+
+// "Known" means a period was ever recorded — the difference between "never told" and "ended".
+assert.equal(householdPremiumKnown(undefined), false, 'server without the migration');
+assert.equal(householdPremiumKnown(house({ expiresAt: null })), false, 'never synced');
+assert.equal(householdPremiumKnown(house({})), true);
 
 // ── Merging device and house ──────────────────────────────────────────────────
 // The shared tablet: nothing local, house paid → paid.
@@ -74,7 +93,7 @@ assert.equal(longer.productId, 'app.choremaxx.household.premium.yearlyv');
 // Nothing anywhere → not active, and never a crash.
 assert.equal(isPremiumActive(effectiveEntitlement(null, undefined, NOW), NOW), false);
 assert.equal(
-  isPremiumActive(effectiveEntitlement(local({ active: false }), house({ expiresAt: at(-9 * DAY) }), NOW), NOW),
+  isPremiumActive(effectiveEntitlement(local({ active: false }), house({ expiresAt: at(-9 * DAY), willRenew: false }), NOW), NOW),
   false
 );
 
@@ -97,9 +116,11 @@ const payload = syncPayloadFromPurchase(
     expirationDateIOS: NOW.getTime() + 7 * DAY,
     environmentIOS: 'Sandbox',
     offerIOS: { type: 'introductory', paymentMode: 'free-trial' },
+    renewalInfoIOS: { willAutoRenew: false },
   },
   'house-1'
 )!;
+assert.equal(payload.willRenew, false, 'the cancel switch travels with the report');
 assert.equal(payload.originalTransactionId, '2000000123');
 assert.equal(payload.inTrial, true);
 assert.equal(payload.environment, 'Sandbox');

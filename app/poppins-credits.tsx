@@ -47,6 +47,8 @@ import {
   probeAvailableTokenPacks,
   purchaseTokens,
   type IapTokenPackKey,
+  fetchStorePrices,
+  type StorePrice,
 } from '@/lib/billing/iap';
 import { sendCreditReceiptEmail } from '@/lib/billing/send-credit-receipt';
 import { loadTokenGrants } from '@/lib/billing/token-grants';
@@ -100,6 +102,21 @@ function PoppinsCreditsScreenInner() {
   const [congrats, setCongrats] = useState<Congrats | null>(null);
   /** null = probe pending/failed (keep tappable); array = StoreKit-listed packs only */
   const [availablePacks, setAvailablePacks] = useState<IapTokenPackKey[] | null>(null);
+  /** StoreKit's own prices for this storefront. USD from the catalogue is only the fallback. */
+  const [storePrices, setStorePrices] = useState<Record<string, StorePrice>>({});
+  useEffect(() => {
+    let cancelled = false;
+    void fetchStorePrices().then((prices) => {
+      if (!cancelled) setStorePrices(prices);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const priceFor = useCallback(
+    (pack: TopUpPack) => storePrices[pack.productId]?.display ?? formatPrice(pack.priceUsd),
+    [storePrices]
+  );
   const [storeProbeDone, setStoreProbeDone] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollToReceipt = useRef(false);
@@ -209,7 +226,7 @@ function PoppinsCreditsScreenInner() {
         const next = await readBalance();
         if (next) setCredits(next);
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setCongrats({ tokens: grant.tokens, price: formatPrice(pack.priceUsd), receipt });
+        setCongrats({ tokens: grant.tokens, price: priceFor(pack), receipt });
         setReceiptMail({ kind: 'sending' });
         setBuying(null);
 
@@ -217,7 +234,7 @@ function PoppinsCreditsScreenInner() {
           to: billingEmail || currentUser?.email || undefined,
           name: currentMember?.name ?? currentUser?.name,
           tokens: grant.tokens,
-          price: formatPrice(pack.priceUsd),
+          price: priceFor(pack),
           orderId: receipt.orderId,
           householdName: household.householdName,
           householdId: household.id,
@@ -264,7 +281,7 @@ function PoppinsCreditsScreenInner() {
       if (buying != null) return;
       if (!isTokenPackAvailable(pack.key, availablePacks)) return;
       confirmCreditPackPurchase({
-        title: `${pack.label} · ${formatPrice(pack.priceUsd)}`,
+        title: `${pack.label} · ${priceFor(pack)}`,
         message: mockBuy
           ? `Adds ${pack.tokens} actions to your bank. Test buy — no charge.`
           : `Adds ${pack.tokens} actions to your credit bank.`,
@@ -397,6 +414,7 @@ function PoppinsCreditsScreenInner() {
                       disabled={buying != null || !forSale}
                       unavailable={storeProbeDone && !forSale}
                       index={index}
+                      priceLabel={priceFor(pack)}
                       onPress={() => buy(pack)}
                     />
                   );
@@ -701,6 +719,7 @@ function PackCard({
   disabled,
   unavailable,
   index,
+  priceLabel,
   onPress,
 }: {
   pack: TopUpPack;
@@ -708,6 +727,8 @@ function PackCard({
   disabled: boolean;
   unavailable?: boolean;
   index: number;
+  /** The storefront's price as Apple formats it, so it matches the purchase sheet. */
+  priceLabel: string;
   onPress: () => void;
 }) {
   const { c, glassBorder, isDark } = useOrbitColors();
@@ -722,7 +743,7 @@ function PackCard({
         accessibilityLabel={
           unavailable
             ? `${pack.label} not for sale on this build yet`
-            : `${pack.label} for ${formatPrice(pack.priceUsd)}, ${formatPerAction(
+            : `${pack.label} for ${priceLabel}, ${formatPerAction(
                 pack.centsPerAction
               )}${pack.best ? ', best value' : ''}`
         }
@@ -758,7 +779,7 @@ function PackCard({
         <Text style={[styles.packTokens, { color: c.text }]}>{pack.tokens}</Text>
         <Text style={[styles.packUnit, { color: c.textMuted }]}>actions</Text>
         <Text style={[styles.packPrice, { color: tone }]}>
-          {busy ? 'Adding…' : unavailable ? 'Soon' : formatPrice(pack.priceUsd)}
+          {busy ? 'Adding…' : unavailable ? 'Soon' : priceLabel}
         </Text>
         <Text style={[styles.packEach, { color: c.textSubtle }]}>
           {unavailable

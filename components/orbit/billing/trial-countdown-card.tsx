@@ -15,6 +15,7 @@
  * subscription screen, the only place a subscription can be cancelled.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
@@ -22,6 +23,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { BILLING_TRIAL_DAYS, IAP_SUBSCRIPTIONS } from '@/constants/billing';
 import { useAccess } from '@/lib/billing/access-provider';
+import { fetchStorePrices, type StorePrice } from '@/lib/billing/iap';
 import { formatPrice } from '@/lib/billing/topup-receipt';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
@@ -60,6 +62,19 @@ export function TrialCountdownCard() {
   const { c, glass, glassBorder } = useOrbitColors();
   const access = useAccess();
   const view = access.view;
+  const onTrial = access.ready && view.level === 'trial';
+  // The price that follows the trial, as Apple will charge it in this storefront.
+  const [prices, setPrices] = useState<Record<string, StorePrice>>({});
+  useEffect(() => {
+    if (!onTrial) return;
+    let cancelled = false;
+    void fetchStorePrices().then((next) => {
+      if (!cancelled) setPrices(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [onTrial]);
 
   if (!access.ready || view.level !== 'trial' || !view.trialEndsAt || !access.canPurchase) {
     return null;
@@ -74,7 +89,7 @@ export function TrialCountdownCard() {
     (p) => p.productId === access.entitlement.productId
   );
   const price = plan
-    ? `${formatPrice(plan.priceUsd)}/${plan.period === 'year' ? 'year' : 'month'}`
+    ? `${prices[plan.productId]?.display ?? formatPrice(plan.priceUsd)}/${plan.period === 'year' ? 'year' : 'month'}`
     : null;
 
   const when = ends.toLocaleString(undefined, {

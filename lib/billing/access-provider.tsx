@@ -24,11 +24,12 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 
+import { isSupabaseMode } from '@/config/data-mode';
 import { EMPTY_ENTITLEMENT, type EntitlementState } from '@/constants/billing';
 import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { accessView, type AccessView } from '@/lib/billing/access-gate';
 import { setCurrentMonthlyAllowance } from '@/lib/billing/allowance-state';
-import { effectiveEntitlement } from '@/lib/billing/household-entitlement';
+import { effectiveEntitlement, householdPremiumKnown } from '@/lib/billing/household-entitlement';
 import {
   fetchEntitlement,
   isNativeIapAvailable,
@@ -64,11 +65,37 @@ const AccessContext = createContext<AccessContextValue>({
 /** How often to re-check while the app sits open — a trial can end mid-session. */
 const RECHECK_MS = 5 * 60 * 1000;
 
+/**
+ * The gate only runs where money is real. In mock data mode (Expo Go, Cursor's cloud runs,
+ * the tour's demo household) there is no StoreKit and no household row, and gating there
+ * would lock every developer and every demo out behind a paywall that cannot be paid.
+ * EXPO_PUBLIC_PAYMENT_GATE=force turns it on anyway, to test the gate itself.
+ */
+const GATE_ENABLED = isSupabaseMode || process.env.EXPO_PUBLIC_PAYMENT_GATE === 'force';
+
 export function AccessProvider({ children }: { children: ReactNode }) {
-  const { household, currentMember, isSignedIn } = useOrbit();
+  const { household, currentMember, currentUser, isSignedIn } = useOrbit();
   const [local, setLocal] = useState<EntitlementState | null>(null);
   const [now, setNow] = useState(() => new Date());
   const syncedRef = useRef<string | null>(null);
+  /**
+   * Set when the server says this Apple ID's subscription already pays for another household.
+   * StoreKit's entitlement belongs to the Apple ID, not the ChoreMaxx account, so without this
+   * any account signed in on a subscriber's phone — another family's, or a second household
+   * the same person made — would unlock for free.
+   */
+  const [claimedElsewhere, setClaimedElsewhere] = useState(false);
+
+  // A different person signed in: forget the last one's entitlement before anything reads it.
+  const userId = currentUser?.id ?? null;
+  const lastUserRef = useRef<string | null>(userId);
+  useEffect(() => {
+    if (lastUserRef.current === userId) return;
+    lastUserRef.current = userId;
+    setLocal(null);
+    setClaimedElsewhere(false);
+    syncedRef.current = null;
+  }, [userId]);
 
   const canPurchase = currentMember?.role === 'owner' || currentMember?.role === 'admin';
 
@@ -98,12 +125,20 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   }, [isSignedIn, refresh]);
 
   const entitlement = useMemo(
-    () => effectiveEntitlement(local, household.premium, now),
-    [local, household.premium, now]
+    () => effectiveEntitlement(claimedElsewhere ? null : local, household.premium, now),
+    [claimedElsewhere, local, household.premium, now]
   );
 
-  const view = useMemo(() => accessView(entitlement, TOKENS_PER_MONTH, now), [entitlement, now]);
-  const ready = local !== null;
+  const view = useMemo(() => {
+    if (!GATE_ENABLED) return PAID_DEFAULT;
+    // A device that cannot buy — a Sidekick's phone, a shared tablet — is only ever locked by
+    // a period the household actually recorded and that has actually ended. "Never told"
+    // (a server without the migration, or an admin who has not opened the new build yet) is
+    // not "ended": locking every child in a paying house on that evidence is the wrong failure.
+    if (!canPurchase && !householdPremiumKnown(household.premium)) return PAID_DEFAULT;
+    return accessView(entitlement, TOKENS_PER_MONTH, now);
+  }, [canPurchase, entitlement, household.premium, now]);
+  const ready = !GATE_ENABLED || local !== null;
 
   // The allowance follows the access level. Only once known — before that, keep the paid
   // default so a paying household never sees "0 actions" flash on launch.
@@ -122,7 +157,9 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     const key = `${household.id}:${String(purchase.originalTransactionIdentifierIOS ?? purchase.id)}:${String(purchase.expirationDateIOS ?? '')}`;
     if (syncedRef.current === key) return;
     syncedRef.current = key;
-    void syncHouseholdEntitlement(household.id, purchase);
+    void syncHouseholdEntitlement(household.id, purchase).then((result) => {
+      setClaimedElsewhere(result === 'claimed-elsewhere');
+    });
   }, [canPurchase, household.id, local]);
 
   const value = useMemo(

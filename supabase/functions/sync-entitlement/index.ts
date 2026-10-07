@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
       typeof body.originalTransactionId === 'string' ? body.originalTransactionId.trim() : '';
     const expiresAtMs = typeof body.expiresAtMs === 'number' ? body.expiresAtMs : NaN;
     const inTrial = body.inTrial === true;
+    const willRenew = typeof body.willRenew === 'boolean' ? body.willRenew : null;
     const environment =
       typeof body.environment === 'string' && ENVIRONMENTS.has(body.environment)
         ? body.environment
@@ -143,6 +144,7 @@ Deno.serve(async (req) => {
           premium_environment: null,
           premium_purchased_by: null,
           premium_updated_at: new Date().toISOString(),
+          premium_will_renew: null,
         })
         .eq('id', movingFrom.id);
     }
@@ -157,10 +159,11 @@ Deno.serve(async (req) => {
         premium_environment: environment,
         premium_purchased_by: user.id,
         premium_updated_at: new Date().toISOString(),
+        premium_will_renew: willRenew,
       })
       .eq('id', householdId)
       .select(
-        'premium_product_id, premium_in_trial, premium_expires_at, premium_environment, premium_updated_at'
+        'premium_product_id, premium_in_trial, premium_expires_at, premium_environment, premium_updated_at, premium_will_renew'
       )
       .maybeSingle();
 

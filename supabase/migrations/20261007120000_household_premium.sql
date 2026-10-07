@@ -21,7 +21,11 @@ alter table public.households
   add column if not exists premium_original_transaction_id text,
   add column if not exists premium_environment text,
   add column if not exists premium_purchased_by uuid references auth.users(id) on delete set null,
-  add column if not exists premium_updated_at timestamptz;
+  add column if not exists premium_updated_at timestamptz,
+  -- Whether Apple says the subscription will renew. A household that has not cancelled keeps
+  -- working on the other devices for Apple's full billing grace period past the recorded
+  -- expiry, because the renewal only reaches this row when an admin next opens the app.
+  add column if not exists premium_will_renew boolean;
 
 -- One Apple subscription unlocks one household. Without this, one person could sync the same
 -- receipt into as many households as they can create.
@@ -36,6 +40,13 @@ alter table public.households
   check (premium_environment is null or premium_environment in ('Sandbox', 'Production', 'Xcode'));
 
 -- ── Clients may not write Premium ────────────────────────────────────────────
+-- A client is any request carrying a user's JWT, which is exactly when auth.uid() is set. The
+-- service role (the sync-entitlement edge function) and the SQL editor carry none.
+--
+-- This deliberately does NOT test current_user. The function is SECURITY DEFINER, and inside a
+-- definer function current_user is the owner — postgres — for every caller, so a check on it
+-- passes for everyone and protects nothing. auth.uid() reads the request's JWT claims, which a
+-- definer function does not change. Same test as enforce_token_grants_consume_only (v32).
 create or replace function public.enforce_household_premium_server_only()
 returns trigger
 language plpgsql
@@ -43,9 +54,21 @@ security definer
 set search_path = public
 as $$
 begin
-  -- The edge function runs with the service role; everything else is a client.
-  if coalesce(current_setting('request.jwt.claim.role', true), '') = 'service_role'
-     or current_user in ('postgres', 'supabase_admin', 'service_role') then
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  -- A client creating a household starts it with no Premium, whatever it sent. Cleared rather
+  -- than refused, so household creation that sends defaults keeps working.
+  if tg_op = 'INSERT' then
+    new.premium_product_id := null;
+    new.premium_in_trial := false;
+    new.premium_expires_at := null;
+    new.premium_original_transaction_id := null;
+    new.premium_environment := null;
+    new.premium_purchased_by := null;
+    new.premium_updated_at := null;
+    new.premium_will_renew := null;
     return new;
   end if;
 
@@ -55,7 +78,8 @@ begin
      or new.premium_original_transaction_id is distinct from old.premium_original_transaction_id
      or new.premium_environment is distinct from old.premium_environment
      or new.premium_purchased_by is distinct from old.premium_purchased_by
-     or new.premium_updated_at is distinct from old.premium_updated_at then
+     or new.premium_updated_at is distinct from old.premium_updated_at
+     or new.premium_will_renew is distinct from old.premium_will_renew then
     raise exception 'households: Premium is written by the server only.';
   end if;
 
@@ -65,7 +89,7 @@ $$;
 
 drop trigger if exists households_premium_server_only on public.households;
 create trigger households_premium_server_only
-  before update on public.households
+  before insert or update on public.households
   for each row
   execute function public.enforce_household_premium_server_only();
 

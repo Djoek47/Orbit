@@ -744,6 +744,8 @@ export type HouseholdPremium = {
   expiresAt: string | null;
   environment: 'Sandbox' | 'Production' | 'Xcode' | null;
   updatedAt: string | null;
+  /** Apple's auto-renew status when last reported. False means the admin cancelled. */
+  willRenew: boolean | null;
 };
 
 export type HouseholdSnapshot = {

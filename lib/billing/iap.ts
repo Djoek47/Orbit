@@ -225,21 +225,30 @@ async function readStoreKitSubscription(
  * reports it cannot use, and a failure here must never stand between a paying admin and
  * their own app. Called after purchase, after restore, and on every refresh.
  */
+export type HouseholdSyncResult = 'synced' | 'claimed-elsewhere' | 'skipped' | 'failed';
+
 export async function syncHouseholdEntitlement(
   householdId: string | null | undefined,
   purchase: Record<string, unknown>
-): Promise<void> {
-  if (!householdId) return;
+): Promise<HouseholdSyncResult> {
+  if (!householdId) return 'skipped';
   const payload = syncPayloadFromPurchase(purchase, householdId);
-  if (!payload) return;
+  if (!payload) return 'skipped';
   try {
     const { getSupabaseClient } = await import('@/lib/supabase/client');
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase) return 'skipped';
     const { error } = await supabase.functions.invoke('sync-entitlement', { body: payload });
-    if (error) console.warn('syncHouseholdEntitlement', error.message);
+    if (!error) return 'synced';
+    // 409: this Apple ID's subscription already pays for a household someone else bought it
+    // for. Supabase surfaces the status on the error's context response.
+    const status = (error as { context?: { status?: number } }).context?.status;
+    if (status === 409) return 'claimed-elsewhere';
+    console.warn('syncHouseholdEntitlement', error.message);
+    return 'failed';
   } catch (error) {
     console.warn('syncHouseholdEntitlement', formatUnknownError(error, 'sync failed'));
+    return 'failed';
   }
 }
 
@@ -311,6 +320,66 @@ export async function isTrialEligible(productKey: IapProductKey): Promise<boolea
   } catch (error) {
     console.warn('isTrialEligible', formatUnknownError(error, 'probe failed'));
     return true;
+  }
+}
+
+export type StorePrice = {
+  /** Apple's own formatted price for this storefront, e.g. "CA$9.99". Show this, never USD. */
+  display: string;
+  value: number | null;
+  currency: string | null;
+};
+
+/**
+ * What each product costs in this Apple ID's storefront, as Apple formats it.
+ *
+ * The paywall and credits screen printed USD from the catalogue. Apple's purchase sheet shows
+ * the storefront's price — CA$ in Canada, € in France — so a reviewer or customer outside the
+ * US saw one price on screen and another on the sheet. That mismatch is one of the most common
+ * guideline 3.1.2 rejections. Empty off-device or when StoreKit cannot be reached; callers fall
+ * back to the catalogue only then.
+ */
+export async function fetchStorePrices(): Promise<Record<string, StorePrice>> {
+  if (!isNativeIapAvailable()) return {};
+  try {
+    return await withNativeIap(async (iap) => {
+      await iap.initConnection();
+      const subs = await iap.fetchProducts({ skus: SUBSCRIPTION_IDS, type: 'subs' }).catch(() => []);
+      const packs = await iap
+        .fetchProducts({
+          skus: Object.values(IAP_CONSUMABLES).map((p) => p.productId),
+          type: 'in-app',
+        })
+        .catch(() => []);
+      const out: Record<string, StorePrice> = {};
+      for (const raw of [...(Array.isArray(subs) ? subs : []), ...(Array.isArray(packs) ? packs : [])]) {
+        const row = raw as unknown as Record<string, unknown>;
+        const id = productIdFromStoreItem(row);
+        const display = typeof row.displayPrice === 'string' ? row.displayPrice : '';
+        if (!id || !display) continue;
+        out[id] = {
+          display,
+          value: typeof row.price === 'number' ? row.price : null,
+          currency: typeof row.currency === 'string' ? row.currency : null,
+        };
+      }
+      return out;
+    });
+  } catch (error) {
+    console.warn('fetchStorePrices', formatUnknownError(error, 'price fetch failed'));
+    return {};
+  }
+}
+
+/** A storefront price divided, formatted in its own currency — "about CA$5.83/mo". */
+export function formatStoreFraction(price: StorePrice | undefined, divisor: number): string | null {
+  if (!price || price.value == null || !price.currency || divisor <= 0) return null;
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: price.currency }).format(
+      price.value / divisor
+    );
+  } catch {
+    return null;
   }
 }
 

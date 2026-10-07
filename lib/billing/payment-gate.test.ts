@@ -95,4 +95,37 @@ const sync = read('supabase/functions/sync-entitlement/index.ts');
 assert.match(sync, /\['owner', 'admin'\]/, 'only admins report a subscription');
 assert.match(sync, /shorter_than_current/, 'a stale report cannot shorten a longer period');
 
+// ── Review fixes ──────────────────────────────────────────────────────────────
+// The trigger first tested current_user, which inside a SECURITY DEFINER function is always
+// the owner — so it let every admin write Premium onto their own row. It must key on the JWT.
+assert.match(migration, /if auth\.uid\(\) is null then\s+return new;/);
+assert.doesNotMatch(migration, /current_user in \(/, 'no current_user test — it protects nothing here');
+// And inserts: a client creating a household cannot create it already paid.
+assert.match(migration, /before insert or update on public\.households/);
+assert.match(migration, /if tg_op = 'INSERT' then[\s\S]*?new\.premium_expires_at := null;/);
+
+// No gate where money is not real — mock mode would lock every developer and every demo.
+assert.match(provider, /const GATE_ENABLED = isSupabaseMode \|\|/);
+// A child's device is locked only by a period the household recorded and that ended. A server
+// without the migration, or an admin who has not opened this build, is "unknown", not "ended".
+assert.match(provider, /!canPurchase && !householdPremiumKnown\(household\.premium\)/);
+// An Apple ID's subscription does not unlock a household it is not paying for.
+assert.match(provider, /claimedElsewhere \? null : local/);
+assert.match(sync, /subscription_claimed/);
+// A different person signing in starts from nothing.
+assert.match(provider, /lastUserRef\.current === userId/);
+
+// Renewal travels with the report, and sets how long the children's devices keep working.
+assert.match(sync, /premium_will_renew: willRenew/);
+const ent = read('lib/billing/household-entitlement.ts');
+assert.match(ent, /premium\.willRenew === false \? HOUSEHOLD_PREMIUM_GRACE_MS : HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS/);
+
+// Prices on screen come from the storefront, not the USD catalogue.
+assert.match(paywall, /storePrices\[p\.productId\]\?\.display/);
+const credits = read('app/poppins-credits.tsx');
+assert.match(credits, /storePrices\[pack\.productId\]\?\.display/);
+assert.doesNotMatch(credits, /\{busy \? 'Adding…' : unavailable \? 'Soon' : formatPrice\(pack\.priceUsd\)\}/);
+const picker = read('components/orbit/token-top-up-picker.tsx');
+assert.match(picker, /fetchStorePrices/);
+
 console.log('payment-gate: ok');

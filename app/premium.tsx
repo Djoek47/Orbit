@@ -17,6 +17,7 @@ import { IAP_SUBSCRIPTIONS } from '@/constants/billing';
 import {
   fetchEntitlement,
   isPremiumActive,
+  fetchStorePrices,
   isTrialEligible,
   isUserCancelledPurchase,
   premiumCopy,
@@ -25,6 +26,7 @@ import {
   restorePurchases,
   type EntitlementState,
   type IapTokenPackKey,
+  type StorePrice,
 } from '@/lib/billing/iap';
 import { AccountEscapeSheet } from '@/components/orbit/billing/account-escape-sheet';
 import { useAccess } from '@/lib/billing/access-provider';
@@ -57,6 +59,7 @@ export default function PremiumScreen() {
   const access = useAccess();
   const [accountOpen, setAccountOpen] = useState(false);
   const [eligible, setEligible] = useState<Partial<Record<'monthly' | 'yearly', boolean>>>({});
+  const [storePrices, setStorePrices] = useState<Record<string, StorePrice>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +68,9 @@ export default function PremiumScreen() {
         if (!cancelled) setEligible({ monthly, yearly });
       }
     );
+    void fetchStorePrices().then((prices) => {
+      if (!cancelled) setStorePrices(prices);
+    });
     return () => {
       cancelled = true;
     };
@@ -85,11 +91,22 @@ export default function PremiumScreen() {
     })();
   }, [access.ready, access.view.appLocked, dismissible, fromOnboarding, gated]);
 
-  // A trial that has run out reads differently from a first visit: say what happened.
+  // A trial that has run out reads differently from a first visit: say what happened. And in
+  // a two-parent house the one who did not pay may land here before the one who did has opened
+  // this version — name them, so this reads as "ask Nero" rather than "pay again".
+  const otherAdmin = household.members.find(
+    (m) =>
+      m.id !== currentMember?.id &&
+      m.status === 'active' &&
+      (m.role === 'owner' || m.role === 'admin')
+  );
+  const otherAdminName = otherAdmin?.name.trim().split(/\s+/)[0];
   const notice = gated
     ? access.entitlement.inTrial
       ? 'Your free trial has ended.'
-      : 'Choose a plan to open ChoreMaxx.'
+      : otherAdminName
+        ? `If ${otherAdminName} already pays for Premium, ask them to open ChoreMaxx once — this opens by itself.`
+        : 'Choose a plan to open ChoreMaxx.'
     : null;
   const { c } = useOrbitColors();
   const members = household.members;
@@ -339,6 +356,7 @@ export default function PremiumScreen() {
       dismissible={dismissible}
       onAccount={() => setAccountOpen(true)}
       trialEligibleByPeriod={eligible}
+      storePrices={storePrices}
       notice={notice}
       footerSlot={
         <AccountEscapeSheet

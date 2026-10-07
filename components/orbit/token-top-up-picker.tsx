@@ -15,6 +15,8 @@ import { radius, space, typography } from '@/constants/orbit-theme';
 import {
   isTokenPackAvailable,
   probeAvailableTokenPacks,
+  fetchStorePrices,
+  type StorePrice,
 } from '@/lib/billing/iap';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -30,6 +32,19 @@ export type TokenTopUpPickerProps = {
 export function TokenTopUpPicker({ busy = false, onSelect, onDismiss }: TokenTopUpPickerProps) {
   const { accentTheme, orbitPalette } = useOrbit();
   const { c } = useOrbitColors();
+  // The storefront's own prices, so this matches Apple's purchase sheet outside the US.
+  const [prices, setPrices] = useState<Record<string, StorePrice>>({});
+  useEffect(() => {
+    let cancelled = false;
+    void fetchStorePrices().then((next) => {
+      if (!cancelled) setPrices(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const priceOf = (pack: { productId: string; priceUsd: number }) =>
+    prices[pack.productId]?.display ?? `$${pack.priceUsd}`;
   const [availablePacks, setAvailablePacks] = useState<IapTokenPackKey[] | null>(null);
   const [probeDone, setProbeDone] = useState(false);
 
@@ -87,7 +102,7 @@ export function TokenTopUpPicker({ busy = false, onSelect, onDismiss }: TokenTop
                 accessibilityLabel={
                   unavailable
                     ? `${pack.label} not for sale on this build yet`
-                    : `${pack.tokens} actions for $${pack.priceUsd}`
+                    : `${pack.tokens} actions for ${priceOf(pack)}`
                 }>
                 <View style={styles.rowText}>
                   <Text style={[styles.packLabel, { color: c.text }]}>{pack.label}</Text>
@@ -102,7 +117,7 @@ export function TokenTopUpPicker({ busy = false, onSelect, onDismiss }: TokenTop
                   ) : null}
                 </View>
                 <Text style={[styles.price, { color: unavailable ? c.textMuted : c.text }]}>
-                  {unavailable ? '—' : `$${pack.priceUsd}`}
+                  {unavailable ? '—' : priceOf(pack)}
                 </Text>
               </Pressable>
             );

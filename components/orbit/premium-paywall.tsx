@@ -16,6 +16,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
+import { formatStoreFraction, type StorePrice } from '@/lib/billing/iap';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
@@ -70,6 +71,12 @@ export type PremiumPaywallProps = {
   notice?: string | null;
   /** Rendered last, for sheets that belong to this screen. */
   footerSlot?: ReactNode;
+  /**
+   * StoreKit's own prices for this storefront, keyed by product id. Shown in preference to the
+   * USD catalogue, which is only a fallback for Expo Go: a price on screen that differs from
+   * Apple's purchase sheet is a guideline 3.1.2 rejection.
+   */
+  storePrices?: Record<string, StorePrice>;
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -95,6 +102,7 @@ export function PremiumPaywall({
   trialEligibleByPeriod,
   notice = null,
   footerSlot = null,
+  storePrices = {},
 }: PremiumPaywallProps) {
   const insets = useSafeAreaInsets();
   const { accentTheme, orbitPalette } = useOrbit();
@@ -134,7 +142,10 @@ export function PremiumPaywall({
   const yearly = IAP_PRODUCTS.yearly;
   const monthly = IAP_PRODUCTS.monthly;
   const selected = period === 'yearly' ? yearly : monthly;
-  const yearlyPerMonth = (yearly.priceUsd / 12).toFixed(2);
+  const priceOf = (p: { productId: string; priceUsd: number }) =>
+    storePrices[p.productId]?.display ?? `$${p.priceUsd}`;
+  const yearlyPerMonth =
+    formatStoreFraction(storePrices[yearly.productId], 12) ?? `$${(yearly.priceUsd / 12).toFixed(2)}`;
   const secondaryLabel = variant === 'onboarding' ? 'Not now' : 'Close';
   const ctaLabel = alreadyPremium
     ? 'Continue'
@@ -195,15 +206,15 @@ export function PremiumPaywall({
           ) : null}
           <Animated.View style={[styles.priceCrossfade, priceStyle]}>
             <Text style={[styles.priceLine, { color: c.text }]}>
-              ${selected.priceUsd}
+              {priceOf(selected)}
               <Text style={[styles.pricePeriod, { color: c.textMuted }]}>
                 {period === 'yearly' ? ' / year' : ' / month'}
               </Text>
             </Text>
             <Text style={[styles.subPrice, { color: c.textMuted }]}>
               {period === 'yearly'
-                ? `About $${yearlyPerMonth}/mo · $${yearly.priceUsd}/year (${yearly.savingsLabel})`
-                : `Or $${yearly.priceUsd}/year at ${yearly.savingsLabel} · $${monthly.priceUsd}/month`}
+                ? `About ${yearlyPerMonth}/mo · ${priceOf(yearly)}/year (${yearly.savingsLabel})`
+                : `Or ${priceOf(yearly)}/year at ${yearly.savingsLabel} · ${priceOf(monthly)}/month`}
             </Text>
           </Animated.View>
         </Animated.View>

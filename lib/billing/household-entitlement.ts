@@ -22,8 +22,27 @@ import {
 } from '@/constants/billing';
 import type { HouseholdPremium } from '@/types/orbit';
 
-/** How long past its recorded expiry the household's Premium still counts on other devices. */
+/**
+ * How long past its recorded expiry the household's Premium still counts on other devices.
+ *
+ * Two lengths, chosen by what Apple said about renewal when the row was last written:
+ *
+ *   will renew   16 days — Apple's own billing grace period. A renewal Apple has already
+ *                charged only reaches this row when an admin next opens the app; until App
+ *                Store Server Notifications write it directly, a family whose parent does not
+ *                open ChoreMaxx for a week must not find their children locked out.
+ *   cancelled    48 hours — the admin turned renewal off, so the end is real.
+ *
+ * Unknown (rows written before this field existed) is treated as renewing: of the two ways to
+ * be wrong, locking out a family that paid is the one that costs a customer.
+ */
 export const HOUSEHOLD_PREMIUM_GRACE_MS = 48 * 60 * 60 * 1000;
+export const HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS = 16 * 24 * 60 * 60 * 1000;
+
+/** True once the household has ever recorded a subscription period. */
+export function householdPremiumKnown(premium: HouseholdPremium | null | undefined): boolean {
+  return Boolean(premium?.expiresAt);
+}
 
 /**
  * The household row as an entitlement, with the grace period applied.
@@ -38,7 +57,9 @@ export function entitlementFromHousehold(
   if (!premium?.expiresAt) return null;
   const expires = new Date(premium.expiresAt).getTime();
   if (Number.isNaN(expires)) return null;
-  const graced = new Date(expires + HOUSEHOLD_PREMIUM_GRACE_MS);
+  const grace =
+    premium.willRenew === false ? HOUSEHOLD_PREMIUM_GRACE_MS : HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS;
+  const graced = new Date(expires + grace);
   return {
     active: graced.getTime() > now.getTime(),
     productId: (premium.productId ?? null) as IapProductId | null,
@@ -111,6 +132,7 @@ export function syncPayloadFromPurchase(
   expiresAtMs: number;
   inTrial: boolean;
   environment: string | null;
+  willRenew: boolean | null;
 } | null {
   const productId = String(purchase.productId ?? purchase.currentPlanId ?? '');
   const original = String(
@@ -125,6 +147,7 @@ export function syncPayloadFromPurchase(
         : NaN;
   if (!productId || !original || !Number.isFinite(expiresAtMs)) return null;
   const env = purchase.environmentIOS;
+  const renewal = purchase.renewalInfoIOS as { willAutoRenew?: unknown } | null | undefined;
   return {
     householdId,
     productId,
@@ -132,5 +155,6 @@ export function syncPayloadFromPurchase(
     expiresAtMs,
     inTrial: isFreeTrialOffer(purchase.offerIOS as OfferLike),
     environment: typeof env === 'string' ? env : null,
+    willRenew: typeof renewal?.willAutoRenew === 'boolean' ? renewal.willAutoRenew : null,
   };
 }
