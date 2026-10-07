@@ -4,10 +4,14 @@ import { Pressable, View } from 'react-native';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { AuthShell } from '@/components/orbit/auth-shell';
+import { SharedDeviceWelcomeCard } from '@/components/orbit/device/shared-device-welcome-card';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { OrbitInput } from '@/components/orbit/orbit-input';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { Avatar } from '@/components/orbit/avatar';
+import { setupSharedDeviceSession } from '@/lib/device/device-session';
+import { sharedDeviceWelcome } from '@/lib/device/shared-device-welcome';
+import { findSharedDeviceForMember } from '@/lib/household/shared-device';
 import { normalizeInviteCode, parseInvitePayload } from '@/lib/invites/parse-invite';
 import { memberIsOnSharedShell } from '@/lib/invites/route-invite-payload';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
@@ -26,9 +30,11 @@ export default function JoinProfileScreen() {
   const [lookOpen, setLookOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  /** When this CMX is also on a shared tablet shell — don't silently host as Sidekick. */
+  /** When this CMX is also on a shared device shell, the welcome card is shown instead. */
   const [sharedShellChooser, setSharedShellChooser] = useState(false);
   const [chooserDismissed, setChooserDismissed] = useState(false);
+  const [memberId, setMemberId] = useState<string | null>(null);
+  const [joiningDevice, setJoiningDevice] = useState(false);
 
   useEffect(() => {
     const parsed =
@@ -38,6 +44,7 @@ export default function JoinProfileScreen() {
     setCode(parsed);
     void lookupProfileInvite(parsed).then((result) => {
       if (!result) return;
+      setMemberId(result.member.id);
       setName(result.member.name?.trim() ?? '');
       setAvatar(result.member.avatar ?? '');
       setHouseholdName(result.householdName);
@@ -47,6 +54,13 @@ export default function JoinProfileScreen() {
       setSharedShellChooser(onShell && !chooserDismissed);
     });
   }, [rawCode, lookupProfileInvite, household.members, chooserDismissed]);
+
+  const welcome = sharedDeviceWelcome({
+    householdId: household.id,
+    householdName: householdName || household.householdName,
+    shell: findSharedDeviceForMember(memberId ?? undefined, household.members),
+    members: household.members,
+  });
 
   const handleContinue = async () => {
     const parsed = parseInvitePayload(code) ?? (code.trim() ? normalizeInviteCode(code) : null);
@@ -74,33 +88,51 @@ export default function JoinProfileScreen() {
     }
   };
 
+  /**
+   * Bind this device to the whole shell, then hand over to the face picker. The QR already
+   * said this is a shared device, so nothing is asked — the card confirms and goes in.
+   */
+  const joinSharedDevice = async () => {
+    const shell = findSharedDeviceForMember(memberId ?? undefined, household.members);
+    const people = welcome.people.map((person) => person.id);
+    setJoiningDevice(true);
+    try {
+      await setupSharedDeviceSession({
+        profileMemberIds: people.length > 0 ? people : memberId ? [memberId] : [],
+        deviceLabel: welcome.deviceLabel,
+        sharedDeviceId: shell?.id ?? null,
+        hostKind: 'shared-tablet',
+      });
+      router.replace('/select-profile' as never);
+    } catch (err) {
+      setJoiningDevice(false);
+      setError(userFacingMessage(err, 'Could not join this device.'));
+    }
+  };
+
   if (sharedShellChooser && !chooserDismissed) {
-    const who = name.trim() || 'This person';
     return (
       <AuthShell
-        kicker="Which device?"
-        title={`${who} is on a shared tablet`}
-        subtitle="A personal Sidekick code logs in one phone. A shared tablet needs the admin’s tablet QR with everyone on it.">
-        <View style={{ gap: 12 }}>
-          <OrbitButton
-            onPress={() => {
-              setChooserDismissed(true);
-              setSharedShellChooser(false);
-            }}>
-            Continue as {who}&apos;s Sidekick phone
-          </OrbitButton>
-          <OrbitButton
-            tone="secondary"
-            onPress={() => {
-              router.replace('/welcome' as never);
-            }}>
-            I need the shared tablet QR
-          </OrbitButton>
-          <Text style={{ color: c.textSubtle, fontSize: 13, lineHeight: 18, textAlign: 'center' }}>
-            Ask an admin: People → Shared tablets → Show QR. That QR lists everyone who shares the
-            tablet.
+        kicker="Shared device"
+        title={`Welcome to ${welcome.householdName}`}
+        subtitle="Check the code below matches your admin's screen, then go in.">
+        <SharedDeviceWelcomeCard
+          welcome={welcome}
+          busy={joiningDevice}
+          onJoin={() => void joinSharedDevice()}
+          personalName={name.trim().split(/\s+/)[0] || undefined}
+          onUseAsPersonal={() => {
+            setChooserDismissed(true);
+            setSharedShellChooser(false);
+          }}
+        />
+        {error ? (
+          <Text
+            style={{ color: c.danger, fontSize: 14, marginTop: 12, textAlign: 'center' }}
+            accessibilityLiveRegion="polite">
+            {error}
           </Text>
-        </View>
+        ) : null}
       </AuthShell>
     );
   }

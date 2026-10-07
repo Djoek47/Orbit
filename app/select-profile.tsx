@@ -75,6 +75,8 @@ export default function SelectProfileScreen() {
   const { household, isLoading, isSignedIn, orbitPalette, switchPersona } = useOrbit();
   const [session, setSession] = useState<DeviceSession | null>(null);
   const [ready, setReady] = useState(false);
+  /** Who was tapped. Holds the picker's chosen-face animation while the profile opens. */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +116,7 @@ export default function SelectProfileScreen() {
       await switchPersona(member.id);
       router.replace('/(tabs)' as never);
     } catch (error) {
+      setSelectedId(null);
       orbitAlert(
         'Could not open profile',
         error instanceof Error
@@ -150,7 +153,11 @@ export default function SelectProfileScreen() {
   }
 
   const handleSelect = async (member: HouseholdMember) => {
+    if (selectedId) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedId(member.id);
+    // Let the chosen face finish growing before the screen changes under it.
+    await new Promise((resolve) => setTimeout(resolve, 260));
     await enterAsMember(member);
   };
 
@@ -189,7 +196,7 @@ export default function SelectProfileScreen() {
           <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
           <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this device?</Text>
           <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-            Tap your profile. Switch anytime from the Switch tab or Switch · name on Home.
+            Tap your profile. You can switch any time.
           </Text>
         </View>
 
@@ -204,6 +211,7 @@ export default function SelectProfileScreen() {
               textColor={orbitPalette.text}
               onSelect={(member) => void handleSelect(member)}
               onRemove={handleRemove}
+              selectedId={selectedId}
             />
           </TourTarget>
         </ScrollView>

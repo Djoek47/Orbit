@@ -1,5 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { Avatar } from '@/components/orbit/avatar';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -19,6 +27,11 @@ type Props = {
   textColor: string;
   onSelect: (member: HouseholdMember) => void;
   onRemove: (member: HouseholdMember) => void;
+  /**
+   * The face that was tapped. It grows and stays lit while the others step back, so the
+   * wait before the app opens reads as a choice being honoured rather than a frozen screen.
+   */
+  selectedId?: string | null;
 };
 
 export function SharedDeviceProfilePicker({
@@ -27,6 +40,7 @@ export function SharedDeviceProfilePicker({
   textColor,
   onSelect,
   onRemove,
+  selectedId,
 }: Props) {
   const layout = profilePickerLayout(profiles.length);
   const rows = profilePickerRows(profiles, layout.columns);
@@ -37,13 +51,18 @@ export function SharedDeviceProfilePicker({
         <View
           key={`row-${rowIndex}`}
           style={[styles.row, { gap: layout.gap, marginBottom: rowIndex < rows.length - 1 ? layout.gap : 0 }]}>
-          {row.map((member) => (
+          {row.map((member, columnIndex) => (
             <ProfileTile
               key={member.id}
               member={member}
               layout={layout}
               backgroundSoft={backgroundSoft}
               textColor={textColor}
+              // Faces arrive one after another, reading order, so a tablet with six
+              // profiles fills in rather than appearing all at once.
+              index={rowIndex * layout.columns + columnIndex}
+              selected={selectedId === member.id}
+              dimmed={Boolean(selectedId) && selectedId !== member.id}
               onPress={() => onSelect(member)}
               onLongPress={() => onRemove(member)}
             />
@@ -59,6 +78,9 @@ function ProfileTile({
   layout,
   backgroundSoft,
   textColor,
+  index,
+  selected,
+  dimmed,
   onPress,
   onLongPress,
 }: {
@@ -66,6 +88,9 @@ function ProfileTile({
   layout: ProfilePickerLayout;
   backgroundSoft: string;
   textColor: string;
+  index: number;
+  selected: boolean;
+  dimmed: boolean;
   onPress: () => void;
   onLongPress: () => void;
 }) {
@@ -74,7 +99,24 @@ function ProfileTile({
   const inner = layout.ring - 6;
   const avatarSize = layout.ring >= 100 ? 'xl' : layout.ring >= 88 ? 'l' : 'm';
 
+  const scale = useSharedValue(1);
+  const fade = useSharedValue(1);
+
+  useEffect(() => {
+    const ease = { duration: 320, easing: Easing.out(Easing.cubic) };
+    scale.set(withTiming(selected ? 1.12 : dimmed ? 0.94 : 1, ease));
+    fade.set(withTiming(dimmed ? 0.35 : 1, ease));
+  }, [selected, dimmed, scale, fade]);
+
+  const tileStyle = useAnimatedStyle(() => ({
+    opacity: fade.get(),
+    transform: [{ scale: scale.get() }],
+  }));
+
   return (
+    <Animated.View
+      entering={FadeInDown.delay(60 + index * 90).duration(420).springify().damping(18)}
+      style={tileStyle}>
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
@@ -116,6 +158,7 @@ function ProfileTile({
         {member.name}
       </Text>
     </Pressable>
+    </Animated.View>
   );
 }
 
