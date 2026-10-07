@@ -172,43 +172,12 @@ def fit_title(max_width: int, h: int) -> tuple[ImageFont.FreeTypeFont, int]:
     return font(FONT_XB, 40), 40
 
 
-def draw_tracked(
-    draw: ImageDraw.ImageDraw,
-    text: str,
-    xy: tuple[int, int],
-    fnt: ImageFont.FreeTypeFont,
-    fill,
-    tracking: float,
-) -> tuple[int, int]:
-    """Draw text with letter-spacing; returns (width, height)."""
-    x, y = xy
-    max_h = 0
-    cursor = x
-    for i, ch in enumerate(text):
-        bb = fnt.getbbox(ch)
-        cw, ch_h = bb[2] - bb[0], bb[3] - bb[1]
-        draw.text((cursor - bb[0], y - bb[1]), ch, font=fnt, fill=fill)
-        cursor += cw + (0 if i == len(text) - 1 else tracking)
-        max_h = max(max_h, ch_h)
-    return cursor - x, max_h
-
-
-def tracked_width(text: str, fnt: ImageFont.FreeTypeFont, tracking: float) -> int:
-    total = 0
-    for i, ch in enumerate(text):
-        bb = fnt.getbbox(ch)
-        total += bb[2] - bb[0]
-        if i < len(text) - 1:
-            total += tracking
-    return total
-
-
 def compose_header(w: int, h: int) -> Image.Image:
     """Header only: small coral icon + choremaxx + tagline. No glow blooms.
 
     Sit in the mid dark band: below iPad/Apps chrome + Dynamic Island, above
-    the product-page white sheet. Tracked type + soft icon edge for a calmer
-    premium lockup.
+    the product-page white sheet. Natural type kerning; extra vertical space
+    between the wordmark and the tagline only.
     """
     img = paint_background(w, h, quiet=True).convert("RGBA")
     d = ImageDraw.Draw(img)
@@ -228,19 +197,16 @@ def compose_header(w: int, h: int) -> Image.Image:
     f_sub = font(FONT_SB, max(22, int(title_size * 0.36)))
     sub = "The calm OS for your household"
 
-    title_track = max(1, int(title_size * 0.035))
-    sub_track = max(1, int(title_size * 0.045))
-    word_gap = max(6, int(title_size * 0.08))  # air between chore | maxx
-
-    chore_w = tracked_width("chore", f_title, title_track)
-    maxx_w = tracked_width("maxx", f_title, title_track)
-    _, title_h, _ = text_size(f_title, "chore")
-    sub_w = tracked_width(sub, f_sub, sub_track)
-    _, sh_sub, _ = text_size(f_sub, sub)
+    chore_w, title_h, _ = text_size(f_title, "chore")
+    maxx_w, _, _ = text_size(f_title, "maxx")
+    # Tiny join between chore|maxx — normal kerning, not letter-spaced
+    word_gap = max(1, int(title_size * 0.02))
     total_w = chore_w + word_gap + maxx_w
+    sw, sh_sub, sbb = text_size(f_sub, sub)
 
     gap_icon_title = int(h * 0.028)
-    gap_title_sub = int(title_size * 0.42)
+    # Vertical breathing room between "choremaxx" and the calm-OS line
+    gap_title_sub = int(title_size * 0.70)
     stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
 
     # iPad Apps pill + island cover ~top 22–26%; white sheet from ~48%.
@@ -249,8 +215,8 @@ def compose_header(w: int, h: int) -> Image.Image:
     stack_top = band_top + max(0, (band_bottom - band_top - stack_h) // 2)
     if stack_top + stack_h > band_bottom:
         overflow = stack_top + stack_h - band_bottom
-        gap_icon_title = max(10, gap_icon_title - overflow // 2)
-        gap_title_sub = max(8, gap_title_sub - overflow // 2)
+        gap_icon_title = max(10, gap_icon_title - overflow // 3)
+        gap_title_sub = max(int(title_size * 0.45), gap_title_sub - overflow // 2)
         stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
         stack_top = band_top + max(0, (band_bottom - band_top - stack_h) // 2)
 
@@ -284,11 +250,11 @@ def compose_header(w: int, h: int) -> Image.Image:
 
     title_x = cx - total_w // 2
     title_y = icon_top + icon_size + gap_icon_title
-    draw_tracked(d, "chore", (title_x, title_y), f_title, GOLD, title_track)
-    draw_tracked(d, "maxx", (title_x + chore_w + word_gap, title_y), f_title, CORAL, title_track)
+    d.text((title_x, title_y), "chore", font=f_title, fill=GOLD)
+    d.text((title_x + chore_w + word_gap, title_y), "maxx", font=f_title, fill=CORAL)
 
     sub_y = title_y + title_h + gap_title_sub
-    draw_tracked(d, sub, (cx - sub_w // 2, sub_y), f_sub, (255, 255, 255, 230), sub_track)
+    d.text((cx - sw // 2 - sbb[0], sub_y), sub, font=f_sub, fill=WHITE)
 
     return img.convert("RGB")
 
