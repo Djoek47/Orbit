@@ -27,7 +27,7 @@ This doc is the **automation-ready playbook**. Paste the block under [Automation
 | Monthly Rescue token | 1/month product override |
 | Q1 = B Hold & Request | Gate + N26/N27 path |
 | Expo Go keep-alive + OTA | Channel `testflight` |
-| Website live | https://choremaxx.vercel.app/ — **A1 still must wire app/ASC URLs** |
+| Website live | https://www.choremaxx.app/ — wire app/ASC URLs to `.app` only (no vercel.app) |
 | Divine Voice + v11 aggregate | WebRTC duplex, Luna, expanded tools, pre-final TestFlight 1.1.0 — see `docs/choremaxx-make-v11.md` |
 | OpenAI ready | Connect via Supabase (**A6**) + `poppins-realtime-sdp` / `poppins-voice-tool` on staging |
 

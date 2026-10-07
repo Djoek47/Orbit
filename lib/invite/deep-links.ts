@@ -60,9 +60,7 @@ export function parseInviteCodeFromUrl(url: string): string | null {
       return normalizeInviteCode(decodeURIComponent(schemeMatch[1]));
     }
 
-    const webMatch = trimmed.match(
-      /(?:choremaxx|orbit)\.(?:app|vercel\.app)\/join\/([^/?#]+)/i
-    );
+    const webMatch = trimmed.match(/(?:choremaxx|orbit)\.app\/join\/([^/?#]+)/i);
     if (webMatch?.[1]) {
       return normalizeInviteCode(decodeURIComponent(webMatch[1]));
     }

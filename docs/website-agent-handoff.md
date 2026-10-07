@@ -3,7 +3,7 @@
 **Audience:** Website agent working on `Djoek47/Choremaxx-Website`  
 **Companion app repo:** `Djoek47/Orbit` (branch `cursor/choremaxx-make-v10-5f8f`)  
 **Local site clone (Orbit cloud VM):** `/workspace/site` (gitignored nested clone)  
-**Live:** https://www.choremaxx.app/ · fallback https://choremaxx.vercel.app/  
+**Live:** https://www.choremaxx.app/  
 **Brand kit zip:** `/opt/cursor/artifacts/choremaxx-website-brand-kit.zip`  
 **Prepared:** 2026-08-11 · for weekend A1 / B4 + invite/auth bridges  
 
@@ -19,7 +19,7 @@
 3. **Join** + **auth confirm** bridges work (`/join/[code]`, `/auth/callback`) with AASA / assetlinks.  
 4. Copy matches App Store product locks (families only, Poppins, IAP pricing).  
 5. Email assets served from the site (`/emails/logo-mark.png`, `/emails/sender-avatar.png`) so Resend HTML can leave GitHub-raw.  
-6. Push + Vercel redeploy succeed (Orbit cloud agent often **403**s on the website repo — human/machine with write access may need to push).
+6. Push + production redeploy succeed (Orbit cloud agent often **403**s on the website repo — human/machine with write access may need to push).
 
 ---
 
@@ -163,7 +163,7 @@ iOS palette is **user-chosen in Settings**. Marketing may say “pick a look” 
 
 - GitHub: `https://github.com/Djoek47/Choremaxx-Website`  
 - Local tip often on: `cursor/website-brand-palettes-5f8f`  
-- Deploy target: Vercel → `www.choremaxx.app`  
+- Production host: `https://www.choremaxx.app` (no vercel.app fallback)  
 - Stack: Next.js App Router, Tailwind, client theme provider  
 
 ### 4.2 Routes (expected)
@@ -236,7 +236,7 @@ From `docs/weekend-ship-automation.md` + `docs/next-session.md`:
 ### A1 — Website URLs + legal live
 
 - [ ] Push `Choremaxx-Website` (write-access machine)  
-- [ ] Vercel production on **`https://www.choremaxx.app`**  
+- [ ] Production live on **`https://www.choremaxx.app`**  
 - [ ] Verify live: `/privacy`, `/terms`, `/support`, `/download`  
 - [ ] Confirm ASC / EAS env can use those URLs (`EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_TERMS_URL`)  
 - [ ] Favicon + OG use house mark / current `og.png`  
@@ -365,7 +365,7 @@ Rules:
 5. Ship /join/[code] and /auth/callback bridges + AASA paths.
 6. Host /emails/logo-mark.png and /emails/sender-avatar.png from the coral house assets.
 7. Do not use Orbit legacy logos or placeholder logos in chrome.
-8. Push + redeploy Vercel; verify privacy/terms/support/emails URLs return 200.
+8. Push + redeploy production; verify privacy/terms/support/emails URLs return 200 on www.choremaxx.app.
 
 Brand kit: choremaxx-website-brand-kit.zip (marks/, emails/, icons/).
 ```

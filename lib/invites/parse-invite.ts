@@ -4,8 +4,7 @@ import { inviteWebPath } from '@/lib/invites/invite-host';
 
 const CODE_RE = /\b((?:CMX|ORBIT|CHOREMAXX)[- ]?[A-Z0-9]{3,12})\b/i;
 const PATH_RE = /(?:choremaxx|orbit):\/\/join\/([^/?#\s]+)/i;
-const WEB_RE =
-  /https?:\/\/(?:www\.)?(?:choremaxx|orbit)\.(?:app|vercel\.app)\/join\/([^/?#\s]+)/i;
+const WEB_RE = /https?:\/\/(?:www\.)?(?:choremaxx|orbit)\.app\/join\/([^/?#\s]+)/i;
 
 export function normalizeInviteCode(raw: string): string {
   return raw

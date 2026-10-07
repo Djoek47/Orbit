@@ -74,8 +74,8 @@ TestFlight builds use **supabase** mode (see `eas.json` env). Set secrets once:
 ```bash
 eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "https://YOUR_PROJECT.supabase.co"
 eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "YOUR_ANON_KEY"
-eas secret:create --scope project --name EXPO_PUBLIC_PRIVACY_URL --value "https://choremaxx.vercel.app/privacy"
-eas secret:create --scope project --name EXPO_PUBLIC_TERMS_URL --value "https://choremaxx.vercel.app/terms"
+eas secret:create --scope project --name EXPO_PUBLIC_PRIVACY_URL --value "https://www.choremaxx.app/privacy"
+eas secret:create --scope project --name EXPO_PUBLIC_TERMS_URL --value "https://www.choremaxx.app/terms"
 ```
 
 Deploy Supabase edge functions and set `OPENAI_API_KEY` in Supabase for Nova.
@@ -84,8 +84,8 @@ Deploy Supabase edge functions and set `OPENAI_API_KEY` in Supabase for Nova.
 
 App Review requires live URLs (already referenced in app):
 
-- `https://choremaxx.vercel.app/privacy`
-- `https://choremaxx.vercel.app/terms`
+- `https://www.choremaxx.app/privacy`
+- `https://www.choremaxx.app/terms`
 
 Source copies: `docs/legal/privacy-policy.md`, `docs/legal/terms-of-service.md`
 

@@ -117,7 +117,7 @@
 
 ## Weekend ship (missed → restored)
 
-Playbook restored in `docs/weekend-ship-automation.md`. **A1–B7** are the active queue. A1 app URL sync started (`choremaxx.vercel.app`).
+Playbook restored in `docs/weekend-ship-automation.md`. **A1–B7** are the active queue. A1 app URL sync → `https://www.choremaxx.app`.
 
 ## Product overrides preserved (Master Brief / v10)
 

@@ -13,10 +13,10 @@
 - [x] `OPENAI_API_KEY` in Supabase secrets (Poppins) — rotate after B7 if exposed in terminal history
 - [x] Resend secrets on staging — rotate after B7 if exposed in terminal history
 - [x] EAS project env: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- [x] EAS env: `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_TERMS_URL` (still on choremaxx.vercel.app until site cutover)
+- [x] EAS env: `EXPO_PUBLIC_PRIVACY_URL`, `EXPO_PUBLIC_TERMS_URL` → `https://www.choremaxx.app/privacy` · `/terms`
 - [ ] ASC IAP products created — see `docs/asc-iap-setup.md`
 - [ ] **Supabase Auth: Leaked password protection (HaveIBeenPwned) enabled** on staging (`dejrbyufotcvcillnneo`) — Dashboard → Authentication → Password. Advisor `auth_leaked_password_protection`. Blocker before next TF push — see `docs/make-v33-testflight-notes.md`.
-- [x] Privacy + Terms source in `docs/legal/*` (re-host on Vercel after Nova→Poppins edit)
+- [x] Privacy + Terms live on `https://www.choremaxx.app` (source in `docs/legal/*`)
 - [x] `npm run testflight:preflight` passes
 
 ## ASC listing draft (A8 — do not submit until B7)
@@ -28,9 +28,9 @@
 | **Promotional text** | Calm household OS for families — tasks, Plan, groceries, rewards, and Poppins your co-manager. |
 | **Description** | Choremaxx is an AI household operating system for families. Assign chores, track Plan and itineraries, run groceries and Smart Shopping, mint rewards and allowances (Mark as paid — never transfers money), and ask Poppins for calm, household-aware help. Parents stay in control; kids get clear tasks and rewards under guardian rules. |
 | **Keywords** | family,chores,tasks,rewards,allowance,grocery,calendar,kids,household,AI |
-| **Support URL** | mailto:support@choremaxx.app (or https://choremaxx.vercel.app when /support exists) |
-| **Marketing URL** | https://choremaxx.vercel.app/ |
-| **Privacy Policy URL** | https://choremaxx.vercel.app/privacy |
+| **Support URL** | https://www.choremaxx.app/support (or mailto:support@choremaxx.app) |
+| **Marketing URL** | https://www.choremaxx.app/ |
+| **Privacy Policy URL** | https://www.choremaxx.app/privacy |
 | **Category** | Lifestyle (secondary: Productivity) |
 | **Age rating** | 4+ / family utility; child role under guardian |
 | **Pricing** | Auto-renewable: 7-day free trial · $6.99/mo · $49.99/yr at 40% off (product IDs in `constants/billing.ts`) |

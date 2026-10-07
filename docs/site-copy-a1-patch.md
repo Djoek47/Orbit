@@ -1,6 +1,6 @@
 # A1 / B4 — Marketing site copy patch
 
-**Live site:** https://choremaxx.vercel.app/  
+**Live site:** https://www.choremaxx.app/  
 **Source repo:** https://github.com/Djoek47/Choremaxx-Website  
 **Local working copy:** `/workspace/site` (nested clone — ignored by Orbit `.gitignore`)  
 **Zip artifact:** `/opt/cursor/artifacts/choremaxx-website-a1.zip`  
