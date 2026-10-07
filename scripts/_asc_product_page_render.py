@@ -42,29 +42,36 @@ def lerp(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def paint_background(w: int, h: int, *, quiet: bool = False) -> Image.Image:
-    """Fast warm night wash (paint small, upscale + blur).
+def paint_background(w: int, h: int, *, quiet: bool = False, light: bool = False) -> Image.Image:
+    """Fast ambient wash (paint small, upscale + blur).
 
-    quiet=True → softer edge washes only (header). No center bloom / sparkles.
+    quiet=True → flat field (header). light=True → clear warm daylight ambient.
     """
     sw, sh = max(320, w // 8), max(180, h // 8)
-    small = Image.new("RGB", (sw, sh), INK)
+    paper = (252, 248, 244) if light else INK
+    small = Image.new("RGB", (sw, sh), paper)
     px = small.load()
     for y in range(sh):
         for x in range(sw):
             nx, ny = x / sw, y / sh
-            base = lerp((22, 12, 16), INK, ny * 0.9)
-            c = list(base)
-            if quiet:
-                # Flat dark field for App Store header — no blooms at all
+            if light:
+                base = lerp((255, 252, 248), (246, 238, 230), ny * 0.85)
+                blooms = (
+                    (math.hypot(nx - 0.14, ny - 0.82), CORAL, 0.18, 0.55),
+                    (math.hypot(nx - 0.10, ny - 0.22), CITRUS, 0.14, 0.48),
+                    (math.hypot(nx - 0.38, ny - 0.90), GOLD, 0.12, 0.42),
+                )
+            elif quiet:
+                base = lerp((22, 12, 16), INK, ny * 0.9)
                 blooms = ()
             else:
-                # Edge / ambient washes only — avoid a bloom sitting under the right-side logo
+                base = lerp((22, 12, 16), INK, ny * 0.9)
                 blooms = (
                     (math.hypot(nx - 0.18, ny - 0.78), CORAL, 0.50, 0.55),
                     (math.hypot(nx - 0.12, ny - 0.28), CITRUS, 0.32, 0.45),
                     (math.hypot(nx - 0.42, ny - 0.88), GOLD, 0.20, 0.40),
                 )
+            c = list(base)
             for d, col, strength, falloff in blooms:
                 k = max(0.0, 1.0 - d / falloff) ** 2 * strength
                 for i in range(3):
@@ -79,24 +86,26 @@ def paint_background(w: int, h: int, *, quiet: bool = False) -> Image.Image:
     sd = ImageDraw.Draw(sheen)
     band = h // 3
     for i in range(band):
-        a = int((12 if quiet else 22) * (1 - i / band))
+        a = int((18 if light else (12 if quiet else 22)) * (1 - i / band))
         sd.line([(0, i), (w, i)], fill=(255, 255, 255, a))
     img = Image.alpha_composite(img.convert("RGBA"), sheen).convert("RGB")
 
     if not quiet:
         d = ImageDraw.Draw(img)
+        spark = CORAL if light else GOLD
         for nx, ny, r in (
-            (0.35, 0.18, 4),
-            (0.45, 0.12, 3),
-            (0.55, 0.16, 3),
-            (0.65, 0.11, 2),
-            (0.42, 0.24, 2),
-            (0.58, 0.22, 3),
+            (0.28, 0.16, 3 if light else 4),
+            (0.40, 0.11, 2),
+            (0.52, 0.15, 2 if light else 3),
+            (0.22, 0.24, 2),
+            (0.48, 0.20, 2),
         ):
             x, y = int(nx * w), int(ny * h)
-            d.ellipse([x - r, y - r, x + r, y + r], fill=GOLD)
+            # Keep sparkles on the left/upper field — away from the right-side logo
+            if nx < 0.58:
+                d.ellipse([x - r, y - r, x + r, y + r], fill=spark)
 
-    if not quiet:
+    if not quiet and not light:
         bar = max(6, h // 90)
         d = ImageDraw.Draw(img)
         d.rectangle([0, h - bar, w, h], fill=CORAL)
@@ -261,9 +270,8 @@ def compose_header(w: int, h: int) -> Image.Image:
 
 
 def compose_search(w: int, h: int) -> Image.Image:
-    """Search card: atmospheric dark field + sparkles, single coral logo (no disc glow)."""
-    # Keep the living background washes/sparkles — but never a yellow disc behind the logo
-    img = paint_background(w, h, quiet=False).convert("RGBA")
+    """Search card: clear ambient light field + soft washes, coral logo (no disc glow)."""
+    img = paint_background(w, h, quiet=False, light=True).convert("RGBA")
     d = ImageDraw.Draw(img)
 
     # Notch left of the last pass (0.17) so copy doesn't crowd/crop the icon
@@ -287,7 +295,7 @@ def compose_search(w: int, h: int) -> Image.Image:
     sd.rounded_rectangle(
         [pad, pad + 4, pad + icon_size, pad + icon_size + 4],
         radius=corner,
-        fill=(0, 0, 0, 90),
+        fill=(0, 0, 0, 55),
     )
     shadow = shadow.filter(ImageFilter.GaussianBlur(blur))
     img.alpha_composite(shadow, (icon_left - pad, icon_top - pad))
@@ -297,16 +305,16 @@ def compose_search(w: int, h: int) -> Image.Image:
     title_y = int(h * 0.22)
     chore_w, _, _ = text_size(f_title, "chore")
     gap = max(2, int(title_size * 0.02))
-    d.text((left, title_y), "chore", font=f_title, fill=GOLD)
+    d.text((left, title_y), "chore", font=f_title, fill=BROWN)
     d.text((left + chore_w + gap, title_y), "maxx", font=f_title, fill=CORAL)
 
     f_sub = font(FONT_XB, max(26, int(title_size * 0.32)))
     sub_y = title_y + int(title_size * 1.20)
-    d.text((left, sub_y), "The calm OS for your household", font=f_sub, fill=WHITE)
+    d.text((left, sub_y), "The calm OS for your household", font=f_sub, fill=INK)
 
     f_tag = font(FONT_SB, max(20, int(title_size * 0.22)))
     tag_y = sub_y + int(title_size * 0.58)
-    d.text((left, tag_y), "Tasks · Grocery · Ranks · Poppins", font=f_tag, fill=GOLD)
+    d.text((left, tag_y), "Tasks · Grocery · Ranks · Poppins", font=f_tag, fill=CORAL)
 
     # Pills — slightly larger type
     f_pill = font(FONT_XB, max(24, int(title_size * 0.255)))
