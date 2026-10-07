@@ -8,6 +8,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useModalColumnStyle } from '@/components/orbit/layout/app-column';
 import { GlassCard } from '@/components/orbit/glass-card';
 import Icon from '@/components/orbit/design/Icon';
 import { domainIconName } from '@/components/orbit/design/icon-map';
@@ -107,6 +108,8 @@ export function TaskPicker({
 }: TaskPickerProps) {
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const { accentTheme, household } = useOrbit();
+  // Both sheets are native Modals, outside the app's column: put them back in it on iPad.
+  const columnStyle = useModalColumnStyle('flow');
   const rewardSettings = useMemo(
     () =>
       normalizeRewardSettings({
@@ -485,6 +488,7 @@ export function TaskPicker({
                 backgroundColor: c.backgroundSoft,
                 borderColor: glassBorder(0.12),
               },
+              columnStyle,
             ]}>
             <View style={styles.sheetHead}>
               <Text style={[typography.title3, { color: c.text }]}>{domainSheet?.name}</Text>
@@ -526,6 +530,7 @@ export function TaskPicker({
             style={[
               styles.freqCard,
               { backgroundColor: c.backgroundSoft, borderColor: glassBorder(0.1) },
+              columnStyle,
             ]}
             onPress={(e) => e.stopPropagation?.()}>
             <View style={[styles.freqHandle, { backgroundColor: glass(0.18) }]} />

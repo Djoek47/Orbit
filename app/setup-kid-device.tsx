@@ -12,7 +12,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import {
   Alert,
-  Dimensions,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -34,6 +33,7 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
 import { SwitchPeopleIcon } from '@/components/orbit/switch-people-icon';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
+import { useContentWidth } from '@/components/orbit/layout/app-column';
 import { sharedDeviceReadiness } from '@/lib/household/shared-device-readiness';
 import { clearDeviceSession } from '@/lib/device/device-session';
 import { saveChildInviteRecord } from '@/lib/household/child-invites';
@@ -122,7 +122,9 @@ export default function SetupKidDeviceScreen() {
   const hydratedExisting = useRef(false);
   const addingAnotherRef = useRef(false);
   const pagerRef = useRef<FlatList>(null);
-  const screenW = Dimensions.get('window').width;
+  // The column's width, live — not the window's, measured once. On an iPad the window is far
+  // wider than the column the wizard sits in, and the cards came out ~950pt wide.
+  const screenW = useContentWidth().width;
   const cardW = screenW - H_PAD * 2 - PEEK;
 
   const isAdmin = permissions.canManageHousehold;

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
 
+import { useModalColumnStyle } from '@/components/orbit/layout/app-column';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { inferRegionFromLabel, matchInStorePromos } from '@/lib/grocery/in-store-promos';
@@ -33,6 +34,8 @@ type NearPrompt = {
 export function NearShopWatcher() {
   const { household, preferredMapsApp, pushNotification } = useOrbit();
   const { c, glass, glassBorder } = useOrbitColors();
+  // A native Modal escapes the app's column; keep the card inside it on iPad.
+  const columnStyle = useModalColumnStyle('flow');
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const lastAlertAt = useRef(0);
   const [prompt, setPrompt] = useState<NearPrompt | null>(null);
@@ -173,6 +176,7 @@ export function NearShopWatcher() {
           style={[
             styles.card,
             { backgroundColor: c.backgroundSoft, borderColor: glassBorder(0.14) },
+            columnStyle,
           ]}>
           <Text style={[styles.kicker, { color: c.textSubtle }]}>NEARBY STORE</Text>
           <Text style={[styles.title, { color: c.text }]}>{prompt.storeName}</Text>

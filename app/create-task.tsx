@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useModalColumnStyle } from '@/components/orbit/layout/app-column';
 import { memberHomeworkProofRequired } from '@/lib/tasks/homework-proof';
 import { MemberGlyph } from '@/components/orbit/member-glyph';
 import { Moji } from '@/components/orbit/moji/moji';
@@ -271,6 +272,7 @@ function AssignEmojiGrid({
 
 export default function CreateTaskScreen() {
   const insets = useSafeAreaInsets();
+  const modalColumn = useModalColumnStyle('flow');
   const params = useLocalSearchParams<{
     tab?: string | string[];
     custom?: string | string[];
@@ -1272,6 +1274,7 @@ export default function CreateTaskScreen() {
                   paddingBottom: insets.bottom + 16,
                   backgroundColor: orbitPalette.backgroundSoft,
                 },
+                modalColumn,
               ]}>
               <Text style={[typography.title1, { color: orbitPalette.text }]}>Quick presets</Text>
               <Text style={[styles.summary, { color: orbitPalette.textMuted }]}>

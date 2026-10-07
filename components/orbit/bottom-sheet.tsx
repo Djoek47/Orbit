@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import {
-  Dimensions,
   Keyboard,
   Modal,
   PanResponder,
@@ -8,10 +7,13 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+
+import { useContentWidth } from '@/components/orbit/layout/app-column';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
@@ -45,7 +47,6 @@ type BottomSheetProps = {
   keyboardOffset?: number;
 };
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 /** Air kept above a sheet that has been lifted over the keyboard. */
 const KEYBOARD_TOP_GAP = 12;
 const DISMISS_THRESHOLD_RATIO = 0.4;
@@ -69,14 +70,21 @@ export function BottomSheet({
   const isDark = orbit?.orbitPalette.isDark ?? true;
   const accent = accentColor ?? orbit?.accentTheme.primary ?? '#38BDF8';
   const keyboard = useKeyboardState();
-  const sheetHeight = SCREEN_HEIGHT * heightRatio;
+  // Read live, not once at module load: an iPad rotates, a Split View resizes, a Duo unfolds,
+  // and a height captured at launch would size the sheet for a window that no longer exists.
+  const { height: windowHeight } = useWindowDimensions();
+  // A Modal renders outside the app's column, so it has to put itself back in it — otherwise
+  // on an iPad every sheet is a full-width slab across the glass.
+  const column = useContentWidth();
+  const sideInset = Math.max(0, (column.windowWidth - column.width) / 2);
+  const sheetHeight = windowHeight * heightRatio;
   // With the keyboard up the sheet rides on top of it (its bottom edge is the keyboard's top)
   // and never grows taller than the room above it, so nothing is hidden or scrolled past.
   const lifted = keyboard.visible ? keyboard.height : 0;
   const restingHeight = sheetHeight + insets.bottom;
   const liftedHeight = Math.min(
     restingHeight,
-    SCREEN_HEIGHT - lifted - insets.top - KEYBOARD_TOP_GAP
+    windowHeight - lifted - insets.top - KEYBOARD_TOP_GAP
   );
   const activeHeight = lifted > 0 ? liftedHeight : restingHeight;
 
@@ -162,6 +170,7 @@ export function BottomSheet({
         <Animated.View
           style={[
             styles.sheet,
+            sideInset > 0 ? { left: sideInset, right: sideInset, width: column.width } : null,
             lifted > 0
               ? { bottom: lifted, height: liftedHeight, paddingBottom: 0 }
               : { height: restingHeight, paddingBottom: insets.bottom },

@@ -1,7 +1,7 @@
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { LayoutAnimationConfig } from 'react-native-reanimated';
 import 'react-native-reanimated';
 
@@ -19,8 +19,9 @@ import { TourProvider } from '@/components/orbit/tour/tour-provider';
 import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
 import { useSessionEpoch } from '@/lib/navigation/session-epoch';
 import { PoppinsLiveProvider } from '@/lib/poppins/live-context';
+import { AppColumn } from '@/components/orbit/layout/app-column';
 import { AccessProvider } from '@/lib/billing/access-provider';
-import { OrbitProvider } from '@/store/orbit-store';
+import { OrbitProvider, useOrbit } from '@/store/orbit-store';
 
 export const unstable_settings = {
   anchor: 'index',
@@ -29,6 +30,15 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* already prevented / native splash absent in some hosts */
 });
+
+/**
+ * The navigator inside one responsive column (see components/orbit/layout/app-column).
+ * Lives inside the providers so the margins either side wear the household's own background.
+ */
+function OrbitAppColumn({ children }: { children: ReactNode }) {
+  const { orbitPalette } = useOrbit();
+  return <AppColumn background={orbitPalette.background}>{children}</AppColumn>;
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(BRICOLAGE_FONT_MAP);
@@ -62,6 +72,7 @@ export default function RootLayout() {
                 key={sessionEpoch}
                 skipEntering={sessionEpoch > 0}
                 skipExiting>
+                <OrbitAppColumn>
                 <Stack key={sessionEpoch}>
                   <Stack.Screen name="index" options={{ headerShown: false }} />
                   <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
@@ -298,6 +309,7 @@ export default function RootLayout() {
                     options={{ presentation: 'modal', headerShown: false, title: 'Notification history' }}
                   />
                 </Stack>
+                </OrbitAppColumn>
                 {/* One Done bar for every multi-line field in the app. */}
                 <KeyboardDoneAccessory />
               </LayoutAnimationConfig>

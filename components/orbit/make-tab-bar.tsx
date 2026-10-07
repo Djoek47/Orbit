@@ -540,6 +540,11 @@ const styles = StyleSheet.create({
   },
   bar: {
     alignItems: 'flex-end',
+    // Five tabs at flex: 1 spread to ~170pt apart across an iPad column. Capped and centred,
+    // the pill keeps the same rhythm it has on a phone. A no-op below 560pt.
+    alignSelf: 'center',
+    maxWidth: 560,
+    width: '100%',
     borderRadius: radius.full,
     borderCurve: 'continuous',
     borderWidth: 1,

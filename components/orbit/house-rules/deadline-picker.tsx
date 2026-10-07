@@ -1,6 +1,7 @@
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useModalColumnStyle } from '@/components/orbit/layout/app-column';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { formatHouseRulesTime } from '@/lib/rules/interpolate';
 import { deadlinePickerValues } from '@/lib/rules/deadline';
@@ -36,12 +37,13 @@ export function DeadlinePickerSheet({
   const values = deadlinePickerValues(doc);
   const cfg = doc.settings.dailyDeadline;
   const selected = pending?.trim() || current;
+  const columnStyle = useModalColumnStyle('flow');
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Dismiss">
         <Pressable
-          style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}
+          style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, columnStyle]}
           onPress={(e) => e.stopPropagation?.()}>
           <View style={styles.head}>
             <Text style={styles.title}>{cfg.label}</Text>
