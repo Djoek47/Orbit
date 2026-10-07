@@ -53,10 +53,14 @@ Reply with: device + iOS, role, pass/fail, screenshots. Thanks.
 
 1. [x] Fold PR tips #111–#121 onto shared-device tip (new branch only)
 2. [x] Edges already deployed: `poppins-voice`, `sidekick-sync`, `redeem-profile-invite`
-3. [ ] EAS TestFlight build + ASC submit
+3. [x] EAS TestFlight build + ASC submit
 
 | | |
 |--|--|
-| Version | **1.3.0 (pending)** — make-v34 fold |
-| Branch | `cursor/make-v34-c30d` |
+| Version | **1.3.0 (119)** — make-v34 fold |
+| Branch | `cursor/make-v34-c30d` @ `a61d722` |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/76664dbd-3577-4092-b3b2-40b135e62fea — **FINISHED** |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/9822326e-2df6-445f-922a-d0bf933d39bb — **submitted to ASC** |
+| IPA | https://expo.dev/artifacts/eas/yT2gnC5S4G5VyHzeUaH5Ee67PjHjuWP8AOo8QAzWaxA.ipa |
 | ASC | https://appstoreconnect.apple.com/apps/6796850110/testflight/ios |
+| Prior (118) | shared-device only — https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/4086249a-717b-4b32-9d81-99b5a42f5311 |
