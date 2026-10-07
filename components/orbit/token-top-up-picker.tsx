@@ -2,7 +2,9 @@
  * Token top-up pack picker — same Premium paywall language:
  * light display headline, Bricolage via AppText, Orbit surfaces, one job.
  * Coach-navigate purchase; never HOLD-commit IAP.
+ * Disables packs StoreKit does not list for this binary.
  */
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
@@ -10,6 +12,10 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { IAP_CONSUMABLES, type IapTokenPackKey } from '@/constants/billing';
 import { radius, space, typography } from '@/constants/orbit-theme';
+import {
+  isTokenPackAvailable,
+  probeAvailableTokenPacks,
+} from '@/lib/billing/iap';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -24,6 +30,21 @@ export type TokenTopUpPickerProps = {
 export function TokenTopUpPicker({ busy = false, onSelect, onDismiss }: TokenTopUpPickerProps) {
   const { accentTheme, orbitPalette } = useOrbit();
   const { c } = useOrbitColors();
+  const [availablePacks, setAvailablePacks] = useState<IapTokenPackKey[] | null>(null);
+  const [probeDone, setProbeDone] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const listed = await probeAvailableTokenPacks();
+      if (cancelled) return;
+      setAvailablePacks(listed);
+      setProbeDone(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <View style={styles.root}>
@@ -43,30 +64,46 @@ export function TokenTopUpPicker({ busy = false, onSelect, onDismiss }: TokenTop
           {PACKS.map((key, index) => {
             const pack = IAP_CONSUMABLES[key];
             const lead = index === 1;
+            const forSale = isTokenPackAvailable(key, availablePacks);
+            const unavailable = probeDone && !forSale;
             return (
               <Pressable
                 key={key}
-                disabled={busy}
+                disabled={busy || unavailable}
                 onPress={() => onSelect(key)}
                 style={[
                   styles.row,
                   {
-                    backgroundColor: lead ? orbitPalette.cardStrong : orbitPalette.cardMuted,
-                    borderColor: lead ? `${accentTheme.primary}44` : 'transparent',
-                    opacity: busy ? 0.55 : 1,
+                    backgroundColor: lead && !unavailable
+                      ? orbitPalette.cardStrong
+                      : orbitPalette.cardMuted,
+                    borderColor:
+                      lead && !unavailable ? `${accentTheme.primary}44` : 'transparent',
+                    opacity: busy || unavailable ? 0.45 : 1,
                   },
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={`${pack.tokens} actions for $${pack.priceUsd}`}>
+                accessibilityState={{ disabled: busy || unavailable }}
+                accessibilityLabel={
+                  unavailable
+                    ? `${pack.label} not for sale on this build yet`
+                    : `${pack.tokens} actions for $${pack.priceUsd}`
+                }>
                 <View style={styles.rowText}>
                   <Text style={[styles.packLabel, { color: c.text }]}>{pack.label}</Text>
-                  {lead ? (
+                  {unavailable ? (
+                    <Text style={[styles.packHint, { color: c.textMuted }]}>
+                      Not on this build
+                    </Text>
+                  ) : lead ? (
                     <Text style={[styles.packHint, { color: accentTheme.primary }]}>
                       Most chosen
                     </Text>
                   ) : null}
                 </View>
-                <Text style={[styles.price, { color: c.text }]}>${pack.priceUsd}</Text>
+                <Text style={[styles.price, { color: unavailable ? c.textMuted : c.text }]}>
+                  {unavailable ? '—' : `$${pack.priceUsd}`}
+                </Text>
               </Pressable>
             );
           })}
