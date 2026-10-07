@@ -105,12 +105,16 @@ assert.equal(crowd.full, true);
 
 // ── The screens themselves ────────────────────────────────────────────────────
 const read = (p: string) => readFileSync(p, 'utf8');
-const join = read('app/join-profile.tsx');
+// One screen joins a shared device now — the device's QR and a forwarded personal code alike.
+const join = read('app/join-shared-device.tsx');
+const personal = read('app/join-profile.tsx');
 
 // The question the QR already answered, and the sentence nobody could parse.
-assert.doesNotMatch(join, /Which device\?/, 'the device question is gone');
-assert.doesNotMatch(join, /is on a shared tablet/, 'and its title with it');
-assert.doesNotMatch(join, /Sidekick phone<\/|Continue as \{who\}/, 'no "Emma\'s Sidekick phone"');
+for (const screen of [join, personal]) {
+  assert.doesNotMatch(screen, /Which device\?/, 'the device question is gone');
+  assert.doesNotMatch(screen, /is on a shared tablet/, 'and its title with it');
+  assert.doesNotMatch(screen, /Sidekick phone<\/|Continue as \{who\}/, 'no "Emma\'s Sidekick phone"');
+}
 assert.match(join, /SharedDeviceWelcomeCard/, 'the welcome card replaces it');
 
 const welcome = read('components/orbit/device/shared-device-welcome-card.tsx');
@@ -137,13 +141,10 @@ assert.match(welcome, /hasMatchCode/, 'the code is only shown when it is real');
 // Join animates the card out. If the join then fails, it has to come back — otherwise the
 // buttons sit invisible and disabled over an error, with no back button on this AuthShell.
 assert.match(welcome, /resetToken/, 'the card can be brought back');
-assert.match(join, /setJoinFailed/, 'and the screen bumps it on failure');
+assert.match(join, /setFailures/, 'and the screen bumps it on failure');
 
-// Binding a device to nobody leaves a tablet that opens on an empty picker, and joining
-// without completeProfileJoin lands an unauthenticated Sidekick on the admin sign-in screen.
-assert.match(join, /await completeProfileJoin\(/, 'the session is created first');
-assert.match(join, /joined\.members/, 'the post-join roster binds the tablet, not the pre-join closure');
-assert.match(join, /inviteHouseholdId/, 'match code comes from the invite, not mock Rivera');
-assert.match(join, /roster\.length === 0/, 'and a device is never bound to nobody');
+// Joining saves a session for every person on the device — the bug was saving one.
+assert.match(join, /connectSharedTabletProfiles\(\s*invite\.codes/, 'every code on the device is joined');
+assert.doesNotMatch(personal, /setupSharedDeviceSession/, 'the personal screen never binds a device');
 
 console.log('shared-device-welcome: ok');

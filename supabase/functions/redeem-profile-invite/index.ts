@@ -71,17 +71,47 @@ Deno.serve(async (req) => {
 
     const { data: shells } = await admin
       .from('household_members')
-      .select('id, shared_with_member_ids')
+      .select('id, display_name, shared_with_member_ids')
       .eq('household_id', member.household_id)
       .eq('role', 'shared-device')
       .eq('status', 'active');
 
-    const onSharedShell = (shells ?? []).some((shell) => {
-      const ids = Array.isArray(shell.shared_with_member_ids)
-        ? (shell.shared_with_member_ids as string[])
+    const shell = (shells ?? []).find((candidate) => {
+      const ids = Array.isArray(candidate.shared_with_member_ids)
+        ? (candidate.shared_with_member_ids as string[])
         : [];
       return ids.includes(member.id);
     });
+    const onSharedShell = Boolean(shell);
+
+    // The device this person is on, and who else is: names only. This endpoint is public, so it
+    // never hands out anyone else's code — those travel only in the device's own QR, which an
+    // admin chooses to show.
+    let sharedDevice: {
+      id: string;
+      name: string;
+      people: { id: string; name: string; avatar: string | null }[];
+    } | null = null;
+    if (shell) {
+      const ids = (shell.shared_with_member_ids as string[]).slice(0, 6);
+      const { data: people } = await admin
+        .from('household_members')
+        .select('id, display_name, avatar_symbol, status')
+        .eq('household_id', member.household_id)
+        .in('id', ids);
+      sharedDevice = {
+        id: shell.id as string,
+        name: (shell.display_name as string | null) ?? 'Shared device',
+        people: ids
+          .map((id) => (people ?? []).find((p) => p.id === id))
+          .filter((p): p is NonNullable<typeof p> => p?.status === 'active' || p?.status === 'invited')
+          .map((p) => ({
+            id: p.id as string,
+            name: (p.display_name as string | null) ?? '',
+            avatar: (p.avatar_symbol as string | null) ?? null,
+          })),
+      };
+    }
 
     return new Response(
       JSON.stringify({
@@ -89,6 +119,7 @@ Deno.serve(async (req) => {
         householdId: member.household_id,
         householdName: household?.name ?? 'Household',
         onSharedShell,
+        sharedDevice,
       }),
       { headers: { ...cors, 'Content-Type': 'application/json' } }
     );

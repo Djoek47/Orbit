@@ -12,6 +12,12 @@ import { BrandOpening } from '@/components/orbit/brand-opening';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { InviteQrScanner } from '@/components/orbit/invite-qr-scanner';
+import {
+  clearSharedDeviceResume,
+  continueSharedDeviceLabel,
+  loadSharedDeviceResume,
+  type SharedDeviceResume,
+} from '@/lib/device/shared-device-resume';
 import { parseSharedDeviceInvitePayload } from '@/lib/household/shared-device-invite';
 import { KeyboardScreen } from '@/components/orbit/keyboard-screen';
 import { OnboardingProgress } from '@/components/orbit/onboarding-progress';
@@ -279,6 +285,8 @@ export default function WelcomeOnboardingScreen() {
   );
   const [savedSidekick, setSavedSidekick] = useState<SidekickSession | null>(null);
   const [sidekickWelcomeBack, setSidekickWelcomeBack] = useState(false);
+  /** Set when the saved sessions belong to a shared tablet: offer the device, not one child. */
+  const [sharedResume, setSharedResume] = useState<SharedDeviceResume | null>(null);
 
   const stepOpacity = useRef(new Animated.Value(1)).current;
 
@@ -286,11 +294,13 @@ export default function WelcomeOnboardingScreen() {
     if (step !== 'splash') return;
     let cancelled = false;
     void (async () => {
-      const [session, signedOut] = await Promise.all([
+      const [session, signedOut, resume] = await Promise.all([
         loadSidekickSession(),
         wasSidekickSignedOut(),
+        loadSharedDeviceResume(),
       ]);
       if (cancelled || !session || !signedOut) return;
+      setSharedResume(resume);
       setSavedSidekick(session);
       setSidekickWelcomeBack(true);
     })();
@@ -1071,9 +1081,38 @@ export default function WelcomeOnboardingScreen() {
     setBusy(true);
     setError('');
     try {
-      const restored = await restoreSidekickSession();
+      // A shared tablet is not one child: try each face until one reconnects, so a single
+      // removed or offline profile cannot keep the whole tablet shut.
+      let restored = false;
+      if (sharedResume) {
+        for (const memberId of sharedResume.memberIds) {
+          if (await restoreSidekickSession(memberId)) {
+            restored = true;
+            break;
+          }
+        }
+      } else {
+        restored = await restoreSidekickSession();
+      }
       if (!restored) {
-        setError('Could not restore your profile. Scan your Sidekick code again.');
+        setError(
+          sharedResume
+            ? 'Could not reopen this shared device. Ask an admin to show its QR code again.'
+            : 'Could not restore your profile. Scan your Sidekick code again.'
+        );
+        return;
+      }
+      if (sharedResume) {
+        // Back as the device: everyone on it, and the faces first.
+        const { setupSharedDeviceSession } = await import('@/lib/device/device-session');
+        await setupSharedDeviceSession({
+          profileMemberIds: sharedResume.memberIds,
+          deviceLabel: sharedResume.deviceLabel,
+          sharedDeviceId: sharedResume.sharedDeviceId,
+          hostKind: 'shared-tablet',
+        });
+        await clearSharedDeviceResume();
+        router.replace('/select-profile' as never);
         return;
       }
       router.replace('/' as never);
@@ -1117,7 +1156,11 @@ export default function WelcomeOnboardingScreen() {
               {sidekickWelcomeBack && savedSidekick ? (
                 <>
                   <OrbitButton disabled={busy} loading={busy} onPress={() => void handleContinueSidekick()}>
-                    {busy ? 'Opening…' : `Continue as ${savedSidekick.displayName}`}
+                    {busy
+                      ? 'Opening…'
+                      : sharedResume
+                        ? continueSharedDeviceLabel(sharedResume)
+                        : `Continue as ${savedSidekick.displayName}`}
                   </OrbitButton>
                   <Text
                     style={[

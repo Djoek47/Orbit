@@ -627,6 +627,7 @@ type OrbitContextValue = {
     householdId: string;
     householdName: string;
     onSharedShell?: boolean;
+    sharedDevice?: import('@/repositories/household-repository').SharedDeviceRoster | null;
   } | null>;
   /** True while shared-tablet Switch is binding the next face’s profile code. */
   switchingPersona: boolean;
@@ -720,7 +721,15 @@ type OrbitContextValue = {
   /** Create a shared-device profile (phone/tablet) that multiple people can use. */
   createSharedDevice: (name?: string) => Promise<HouseholdMember | null>;
   /** Link / unlink household people on a shared-device profile. */
-  updateSharedDeviceLinks: (deviceId: string, memberIds: string[]) => Promise<void>;
+  /**
+   * `device` is for a shell created moments ago: this render's roster does not have it yet,
+   * and looking it up there silently dropped the people picked in the setup wizard.
+   */
+  updateSharedDeviceLinks: (
+    deviceId: string,
+    memberIds: string[],
+    device?: HouseholdMember | null
+  ) => Promise<void>;
   /**
    * Ensure a Sidekick has a persisted `profile_invite_code` (derive + write if missing).
    * Used by Family iPad Step 3 face select — mock and Supabase.
@@ -758,7 +767,9 @@ type OrbitContextValue = {
   connectSharedTabletProfiles: (
     rawCodes: string[],
     deviceLabel?: string,
-  ) => Promise<{ members: HouseholdMember[]; needsProfilePick: boolean }>;
+    /** The shell's id when known — a fresh tablet's roster does not have it to look up. */
+    sharedDeviceId?: string | null,
+  ) => Promise<{ members: HouseholdMember[]; needsProfilePick: boolean; skipped: string[] }>;
   removeMember: (memberId: string) => Promise<void>;
   deleteAccount: (feedback?: { reason: string; detail?: string }) => Promise<void>;
   exportUserData: () => Promise<string>;
@@ -769,7 +780,8 @@ type OrbitContextValue = {
   refreshSmartHome: () => Promise<void>;
   refreshHousehold: () => Promise<HouseholdSnapshot>;
   /** Re-enter a saved Sidekick profile after sign-out (same device). */
-  restoreSidekickSession: () => Promise<boolean>;
+  /** The most recent Sidekick, or a named one (a shared tablet resumes face by face). */
+  restoreSidekickSession: (memberId?: string) => Promise<boolean>;
   /** Admin nudge — remind assignee about an open task (inbox + push). */
   sendTaskReminder: (taskId: string, memberId?: string) => Promise<boolean>;
   canAddGroceryWishlist: boolean;
@@ -2486,8 +2498,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return true;
   };
 
-  const restoreSidekickSession = async (): Promise<boolean> => {
-    const session = await loadSidekickSession();
+  const restoreSidekickSession = async (memberId?: string): Promise<boolean> => {
+    const session = memberId ? await loadSidekickSessionFor(memberId) : await loadSidekickSession();
     if (!session) return false;
     try {
       return await restoreSidekickFromSession(session);
@@ -2508,6 +2520,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       householdId: lookedUp.householdId,
       householdName: lookedUp.householdName,
       onSharedShell: lookedUp.onSharedShell,
+      sharedDevice: lookedUp.sharedDevice ?? null,
     };
   };
 
@@ -2540,6 +2553,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       householdName: result.householdName,
     });
     await clearSidekickSignedOut();
+    await import('@/lib/device/shared-device-resume').then((m) => m.clearSharedDeviceResume());
 
     let mergedSnapshot: HouseholdSnapshot;
     if (dataMode === 'supabase' && normalizedCode) {
@@ -2797,7 +2811,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   };
 
 
-  const clearSignedInState = (options?: { sidekickSigningOut?: boolean }) => {
+  const clearSignedInState = (options?: { sidekickSigningOut?: boolean; deviceCleared?: boolean }) => {
     setCurrentUser(null);
     setHousehold(
       options?.sidekickSigningOut
@@ -2822,9 +2836,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     // Signing out unbinds the device. It used to keep the binding on a Sidekick sign-out, so
     // the phone still called itself a shared tablet — and the next person to sign in, as an
     // admin, was dropped into "Add a device · 1 of 4" instead of their household.
-    void import('@/lib/device/device-session').then(({ clearDeviceSession }) =>
-      clearDeviceSession()
-    );
+    // Unless the caller already cleared it and awaited: a second, unawaited clear could land
+    // after the welcome screen rebinds the device to resume it.
+    if (!options?.deviceCleared) {
+      void import('@/lib/device/device-session').then(({ clearDeviceSession }) =>
+        clearDeviceSession()
+      );
+    }
   };
 
   const signOut = async () => {
@@ -2875,13 +2893,24 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       /* never block leaving */
     }
     if (sharedTablet) {
-      await clearSidekickSession();
+      // Keep everyone's session and remember the device, so the welcome screen offers the
+      // tablet back as the household's shared device — not as whichever child was last on it.
+      const { saveSharedDeviceResume } = await import('@/lib/device/shared-device-resume');
+      await saveSharedDeviceResume({
+        householdName: household.householdName ?? '',
+        deviceLabel: device.deviceLabel ?? 'Shared device',
+        memberIds: device.profileMemberIds,
+        sharedDeviceId: device.sharedDeviceId ?? null,
+      }).catch(() => undefined);
+      await touchSidekickSession();
+      await markSidekickSignedOut();
       await clearDeviceSession();
-      await clearMockHouseholdSnapshot();
-      clearSignedInState();
+      clearSignedInState({ sidekickSigningOut: true, deviceCleared: true });
       return;
     }
     if (sidekickSigningOut) {
+      // A personal phone is offered back as its person, never as a stale shared device.
+      await import('@/lib/device/shared-device-resume').then((m) => m.clearSharedDeviceResume());
       await touchSidekickSession();
       await markSidekickSignedOut();
       // Device binding for a personal Sidekick phone should not linger as a "shared tablet".
@@ -7125,18 +7154,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return created;
   };
 
-  const updateSharedDeviceLinks = async (deviceId: string, memberIds: string[]) => {
+  const updateSharedDeviceLinks = async (
+    deviceId: string,
+    memberIds: string[],
+    deviceHint?: HouseholdMember | null
+  ) => {
     if (!permissions.canManageHousehold) {
       return;
     }
-    const device = household.members.find((item) => item.id === deviceId);
+    const device =
+      household.members.find((item) => item.id === deviceId) ??
+      (deviceHint?.id === deviceId ? deviceHint : undefined);
     if (!device || device.role !== 'shared-device') {
-      return;
+      throw new Error('Could not find this shared device. Close setup and try again.');
     }
     const updated = await householdRepository.updateSharedDeviceLinks(device, memberIds);
     setHousehold((current) => ({
       ...current,
-      members: current.members.map((item) => (item.id === deviceId ? updated : item)),
+      members: current.members.some((item) => item.id === deviceId)
+        ? current.members.map((item) => (item.id === deviceId ? updated : item))
+        : [...current.members, updated],
     }));
     await trackAnalytics(
       'member.shared_device_links_updated',
@@ -7457,7 +7494,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return member;
   };
 
-  const connectSharedTabletProfiles = async (rawCodes: string[], deviceLabel?: string) => {
+  const connectSharedTabletProfiles = async (
+    rawCodes: string[],
+    deviceLabel?: string,
+    knownSharedDeviceId?: string | null,
+  ) => {
     const codes = [
       ...new Set(
         rawCodes
@@ -7475,6 +7516,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       householdId: string;
       householdName: string;
     }[] = [];
+    const skipped: string[] = [];
     for (const code of codes) {
       // Fresh tablet (Supabase TF): resolve via edge lookup — local roster is empty.
       const lookedUp = await householdRepository.findChildByProfileCode(code);
@@ -7485,7 +7527,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         resolveMemberByProfileCode(code, household.members) ??
         resolveMemberByProfileCode(code, mockHousehold.members);
       if (!member || (member.status !== 'active' && member.status !== 'invited') || member.role === 'shared-device') {
-        throw new Error(`No profile for ${code}. Ask an admin to AirDrop or send that invite.`);
+        // One stale code (someone removed, or given a new code) must not block everyone else.
+        skipped.push(code);
+        continue;
       }
       if (!resolved.some((item) => item.member.id === member.id)) {
         resolved.push({
@@ -7506,6 +7550,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }
     }
 
+    if (resolved.length === 0) {
+      throw new Error(
+        `No profile for ${skipped[0] ?? 'this code'}. Ask an admin to show the device's QR code again.`
+      );
+    }
     const householdId = resolved.find((r) => r.householdId)?.householdId ?? household.id ?? '';
     const householdName =
       resolved.find((r) => r.householdName)?.householdName ?? household.householdName;
@@ -7561,6 +7610,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
     }
     await clearSidekickSignedOut();
+    await import('@/lib/device/shared-device-resume').then((m) => m.clearSharedDeviceResume());
 
     const { setupSharedDeviceSession, selectDeviceProfile } = await import(
       '@/lib/device/device-session'
@@ -7574,7 +7624,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       profileMemberIds: membersOnly.map((member) => member.id),
       deviceLabel: deviceLabel?.trim() || shell?.name?.trim() || 'Shared device',
       hostKind: 'shared-tablet',
-      sharedDeviceId: shell?.id ?? null,
+      sharedDeviceId: knownSharedDeviceId ?? shell?.id ?? null,
     });
 
     const needsProfilePick = membersOnly.length > 1;
@@ -7588,7 +7638,11 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       { householdId: householdId || household.id, userId: user.id },
     );
 
-    return { members: membersOnly, needsProfilePick: needsProfilePick || session.needsProfilePick };
+    return {
+      members: membersOnly,
+      needsProfilePick: needsProfilePick || session.needsProfilePick,
+      skipped,
+    };
   };
 
   const splitAllTasksBetweenTwo = async (nameA?: string, nameB?: string) => {

@@ -426,82 +426,167 @@ export const JOINED_ADULT_TOUR: TourDefinition = {
   ],
 };
 
+// A Sidekick, or anyone on a shared tablet, gets the same shape of tour as an admin — chapters,
+// one thing at a time — but only for what they can actually do: their jobs, homework, the
+// grocery list, ranks and rewards, the rules. Nothing about assigning, money or Poppins. On a
+// shared tablet it ends with how to hand the tablet on.
+
+const KID_DAY: TourChapter = {
+  id: 'sidekick_home',
+  name: 'Your day',
+  steps: [
+    step({
+      id: 'sk.today',
+      targetId: 'home.todayTasks',
+      title: 'Your jobs today',
+      body: 'These are yours. Finish them to earn XP.',
+      route: '/(tabs)',
+      ensureVisible: true,
+    }),
+    step({
+      id: 'sk.streak',
+      targetId: 'home.streak',
+      title: 'Your streak',
+      body: `Finish every day to grow it. Miss one and you can use ${VOCAB.streakRescue}.`,
+      route: '/(tabs)',
+    }),
+    step({
+      id: 'sk.grocery',
+      targetId: 'home.groceryCard',
+      title: 'The grocery list',
+      body: 'Need something from the store? Add it here for everyone.',
+      route: '/(tabs)',
+      ensureVisible: true,
+    }),
+  ],
+};
+
+const KID_TASKS: TourChapter = {
+  id: 'sidekick_tasks',
+  name: 'Jobs',
+  steps: [
+    step({
+      id: 'sk.tasksTab',
+      targetId: 'tabbar.tasks',
+      title: 'All your jobs',
+      body: 'Everything you have to do lives here.',
+      route: '/(tabs)/tasks',
+      onEnter: 'tasks.chores',
+    }),
+    step({
+      id: 'sk.complete',
+      targetId: 'tasks.firstRow',
+      title: 'Mark it done',
+      body: `Tap Complete when you finish. ${VOCAB.lateCredit} still counts, just a little less XP.`,
+      route: '/(tabs)/tasks',
+      onEnter: 'tasks.chores',
+    }),
+    step({
+      id: 'sk.proof',
+      // The photo button lives on the task's own page, not on this list.
+      targetId: 'tasks.firstRow',
+      title: 'Photo proof',
+      body: 'Sometimes a grown-up asks for a photo. Open the task and snap it there.',
+      route: '/(tabs)/tasks',
+      centered: true,
+      when: 'firstTaskNeedsProof',
+      onEnter: 'tasks.chores',
+    }),
+    step({
+      id: 'sk.homework',
+      targetId: 'tasks.domainSegment',
+      title: 'Homework',
+      body: 'Schoolwork has its own list. A photo shows it is done.',
+      route: '/(tabs)/tasks',
+      when: 'homeworkEnabled',
+      onEnter: 'tasks.homework',
+    }),
+  ],
+};
+
+const KID_REWARDS: TourChapter = {
+  id: 'sidekick_rewards',
+  name: 'Ranks and rewards',
+  steps: [
+    step({
+      id: 'sk.ranks',
+      targetId: 'tabbar.rewards',
+      title: 'Ranks',
+      body: `See how you're doing this week. The winner gets ${VOCAB.weeksCrown}.`,
+      route: '/(tabs)/rewards',
+      when: 'showRanks',
+    }),
+    step({
+      id: 'sk.hold',
+      targetId: 'rewards.holdRequest',
+      title: 'Ask for a reward',
+      body: "Finish today's jobs, then press and hold to ask.",
+      route: '/(tabs)/rewards',
+      when: 'showRewards',
+    }),
+    step({
+      id: 'sk.rules',
+      targetId: 'home.houseRules',
+      title: VOCAB.houseRules,
+      body: 'Everything about points and streaks, explained for you.',
+      route: '/(tabs)',
+    }),
+  ],
+};
+
+const KID_SHARED_TABLET: TourChapter = {
+  id: 'sidekick_shared',
+  name: 'Sharing this tablet',
+  steps: [
+    step({
+      id: 'sk.yours',
+      targetId: 'tour.finish',
+      title: 'This part is yours',
+      body: 'Your jobs, XP and rewards stay yours. Nobody else can tick them off.',
+      route: '/(tabs)',
+      centered: true,
+      when: 'sharedTablet',
+    }),
+    step({
+      id: 'sk.switch',
+      targetId: 'tabbar.switch',
+      title: 'Done? Pass it on',
+      body: 'Tap Switch and the next person picks their face.',
+      route: '/(tabs)',
+      when: 'sharedTablet',
+    }),
+  ],
+};
+
+const KID_FINISH: TourChapter = {
+  id: 'sidekick_finish',
+  name: 'Finish',
+  steps: [
+    step({
+      id: 'sk.done',
+      targetId: 'tour.finish',
+      title: "You're all set",
+      body: 'Go finish a job and watch your XP grow.',
+      route: '/(tabs)',
+      centered: true,
+      primaryLabel: 'Done',
+    }),
+  ],
+};
+
 export const SIDEKICK_TOUR: TourDefinition = {
   tourId: 'sidekick',
   welcomeTitle: 'Hi {name}',
-  welcomeBody: `Here's how to earn XP and rewards. It takes a minute.`,
+  welcomeBody: 'A quick look at your jobs, your XP and your rewards.',
   welcomePrimary: 'Show me',
   welcomeSecondary: 'Later',
-  chapters: [
-    {
-      id: 'sidekick_home',
-      name: 'Your day',
-      steps: [
-        step({
-          id: 'sk.today',
-          targetId: 'home.todayTasks',
-          title: 'Your jobs today',
-          body: 'These are yours. Finish them to earn XP.',
-          route: '/(tabs)',
-          ensureVisible: true,
-        }),
-        step({
-          id: 'sk.complete',
-          targetId: 'tasks.firstRow',
-          title: 'Mark it done',
-          body: `Tap Complete when you finish. ${VOCAB.lateCredit} still counts, just a little less XP.`,
-          route: '/(tabs)/tasks',
-        }),
-        step({
-          id: 'sk.proof',
-          // The photo button lives on the task's own page, not on this list — a card that
-          // pointed at it waited on something that is never here, then skipped itself.
-          targetId: 'tasks.firstRow',
-          title: 'Photo proof',
-          body: 'Sometimes a grown-up asks for a photo. Open the task and snap it there.',
-          route: '/(tabs)/tasks',
-          centered: true,
-          when: 'firstTaskNeedsProof',
-        }),
-        step({
-          id: 'sk.streak',
-          targetId: 'home.streak',
-          title: 'Your streak',
-          body: `Finish every day to grow it. Miss one and you can use ${VOCAB.streakRescue}.`,
-          route: '/(tabs)',
-        }),
-        step({
-          id: 'sk.ranks',
-          targetId: 'tabbar.rewards',
-          title: 'Ranks',
-          body: `See how you're doing this week. The winner gets ${VOCAB.weeksCrown}.`,
-          route: '/(tabs)/rewards',
-          when: 'showRanks',
-        }),
-        step({
-          id: 'sk.hold',
-          targetId: 'rewards.holdRequest',
-          title: 'Ask for a reward',
-          body: "Finish today's jobs, then press and hold to ask.",
-          route: '/(tabs)/rewards',
-          when: 'showRewards',
-        }),
-        step({
-          id: 'sk.rules',
-          targetId: 'home.houseRules',
-          title: VOCAB.houseRules,
-          body: 'Everything about points and streaks, explained for you.',
-          route: '/(tabs)',
-        }),
-      ],
-    },
-  ],
+  chapters: [KID_DAY, KID_TASKS, KID_REWARDS, KID_SHARED_TABLET, KID_FINISH],
 };
 
 export const FAMILY_IPAD_TOUR: TourDefinition = {
   tourId: 'family_ipad',
-  welcomeTitle: 'Shared devices',
-  welcomeBody: 'Tap your profile to open your own tasks, XP and rewards.',
+  welcomeTitle: 'Welcome to {householdName}',
+  welcomeBody: 'This tablet is shared. Tap your face to open your own jobs, XP and rewards.',
   welcomePrimary: 'Got it',
   welcomeSecondary: 'Skip',
   chapters: [

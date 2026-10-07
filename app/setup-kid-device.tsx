@@ -303,20 +303,23 @@ export default function SetupKidDeviceScreen() {
     }
 
     const label = deviceLabel.trim() || DEFAULT_SHARED_IPAD_NAME;
-    let sharedDeviceId: string | null =
-      listSharedDevices(household.members).find((d) => d.name === label)?.id ?? null;
+    let shell: HouseholdMember | null =
+      listSharedDevices(household.members).find((d) => d.name === label) ?? null;
 
-    if (!sharedDeviceId) {
-      const created = await createSharedDevice(label);
-      sharedDeviceId = created?.id ?? null;
+    if (!shell) {
+      shell = (await createSharedDevice(label)) ?? null;
+    }
+    if (!shell) {
+      throw new Error('Could not create this shared device. Check you are an admin and try again.');
     }
 
-    if (sharedDeviceId) {
-      await updateSharedDeviceLinks(
-        sharedDeviceId,
-        hostedMembers.map((person) => person.id)
-      );
-    }
+    // Save who is on it before the QR exists. The tablet reads this list when it joins, and
+    // People shows it — without it the device looked empty and the tablet joined as one child.
+    await updateSharedDeviceLinks(
+      shell.id,
+      hostedMembers.map((person) => person.id),
+      shell
+    );
 
     return buildSharedDeviceInviteLink({ label, codes });
   };
@@ -1092,6 +1095,10 @@ export default function SetupKidDeviceScreen() {
         onClose={() => setScannerOpen(false)}
         onScanned={(scanned) => {
           setScannerOpen(false);
+          if (parseSharedDeviceInvitePayload(scanned)) {
+            setError("That's a tablet's QR code. Scan one person's own code to add them.");
+            return;
+          }
           void addCode(scanned);
         }}
       />

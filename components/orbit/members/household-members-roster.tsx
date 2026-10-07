@@ -204,7 +204,7 @@ export function HouseholdMembersRoster({
   const handleRemoveDevice = (device: HouseholdMember) => removeMember(device.id);
 
   const setDeviceLinks = (deviceId: string, next: string[]) => {
-    void updateSharedDeviceLinks(deviceId, next);
+    void updateSharedDeviceLinks(deviceId, next).catch(() => undefined);
   };
 
   return (

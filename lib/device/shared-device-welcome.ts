@@ -44,6 +44,11 @@ export function householdMatchCode(householdId: string | null | undefined): stri
   return out;
 }
 
+/** Just what the card draws for a person — a full member, or one looked up before joining. */
+export type WelcomePerson = Pick<HouseholdMember, 'id' | 'name' | 'avatar'> & {
+  accentThemeId?: string;
+};
+
 export type SharedDeviceWelcome = {
   householdName: string;
   deviceLabel: string;
@@ -54,14 +59,14 @@ export type SharedDeviceWelcome = {
    */
   hasMatchCode: boolean;
   /** Everyone already on the tablet, capped at what the picker can lay out. */
-  people: HouseholdMember[];
+  people: WelcomePerson[];
   /** "Emma and Jack" · "Emma, Jack and 2 others" — never a bare list that runs off screen. */
   peopleLabel: string;
   full: boolean;
 };
 
 /** "Emma and Jack", "Emma, Jack and 2 others", "" when nobody is on it yet. */
-export function describePeople(people: HouseholdMember[]): string {
+export function describePeople(people: WelcomePerson[]): string {
   const names = people.map((p) => p.name.trim().split(/\s+/)[0] || p.name.trim()).filter(Boolean);
   if (names.length === 0) return '';
   if (names.length === 1) return names[0]!;
@@ -83,6 +88,31 @@ export function sharedDeviceWelcome(input: {
   return {
     householdName: input.householdName?.trim() || 'your household',
     deviceLabel: normalizeSharedDeviceLabel(input.shell?.name),
+    matchCode: householdMatchCode(input.householdId),
+    hasMatchCode: Boolean(input.householdId?.trim()),
+    people,
+    peopleLabel: describePeople(people),
+    full: people.length >= SHARED_DEVICE_MAX_PEOPLE,
+  };
+}
+
+/**
+ * The same card, built from what a tablet can learn before it has joined: the invite's people,
+ * looked up one code at a time, rather than a household roster it does not have yet.
+ */
+export function welcomeFromPeople(input: {
+  householdId: string | null | undefined;
+  householdName: string | null | undefined;
+  deviceLabel: string | null | undefined;
+  people: WelcomePerson[];
+}): SharedDeviceWelcome {
+  const seen = new Set<string>();
+  const people = input.people
+    .filter((p) => p.id && !seen.has(p.id) && seen.add(p.id))
+    .slice(0, SHARED_DEVICE_MAX_PEOPLE);
+  return {
+    householdName: input.householdName?.trim() || 'your household',
+    deviceLabel: normalizeSharedDeviceLabel(input.deviceLabel ?? undefined),
     matchCode: householdMatchCode(input.householdId),
     hasMatchCode: Boolean(input.householdId?.trim()),
     people,

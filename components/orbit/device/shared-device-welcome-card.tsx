@@ -8,7 +8,8 @@
  *   │   ┌──────────────────────────┐   │
  *   │   │ 🏠 Kitchen device        │   │
  *   │   │ Household code    4F2A   │   │
- *   │   │ (o)(o)  Emma and Jack    │   │
+ *   │   │ ON THIS TABLET · 2       │   │
+ *   │   │ (o) Emma   (o) Jack      │   │
  *   │   └──────────────────────────┘   │
  *   │        [  Join this device  ]    │
  *   │     Use this phone as mine only  │
@@ -48,6 +49,8 @@ import type { SharedDeviceWelcome } from '@/lib/device/shared-device-welcome';
 type Props = {
   welcome: SharedDeviceWelcome;
   busy?: boolean;
+  /** Nothing to join (no one on the codes) — the button shows, but cannot be tapped. */
+  joinDisabled?: boolean;
   /** Runs once the card has animated out, so the next screen starts as this one ends. */
   onJoin: () => void;
   /**
@@ -64,6 +67,7 @@ type Props = {
 export function SharedDeviceWelcomeCard({
   welcome,
   busy,
+  joinDisabled,
   onJoin,
   onUseAsPersonal,
   personalName,
@@ -93,7 +97,7 @@ export function SharedDeviceWelcomeCard({
   }, [resetToken, opacity, lift]);
 
   const join = () => {
-    if (leaving || busy) return;
+    if (leaving || busy || joinDisabled) return;
     setLeaving(true);
     // Up and out, not a cross-fade: the faces are arriving from below.
     lift.set(withTiming(-28, { duration: 320, easing: Easing.inOut(Easing.cubic) }));
@@ -130,44 +134,45 @@ export function SharedDeviceWelcomeCard({
         {welcome.people.length > 0 ? (
           <>
             <View style={[styles.divider, { backgroundColor: glassBorder(0.08) }]} />
-            <View style={styles.peopleRow}>
-              <View style={styles.faces}>
-                {welcome.people.slice(0, 4).map((member, index) => {
-                  const theme = getAccentTheme(member.accentThemeId);
-                  const photo = isAvatarImageUri(member.avatar);
-                  return (
-                    <Animated.View
-                      key={member.id}
-                      entering={FadeIn.delay(190 + index * 70).duration(320)}
-                      style={[styles.faceWrap, index > 0 && { marginLeft: -12 }]}>
-                      <LinearGradient
-                        colors={[theme.primary, theme.secondary]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.faceRing}>
-                        <View style={[styles.faceInner, { backgroundColor: c.backgroundSoft }]}>
-                          <Avatar
-                            name={member.name}
-                            emoji={memberDisplayEmoji(member)}
-                            imageUri={photo ? member.avatar : undefined}
-                            size="s"
-                          />
-                        </View>
-                      </LinearGradient>
-                    </Animated.View>
-                  );
-                })}
-              </View>
-              <Text style={[styles.peopleLabel, { color: c.textMuted }]} numberOfLines={1}>
-                {welcome.peopleLabel}
-              </Text>
+            <Text style={[styles.peopleHeading, { color: c.textMuted }]}>
+              On this tablet · {welcome.people.length}
+            </Text>
+            <View style={styles.peopleGrid} accessibilityLabel={`On this tablet: ${welcome.peopleLabel}`}>
+              {welcome.people.map((member, index) => {
+                const theme = getAccentTheme(member.accentThemeId);
+                const photo = isAvatarImageUri(member.avatar);
+                return (
+                  <Animated.View
+                    key={member.id}
+                    entering={FadeIn.delay(190 + index * 70).duration(320)}
+                    style={[styles.personChip, { backgroundColor: glass(0.04), borderColor: glassBorder(0.1) }]}>
+                    <LinearGradient
+                      colors={[theme.primary, theme.secondary]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.faceRing}>
+                      <View style={[styles.faceInner, { backgroundColor: c.backgroundSoft }]}>
+                        <Avatar
+                          name={member.name}
+                          emoji={memberDisplayEmoji(member)}
+                          imageUri={photo ? member.avatar : undefined}
+                          size="s"
+                        />
+                      </View>
+                    </LinearGradient>
+                    <Text style={[styles.personName, { color: c.text }]} numberOfLines={1}>
+                      {member.name.trim().split(/\s+/)[0] || member.name}
+                    </Text>
+                  </Animated.View>
+                );
+              })}
             </View>
           </>
         ) : null}
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(160).duration(420)} style={styles.actions}>
-        <OrbitButton disabled={busy || leaving} loading={busy} onPress={join}>
+        <OrbitButton disabled={busy || leaving || joinDisabled} loading={busy} onPress={join}>
           Join this device
         </OrbitButton>
 
@@ -204,9 +209,21 @@ const styles = StyleSheet.create({
   codeLabel: { fontSize: 14, fontWeight: '600' },
   code: { fontSize: 20, fontWeight: '800', letterSpacing: 4 },
   codeHint: { fontSize: 12.5, lineHeight: 17 },
-  peopleRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
-  faces: { flexDirection: 'row' },
-  faceWrap: {},
+  peopleHeading: { fontSize: 12.5, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  peopleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  personChip: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 22,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    maxWidth: '100%',
+    paddingLeft: 4,
+    paddingRight: 12,
+    paddingVertical: 4,
+  },
+  personName: { flexShrink: 1, fontSize: 15, fontWeight: '700' },
   faceRing: { alignItems: 'center', borderRadius: 19, height: 38, justifyContent: 'center', padding: 2, width: 38 },
   faceInner: {
     alignItems: 'center',
@@ -216,7 +233,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: 34,
   },
-  peopleLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
   actions: { gap: 12 },
   personal: { alignItems: 'center', minHeight: 44, justifyContent: 'center' },
   personalLabel: { fontSize: 13.5, fontWeight: '600', textAlign: 'center' },

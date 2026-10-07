@@ -1,45 +1,62 @@
 /**
- * Shared-device invite redeem — tablet scans admin's QR, then hosts the faces.
- * Distinct from Sidekick join-profile (single CMX code).
+ * Joining a shared device — the one way in.
+ *
+ * Reached from the device's QR (setup wizard step 4, or People → Show the code), and from one
+ * person's own code when that person is on a shared device (join-profile forwards it here with
+ * everyone's codes). Every route ends the same: the Welcome card, then the faces.
+ *
+ * The card shows the household, the device, a code to check against the admin's screen, and
+ * the name of everyone on it — before anyone taps Join. Joining saves a session for every one
+ * of them, so every face on the picker opens.
  */
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { Avatar } from '@/components/orbit/avatar';
-import { FrostedPanel } from '@/components/orbit/frosted-panel';
-import { OrbitButton } from '@/components/orbit/orbit-button';
-import { SettingsModalChrome } from '@/components/orbit/settings/modal-chrome';
+import { AuthShell } from '@/components/orbit/auth-shell';
+import { SharedDeviceWelcomeCard } from '@/components/orbit/device/shared-device-welcome-card';
 import { userFacingMessage } from '@/lib/auth/auth-errors';
-import { memberDisplayEmoji, isAvatarImageUri } from '@/lib/game-levels';
+import { welcomeFromPeople, type WelcomePerson } from '@/lib/device/shared-device-welcome';
 import {
   buildSharedDeviceInviteLink,
   parseSharedDeviceInvitePayload,
 } from '@/lib/household/shared-device-invite';
 import { resolveMemberByProfileCode } from '@/lib/household/profile-codes';
-import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { normalizeInviteCode } from '@/lib/invites/parse-invite';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import type { HouseholdMember } from '@/types/orbit';
+
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default function JoinSharedDeviceScreen() {
-  const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ payload?: string; label?: string; codes?: string }>();
-  const { connectSharedTabletProfiles, household, accentTheme } = useOrbit();
-  const { c, isDark, glassBorder } = useOrbitColors();
-  const accent = accentTheme.primary;
+  const params = useLocalSearchParams<{
+    payload?: string;
+    label?: string;
+    codes?: string;
+    /** The one person's code that brought us here, if any — offers "use as their own". */
+    personal?: string;
+    deviceId?: string;
+  }>();
+  const { connectSharedTabletProfiles, lookupProfileInvite, household } = useOrbit();
+  const { c } = useOrbitColors();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [failures, setFailures] = useState(0);
+  const [lookupsFailed, setLookupsFailed] = useState(false);
+  const [looked, setLooked] = useState<{
+    householdId: string | null;
+    householdName: string | null;
+    sharedDeviceId: string | null;
+    people: WelcomePerson[];
+  } | null>(null);
 
   const invite = useMemo(() => {
-    const rawPayload = Array.isArray(params.payload) ? params.payload[0] : params.payload;
+    const rawPayload = first(params.payload);
     if (rawPayload?.trim()) {
       return parseSharedDeviceInvitePayload(rawPayload);
     }
-    const label = Array.isArray(params.label) ? params.label[0] : params.label;
-    const codesRaw = Array.isArray(params.codes) ? params.codes[0] : params.codes;
+    const label = first(params.label);
+    const codesRaw = first(params.codes);
     if (!codesRaw?.trim()) return null;
     return parseSharedDeviceInvitePayload(
       buildSharedDeviceInviteLink({
@@ -49,160 +66,124 @@ export default function JoinSharedDeviceScreen() {
     );
   }, [params.codes, params.label, params.payload]);
 
-  const people = useMemo(() => {
-    if (!invite) return [];
-    return invite.codes
-      .map((code) => resolveMemberByProfileCode(code, household.members))
-      .filter((m): m is HouseholdMember => Boolean(m));
-  }, [household.members, invite]);
+  const personalCode = first(params.personal)?.trim() || null;
 
+  // A fresh tablet has no roster: learn the household and the names from the codes themselves.
   useEffect(() => {
-    if (!invite) setError('This shared-device invite looks broken. Ask an admin for a new QR code.');
+    if (!invite) {
+      setError('This shared-device QR code looks broken. Ask an admin for a new one.');
+      return;
+    }
+    let cancelled = false;
+    // A lookup that never answers (captive Wi-Fi) must not leave the button disabled forever.
+    const withTimeout = <T,>(p: Promise<T>) =>
+      Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))]);
+    void Promise.all(
+      invite.codes.map((code) => withTimeout(lookupProfileInvite(code)).catch(() => null))
+    ).then(
+      (results) => {
+        if (cancelled) return;
+        const found = results.filter((r): r is NonNullable<typeof r> => Boolean(r));
+        setLookupsFailed(found.length === 0);
+        const people: WelcomePerson[] = invite.codes
+          .map((code, i) => results[i]?.member ?? resolveMemberByProfileCode(code, household.members))
+          .filter((m): m is NonNullable<typeof m> => Boolean(m));
+        setLooked({
+          householdId: found[0]?.householdId ?? household.id ?? null,
+          householdName: found[0]?.householdName ?? household.householdName ?? null,
+          sharedDeviceId: found.find((r) => r.sharedDevice?.id)?.sharedDevice?.id ?? null,
+          people,
+        });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+    // Look up once per invite; the roster changing under us must not re-run every lookup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invite]);
+
+  const welcome = welcomeFromPeople({
+    householdId: looked?.householdId,
+    householdName: looked?.householdName,
+    deviceLabel: invite?.label,
+    people: looked?.people ?? [],
+  });
 
   const accept = async () => {
     if (!invite) return;
     try {
       setBusy(true);
       setError('');
-      const result = await connectSharedTabletProfiles(invite.codes, invite.label);
-      if (result.needsProfilePick) {
-        router.replace('/select-profile' as never);
-        return;
+      const result = await connectSharedTabletProfiles(
+        invite.codes,
+        invite.label,
+        first(params.deviceId) ?? looked?.sharedDeviceId ?? null
+      );
+      if (result.skipped.length > 0) {
+        console.warn('join-shared-device.skipped', result.skipped);
       }
-      router.replace('/(tabs)' as never);
+      router.replace((result.needsProfilePick ? '/select-profile' : '/(tabs)') as never);
     } catch (err) {
+      setFailures((n) => n + 1);
       setError(userFacingMessage(err, 'Could not set up this shared device.'));
     } finally {
       setBusy(false);
     }
   };
 
-  const householdLabel = household.householdName?.trim() || 'the household';
-  const deviceLabel = invite?.label?.trim() || 'Shared device';
+  const personalName = useMemo(() => {
+    if (!personalCode) return undefined;
+    const person =
+      resolveMemberByProfileCode(personalCode, household.members) ??
+      looked?.people.find(
+        (p) =>
+          normalizeInviteCode((p as { profileInviteCode?: string }).profileInviteCode ?? '') ===
+          normalizeInviteCode(personalCode)
+      );
+    return person?.name.trim().split(/\s+/)[0] || undefined;
+  }, [household.members, looked?.people, personalCode]);
+
+  const subtitle = !looked
+    ? 'Checking the code…'
+    : welcome.peopleLabel
+      ? `This tablet is for ${welcome.peopleLabel}. ${
+          welcome.hasMatchCode ? "Check the household code matches your admin's screen." : ''
+        }`.trim()
+      : lookupsFailed
+        ? "Couldn't check this code just now. You can still join — or try again on Wi-Fi."
+        : 'Nobody is on this device yet. Ask an admin to add people, then scan again.';
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false, title: 'Join shared device' }} />
-      <SettingsModalChrome
-        backLabel="Back"
-        title="Join shared device"
-        purpose="Everyone on this code will be able to use the tablet. It is not a personal sign-in.">
-        <View style={[styles.body, { paddingBottom: insets.bottom + 24 }]}>
-          <Text style={[styles.eyebrow, { color: accent }]}>Join shared device</Text>
-          <Text style={[styles.hero, { color: isDark ? '#F7F2EC' : c.text }]}>
-            Join {householdLabel}
+      <AuthShell kicker="Shared device" title={`Welcome to ${welcome.householdName}`} subtitle={subtitle}>
+        <SharedDeviceWelcomeCard
+          welcome={welcome}
+          // Disabled while checking, and when the codes turned up nobody. Offline, the lookups
+          // all fail but joining still resolves codes itself, so it stays possible then.
+          busy={busy || !looked || !invite}
+          joinDisabled={Boolean(looked) && welcome.people.length === 0 && !lookupsFailed}
+          resetToken={failures}
+          onJoin={() => void accept()}
+          personalName={personalName}
+          onUseAsPersonal={
+            personalCode
+              ? () =>
+                  router.replace(
+                    `/join-profile?code=${encodeURIComponent(personalCode)}&own=1` as never
+                  )
+              : undefined
+          }
+        />
+        {error ? (
+          <Text
+            style={{ color: c.danger, fontSize: 14, marginTop: 12, textAlign: 'center' }}
+            accessibilityLiveRegion="polite">
+            {error}
           </Text>
-          <Text style={[styles.sub, { color: c.textMuted }]}>
-            You&apos;re setting up <Text style={{ fontWeight: '800', color: c.text }}>{deviceLabel}</Text>
-            . Everyone below will share this tablet — Switch to change who&apos;s on.
-          </Text>
-
-          <FrostedPanel borderColor={`${accent}44`} style={styles.card}>
-            <LinearGradient
-              colors={[`${accent}28`, `${accent}08`]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-            <Text style={[styles.cardLabel, { color: accent }]}>Who can use it</Text>
-            {people.length > 0 ? (
-              <View style={styles.faces}>
-                {people.map((person) => (
-                  <View
-                    key={person.id}
-                    style={[
-                      styles.face,
-                      {
-                        backgroundColor: glassFill(isDark),
-                        borderColor: glassBorder(0.12),
-                      },
-                    ]}>
-                    <Avatar
-                      name={person.name}
-                      emoji={memberDisplayEmoji(person)}
-                      imageUri={isAvatarImageUri(person.avatar) ? person.avatar : undefined}
-                      size="m"
-                    />
-                    <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
-                      {person.name}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : invite ? (
-              <View style={styles.codeList}>
-                {invite.codes.map((code) => (
-                  <Text key={code} style={[styles.codeChip, { color: c.textSoft }]}>
-                    {code}
-                  </Text>
-                ))}
-              </View>
-            ) : (
-              <Text style={[styles.sub, { color: c.textSubtle }]}>Waiting for a valid invite…</Text>
-            )}
-            <Text style={[styles.hint, { color: c.textSubtle }]}>
-              {invite
-                ? `${invite.codes.length} profile${invite.codes.length === 1 ? '' : 's'} on this QR code`
-                : 'Ask an admin to open Shared devices and show the code'}
-            </Text>
-          </FrostedPanel>
-
-          {error ? (
-            <Text style={styles.error} accessibilityLiveRegion="polite">
-              {error}
-            </Text>
-          ) : null}
-
-          <OrbitButton onPress={() => void accept()} disabled={busy || !invite}>
-            {busy
-              ? 'Joining…'
-              : people.length > 1
-                ? `Accept · ${people.length} people`
-                : 'Accept · Join household'}
-          </OrbitButton>
-          <Text style={[styles.footnote, { color: c.textSubtle }]}>
-            Personal Sidekick phones use a single profile code. This QR code is for the shared tablet only.
-          </Text>
-        </View>
-      </SettingsModalChrome>
+        ) : null}
+      </AuthShell>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  body: { gap: 14, paddingHorizontal: 20, paddingTop: 8 },
-  eyebrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  hero: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  sub: { fontSize: 15, fontWeight: '600', lineHeight: 22 },
-  card: { gap: 12, overflow: 'hidden', padding: 16 },
-  cardLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  faces: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  face: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    width: 96,
-  },
-  faceName: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  codeList: { gap: 6 },
-  codeChip: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
-  hint: { fontSize: 12, fontWeight: '600' },
-  error: { color: '#F87171', fontSize: 14, fontWeight: '600' },
-  footnote: { fontSize: 12, fontWeight: '600', lineHeight: 18, textAlign: 'center' },
-});

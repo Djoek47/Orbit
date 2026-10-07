@@ -60,6 +60,14 @@ import {
 } from '@/lib/household/map-household-settings';
 import { mergeNotificationPrefs } from '@/lib/poppins/prefs-store';
 
+/** A shared device and who is on it, as a tablet sees it before joining. */
+export type SharedDeviceRoster = {
+  id: string;
+  name: string;
+  /** Codes are known only from the local roster; the public lookup never returns them. */
+  people: { id: string; name: string; avatar: string | null; profileInviteCode: string | null }[];
+};
+
 export const householdRepository = {
   async getHousehold(): Promise<HouseholdSnapshot> {
     if (isMockMode()) {
@@ -597,6 +605,8 @@ export const householdRepository = {
     householdName: string;
     /** True when this face is listed on a shared-device shell (tablet QR). */
     onSharedShell: boolean;
+    /** That shell and everyone on it, with codes — so one scanned code joins the whole device. */
+    sharedDevice?: SharedDeviceRoster | null;
   } | null> {
     const normalized = normalizeInviteCode(code);
 
@@ -618,7 +628,7 @@ export const householdRepository = {
             active?.id === householdId ? active.householdName : mockHousehold.householdName;
           const roster =
             active?.id === householdId ? (active?.members ?? members) : mockHousehold.members;
-          const onSharedShell = roster.some(
+          const shell = roster.find(
             (item) =>
               item.role === 'shared-device' &&
               Array.isArray(item.sharedWithMemberIds) &&
@@ -628,7 +638,26 @@ export const householdRepository = {
             member,
             householdId: householdId ?? 'hh-rivera',
             householdName,
-            onSharedShell,
+            onSharedShell: Boolean(shell),
+            sharedDevice: shell
+              ? {
+                  id: shell.id,
+                  name: shell.name,
+                  people: (shell.sharedWithMemberIds ?? [])
+                    .map((id) => roster.find((m) => m.id === id))
+                    .filter(
+                      (m): m is HouseholdMember =>
+                        Boolean(m && (m.status === 'active' || m.status === 'invited'))
+                    )
+                    .map((m) => ({
+                      id: m.id,
+                      name: m.name,
+                      avatar: m.avatar ?? null,
+                      // Same as the server: the lookup never reveals someone else's code.
+                      profileInviteCode: null,
+                    })),
+                }
+              : null,
           };
         }
       }
@@ -648,6 +677,11 @@ export const householdRepository = {
       householdId?: string;
       householdName?: string;
       onSharedShell?: boolean;
+      sharedDevice?: {
+        id?: string;
+        name?: string;
+        people?: { id?: string; name?: string; avatar?: string | null }[];
+      } | null;
     };
     if (payload.error || !payload.member || !payload.householdId) {
       return null;
@@ -657,6 +691,22 @@ export const householdRepository = {
       householdId: payload.householdId,
       householdName: payload.householdName ?? 'Household',
       onSharedShell: Boolean(payload.onSharedShell),
+      // Absent until the function is redeployed; callers fall back to the local roster.
+      sharedDevice:
+        payload.sharedDevice?.id && Array.isArray(payload.sharedDevice.people)
+          ? {
+              id: payload.sharedDevice.id,
+              name: payload.sharedDevice.name ?? 'Shared device',
+              people: payload.sharedDevice.people
+                .filter((p) => p.id)
+                .map((p) => ({
+                  id: p.id!,
+                  name: p.name ?? '',
+                  avatar: p.avatar ?? null,
+                  profileInviteCode: null,
+                })),
+            }
+          : null,
     };
   },
 

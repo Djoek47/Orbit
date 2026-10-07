@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitColors, radius, space, typography } from '@/constants/orbit-theme';
 import { parseHouseholdTransferTokenFromUrl } from '@/lib/household/household-transfer';
+import { parseSharedDeviceInvitePayload } from '@/lib/household/shared-device-invite';
 import { parseInvitePayload } from '@/lib/invites/parse-invite';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -13,6 +14,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 type InviteQrScannerProps = {
   visible: boolean;
   onClose: () => void;
+  /** A profile or household code — or, for a shared-device QR, the whole link unchanged. */
   onScanned: (inviteCode: string) => void;
   /** Ownership transfer QR code (orbit://transfer-household?token=). */
   onTransferScanned?: (token: string) => void;
@@ -48,6 +50,15 @@ export function InviteQrScanner({
       setLocked(true);
       setHint('Transfer QR code found');
       onTransferScanned(transferToken);
+      onClose();
+      return;
+    }
+    // A shared-device QR carries everyone's codes. It must reach the caller whole: cutting it
+    // down to the first code is what joined a tablet as one child's personal phone.
+    if (parseSharedDeviceInvitePayload(data)) {
+      setLocked(true);
+      setHint('Shared device found');
+      onScanned(data.trim());
       onClose();
       return;
     }
