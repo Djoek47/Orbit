@@ -102,6 +102,7 @@ test('Pass B3: sidekick close + sign-out clear look sheet', () => {
 test('Pass C1: SigningOutOverlay hoisted to root (survives Settings unmount)', () => {
   assert.match(read('app/_layout.tsx'), /GlobalSigningOutCover/);
   assert.match(read('app/_layout.tsx'), /LegalLinksSheetHost/);
+  assert.match(read('app/_layout.tsx'), /TourChapterSheetHost/);
   assert.match(read('components/orbit/global-signing-out-cover.tsx'), /subscribeSignOutInFlight/);
   assert.match(read('components/orbit/signing-out-overlay.tsx'), /Signing out…/);
   assert.doesNotMatch(read('app/settings.tsx'), /SigningOutOverlay/);
