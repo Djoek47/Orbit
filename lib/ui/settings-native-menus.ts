@@ -9,8 +9,10 @@ import { ActionSheetIOS, Alert, Platform } from 'react-native';
 
 import { SESSION_NAV_DELAY_MS } from '@/lib/navigation/session-restart';
 import { openLegalLinksSheet } from '@/lib/ui/legal-links-sheet-controller';
+import { openTourChapterSheet } from '@/lib/ui/tour-chapter-sheet-controller';
 
 let privacyOpenTimer: ReturnType<typeof setTimeout> | null = null;
+let tourChapterOpenTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Privacy / Terms / Support — root glass sheet + in-app browser, never orbitAlert.
@@ -34,6 +36,21 @@ export function showPrivacyLegalMenuAfterSettingsDismiss(): void {
   privacyOpenTimer = setTimeout(() => {
     privacyOpenTimer = null;
     openLegalLinksSheet();
+  }, SESSION_NAV_DELAY_MS);
+}
+
+/**
+ * After Settings dismisses, open the frosted “Replay a part” chapter picker.
+ * Same timing as Privacy — never nest under Expo presentation:modal.
+ */
+export function showTourChapterSheetAfterSettingsDismiss(): void {
+  if (tourChapterOpenTimer) {
+    clearTimeout(tourChapterOpenTimer);
+    tourChapterOpenTimer = null;
+  }
+  tourChapterOpenTimer = setTimeout(() => {
+    tourChapterOpenTimer = null;
+    openTourChapterSheet();
   }, SESSION_NAV_DELAY_MS);
 }
 

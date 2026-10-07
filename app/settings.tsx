@@ -60,6 +60,7 @@ import { NotificationPrefsPanel } from '@/components/orbit/settings/notification
 import {
   confirmLeaveDevice,
   showPrivacyLegalMenuAfterSettingsDismiss,
+  showTourChapterSheetAfterSettingsDismiss,
 } from '@/lib/ui/settings-native-menus';
 import { formatHouseholdRole } from '@/lib/permissions';
 import { closeSettingsModal } from '@/lib/navigation/close-settings-modal';
@@ -118,8 +119,6 @@ import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
 import { SettingsGroup, SettingsNavRow } from '@/components/orbit/settings/grouped';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
-import { chaptersForTour } from '@/lib/tour/tour-steps';
-import { resolveTourId } from '@/lib/tour/tour-conditions';
 import { isTourEnabledSync } from '@/lib/tour/tour-enabled';
 import {
   meterCaption,
@@ -858,6 +857,9 @@ export default function SettingsScreen() {
                 label="Take the tour again"
                 subtitle="Replay the first-run walkthrough from the start"
                 onPress={() => {
+                  collapseSettingsOverlays();
+                  // Dismiss Settings first — same class as Privacy / Get Started.
+                  closeSettingsModal();
                   tourControls?.startTour();
                 }}
               />
@@ -867,22 +869,11 @@ export default function SettingsScreen() {
                 label="Replay a part"
                 subtitle="Jump to one chapter"
                 onPress={() => {
-                  const tid = resolveTourId({
-                    household,
-                    currentMember,
-                  });
-                  const chapters = chaptersForTour(tid);
-                  orbitAlert(
-                    'Replay a part',
-                    'Pick a chapter to replay.',
-                    [
-                      ...chapters.map((ch) => ({
-                        text: ch.name,
-                        onPress: () => tourControls?.startChapter(tid, ch.id),
-                      })),
-                      { text: 'Cancel', style: 'cancel' as const },
-                    ]
-                  );
+                  collapseSettingsOverlays();
+                  // Never orbitAlert under Settings — nested Modal blocks touches.
+                  // Premium frosted chapter sheet opens after dismiss settles.
+                  closeSettingsModal();
+                  showTourChapterSheetAfterSettingsDismiss();
                 }}
               />
               <SettingsNavRow
@@ -892,6 +883,7 @@ export default function SettingsScreen() {
                 subtitle="Opens the checklist on Home"
                 onPress={() => {
                   collapseSettingsOverlays();
+                  closeSettingsModal();
                   tourControls?.showChecklist();
                 }}
               />
