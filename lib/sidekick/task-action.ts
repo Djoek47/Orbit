@@ -103,6 +103,9 @@ export async function sidekickCompleteTask(input: {
         input.task
       );
     }
+    if (/not_assignee|not the assignee|not assigned/i.test(detail)) {
+      throw new Error('This task belongs to someone else. Switch profiles, then try again.');
+    }
     throw new Error(detail);
   }
 
@@ -111,6 +114,9 @@ export async function sidekickCompleteTask(input: {
     task?: Record<string, unknown>;
     alreadyCompleted?: boolean;
   };
+  if (payload?.error === 'not_assignee') {
+    throw new Error('This task belongs to someone else. Switch profiles, then try again.');
+  }
   if (payload?.error || !payload?.task) {
     throw new Error(payload?.error ?? 'sidekickCompleteTask empty response');
   }

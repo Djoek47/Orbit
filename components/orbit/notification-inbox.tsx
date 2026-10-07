@@ -216,9 +216,7 @@ export function NotificationInbox({
       null;
     if (targetMemberId && targetMemberId !== currentMember?.id) {
       try {
-        const { loadDeviceSession, selectDeviceProfile } = await import(
-          '@/lib/device/device-session'
-        );
+        const { loadDeviceSession } = await import('@/lib/device/device-session');
         const { shouldOpenNotificationAsMember } = await import(
           '@/lib/notifications/open-as-member'
         );
@@ -230,8 +228,7 @@ export function NotificationInbox({
             session,
           })
         ) {
-          await selectDeviceProfile(targetMemberId);
-          switchPersona(targetMemberId);
+          await switchPersona(targetMemberId);
         }
       } catch {
         // best-effort

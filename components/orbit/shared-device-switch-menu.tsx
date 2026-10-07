@@ -10,13 +10,13 @@ import { LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } fro
 import Animated, { FadeIn, FadeInDown, Layout, ZoomIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { orbitAlert } from '@/components/orbit/orbit-alert';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { Moji } from '@/components/orbit/moji/moji';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import {
   isSharedTabletDeviceSession,
   reconcileHostedDeviceSession,
-  selectDeviceProfile,
   type DeviceSession,
 } from '@/lib/device/device-session';
 import {
@@ -38,7 +38,7 @@ type Props = {
   members: HouseholdMember[];
   currentMember: HouseholdMember | null | undefined;
   accentColor: string;
-  onSwitchPersona: (memberId: string) => void;
+  onSwitchPersona: (memberId: string) => void | Promise<void>;
 };
 
 export function SharedDeviceSwitchMenu({
@@ -109,10 +109,22 @@ export function SharedDeviceSwitchMenu({
 
   const pick = async (member: HouseholdMember) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await selectDeviceProfile(member.id);
-    onSwitchPersona(member.id);
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpen(false);
+    try {
+      // switchPersona binds DeviceSession + profile code, then syncs — do not
+      // flip the menu closed until that succeeds (else Mark complete fails).
+      await onSwitchPersona(member.id);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setOpen(false);
+    } catch (error) {
+      orbitAlert(
+        'Could not switch',
+        error instanceof Error
+          ? error.message
+          : 'Scan the shared-device QR again so this profile is on the tablet.',
+        undefined,
+        { record: true, source: 'shared-switch' }
+      );
+    }
   };
 
   return (

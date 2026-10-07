@@ -40,5 +40,6 @@ export function useSidekickLiveSync() {
       if (interval) clearInterval(interval);
       subscription?.remove();
     };
-  }, [currentMember?.role, household.id, refreshHousehold]);
+    // Rebind when the shared-tablet face changes (Emma → Jack), not only on role.
+  }, [currentMember?.id, currentMember?.role, household.id, refreshHousehold]);
 }

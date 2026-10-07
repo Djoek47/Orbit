@@ -61,6 +61,12 @@ export type HouseholdMember = {
   plannedTaskFrequencies?: Record<string, string>;
   /** ISO timestamp — last Sidekick sync or authenticated session ping (admin roster). */
   lastSeenAt?: string | null;
+  /** Personal Sidekick phone presence (not shared tablet). */
+  personalLastSeenAt?: string | null;
+  /** Last active on a shared tablet. */
+  sharedLastSeenAt?: string | null;
+  /** Shared-device shell id this person is currently active on. */
+  sharedActiveOnDeviceId?: string | null;
   /** When true, this person skips the pending step even if join approval is required. */
   joinPreApproved?: boolean;
 };

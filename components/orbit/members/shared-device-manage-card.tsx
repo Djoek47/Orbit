@@ -199,7 +199,12 @@ export function SharedDeviceManageCard({
                 <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
                   {person.name}
                 </Text>
-                <MemberPresencePill member={person} variant="compact" />
+                <MemberPresencePill
+                  member={person}
+                  variant="compact"
+                  channel="shared"
+                  sharedDeviceId={device.id}
+                />
               </View>
               <View style={[styles.faceRemove, { backgroundColor: `${accent}33` }]}>
                 <MaterialIcons name="close" size={12} color={accent} />

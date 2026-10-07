@@ -157,7 +157,7 @@ test('Pass C2b: Privacy & legal dismisses Settings then opens root sheet', () =>
   assert.match(legalHost, /FrostedPanel/);
   assert.match(legalHost, /onDismiss=\{flushAfterDismiss\}/);
   assert.match(legalHost, /beginDismiss/);
-  assert.match(legalHost, /SESSION_NAV_DELAY_MS/);
+  assert.match(legalHost, /LEGAL_SHEET_DISMISS_MS|InteractionManager/);
   assert.match(legalHost, /router\.push\('\/support'/);
   assert.match(read('lib/legal/open-choremaxx-url.ts'), /openBrowserAsync/);
   assert.match(read('components/orbit/frosted-panel.tsx'), /frostFill/);

@@ -164,7 +164,14 @@ export function HouseholdMembersRoster({
       onOpenPersonaSwitch();
       return;
     }
-    switchPersona(memberId);
+    void switchPersona(memberId).catch((error) => {
+      orbitAlert(
+        'Could not switch',
+        error instanceof Error ? error.message : 'Try again from the Switch menu.',
+        undefined,
+        { record: true, source: 'people-switch' }
+      );
+    });
   };
 
   const handleRemoveMember = (member: HouseholdMember) => {
@@ -255,7 +262,8 @@ export function HouseholdMembersRoster({
         const progress = todayProgress(member, household);
         const age = ageLabel(member);
         const device = findSharedDeviceForMember(member.id, household.members);
-        const presence = memberPresenceParts(member);
+        // SIDEKICKS list: personal phone only — tablet activity shows under Shared tablets.
+        const presence = memberPresenceParts(member, { channel: 'personal' });
         const presenceBit =
           presence.isLive
             ? 'Connected'
@@ -263,7 +271,9 @@ export function HouseholdMembersRoster({
               ? `Last seen ${presence.lastSeenText}`
               : presence.connectionLabel;
         const sub = device
-          ? `${age ? `${age} · ` : ''}shares the ${device.name?.trim() || 'shared device'} · ${presenceBit}`
+          ? `${age ? `${age} · ` : ''}shares the ${device.name?.trim() || 'shared device'}${
+              presence.isLive ? ` · ${presenceBit}` : presence.lastSeenText ? ` · ${presenceBit}` : ''
+            }`
           : age
             ? `${age} · ${progress.done} of ${progress.total} done today · ${presenceBit}`
             : `${progress.done} of ${progress.total} done today · ${presenceBit}`;
@@ -294,7 +304,7 @@ export function HouseholdMembersRoster({
                 <Text style={[styles.kidName, { color: c.text, flexShrink: 1 }]} numberOfLines={1}>
                   {member.name}
                 </Text>
-                <MemberPresencePill member={member} variant="compact" />
+                <MemberPresencePill member={member} variant="compact" channel="personal" />
               </View>
               <Text style={[styles.kidMeta, { color: c.textMuted }]} numberOfLines={1}>
                 {sub}

@@ -24,8 +24,32 @@ export type MemberPresenceParts = {
   isLive: boolean;
 };
 
-/** Split presence for meta line vs invite-row timestamp. */
-export function memberPresenceParts(member: HouseholdMember): MemberPresenceParts {
+export type MemberPresenceChannel = 'personal' | 'shared' | 'any';
+
+function liveFromIso(iso: string | null | undefined): {
+  isLive: boolean;
+  lastSeenText: string | null;
+} {
+  const lastSeen = iso?.trim();
+  if (!lastSeen) {
+    return { isLive: false, lastSeenText: null };
+  }
+  const ageMs = Date.now() - new Date(lastSeen).getTime();
+  const isLive = !Number.isNaN(ageMs) && ageMs <= MEMBER_LIVE_MS;
+  return { isLive, lastSeenText: formatLastSeen(lastSeen) };
+}
+
+/**
+ * Presence for admin People.
+ * - personal: SIDEKICKS list (phone only)
+ * - shared: Shared tablets “Who can use it” (active face on that device)
+ * - any: legacy / detail screens (either channel)
+ */
+export function memberPresenceParts(
+  member: HouseholdMember,
+  options?: { channel?: MemberPresenceChannel; sharedDeviceId?: string | null }
+): MemberPresenceParts {
+  const channel = options?.channel ?? 'any';
   const usesPresence = member.role === 'child' || memberUsesProfileInvite(member);
   if (!usesPresence) {
     return {
@@ -39,29 +63,77 @@ export function memberPresenceParts(member: HouseholdMember): MemberPresencePart
     return { connectionLabel: 'Needs invite', lastSeenText: null, isLive: false };
   }
 
-  const lastSeen = member.lastSeenAt?.trim();
-  if (!lastSeen) {
-    return { connectionLabel: 'Not connected yet', lastSeenText: null, isLive: false };
+  if (channel === 'personal') {
+    const stamp = member.personalLastSeenAt ?? null;
+    // Before migration backfill lands on client, avoid treating shared-only
+    // lastSeenAt as personal Connected when they are active on a tablet.
+    const { isLive, lastSeenText } = liveFromIso(stamp);
+    if (isLive) {
+      return { connectionLabel: 'Connected', lastSeenText, isLive: true };
+    }
+    // Fallback: old clients only had lastSeenAt — show Connected only if not
+    // marked active on a shared tablet right now.
+    if (!stamp && member.lastSeenAt && !member.sharedActiveOnDeviceId) {
+      const legacy = liveFromIso(member.lastSeenAt);
+      return {
+        connectionLabel: legacy.isLive ? 'Connected' : 'Disconnected',
+        lastSeenText: legacy.lastSeenText,
+        isLive: legacy.isLive,
+      };
+    }
+    return {
+      connectionLabel: lastSeenText || stamp ? 'Disconnected' : 'Not connected yet',
+      lastSeenText,
+      isLive: false,
+    };
   }
 
-  const ageMs = Date.now() - new Date(lastSeen).getTime();
-  const isLive = !Number.isNaN(ageMs) && ageMs <= MEMBER_LIVE_MS;
+  if (channel === 'shared') {
+    const deviceId = options?.sharedDeviceId?.trim();
+    const activeHere =
+      Boolean(deviceId) && member.sharedActiveOnDeviceId === deviceId;
+    const stamp = member.sharedLastSeenAt ?? (activeHere ? member.lastSeenAt : null);
+    const { isLive, lastSeenText } = liveFromIso(stamp);
+    if (activeHere && isLive) {
+      return { connectionLabel: 'Connected', lastSeenText, isLive: true };
+    }
+    return {
+      connectionLabel: lastSeenText ? 'Disconnected' : 'Not connected yet',
+      lastSeenText,
+      isLive: false,
+    };
+  }
+
+  // any — either channel live
+  const personal = liveFromIso(member.personalLastSeenAt ?? member.lastSeenAt);
+  const shared = liveFromIso(member.sharedLastSeenAt);
+  const isLive = personal.isLive || shared.isLive;
+  const lastSeenText = personal.lastSeenText ?? shared.lastSeenText;
+  if (!member.personalLastSeenAt && !member.sharedLastSeenAt && !member.lastSeenAt) {
+    return { connectionLabel: 'Not connected yet', lastSeenText: null, isLive: false };
+  }
   return {
     connectionLabel: isLive ? 'Connected' : 'Disconnected',
-    lastSeenText: formatLastSeen(lastSeen),
+    lastSeenText,
     isLive,
   };
 }
 
 /** Roster status line — Connected, Disconnected, or Needs invite. */
-export function memberPresenceLabel(member: HouseholdMember): string {
-  const { connectionLabel, lastSeenText, isLive } = memberPresenceParts(member);
+export function memberPresenceLabel(
+  member: HouseholdMember,
+  options?: { channel?: MemberPresenceChannel; sharedDeviceId?: string | null }
+): string {
+  const { connectionLabel, lastSeenText, isLive } = memberPresenceParts(member, options);
   if (lastSeenText && !isLive && connectionLabel === 'Disconnected') {
     return `${connectionLabel} · Last seen ${lastSeenText}`;
   }
   return connectionLabel;
 }
 
-export function memberIsLive(member: HouseholdMember): boolean {
-  return memberPresenceParts(member).isLive;
+export function memberIsLive(
+  member: HouseholdMember,
+  options?: { channel?: MemberPresenceChannel; sharedDeviceId?: string | null }
+): boolean {
+  return memberPresenceParts(member, options).isLive;
 }

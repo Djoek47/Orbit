@@ -44,6 +44,9 @@ export function mapMemberRow(row: {
   planned_task_frequencies?: Record<string, string> | null;
   join_pre_approved?: boolean | null;
   last_seen_at?: string | null;
+  personal_last_seen_at?: string | null;
+  shared_last_seen_at?: string | null;
+  shared_active_on_device_id?: string | null;
 }): HouseholdMember {
   const status =
     row.status === 'active' ||
@@ -87,6 +90,9 @@ export function mapMemberRow(row: {
         : undefined,
     joinPreApproved: row.join_pre_approved === true,
     lastSeenAt: row.last_seen_at ?? null,
+    personalLastSeenAt: row.personal_last_seen_at ?? null,
+    sharedLastSeenAt: row.shared_last_seen_at ?? null,
+    sharedActiveOnDeviceId: row.shared_active_on_device_id ?? null,
   };
 }
 
