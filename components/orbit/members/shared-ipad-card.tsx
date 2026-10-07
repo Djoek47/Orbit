@@ -40,8 +40,8 @@ export function SharedIpadCard({ accent }: Props) {
           </View>
           <Text style={[styles.cardBody, { color: c.textMuted }]}>
             {onDevice
-              ? 'Turn this tablet into a shared device your kids use. Each one taps their face to start.'
-              : 'Kids can share one phone or tablet and switch by tapping their face. Open Choremaxx on that device and set it up there.'}
+              ? 'Turn this tablet into a shared device your kids use. Each one taps their profile to start.'
+              : 'Kids can share one phone or tablet and switch by tapping their profile. Open Choremaxx on that device and set it up there.'}
           </Text>
           <Pressable
             onPress={() =>

@@ -578,7 +578,7 @@ export default function SetupKidDeviceScreen() {
         <View style={cardStyle}>
           <Text style={[styles.stepTitle, { color: c.text }]}>Faces</Text>
           <Text style={[styles.stepSub, { color: c.textMuted }]}>
-            On the tablet, each person taps their face to open their own Orbit.
+            On the tablet, each person taps their profile to open their own Orbit.
           </Text>
 
           <View
@@ -827,7 +827,7 @@ export default function SetupKidDeviceScreen() {
         <SettingsModalChrome
           backLabel="People"
           title="Shared devices"
-          purpose="Create a QR on your phone. The tablet scans it — kids tap their face to switch.">
+          purpose="Create a QR on your phone. The tablet scans it — kids tap their profile to switch.">
           <View style={[styles.listBody, { paddingBottom: insets.bottom + 24 }]}>
             {devices.length === 0 ? (
               <View

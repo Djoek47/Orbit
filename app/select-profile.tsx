@@ -179,7 +179,7 @@ export default function SelectProfileScreen() {
           <Text style={[styles.eyebrow, { color: orbitPalette.textMuted }]}>{deviceLabel}</Text>
           <Text style={[styles.title, { color: orbitPalette.text }]}>Who&apos;s using this device?</Text>
           <Text style={[styles.subtitle, { color: orbitPalette.textMuted }]}>
-            Tap your face. Switch anytime from the Switch tab or Switch · name on Home.
+            Tap your profile. Switch anytime from the Switch tab or Switch · name on Home.
           </Text>
         </View>
 
