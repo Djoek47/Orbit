@@ -63,12 +63,14 @@ Product authorized TestFlight push. Remaining dashboard / ASC follow-ups:
 
 | | |
 |--|--|
-| Version | **1.3.0 (117)** |
-| Branch | `cursor/make-v33` @ `3a60743` |
-| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/ea48c92c-6156-4918-a329-b9d172f2f614 — **FINISHED** |
-| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/3a16f87b-0de6-4703-8177-97ffb57d8300 — **submitted to ASC** |
-| Prior (116) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/2c539a10-c16a-41f8-83ae-a274342b7d74 |
+| Version | **1.3.0 (118)** — shared-device rework |
+| Branch | `cursor/shared-device-rework-c30d` @ `ffe8c06` |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/4086249a-717b-4b32-9d81-99b5a42f5311 — **FINISHED** |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/2f36d34c-43b8-4fd1-819b-f3313f087c80 — **submitted to ASC** |
+| Prior (117) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/ea48c92c-6156-4918-a329-b9d172f2f614 |
 | ASC | https://appstoreconnect.apple.com/apps/6796850110/testflight/ios |
+
+**118 extras:** shared-tablet join ≠ Sidekick; atomic Switch + Mark complete; personal vs shared presence; Accept on fresh tablet; picker same-face bind. Edge: `sidekick-sync` + `redeem-profile-invite` redeployed.
 
 ## External tester prompt (short — paste as-is)
 
