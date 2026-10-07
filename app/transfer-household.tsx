@@ -70,7 +70,7 @@ export default function TransferHouseholdScreen() {
         });
         if (!result.ok) {
           setError(result.error);
-          void showNativeAppError('Couldn’t create transfer QR', result.error, {
+          void showNativeAppError('Couldn’t create transfer QR code', result.error, {
             source: 'transfer-household-create',
             category: 'settings',
           });
@@ -85,9 +85,9 @@ export default function TransferHouseholdScreen() {
         });
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Could not create transfer QR.';
+        const message = err instanceof Error ? err.message : 'Could not create transfer QR code.';
         setError(message);
-        void showNativeAppError('Couldn’t create transfer QR', err, {
+        void showNativeAppError('Couldn’t create transfer QR code', err, {
           source: 'transfer-household-create',
           category: 'settings',
         });
@@ -165,7 +165,7 @@ export default function TransferHouseholdScreen() {
               </Text>
               <Text style={[styles.heroSub, { color: c.textMuted }]}>
                 {active && !expired
-                  ? 'QR live · empty or new account only'
+                  ? 'QR code live · empty or new account only'
                   : 'Scan on an empty Choremaxx account. You become a member; they become owner.'}
               </Text>
             </View>
@@ -180,7 +180,7 @@ export default function TransferHouseholdScreen() {
             <ProfileQrCard
               qrValue={active.shareLink}
               displayCode={active.token.slice(0, 8).toUpperCase()}
-              caption="Have them open Choremaxx → scan this QR, or open the link on an empty account."
+              caption="Have them open Choremaxx and scan this code, or open the link on an empty account."
               shareLabel="Share transfer link"
               onShare={async () => {
                 await Share.share({
@@ -189,7 +189,7 @@ export default function TransferHouseholdScreen() {
                 });
               }}
               onRegenerate={() => mint()}
-              regenerateLabel="New QR"
+              regenerateLabel="New QR code"
               regenerating={busy}
             />
 
@@ -212,11 +212,11 @@ export default function TransferHouseholdScreen() {
           <View style={styles.stack}>
             {expired ? (
               <Text style={[typography.body, { color: '#FBBF24', textAlign: 'center' }]}>
-                This QR expired.
+                This QR code expired.
               </Text>
             ) : null}
             <OrbitButton disabled={busy} onPress={mint}>
-              {busy ? 'Creating…' : 'Generate transfer QR'}
+              {busy ? 'Creating…' : 'Generate transfer QR code'}
             </OrbitButton>
           </View>
         )}

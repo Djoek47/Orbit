@@ -25,6 +25,12 @@ import {
   getCurrentCoords,
 } from '@/lib/places/nearby-stores';
 import {
+  loadCachedOrigin,
+  loadLastShownSuggestions,
+  saveCachedOrigin,
+  saveLastShownSuggestions,
+} from '@/lib/places/nearby-cache';
+import {
   findNearbySuggestions,
   pickSuggestions,
   suggestionsFromStores,
@@ -54,12 +60,19 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
     setFailed(false);
     setNoLocation(false);
     try {
-      // Home first; then this phone; then Home's address, which is all we have when the pin was
-      // typed rather than dropped. Asking for location only happens on a tap, never on open.
+      // Home first; then the address we already resolved once; then this phone; then a fresh
+      // geocode. The geocode is a network round trip, and doing it on every open left a
+      // week-long cache stranded behind it — hence the spinner every single time.
       let origin =
         homeLat != null && homeLng != null ? { lat: homeLat, lng: homeLng } : null;
+      if (!origin && homeAddress && !askForLocation) {
+        origin = await loadCachedOrigin(homeAddress);
+      }
       if (!origin) origin = await getCurrentCoords({ requestIfNeeded: askForLocation });
-      if (!origin && homeAddress) origin = await coordsForAddress(homeAddress);
+      if (!origin && homeAddress) {
+        origin = await coordsForAddress(homeAddress);
+        if (origin) await saveCachedOrigin(homeAddress, origin);
+      }
       if (!origin) {
         setAll([]);
         setFailed(true);
@@ -70,11 +83,13 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
       const found = await findNearbySuggestions(origin, { forceRefresh: askForLocation });
       if (found.length) {
         setAll(found);
+        void saveLastShownSuggestions(found);
         return;
       }
       const stores = await findNearbyStores(origin, { forceRefresh: askForLocation });
       const fromStores = suggestionsFromStores(stores.stores, origin);
       setAll(fromStores);
+      if (fromStores.length) void saveLastShownSuggestions(fromStores);
       setFailed(fromStores.length === 0);
     } catch (error) {
       console.warn('nearby suggestions', error);
@@ -88,6 +103,11 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      // Paint whatever was here last time first. Even with every cache warm there are two
+      // awaits before results arrive, which is long enough to show a spinner on every open
+      // for a row whose answer almost never changes. The real load corrects it behind this.
+      const last = await loadLastShownSuggestions();
+      if (!cancelled && last?.length) setAll(last);
       if (cancelled) return;
       await load();
     })();

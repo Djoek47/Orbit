@@ -14,7 +14,7 @@ type InviteQrScannerProps = {
   visible: boolean;
   onClose: () => void;
   onScanned: (inviteCode: string) => void;
-  /** Ownership transfer QR (orbit://transfer-household?token=). */
+  /** Ownership transfer QR code (orbit://transfer-household?token=). */
   onTransferScanned?: (token: string) => void;
 };
 
@@ -28,12 +28,12 @@ export function InviteQrScanner({
   const { c } = useOrbitColors();
   const [permission, requestPermission] = useCameraPermissions();
   const [locked, setLocked] = useState(false);
-  const [hint, setHint] = useState('Align your personal invite QR in the frame');
+  const [hint, setHint] = useState('Align your personal invite QR code in the frame');
 
   useEffect(() => {
     if (!visible) {
       setLocked(false);
-      setHint('Align your personal invite QR in the frame');
+      setHint('Align your personal invite QR code in the frame');
     }
   }, [visible]);
 
@@ -42,18 +42,18 @@ export function InviteQrScanner({
     const transferToken = parseHouseholdTransferTokenFromUrl(data);
     if (transferToken) {
       if (!onTransferScanned) {
-        setHint('Sign in on an empty account to accept a transfer QR');
+        setHint('Sign in on an empty account to accept a transfer QR code');
         return;
       }
       setLocked(true);
-      setHint('Transfer QR found');
+      setHint('Transfer QR code found');
       onTransferScanned(transferToken);
       onClose();
       return;
     }
     const code = parseInvitePayload(data);
     if (!code) {
-      setHint('That QR is not a Choremaxx invite — try again');
+      setHint('That QR code is not a Choremaxx invite — try again');
       return;
     }
     setLocked(true);
@@ -72,7 +72,7 @@ export function InviteQrScanner({
         <View style={styles.header}>
           <View>
             <Text style={[typography.body, { color: c.text }]}>Join household</Text>
-            <Text style={[typography.body, { color: c.text }]}>Scan invite QR</Text>
+            <Text style={[typography.body, { color: c.text }]}>Scan invite QR code</Text>
           </View>
           <Pressable onPress={onClose} style={styles.closeChip}>
             <Text style={[styles.closeLabel, { color: c.textMuted }]}>Close</Text>

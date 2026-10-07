@@ -146,7 +146,7 @@ export default function AcceptHouseholdTransferScreen() {
 
   if (isSignedIn && error) {
     return (
-      <AuthShell title="Transfer ownership" subtitle="This QR moves a household to your account.">
+      <AuthShell title="Transfer ownership" subtitle="This QR code moves a household to your account.">
         <Stack.Screen options={{ headerShown: false }} />
         <FrostedPanel borderColor={`${accentTheme.primary}33`} style={styles.errorCard}>
           <View style={[styles.errorIcon, { backgroundColor: 'rgba(248,113,113,0.14)' }]}>

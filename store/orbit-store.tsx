@@ -615,11 +615,16 @@ type OrbitContextValue = {
   setMemberJoinPreApproved: (memberId: string, preApproved: boolean) => Promise<void>;
   completeProfileJoin: (input: import('@/types/orbit').CompleteProfileJoinInput) => Promise<{
     status: 'pending' | 'active';
+    member: HouseholdMember;
+    householdId: string;
+    householdName: string;
+    members: HouseholdMember[];
   }>;
   lookupProfileInvite: (
     code: string
   ) => Promise<{
     member: HouseholdMember;
+    householdId: string;
     householdName: string;
     onSharedShell?: boolean;
   } | null>;
@@ -2474,6 +2479,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!lookedUp?.member) return null;
     return {
       member: lookedUp.member,
+      householdId: lookedUp.householdId,
       householdName: lookedUp.householdName,
       onSharedShell: lookedUp.onSharedShell,
     };
@@ -2481,7 +2487,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const completeProfileJoin = async (
     input: import('@/types/orbit').CompleteProfileJoinInput
-  ): Promise<{ status: 'pending' | 'active' }> => {
+  ): Promise<{
+    status: 'pending' | 'active';
+    member: HouseholdMember;
+    householdId: string;
+    householdName: string;
+    members: HouseholdMember[];
+  }> => {
     const normalizedCode =
       parseInvitePayload(input.code) ?? (input.code.trim() ? normalizeInviteCode(input.code) : null);
     const result = await householdRepository.completeProfileJoin(input);
@@ -2573,7 +2585,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       sidekickAnnounceReadyRef.current = true;
     }
 
-    return { status: result.status };
+    return {
+      status: result.status,
+      member: result.member,
+      householdId: result.householdId,
+      householdName: result.householdName,
+      members: mergedSnapshot.members,
+    };
   };
 
   const applyStashedInvite = async (): Promise<'pending' | 'active' | 'none'> => {

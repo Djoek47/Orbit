@@ -20,7 +20,7 @@ export function LateCreditTable({ constants, palette, voice }: VisualWidgetProps
           <View key={row.full} style={[styles.pill, { backgroundColor: palette.cardBorder }]}>
             <Text style={[styles.pillText, { color: palette.pillText }]}>
               {row.full}
-              {' → '}
+              {' becomes '}
               <Text style={{ color: palette.warn, fontWeight: '800' }}>{row.late}</Text>
             </Text>
           </View>

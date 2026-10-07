@@ -10,9 +10,12 @@ Apple / ASC internal TestFlight slots are **scarce (~15 builds per month)**. Nev
 ## When the user says push / cut TestFlight
 
 1. Identify the **previous TestFlight ship commit** (last `1.3.0 (N)` cut documented in `docs/make-v*-testflight-notes.md` or the last EAS `testflight` build commit).
-2. Fold **all product work since that cut** onto the current `cursor/make-v*` tip — every finished PR tip / commit that landed between the two pushes.
-3. Build **one** IPA from that fold tip (`eas build --profile testflight --auto-submit`).
-4. Record the cut in `docs/make-v*-testflight-notes.md` listing what was included.
+2. **Audit first:** every finished PR tip / make-v tip since that cut must be an ancestor of the ship tip. List anything missing before building.
+3. Fold **all product work since that cut** onto the current `cursor/make-v*` tip — every finished PR tip / commit that landed between the two pushes (e.g. 119→120 means everything after 119).
+4. Build **one** IPA from that fold tip (`eas build --profile testflight --auto-submit`).
+5. Record the cut in `docs/make-v*-testflight-notes.md` listing what was included.
+
+**Quota:** after build **120**, product has **2 careful TF slots left**, then **1**. Never burn one without the fold audit.
 
 ## Forbidden
 

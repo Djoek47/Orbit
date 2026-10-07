@@ -57,7 +57,7 @@ export default function JoinSharedDeviceScreen() {
   }, [household.members, invite]);
 
   useEffect(() => {
-    if (!invite) setError('This shared-device invite looks broken. Ask an admin for a new QR.');
+    if (!invite) setError('This shared-device invite looks broken. Ask an admin for a new QR code.');
   }, [invite]);
 
   const accept = async () => {
@@ -87,7 +87,7 @@ export default function JoinSharedDeviceScreen() {
       <SettingsModalChrome
         backLabel="Back"
         title="Join shared device"
-        purpose="This tablet will host everyone on the QR — not a personal Sidekick login.">
+        purpose="Everyone on this code will be able to use the tablet. It is not a personal sign-in.">
         <View style={[styles.body, { paddingBottom: insets.bottom + 24 }]}>
           <Text style={[styles.eyebrow, { color: accent }]}>Join shared device</Text>
           <Text style={[styles.hero, { color: isDark ? '#F7F2EC' : c.text }]}>
@@ -144,8 +144,8 @@ export default function JoinSharedDeviceScreen() {
             )}
             <Text style={[styles.hint, { color: c.textSubtle }]}>
               {invite
-                ? `${invite.codes.length} profile${invite.codes.length === 1 ? '' : 's'} on this QR`
-                : 'Ask an admin to open Shared devices → Show QR'}
+                ? `${invite.codes.length} profile${invite.codes.length === 1 ? '' : 's'} on this QR code`
+                : 'Ask an admin to open Shared devices and show the code'}
             </Text>
           </FrostedPanel>
 
@@ -163,7 +163,7 @@ export default function JoinSharedDeviceScreen() {
                 : 'Accept · Join household'}
           </OrbitButton>
           <Text style={[styles.footnote, { color: c.textSubtle }]}>
-            Personal Sidekick phones use a single profile code. This QR is for the shared tablet only.
+            Personal Sidekick phones use a single profile code. This QR code is for the shared tablet only.
           </Text>
         </View>
       </SettingsModalChrome>

@@ -304,7 +304,7 @@ export default function CreateEventScreen() {
             <Text style={[typography.footnote, { color: c.textMuted }]}>Plan</Text>
             <Text style={[typography.title1, { color: c.text }]}>Calendar adds locked</Text>
             <Text style={[typography.body, { color: c.textSoft }]}>
-              An admin can enable calendar adds in Settings → What Sidekicks can do.
+              An admin can allow calendar adds under What Sidekicks can do, in Settings.
             </Text>
           </View>
           <OrbitButton onPress={() => router.back()}>Go back</OrbitButton>

@@ -9,6 +9,7 @@
  *
  * Pure module: no AsyncStorage, no Supabase, no react-native.
  */
+import { TOKEN_WEIGHT_SPEAK_BACK } from '@/constants/poppins-ai-rates';
 import {
   IAP_CONSUMABLES,
   type IapTokenPackKey,
@@ -61,6 +62,22 @@ export function topUpPack(key: IapTokenPackKey): TopUpPack {
 
 export function formatPrice(usd: number): string {
   return `$${usd.toFixed(2)}`;
+}
+
+/**
+ * How many Speak-back acts a pack is worth.
+ *
+ * An "action" costs one credit quiet and 35 spoken, so "200 actions" means 200 of one kind and
+ * five of the other. Showing only the big number sells the cheapest pack hardest to the people
+ * it suits least: someone who talks to Poppins pays $1.99 expecting 200 conversations.
+ */
+export function spokenActsForTokens(tokens: number): number {
+  return Math.floor(tokens / TOKEN_WEIGHT_SPEAK_BACK);
+}
+
+/** "1.0¢ each · ~5 spoken" — the whole truth about a pack, on the one line it already had. */
+export function formatPackValue(centsPerAction: number, tokens: number): string {
+  return `${formatPerAction(centsPerAction)} · ~${spokenActsForTokens(tokens)} spoken`;
 }
 
 /** "0.8¢ each" — how the packs are compared on screen. */

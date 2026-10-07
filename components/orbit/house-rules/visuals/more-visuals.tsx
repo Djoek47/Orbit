@@ -29,7 +29,7 @@ export function GateSteps({ palette, voice }: VisualWidgetProps) {
           The day&apos;s tasks and homework all complete
         </Text>
       </View>
-      <Text style={[styles.arrow, { color: '#5C6E8A' }]}>→</Text>
+      <Text style={[styles.arrow, { color: '#5C6E8A' }]}>then</Text>
       <View style={[styles.step, { backgroundColor: palette.deep }]}>
         <Text style={[styles.stepLab, { color: palette.warn }]}>Step 2</Text>
         <Text style={[styles.stepBody, { color: palette.inkSoft }]}>
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   step: { borderRadius: 11, flex: 1, paddingHorizontal: 11, paddingVertical: 10 },
   stepLab: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 4, textTransform: 'uppercase' },
   stepBody: { fontSize: 12, lineHeight: 16 },
-  arrow: { alignSelf: 'center', fontSize: 15 },
+  arrow: { alignSelf: 'center', fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
   sk: { gap: 8, marginBottom: 10, marginTop: 14 },
   skRow: { borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11 },
   skHead: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginBottom: 4, textTransform: 'uppercase' },

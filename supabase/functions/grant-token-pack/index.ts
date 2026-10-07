@@ -17,9 +17,9 @@ const PACK_TOKENS: Record<string, number> = {
 };
 
 const PACK_PRODUCTS: Record<string, string> = {
-  small: 'app.choremaxx.household.premium.tokens.small',
-  medium: 'app.choremaxx.household.premium.tokens.medium',
-  large: 'app.choremaxx.household.premium.tokens.large',
+  small: 'app.choremaxx.household.premium.tokens.smallv',
+  medium: 'app.choremaxx.household.premium.tokens.mediumv',
+  large: 'app.choremaxx.household.premium.tokens.largev',
 };
 
 Deno.serve(async (req) => {

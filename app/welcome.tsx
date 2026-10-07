@@ -1587,7 +1587,7 @@ export default function WelcomeOnboardingScreen() {
                 You&apos;re in.
               </Text>
               <Text style={[styles.readySub, { color: orbitPalette.textMuted }]}>
-                Share a personal invite for each person from Settings → Members, or from your roster above.
+                Share a personal invite for each person from Members in Settings, or from your roster above.
               </Text>
 
               {shareStatus ? (

@@ -49,7 +49,7 @@ export function ProfileInviteSheet({
         <ProfileQrCard
           qrValue={links.webLink}
           displayCode={links.code}
-          caption={`Scan or AirDrop this to ${member.name}'s phone. They open Get Started → Sidekick — no sign-in.`}
+          caption={`Scan or AirDrop this to ${member.name}'s phone. They tap Get Started, then Sidekick. No sign-in needed.`}
           onShare={async () => {
             await shareInvite({
               householdName,

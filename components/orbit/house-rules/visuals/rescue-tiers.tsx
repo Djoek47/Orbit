@@ -11,9 +11,9 @@ export function RescueTiers({ constants, palette, voice }: VisualWidgetProps) {
 
   if (voice === 'sidekick') {
     const tiles = [
-      { key: '1', label: `1 day → ${one}` },
-      { key: '2', label: `2 days → ${two}` },
-      { key: '3', label: '3 days → gone' },
+      { key: '1', label: `1 day late · ${one}` },
+      { key: '2', label: `2 days late · ${two}` },
+      { key: '3', label: '3 days late · gone' },
     ];
     return (
       <View style={styles.pills} accessible={false} importantForAccessibility="no-hide-descendants">

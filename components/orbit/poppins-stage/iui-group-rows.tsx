@@ -64,7 +64,7 @@ export function IuiGroupRows({
             <View style={styles.body}>
               <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
                 {kind === 'task' && item.assignee
-                  ? `${item.label} → ${item.assignee}`
+                  ? `${item.label} · ${item.assignee}`
                   : item.label}
               </Text>
               {detail && kind === 'grocery' ? (

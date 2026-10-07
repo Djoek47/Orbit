@@ -864,7 +864,7 @@ export default function RewardsScreen() {
             {isAdmin ? (
               <Pressable onPress={() => router.push('/reward-tally' as never)}>
                 <Text style={[typography.footnote, { color: accentTheme.primary }]}>
-                  Reward history →
+                  Reward history
                 </Text>
               </Pressable>
             ) : null}
@@ -1175,7 +1175,7 @@ export default function RewardsScreen() {
           <EmptyState
             tone="noneYet"
             title="Nothing to show here yet"
-            caption="This household's reward model has points, rewards and allowance all switched off. Turn one on in Settings → Rewards & XP."
+            caption="This household has points, rewards and allowance all switched off. Turn one on under Rewards & XP in Settings."
           />
         </View>
       ) : null}

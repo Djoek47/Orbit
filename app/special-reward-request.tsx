@@ -56,7 +56,7 @@ export default function SpecialRewardRequestScreen() {
           <Text style={[typography.footnote, { marginTop: 8, color: c.textMuted }]}>Rewards</Text>
           <Text style={[typography.title1, { color: c.text }]}>Requests are off</Text>
           <Text style={[typography.body, { color: c.textSoft }]}>
-            A grown-up can allow reward requests that are not in the catalogue yet — Settings →
+            A grown-up can allow reward requests that are not in the catalogue yet, under
             Member permissions.
           </Text>
         </View>
