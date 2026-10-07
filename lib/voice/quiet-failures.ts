@@ -1,8 +1,12 @@
 /**
  * WO15 §1.2 — four Quiet failure causes, each with its own line and last-error key.
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { POPPINS_PAUSED_COPY } from '@/lib/ai/credits';
-import { saveLastAppError } from '@/lib/errors/last-error';
+import { recordAppError } from '@/lib/errors/error-log';
+
+const LAST_ERROR_KEY = 'orbit.lastError.v1';
 
 export type VoiceFailureCause =
   | 'ai_off'
@@ -48,12 +52,30 @@ export function voiceFailureMessage(cause: VoiceFailureCause): string {
   return VOICE_FAILURE_MESSAGES[cause];
 }
 
-/** Persist for Settings → Help → Last error (`voice:` prefix). */
+/**
+ * Persist for Settings → Help → Last error (`voice:` prefix).
+ * Source is `voice` (not `crash`) so Support feedback attributes correctly.
+ */
 export function persistVoiceFailure(cause: VoiceFailureCause, detail?: string): void {
-  void saveLastAppError({
-    message: `voice:${cause}${detail ? ` ${detail}` : ''}`,
-    at: new Date().toISOString(),
-  });
+  const at = new Date().toISOString();
+  const lastMessage = `voice:${cause}${detail ? ` ${detail}` : ''}`;
+  const line = detail
+    ? `${VOICE_FAILURE_MESSAGES[cause]} (${detail})`
+    : VOICE_FAILURE_MESSAGES[cause];
+  void (async () => {
+    try {
+      await AsyncStorage.setItem(LAST_ERROR_KEY, JSON.stringify({ message: lastMessage, at }));
+    } catch {
+      /* ignore */
+    }
+    await recordAppError({
+      title: VOICE_FAILURE_MESSAGES[cause],
+      message: line,
+      source: 'voice',
+      category: 'poppins',
+      at,
+    });
+  })();
 }
 
 export class VoiceFailureError extends Error {

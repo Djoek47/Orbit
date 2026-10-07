@@ -18,16 +18,20 @@ export function serverNeedsMultipart(res: Pick<VoiceResponse, 'status' | 'payloa
 
 /**
  * Turn the function's answer into a transcript, or a failure that names its real cause.
- * The function returns a precise `detail` (audio_not_file, http_401, OPENAI_API_KEY
+ * The function returns a precise `detail` (audio_not_file, openai_400:…, OPENAI_API_KEY
  * missing…) that used to be thrown away, leaving only "whisper_failed".
+ *
+ * Gateway status is labeled `edge N` so it is never confused with an upstream
+ * `openai_400` / legacy `http_400` in the same Support line.
  */
 export function voiceResult(res: VoiceResponse): { transcript: string; answer: string } {
   const { payload, status } = res;
   if (!res.ok || payload.error) {
+    const upstream = payload.detail ? String(payload.detail) : '';
     const detail = [
       String(payload.error ?? 'voice_request_failed'),
-      payload.detail ? String(payload.detail) : null,
-      `http ${status}`,
+      upstream || null,
+      `edge ${status}`,
     ]
       .filter(Boolean)
       .join(' · ');
