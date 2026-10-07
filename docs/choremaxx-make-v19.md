@@ -32,7 +32,7 @@
 In-app Sign in (TestFlight) with:
 
 - **User Name:** `review@choremaxx.app`
-- **Password:** `ReviewDemo2026!`
+- **Password:** `[rotated — use Supabase Auth user in ASC]`
 
 Opens local Rivera household (full features). Put the same values in ASC → TestFlight → Test Information → Beta App Review Information → Sign-in required. Details: `docs/testflight-setup.md`.
 
@@ -84,7 +84,7 @@ See full list in `docs/choremaxx-make-v18.md`. **v19-critical if not applied:**
 ## Verify in app
 
 Settings build tip: `make-v19 · login-review-demo · tf71`  
-Sign in (TestFlight): **Apple Review demo** row with email/password + tap to fill.
+Sign in (TestFlight): **real Supabase Auth credentials in ASC only (in-app autofill removed).
 
 ## Notes for agents
 

@@ -144,13 +144,12 @@ eas build --platform ios --profile testflight --auto-submit
 
 ## Auth for TestFlight (required)
 
-TestFlight builds use **Supabase** (`EXPO_PUBLIC_DATA_MODE=supabase`). They do **not** accept Expo Go mock credentials — **except** the Apple Review Demo credentials below.
+TestFlight builds use **Supabase** (`EXPO_PUBLIC_DATA_MODE=supabase`). There is **no in-app review autofill** and **no hardcoded demo password** in the binary — Apple reviewers sign in with a real Supabase account you create and put in ASC.
 
 | Credential | Works where? |
 |------------|----------------|
 | `sarah@orbit.test` / any password | **Expo Go mock only** (`__DEV__`) — fails on TestFlight with “invalid login” |
-| `review@choremaxx.app` / `ReviewDemo2026!` | **TestFlight / App Store Review Demo** — local Rivera household (Guideline 2.1(a)) |
-| Real email + password created in Supabase Auth (or via Get Started) | TestFlight / production |
+| Real email + password created in Supabase Auth (or via Get Started) | TestFlight / production / App Review |
 | Sign in with Apple | Device builds **after** Apple is enabled in Supabase Auth → Providers |
 
 ### Email confirmation (supported)
@@ -185,39 +184,21 @@ Until Apple is enabled, testers should use **Get Started** or a real email/passw
 
 ## Demo account for Apple Review
 
-### In-app Review Demo (preferred for Beta App Review)
+Create a **real Supabase Auth user** (Dashboard → Authentication → Users → Add user, Auto Confirm). Sign in once on TestFlight, finish onboarding / seed the household, then put **that** email/password in App Store Connect.
 
-TestFlight builds accept these **Sign in** credentials and open a full local demo household
-(Rivera — tasks, groceries, Plan, rewards, ranks). No Supabase user is required.
-
-| Field | Value |
-|-------|--------|
-| **User Name** | `review@choremaxx.app` |
-| **Password** | `ReviewDemo2026!` |
-
-**App Store Connect steps (required after each refused build):**
+**App Store Connect steps:**
 
 1. Log in to App Store Connect → **My Apps** → Choremaxx
-2. **TestFlight** tab → **Test Information**
-3. Scroll to **Beta App Review Information**
-4. Check **Sign-in required**
-5. Enter the User Name and Password above
-6. **Save**
-7. Reply to the App Review message that credentials are filled in (and ship a build that includes Review Demo if the refused build did not)
+2. **TestFlight** tab → **Test Information** (or App Review Information for the version)
+3. Scroll to **Beta App Review Information** / sign-in required
+4. Enter the Supabase email + password you created
+5. **Save**
 
 Suggested Review Notes:
 
-> Choremaxx is a household task and rewards app for families. Sign in with the demo email/password in Beta App Review Information. You land in The Rivera Home (admin Sarah) with tasks, Plan, groceries, rewards, and Poppins. Child profiles are parent-gated. Settings includes Delete account and Export data. Microphone is for optional Poppins voice; location is optional for grocery suggestions.
+> Choremaxx is a household task and rewards app for families. Sign in with the email/password in Beta App Review Information (a real Supabase account). You land in a prepared household with tasks, Plan, groceries, rewards, and Poppins. Child profiles are parent-gated. Settings includes Delete account and Export data. Microphone is for optional Poppins voice; location is optional for grocery suggestions.
 
-### Staged Supabase demo (optional, for live-backend testing)
-
-Create a staged Supabase household:
-
-- **Admin:** a real Supabase Auth user (not `sarah@orbit.test`) / password you provide in Review Notes
-- **Child:** Liam persona with rewards enabled
-- Note: Child role is parent-gated; Sign in with Apple only after Supabase Apple provider is configured
-
-Do **not** put Expo Go mock credentials (`sarah@orbit.test`) in ASC — they fail on TestFlight unless Review Demo is used (above).
+Do **not** put Expo Go mock credentials (`sarah@orbit.test`) in ASC — they fail on TestFlight.
 
 ---
 
@@ -243,8 +224,8 @@ Trigger manually: **Actions → iOS TestFlight → Run workflow**
 | **App Groups** / `group.app.choremaxx.household` / Live Activity shopping sync | Main app profile from July 2026 lacks App Groups. **Ship path:** main app omits App Group until you enable **App Groups** on `app.choremaxx.household` in [Apple Developer](https://developer.apple.com/account/resources/identifiers) (register `group.app.choremaxx.household`), delete the App Store provisioning profile in `eas credentials`, then one **interactive** `eas build -p ios --profile testflight` so EAS mints a profile that matches. Re-add `ios.entitlements` App Group + `withMainAppGroup` in `plugins/with-shopping-live-activity.js` after that. |
 | Push not working on TestFlight | Ensure Push Notifications capability + APNs key in EAS credentials |
 | Sign in with Apple fails (`Provider apple not installed` / issuer not enabled) | Enable **Apple** under Supabase Auth → Providers (Services ID, Team ID, Key ID, `.p8`). App ID capability alone is not enough. |
-| `Invalid login credentials` / `sarah@orbit.test` | Mock-only email. Use Review Demo (`review@choremaxx.app` / `ReviewDemo2026!`) for Apple, or create a Supabase Auth user / Get Started on device. |
-| Beta App Review “unable to access” (Guideline 2.1(a)) | Fill **Beta App Review Information** with Review Demo credentials; ship a build that includes Review Demo (`lib/auth/review-demo.ts`). Reply in ASC. |
+| `Invalid login credentials` / `sarah@orbit.test` | Mock-only email. Create a Supabase Auth user / Get Started on device; put that account in ASC review notes. |
+| Beta App Review “unable to access” (Guideline 2.1(a)) | Fill **Beta App Review Information** with a real Supabase email/password you created and prepared. Reply in ASC. |
 | Sign-up lands on Confirm email | Expected when Confirm email is on — open the mail link (redirect `choremaxx://auth/callback`) or Resend. Allow that URL in Supabase Auth → URL configuration. |
 | `Email not confirmed` on sign-in | App should open Confirm email. Or confirm the user in Dashboard → Authentication → Users. |
 | Raw `authRepository.signIn: …` error text | Fixed in shipping branch after Build 2 — ship a new TestFlight build |

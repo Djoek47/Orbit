@@ -105,7 +105,7 @@ Still open before **public** App Store (not blocking held TestFlight): StoreKit 
 
 ### MEDIUM
 10. Deep-link tokens in query strings (OS logs / screenshots)  
-11. Review demo credentials committed (`lib/auth/review-demo.ts`) — rotate after ASC review  
+11. ~~Review demo credentials in app~~ **removed** — use a real Supabase Auth user in ASC notes only
 12. Weak household join codes (`Math.random`, 6 digits)  
 
 ---
@@ -124,7 +124,7 @@ Still open before **public** App Store (not blocking held TestFlight): StoreKit 
 | `EXPO_TOKEN` / EAS credentials | Expo |
 | `SUPABASE_ACCESS_TOKEN` | CLI / agents |
 | Apple `.p8` Sign In key | Apple Developer |
-| App Review demo password | `REVIEW_DEMO_*` / ASC notes |
+| App Review demo password | Supabase Auth user / ASC notes only |
 | Confirm `POPPINS_VOICE_GRANT_ALL` ≠ `1` on prod |
 
 ---

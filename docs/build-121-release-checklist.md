@@ -29,8 +29,9 @@ where table_name = 'households' and column_name like 'premium_%';
 
 ## 2. Give the App Review demo household Premium
 
-Reviewers sign in with the demo account. Run this in the SQL editor (it runs without a user JWT,
-so the server-only trigger lets it through), replacing the id:
+Reviewers sign in with the **real Supabase account you create** (no in-app autofill). Run this in
+the SQL editor (it runs without a user JWT, so the server-only trigger lets it through), replacing
+the id with that account’s household:
 
 ```sql
 update public.households

@@ -1,5 +1,4 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -16,10 +15,8 @@ import {
   type AuthIssue,
 } from '@/lib/auth/auth-errors';
 import { isAppleAuthAvailable, signInWithApple } from '@/lib/auth/apple-auth';
-import { REVIEW_DEMO_EMAIL, REVIEW_DEMO_PASSWORD } from '@/lib/auth/review-demo';
 import { goToFreshLogin } from '@/lib/navigation/fresh-login';
 import { cancelSignedOutRestart } from '@/lib/navigation/session-restart';
-import { isMockMode } from '@/repositories/repository-utils';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -27,7 +24,6 @@ import { AppText as Text } from '@/components/orbit/app-text';
 export default function SignInScreen() {
   const { accentTheme, orbitPalette, signIn, hydrateFromSession, applyStashedInvite } = useOrbit();
   const { c } = useOrbitColors();
-  const mock = isMockMode();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [issue, setIssue] = useState<AuthIssue | null>(null);
@@ -175,27 +171,6 @@ export default function SignInScreen() {
             />
           </>
         ) : null}
-
-        {!mock ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Fill Apple Review demo credentials"
-            onPress={() => {
-              setEmail(REVIEW_DEMO_EMAIL);
-              setPassword(REVIEW_DEMO_PASSWORD);
-              if (issue) setIssue(null);
-            }}
-            style={[styles.hint, { backgroundColor: orbitPalette.cardMuted }]}>
-            <MaterialIcons name="verified-user" size={14} color={c.textSubtle} />
-            <View style={styles.hintCopy}>
-              <Text style={[styles.hintTitle, { color: c.textMuted }]}>Apple Review demo</Text>
-              <Text style={[styles.hintText, { color: c.textSubtle }]}>
-                {REVIEW_DEMO_EMAIL} · {REVIEW_DEMO_PASSWORD}
-              </Text>
-              <Text style={[styles.hintTap, { color: accentTheme.primary }]}>Tap to fill</Text>
-            </View>
-          </Pressable>
-        ) : null}
       </AuthShell>
 
       <SignInSuccess visible={showSuccess} onDone={finishToHome} />
@@ -208,18 +183,6 @@ const styles = StyleSheet.create({
   divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)' },
   dividerText: { fontSize: 12, fontWeight: '600' },
   appleButton: { height: 48, width: '100%' },
-  hint: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  hintCopy: { flex: 1, gap: 2 },
-  hintTitle: { fontSize: 12, fontWeight: '700' },
-  hintText: { fontSize: 12, flexShrink: 1 },
-  hintTap: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   footerLinks: { alignItems: 'center', gap: 14 },
   link: { fontSize: 14, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

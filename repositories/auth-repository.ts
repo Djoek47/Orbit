@@ -20,13 +20,6 @@ import {
   saveMockSession,
   toAuthSession,
 } from '@/lib/auth/mock-session';
-import {
-  REVIEW_DEMO_USER,
-  bootstrapReviewDemoFlag,
-  clearReviewDemoSession,
-  enableReviewDemoSession,
-  matchesReviewDemoCredentials,
-} from '@/lib/auth/review-demo';
 import { mapProfileToUser } from '@/lib/mappers/orbit-mappers';
 import { createLocalId, getConfiguredSupabase, isMockMode, mapDbError } from '@/repositories/repository-utils';
 import type { AuthSession, CreateProfileInput, OrbitUser, SignInInput, SignUpInput } from '@/types/orbit';
@@ -71,7 +64,6 @@ async function loadProfileUser(
 
 export const authRepository = {
   async getCurrentSession(): Promise<AuthSession | null> {
-    await bootstrapReviewDemoFlag();
     if (isMockMode()) {
       const stored = await loadMockSession();
       return stored ? toAuthSession(stored.user) : null;
@@ -100,23 +92,6 @@ export const authRepository = {
 
   async signIn(input: SignInInput): Promise<AuthSession> {
     allowAuthStorageWrites();
-
-    // Apple Beta App Review — local demo household (Guideline 2.1(a)).
-    if (matchesReviewDemoCredentials(input.email, input.password)) {
-      await enableReviewDemoSession();
-      const user: OrbitUser = { ...REVIEW_DEMO_USER };
-      await saveMockSession(user, 'm1');
-      try {
-        const { mockHousehold } = await import('@/data/mock-household');
-        const { saveActiveMockHousehold } = await import('@/lib/household/mock-active-household');
-        const { seedMockDomainsFromHousehold } = await import('@/lib/household/seed-mock-domains');
-        seedMockDomainsFromHousehold(mockHousehold);
-        await saveActiveMockHousehold(mockHousehold);
-      } catch (error) {
-        console.warn('authRepository.signIn.reviewDemo.seed', error);
-      }
-      return { user };
-    }
 
     if (isMockMode()) {
       const user: OrbitUser = {
@@ -333,18 +308,15 @@ export const authRepository = {
         /* expo go */
       }
       await clearMockSession();
-      await clearReviewDemoSession();
       return;
     }
 
     await signOutEverywhere();
-    await clearReviewDemoSession();
   },
 
   async deleteAccount(feedback?: { reason: string; detail?: string }): Promise<void> {
     if (isMockMode()) {
       await clearMockSession();
-      await clearReviewDemoSession();
       return;
     }
 

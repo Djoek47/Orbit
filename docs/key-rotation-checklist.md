@@ -17,7 +17,7 @@ Rotate in dashboards **before public App Store launch** if any of these were eve
 | 8 | `SUPABASE_ACCESS_TOKEN` | Supabase account tokens | CLI / agents |
 | 9 | Apple Sign In `.p8` key | Apple Developer → Keys | Update Edge / Auth if used |
 | 10 | App Store Connect API key | ASC → Users and Access → Keys | EAS submit |
-| 11 | App Review demo password | `REVIEW_DEMO_*` + ASC review notes | After review completes |
+| 11 | App Review demo password | Real Supabase Auth user in ASC review notes (not in app binary) | Rotate in Supabase + ASC after review |
 | 12 | `POPPINS_VOICE_GRANT_ALL` | Supabase Edge secrets | Must be **unset / ≠ `1`** on prod |
 
 ## After rotation (when you do it)

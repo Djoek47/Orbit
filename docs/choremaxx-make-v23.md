@@ -44,7 +44,7 @@
 Same as v21 — Sign in (TestFlight):
 
 - **User Name:** `review@choremaxx.app`
-- **Password:** `ReviewDemo2026!`
+- **Password:** `[rotated — use Supabase Auth user in ASC]`
 
 ## TestFlight
 

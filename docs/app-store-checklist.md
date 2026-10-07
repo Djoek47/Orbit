@@ -37,10 +37,9 @@
 
 ## App Review notes (suggested)
 
-- **Demo credentials (required):** `review@choremaxx.app` / `ReviewDemo2026!` — enter in TestFlight → Test Information → Beta App Review Information (Sign-in required).
-- Demo opens The Rivera Home (admin) with Child + Adult personas, tasks, groceries, Plan, rewards.
+- **Demo credentials (required):** create a real Supabase Auth user yourself; enter that email/password in TestFlight → Test Information → Beta App Review Information (Sign-in required). No in-app autofill / no hardcoded review password in the binary.
+- Prepare the household on that account (tasks, groceries, Plan, rewards) before submission.
 - Explain Child role is parental-gated
-- Ship a binary that includes Review Demo (`lib/auth/review-demo.ts`) — TF 1.3.0 (69) was refused because reviewers could not sign in after mock was removed from store builds.
 - Settings → Delete account / Export data
 - Microphone (Poppins voice) and location (optional groceries) rationale
 - Sign in with Apple enabled on native builds
