@@ -59,10 +59,11 @@ def paint_background(w: int, h: int, *, quiet: bool = False) -> Image.Image:
                 # Flat dark field for App Store header — no blooms at all
                 blooms = ()
             else:
+                # Edge / ambient washes only — avoid a bloom sitting under the right-side logo
                 blooms = (
-                    (math.hypot(nx - 0.30, ny - 0.75), CORAL, 0.55, 0.55),
-                    (math.hypot(nx - 0.70, ny - 0.30), CITRUS, 0.40, 0.50),
-                    (math.hypot(nx - 0.50, ny - 0.15), GOLD, 0.22, 0.40),
+                    (math.hypot(nx - 0.18, ny - 0.78), CORAL, 0.50, 0.55),
+                    (math.hypot(nx - 0.12, ny - 0.28), CITRUS, 0.32, 0.45),
+                    (math.hypot(nx - 0.42, ny - 0.88), GOLD, 0.20, 0.40),
                 )
             for d, col, strength, falloff in blooms:
                 k = max(0.0, 1.0 - d / falloff) ** 2 * strength
@@ -260,25 +261,25 @@ def compose_header(w: int, h: int) -> Image.Image:
 
 
 def compose_search(w: int, h: int) -> Image.Image:
-    """Search card: white field, single coral logo (no glow), left copy nudged in."""
-    # Clean white canvas — no dark wash, no yellow bloom behind the icon
-    img = Image.new("RGBA", (w, h), (255, 255, 255, 255))
+    """Search card: atmospheric dark field + sparkles, single coral logo (no disc glow)."""
+    # Keep the living background washes/sparkles — but never a yellow disc behind the logo
+    img = paint_background(w, h, quiet=False).convert("RGBA")
     d = ImageDraw.Draw(img)
 
-    # ~10% of width further from the left edge (closer to the logo)
-    left = int(w * 0.17)
-    text_col = int(w * 0.48)
-    cx_icon_col = int(w * 0.76)
+    # Notch left of the last pass (0.17) so copy doesn't crowd/crop the icon
+    left = int(w * 0.11)
+    text_col = int(w * 0.46)
+    cx_icon_col = int(w * 0.78)
 
     icon_size = int(min(w, h) * 0.40)
     icon = load_icon_rounded(ICON, icon_size)
     corner = int(icon_size * 0.2237)
 
-    icon_left = min(cx_icon_col - icon_size // 2, w - icon_size - int(w * 0.05))
+    icon_left = min(cx_icon_col - icon_size // 2, w - icon_size - int(w * 0.04))
     icon_top = (h - icon_size) // 2 - int(h * 0.02)
     icon_top = max(int(h * 0.10), min(icon_top, h - icon_size - int(h * 0.10)))
 
-    # Soft contact shadow only — no circular glow
+    # Soft contact shadow only — no circular glow behind the mark
     blur = max(10, icon_size // 48)
     pad = blur * 2
     shadow = Image.new("RGBA", (icon_size + pad * 2, icon_size + pad * 2), (0, 0, 0, 0))
@@ -286,39 +287,28 @@ def compose_search(w: int, h: int) -> Image.Image:
     sd.rounded_rectangle(
         [pad, pad + 4, pad + icon_size, pad + icon_size + 4],
         radius=corner,
-        fill=(0, 0, 0, 55),
+        fill=(0, 0, 0, 90),
     )
     shadow = shadow.filter(ImageFilter.GaussianBlur(blur))
     img.alpha_composite(shadow, (icon_left - pad, icon_top - pad))
     img.alpha_composite(icon, (icon_left, icon_top))
 
-    # Hairline edge on white
-    ring = Image.new("RGBA", (icon_size, icon_size), (0, 0, 0, 0))
-    rd = ImageDraw.Draw(ring)
-    rd.rounded_rectangle(
-        [0, 0, icon_size - 1, icon_size - 1],
-        radius=corner,
-        outline=(0, 0, 0, 28),
-        width=max(1, icon_size // 200),
-    )
-    img.alpha_composite(ring, (icon_left, icon_top))
-
     f_title, title_size = fit_title(text_col - 20, h)
     title_y = int(h * 0.22)
     chore_w, _, _ = text_size(f_title, "chore")
     gap = max(2, int(title_size * 0.02))
-    d.text((left, title_y), "chore", font=f_title, fill=BROWN)
+    d.text((left, title_y), "chore", font=f_title, fill=GOLD)
     d.text((left + chore_w + gap, title_y), "maxx", font=f_title, fill=CORAL)
 
     f_sub = font(FONT_XB, max(26, int(title_size * 0.32)))
     sub_y = title_y + int(title_size * 1.20)
-    d.text((left, sub_y), "The calm OS for your household", font=f_sub, fill=INK)
+    d.text((left, sub_y), "The calm OS for your household", font=f_sub, fill=WHITE)
 
     f_tag = font(FONT_SB, max(20, int(title_size * 0.22)))
     tag_y = sub_y + int(title_size * 0.58)
-    d.text((left, tag_y), "Tasks · Grocery · Ranks · Poppins", font=f_tag, fill=CORAL)
+    d.text((left, tag_y), "Tasks · Grocery · Ranks · Poppins", font=f_tag, fill=GOLD)
 
-    # Pills — slightly larger type than last pass
+    # Pills — slightly larger type
     f_pill = font(FONT_XB, max(24, int(title_size * 0.255)))
     pad_x = max(44, int(title_size * 0.50))
     pad_y = max(24, int(title_size * 0.30))
