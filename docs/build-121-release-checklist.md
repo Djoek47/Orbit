@@ -12,12 +12,19 @@ steps 1–2 must happen **before** build 121 reaches anyone.
 supabase db push                                  # applies 20261007120000_household_premium.sql
 supabase functions deploy sync-entitlement        # new
 supabase functions deploy grant-token-pack        # changed: packs now grant 700 / 2000
+supabase functions deploy redeem-profile-invite   # shared-device people names (no sibling codes)
 ```
 
 Why first: the app reads household Premium from the `households` row. The code fails *open* for
 Sidekick phones and shared tablets if the columns are missing, so nothing locks — but no
 household can record a subscription until the migration and function exist, and the packs keep
 granting the old 600 / 1500 until `grant-token-pack` is redeployed.
+
+**`redeem-profile-invite` (staging `dejrbyufotcvcillnneo`): deployed ahead of TF 121.** Until it
+was redeployed, the app still worked but fell back to people already on that phone. The public
+lookup returns **names only** (never sibling invite codes). On a brand-new tablet, one person’s
+CMX joins **that person only** — one face, which opens. To put everyone on a tablet, use the
+device’s own QR from **People → Show the code**.
 
 **Check it worked** — in the SQL editor:
 

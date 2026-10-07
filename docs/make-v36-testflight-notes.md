@@ -39,10 +39,13 @@
 - QR scanner passes multi-code shared-device links whole (no first-code truncate)
 - Wizard persists the new device into links (People no longer empty)
 - Personal CMX on a shared device → same Welcome card / join-shared-device as the device QR
-- Join saves a session for **every** code; one stale code does not block the rest
-- Public lookup names people on the device; never returns others’ codes
+- Join saves a session for **every** code on the invite; one stale code does not block the rest
+- Public lookup names people on the device; never returns others’ codes (security: one child’s
+  code must not unlock siblings). On a **brand-new tablet**, one CMX → **one face** that opens.
+  Full roster = device QR from **People → Show the code**.
 - Shared-tablet sign-out keeps the device; Welcome offers “Continue with \<house\> shared device” → faces
 - Fuller Sidekick / shared-tablet tour (day, jobs, homework, grocery, ranks, rewards, rules, Switch)
+- **Staging:** `redeem-profile-invite` redeployed (ahead of TF push)
 
 ---
 
