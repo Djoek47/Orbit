@@ -48,7 +48,8 @@ test('Pass A — shared QR parses multi-code; join screen is not Profile invite'
   assert.doesNotMatch(joinShared, /Profile invite/);
   const joinProfile = read('app/join-profile.tsx');
   assert.match(joinProfile, /Join the household/);
-  assert.match(joinProfile, /Which device\?|shared tablet QR/i);
+  assert.match(joinProfile, /SharedDeviceWelcomeCard|sharedDeviceWelcome/);
+  assert.doesNotMatch(joinProfile, /Which device\?/);
 });
 
 test('Pass A — paste/deep-link routing prefers shared-device over CMX', () => {
