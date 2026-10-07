@@ -288,6 +288,52 @@ function rejectPurchaseError(error: unknown): Error {
   return new Error(formatUnknownError(error, 'Failed to request purchase'));
 }
 
+const ALL_TOKEN_PACK_KEYS = Object.keys(IAP_CONSUMABLES) as IapTokenPackKey[];
+
+function productIdFromStoreItem(item: unknown): string {
+  if (!item || typeof item !== 'object') return '';
+  const row = item as { productId?: string; id?: string };
+  return String(row.productId ?? row.id ?? '');
+}
+
+/**
+ * Which credit packs StoreKit currently returns for this binary.
+ * Expo Go / mock: all catalog packs. Native: only SKUs Apple lists for the build.
+ * On probe failure: null (UI keeps packs tappable; purchase still validates).
+ */
+export async function probeAvailableTokenPacks(): Promise<IapTokenPackKey[] | null> {
+  if (!isNativeIapAvailable()) {
+    return [...ALL_TOKEN_PACK_KEYS];
+  }
+
+  try {
+    return await withNativeIap(async (iap) => {
+      await iap.initConnection();
+      const skus = ALL_TOKEN_PACK_KEYS.map((key) => IAP_CONSUMABLES[key].productId);
+      const listed = await iap.fetchProducts({
+        skus,
+        type: 'in-app',
+      });
+      const products = Array.isArray(listed) ? listed : [];
+      const foundIds = new Set(
+        products.map(productIdFromStoreItem).filter((id) => id.length > 0)
+      );
+      return ALL_TOKEN_PACK_KEYS.filter((key) => foundIds.has(IAP_CONSUMABLES[key].productId));
+    });
+  } catch (error) {
+    console.warn('probeAvailableTokenPacks', formatUnknownError(error, 'probe failed'));
+    return null;
+  }
+}
+
+export function isTokenPackAvailable(
+  packKey: IapTokenPackKey,
+  available: IapTokenPackKey[] | null | undefined
+): boolean {
+  if (available == null) return true;
+  return available.includes(packKey);
+}
+
 /**
  * Purchase a consumable token pack.
  * Order: validate product → grant tokens → finish (isConsumable: true).
@@ -321,14 +367,7 @@ export async function purchaseTokens(
       type: 'in-app',
     });
     const products = Array.isArray(listed) ? listed : [];
-    const found = products.some((item) => {
-      const id = String(
-        (item as { productId?: string; id?: string }).productId ??
-          (item as { id?: string }).id ??
-          ''
-      );
-      return id === pack.productId;
-    });
+    const found = products.some((item) => productIdFromStoreItem(item) === pack.productId);
     if (!found) {
       throw new Error(
         `sku_not_found: ${pack.productId} is not available from App Store Connect for this build.`

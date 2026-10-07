@@ -75,6 +75,23 @@ test('Pass C2: purchase errors never stringify to [object Object]', () => {
   assert.match(fmt, /\[object Object\]/);
 });
 
+test('Pass C2b: Credits probes StoreKit and disables packs Apple does not list', () => {
+  const credits = read('app/poppins-credits.tsx');
+  const iap = read('lib/billing/iap.ts');
+  const picker = read('components/orbit/token-top-up-picker.tsx');
+  assert.match(iap, /probeAvailableTokenPacks/);
+  assert.match(iap, /isTokenPackAvailable/);
+  assert.match(credits, /probeAvailableTokenPacks/);
+  assert.match(credits, /unavailable/);
+  assert.match(credits, /Not on this build/);
+  assert.match(picker, /probeAvailableTokenPacks/);
+  assert.match(picker, /Not on this build/);
+  const friendly = read('lib/errors/friendly-error.ts');
+  const skuIdx = friendly.indexOf("lower.includes('sku_not_found')");
+  assert.ok(skuIdx > 0, 'sku_not_found has dedicated friendly copy');
+  assert.match(friendly.slice(skuIdx, skuIdx + 280), /not for sale|another size/i);
+});
+
 test('Pass C3: token pack listener ignores other SKUs; grant errors dig edge body', () => {
   const iap = read('lib/billing/iap.ts');
   assert.match(iap, /eventProductId !== pack\.productId/);
