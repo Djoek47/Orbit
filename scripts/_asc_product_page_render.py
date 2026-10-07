@@ -175,8 +175,9 @@ def fit_title(max_width: int, h: int) -> tuple[ImageFont.FreeTypeFont, int]:
 def compose_header(w: int, h: int) -> Image.Image:
     """Header only: small coral icon + choremaxx + tagline. No glow, no pills.
 
-    App Store center-crops this banner hard — keep a compact stack dead-center
-    inside the side safe zone so nothing clips on iPhone.
+    App Store product pages overlay a white sheet over the lower header, so the
+    lockup must sit in the upper band — not vertically centered — or the
+    tagline gets clipped.
     """
     img = paint_background(w, h, quiet=True).convert("RGBA")
     d = ImageDraw.Draw(img)
@@ -185,14 +186,14 @@ def compose_header(w: int, h: int) -> Image.Image:
     cx = w // 2
 
     # Compact icon — no glow, no heavy shadow
-    icon_size = int(min(safe_w * 0.14, h * 0.16))
+    icon_size = int(min(safe_w * 0.12, h * 0.14))
     icon = load_icon_rounded(ICON, icon_size)
 
-    f_title, title_size = fit_title(int(safe_w * 0.80), h)
-    title_size = max(44, int(title_size * 0.78))
+    f_title, title_size = fit_title(int(safe_w * 0.78), h)
+    title_size = max(40, int(title_size * 0.72))
     f_title = font(FONT_XB, title_size)
 
-    f_sub = font(FONT_XB, max(24, int(title_size * 0.34)))
+    f_sub = font(FONT_XB, max(22, int(title_size * 0.34)))
     sub = "The calm OS for your household"
     sw, sh_sub, sbb = text_size(f_sub, sub)
 
@@ -201,12 +202,22 @@ def compose_header(w: int, h: int) -> Image.Image:
     maxx_w, _, _ = text_size(f_title, "maxx")
     total_w = chore_w + gap + maxx_w
 
-    gap_icon_title = int(h * 0.028)
-    gap_title_sub = int(title_size * 0.32)
+    gap_icon_title = int(h * 0.022)
+    gap_title_sub = int(title_size * 0.28)
     stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
 
-    # Dead-center the lockup so ASC side/top crop keeps everything
-    stack_top = (h - stack_h) // 2
+    # Sit in the upper third so the ASC white sheet doesn't cover the tagline.
+    # Leave a small top inset for the back/share chrome.
+    stack_top = int(h * 0.10)
+    # Keep the whole stack above ~42% of the frame (below that is sheet territory).
+    max_bottom = int(h * 0.42)
+    if stack_top + stack_h > max_bottom:
+        # Shrink gaps slightly rather than dropping into the sheet zone
+        overflow = stack_top + stack_h - max_bottom
+        gap_icon_title = max(8, gap_icon_title - overflow // 2)
+        gap_title_sub = max(6, gap_title_sub - overflow // 2)
+        stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
+
     icon_left = cx - icon_size // 2
     icon_top = stack_top
 
@@ -298,28 +309,32 @@ def compose_search(w: int, h: int) -> Image.Image:
     return img.convert("RGB")
 
 
-def save(img: Image.Image, name: str) -> None:
+def save(img: Image.Image, name: str, *, fmt: str = "PNG") -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     ART.mkdir(parents=True, exist_ok=True)
     for dest in (OUT / name, ART / name):
-        img.save(dest, "JPEG", quality=93, optimize=True, dpi=(72, 72))
-        print(f"{dest.name} → {img.size[0]}×{img.size[1]}")
+        if fmt.upper() == "PNG":
+            img.save(dest, "PNG", optimize=True)
+        else:
+            img.save(dest, "JPEG", quality=93, optimize=True, dpi=(72, 72))
+        print(f"{dest.name} → {img.size[0]}×{img.size[1]} ({fmt})")
 
 
 def main() -> None:
+    # ASC product-page header upload accepts PNG; ship PNG only for headers.
     headers = [
-        ("header-5244x2950.jpg", 5244, 2950),
-        ("header-3840x1646.jpg", 3840, 1646),
+        ("header-5244x2950.png", 5244, 2950),
+        ("header-3840x1646.png", 3840, 1646),
     ]
     searches = [
-        ("search-5244x2950.jpg", 5244, 2950),
-        ("search-3840x2560.jpg", 3840, 2560),
-        ("search-1920x1280.jpg", 1920, 1280),
+        ("search-5244x2950.png", 5244, 2950),
+        ("search-3840x2560.png", 3840, 2560),
+        ("search-1920x1280.png", 1920, 1280),
     ]
     for name, w, h in headers:
-        save(compose_header(w, h), name)
+        save(compose_header(w, h), name, fmt="PNG")
     for name, w, h in searches:
-        save(compose_search(w, h), name)
+        save(compose_search(w, h), name, fmt="PNG")
     print("done")
 
 
