@@ -18,6 +18,7 @@ import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { PoppinsHourglass } from '@/components/orbit/poppins-hourglass';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { PersonActivityShowcase } from '@/components/orbit/activity/person-activity-showcase';
+import { TrialCountdownCard } from '@/components/orbit/billing/trial-countdown-card';
 import { orbitScreen, radius, space, typography } from '@/constants/orbit-theme';
 import {
   buildInboxSections,
@@ -587,12 +588,16 @@ function ActivityFeed({
   }));
 
   const showcase = (
-    <PersonActivityShowcase
-      rows={streakRows}
-      signals={signals}
-      mode={isAdmin ? 'household' : 'personal'}
-      accentColor={accentColor}
-    />
+    <>
+      {/* Admins on a free trial see how long is left, and what happens after, at the top. */}
+      <TrialCountdownCard />
+      <PersonActivityShowcase
+        rows={streakRows}
+        signals={signals}
+        mode={isAdmin ? 'household' : 'personal'}
+        accentColor={accentColor}
+      />
+    </>
   );
 
   // Recent feed — keep short so the person tiles stay the hero.

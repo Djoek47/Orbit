@@ -11,6 +11,8 @@ import { loadOnboardingPrefs, type OnboardingRole } from '@/lib/onboarding-prefs
 import { useMajordomoName } from '@/lib/ai/use-majordomo-name';
 import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
 import { useTabFifthSlot } from '@/lib/navigation/use-tab-fifth-slot';
+import { HouseholdLockedScreen } from '@/components/orbit/billing/household-locked-screen';
+import { useAccess } from '@/lib/billing/access-provider';
 import { useOrbit } from '@/store/orbit-store';
 
 /** Map household role → onboarding role for tab visibility. */
@@ -25,8 +27,18 @@ function resolveUiRole(
 }
 
 export default function TabLayout() {
-  const { currentUser, currentMember, hasHousehold, household, isLoading, isSignedIn, orbitPalette } =
-    useOrbit();
+  const {
+    currentUser,
+    currentMember,
+    hasHousehold,
+    household,
+    isLoading,
+    isSignedIn,
+    orbitPalette,
+    refreshHousehold,
+    signOut,
+  } = useOrbit();
+  const access = useAccess();
   const majordomoName = useMajordomoName();
   const [onboardingRole, setOnboardingRole] = useState<OnboardingRole | null>(null);
   const [needsPick, setNeedsPick] = useState(false);
@@ -99,6 +111,30 @@ export default function TabLayout() {
 
   if (needsPick) {
     return <Redirect href={'/select-profile' as never} />;
+  }
+
+  // The payment gate. Only once the entitlement is actually known — a paying household must
+  // never see the paywall flash on launch while StoreKit loads.
+  if (access.ready && access.view.appLocked) {
+    if (access.canPurchase) {
+      // Admins get the paywall, with no way to dismiss it into the app, but with a way out to
+      // their account: deleting it must always be possible (guideline 5.1.1(v)).
+      return <Redirect href={{ pathname: '/premium', params: { mode: 'locked' } } as never} />;
+    }
+    // Everyone else — Sidekicks, shared tablets — is told who can fix it. Never a purchase
+    // screen: these are children's devices.
+    return (
+      <HouseholdLockedScreen
+        householdName={household.householdName}
+        members={household.members}
+        canSwitchProfile={sharedKid}
+        onCheckAgain={async () => {
+          await refreshHousehold();
+          await access.refresh();
+        }}
+        onSignOut={() => void signOut()}
+      />
+    );
   }
 
   // Make IA: Sidekicks / shared-tablet faces have no Plan tab.

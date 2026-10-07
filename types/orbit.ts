@@ -730,6 +730,22 @@ export type CompleteProfileJoinInput = {
   avatar?: string;
 };
 
+/**
+ * The household's subscription, as the server last heard it from an admin device.
+ *
+ * Lives on the household rather than the phone because the phone that paid is rarely the only
+ * one in the house: Sidekick phones and shared tablets never buy anything, and a gate that read
+ * only the local StoreKit state would lock all of them out of a household that had paid.
+ */
+export type HouseholdPremium = {
+  productId: string | null;
+  inTrial: boolean;
+  /** ISO. Null means never subscribed. */
+  expiresAt: string | null;
+  environment: 'Sandbox' | 'Production' | 'Xcode' | null;
+  updatedAt: string | null;
+};
+
 export type HouseholdSnapshot = {
   id: string | null;
   householdName: string;
@@ -794,6 +810,8 @@ export type HouseholdSnapshot = {
    * Admins enable this from Settings → Poppins.
    */
   sidekickPoppinsAi?: boolean;
+  /** Household-wide subscription state. Absent in mock mode and before the first hydrate. */
+  premium?: HouseholdPremium;
   rewardProposals?: import('@/lib/rewards/reward-proposals').RewardProposal[];
   /**
    * Household-scoped XP scoring (Meritocracy vs Equity + hygiene opt-in).

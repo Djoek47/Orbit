@@ -33,6 +33,7 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
+import { useAccess } from '@/lib/billing/access-provider';
 import {
   formatResetDate,
   spendsFrom,
@@ -86,6 +87,8 @@ function PoppinsCreditsScreenInner() {
   const { c, glassBorder, isDark } = useOrbitColors();
   const { household, permissions, actEvents, currentMember, currentUser } = useOrbit();
   const isAdmin = permissions.canManageHousehold;
+  const access = useAccess();
+  const allowance = access.view.monthlyAllowance;
 
   const monthUsed = useMemo(() => summarizeActUsage(actEvents).tokensUsedThisPeriod, [actEvents]);
   const [credits, setCredits] = useState<CreditSummary>(() => summarizeCredits([], monthUsed));
@@ -129,12 +132,14 @@ function PoppinsCreditsScreenInner() {
   const readBalance = useCallback(async () => {
     try {
       const grants = await loadTokenGrants(household.id);
-      return summarizeCredits(grants, monthUsed);
+      // Pass the allowance explicitly: on a trial it is zero, and the summary must not be
+      // computed against the paid default if access resolved after this screen mounted.
+      return summarizeCredits(grants, monthUsed, access.ready ? allowance : undefined);
     } catch (error) {
       console.warn('poppins-credits balance', error);
       return null;
     }
-  }, [household.id, monthUsed]);
+  }, [household.id, monthUsed, access.ready, allowance]);
 
   useEffect(() => {
     let cancelled = false;
@@ -299,7 +304,10 @@ function PoppinsCreditsScreenInner() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 48 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        <CreditSummaryCard summary={credits} />
+        <CreditSummaryCard
+          summary={credits}
+          trialEndsAt={access.view.level === 'trial' ? access.view.trialEndsAt : null}
+        />
 
         {congrats ? (
           <Animated.View
@@ -561,7 +569,14 @@ function TokenOrb() {
   );
 }
 
-function CreditSummaryCard({ summary }: { summary: CreditSummary }) {
+function CreditSummaryCard({
+  summary,
+  trialEndsAt,
+}: {
+  summary: CreditSummary;
+  /** Set on a free trial, where there is no monthly allowance yet. */
+  trialEndsAt: string | null;
+}) {
   const { c, glassBorder, isDark } = useOrbitColors();
   const paying = spendsFrom(summary);
 
@@ -598,14 +613,33 @@ function CreditSummaryCard({ summary }: { summary: CreditSummary }) {
             styles.pot,
             { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
           ]}>
-          <Text style={[styles.potEyebrow, { color: c.textSubtle }]}>This month</Text>
-          <Text style={[styles.potValue, { color: c.text }]}>{summary.monthlyLeft}</Text>
-          <Text style={[styles.potLabel, { color: c.textMuted }]}>
-            of {TOKENS_PER_MONTH} this month
-          </Text>
-          <Text style={[styles.potNote, { color: c.textSubtle }]}>
-            Back on {formatResetDate()}
-          </Text>
+          {trialEndsAt ? (
+            <>
+              {/* On a trial there is no monthly allowance yet. "0 of 300 · back on Nov 1" would
+                  promise something the 1st does not bring; the trial's end does. */}
+              <Text style={[styles.potEyebrow, { color: c.textSubtle }]}>Monthly</Text>
+              <Text style={[styles.potValue, { color: c.text }]}>{TOKENS_PER_MONTH}</Text>
+              <Text style={[styles.potLabel, { color: c.textMuted }]}>a month with Premium</Text>
+              <Text style={[styles.potNote, { color: c.textSubtle }]}>
+                Starts{' '}
+                {new Date(trialEndsAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.potEyebrow, { color: c.textSubtle }]}>This month</Text>
+              <Text style={[styles.potValue, { color: c.text }]}>{summary.monthlyLeft}</Text>
+              <Text style={[styles.potLabel, { color: c.textMuted }]}>
+                of {TOKENS_PER_MONTH} this month
+              </Text>
+              <Text style={[styles.potNote, { color: c.textSubtle }]}>
+                Back on {formatResetDate()}
+              </Text>
+            </>
+          )}
         </View>
         <View
           style={[

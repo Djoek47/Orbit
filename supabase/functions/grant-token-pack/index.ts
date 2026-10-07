@@ -10,10 +10,16 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * Must equal IAP_CONSUMABLES in constants/billing.ts. The store page says "700 actions"; if
+ * this said 600 the household would be paying for 700 and receiving 600, which is the kind of
+ * mismatch that ends in refunds and a guideline 3.1.1 conversation with App Review.
+ * lib/billing/pack-parity.test.ts reads both files and fails if they drift.
+ */
 const PACK_TOKENS: Record<string, number> = {
   small: 200,
-  medium: 600,
-  large: 1500,
+  medium: 700,
+  large: 2000,
 };
 
 const PACK_PRODUCTS: Record<string, string> = {

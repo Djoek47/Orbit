@@ -36,6 +36,8 @@ import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { STAGE, stageFaint } from '@/constants/iui-stage';
 import { space } from '@/constants/orbit-theme';
+import { PoppinsTrialLock, useBoughtBalance } from '@/components/orbit/billing/poppins-trial-lock';
+import { useAccess } from '@/lib/billing/access-provider';
 import { usePoppinsController } from '@/lib/poppins/use-poppins-controller';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { setPoppinsTypingMode } from '@/lib/ui/typing-mode';
@@ -398,8 +400,16 @@ const styles = StyleSheet.create({
 /** Sidekicks never get Poppins — any way in (a link, a notification, a stale tab) lands on Home. */
 export default function PoppinsScreen() {
   const { currentMember } = useOrbit();
+  const access = useAccess();
+  const bought = useBoughtBalance();
   if (isSidekickRole(currentMember?.role)) {
     return <Redirect href={'/(tabs)' as never} />;
+  }
+  // On a free trial the monthly allowance is zero: Poppins runs on bought actions only. With
+  // none bought, show what it costs rather than a stage that will refuse every request.
+  // Waits for both reads, so a household with credits never sees the lock flash.
+  if (access.ready && access.view.level === 'trial' && bought !== null && bought <= 0) {
+    return <PoppinsTrialLock />;
   }
   return <PoppinsScreenInner />;
 }

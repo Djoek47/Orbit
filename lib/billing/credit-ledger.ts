@@ -11,7 +11,7 @@
  * Pure: the ledger rows come from lib/billing/token-grants (AsyncStorage + Supabase), and this
  * turns them into the numbers a person reads.
  */
-import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
+import { currentMonthlyAllowance } from '@/lib/billing/allowance-state';
 import type { TokenGrantBalance } from '@/lib/billing/token-grants-math';
 
 export type CreditLedgerRow = {
@@ -55,7 +55,9 @@ function remaining(grant: TokenGrantBalance): number {
 
 export function summarizeCredits(
   grants: TokenGrantBalance[],
-  monthUsed: number
+  monthUsed: number,
+  /** Zero on a free trial — see lib/billing/allowance-state. */
+  monthlyAllowance: number = currentMonthlyAllowance()
 ): CreditSummary {
   const rows: CreditLedgerRow[] = [...grants]
     .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt))
@@ -71,7 +73,7 @@ export function summarizeCredits(
   const balance = rows.reduce((sum, row) => sum + row.left, 0);
   const lifetimePurchased = rows.reduce((sum, row) => sum + row.granted, 0);
   const lifetimeSpent = rows.reduce((sum, row) => sum + row.spent, 0);
-  const monthlyLeft = Math.max(0, TOKENS_PER_MONTH - Math.max(0, Math.round(monthUsed)));
+  const monthlyLeft = Math.max(0, monthlyAllowance - Math.max(0, Math.round(monthUsed)));
 
   return {
     balance,

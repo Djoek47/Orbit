@@ -2,7 +2,7 @@
  * Premium route — post-email-confirm onboarding soft gate + Settings entry.
  */
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,6 +17,7 @@ import { IAP_SUBSCRIPTIONS } from '@/constants/billing';
 import {
   fetchEntitlement,
   isPremiumActive,
+  isTrialEligible,
   isUserCancelledPurchase,
   premiumCopy,
   purchasePremium,
@@ -25,6 +26,8 @@ import {
   type EntitlementState,
   type IapTokenPackKey,
 } from '@/lib/billing/iap';
+import { AccountEscapeSheet } from '@/components/orbit/billing/account-escape-sheet';
+import { useAccess } from '@/lib/billing/access-provider';
 import { setPremiumOnboardingGate } from '@/lib/billing/premium-onboarding';
 import { sendSubscriptionReceiptEmail } from '@/lib/billing/send-subscription-receipt';
 import { loadTokenGrants, topUpBalanceFromGrants } from '@/lib/billing/token-grants';
@@ -42,11 +45,52 @@ function formatRenewalDate(iso: string | null | undefined): string {
 }
 
 export default function PremiumScreen() {
-  const params = useLocalSearchParams<{ source?: string }>();
-  const fromOnboarding = params.source === 'onboarding' || !params.source;
+  const params = useLocalSearchParams<{ source?: string; mode?: string }>();
+  /** The paywall is the gate itself: the household has no active trial or subscription. */
+  const gated = params.mode === 'locked';
+  const fromOnboarding = !gated && (params.source === 'onboarding' || !params.source);
   const variant = fromOnboarding ? 'onboarding' : 'settings';
+  // After sign-up and once the gate is shut there is no "Not now" — only Settings may close it.
+  const dismissible = !gated && !fromOnboarding;
   const insets = useSafeAreaInsets();
-  const { household, orbitPalette, accentTheme, currentMember, currentUser } = useOrbit();
+  const { household, orbitPalette, accentTheme, currentMember, currentUser, signOut } = useOrbit();
+  const access = useAccess();
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [eligible, setEligible] = useState<Partial<Record<'monthly' | 'yearly', boolean>>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([isTrialEligible('monthly'), isTrialEligible('yearly')]).then(
+      ([monthly, yearly]) => {
+        if (!cancelled) setEligible({ monthly, yearly });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // A non-dismissible paywall must step aside by itself when the household is already
+  // covered — a second admin on a new phone, or a partner who paid on their own Apple ID.
+  // Without this they would face a paywall with no way past it for a house that has paid.
+  const stepAsideRef = useRef(false);
+  useEffect(() => {
+    if (dismissible || stepAsideRef.current) return;
+    if (!access.ready || access.view.appLocked) return;
+    stepAsideRef.current = true;
+    void (async () => {
+      await setPremiumOnboardingGate('started');
+      if (gated) router.replace('/(tabs)' as never);
+      else if (fromOnboarding) router.replace('/welcome' as never);
+    })();
+  }, [access.ready, access.view.appLocked, dismissible, fromOnboarding, gated]);
+
+  // A trial that has run out reads differently from a first visit: say what happened.
+  const notice = gated
+    ? access.entitlement.inTrial
+      ? 'Your free trial has ended.'
+      : 'Choose a plan to open ChoreMaxx.'
+    : null;
   const { c } = useOrbitColors();
   const members = household.members;
 
@@ -149,6 +193,12 @@ export default function PremiumScreen() {
 
   const leave = async (gate: 'started' | 'deferred' | 'skipped') => {
     await setPremiumOnboardingGate(gate);
+    // Re-read StoreKit so the gate in the tabs sees the new state before we land there.
+    await access.refresh();
+    if (gated) {
+      router.replace('/(tabs)' as never);
+      return;
+    }
     if (fromOnboarding) {
       router.replace('/welcome' as never);
       return;
@@ -286,6 +336,19 @@ export default function PremiumScreen() {
       onRestore={() => void restore()}
       onContinue={() => void leave('started')}
       onDismiss={() => void leave(fromOnboarding ? 'deferred' : 'skipped')}
+      dismissible={dismissible}
+      onAccount={() => setAccountOpen(true)}
+      trialEligibleByPeriod={eligible}
+      notice={notice}
+      footerSlot={
+        <AccountEscapeSheet
+          visible={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          onRestore={() => void restore()}
+          onSignOut={() => void signOut()}
+          isOwner={currentMember?.role === 'owner'}
+        />
+      }
     />
   );
 }

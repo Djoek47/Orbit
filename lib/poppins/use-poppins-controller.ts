@@ -23,7 +23,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppState, Keyboard, Linking } from 'react-native';
-import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
+import { TOKENS_PER_DAY } from '@/constants/poppins-ai-rates';
+import { allowanceFraction, currentMonthlyAllowance } from '@/lib/billing/allowance-state';
 import {
   isCorrectionUtterance,
   logAssistantError,
@@ -1682,8 +1683,15 @@ export function usePoppinsController() {
   const personalUsed = personalActTokens(aiSummary, currentMember?.id);
   const dailyLeft = Math.max(0, TOKENS_PER_DAY - personalUsed);
   const dailyFill = TOKENS_PER_DAY > 0 ? dailyLeft / TOKENS_PER_DAY : 0;
-  const monthLeft = Math.max(0, TOKENS_PER_MONTH - aiSummary.tokensUsedThisPeriod);
-  const monthGlow = permissions.canManageHousehold ? monthLeft / TOKENS_PER_MONTH : dailyFill;
+  // On a trial the allowance is zero; the glow then reflects bought actions rather than
+  // dividing by zero and rendering nothing.
+  const monthGlow = permissions.canManageHousehold
+    ? currentMonthlyAllowance() > 0
+      ? 1 - allowanceFraction(aiSummary.tokensUsedThisPeriod)
+      : aiSummary.topUpBalance > 0
+        ? 1
+        : 0
+    : dailyFill;
 
   // One orb, never unmounted. Live or typing: 72. Idle: 196. It carries the tick through
   // the whole Undo window.

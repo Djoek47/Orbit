@@ -1,6 +1,6 @@
 import { DEFAULT_MEMBER_CAPABILITIES } from '@/lib/member-capabilities';
 import { DEFAULT_REWARD_MODEL, migrateLegacyRewardModel } from '@/lib/rewards/reward-model';
-import type { HouseholdSnapshot, MemberCapabilities } from '@/types/orbit';
+import type { HouseholdPremium, HouseholdSnapshot, MemberCapabilities } from '@/types/orbit';
 
 /** Raw households row shape from Supabase (subset used for settings sync). */
 export type HouseholdSettingsRow = {
@@ -18,7 +18,33 @@ export type HouseholdSettingsRow = {
   sidekick_grocery_add?: boolean | null;
   sidekick_poppins_ai?: boolean | null;
   member_capabilities?: Record<string, boolean> | null;
+  premium_product_id?: string | null;
+  premium_in_trial?: boolean | null;
+  premium_expires_at?: string | null;
+  premium_environment?: string | null;
+  premium_updated_at?: string | null;
 };
+
+/**
+ * The household's Premium, from its row.
+ *
+ * Returns undefined — not an "expired" record — when the columns are absent, so a server that
+ * has not had the migration yet reads as "unknown" and the device falls back to its own
+ * StoreKit state instead of locking everyone out.
+ */
+export function mapHouseholdPremiumFromRow(
+  row: HouseholdSettingsRow | null | undefined
+): HouseholdPremium | undefined {
+  if (!row || !('premium_expires_at' in row)) return undefined;
+  const env = row.premium_environment;
+  return {
+    productId: row.premium_product_id ?? null,
+    inTrial: row.premium_in_trial === true,
+    expiresAt: row.premium_expires_at ?? null,
+    environment: env === 'Sandbox' || env === 'Production' || env === 'Xcode' ? env : null,
+    updatedAt: row.premium_updated_at ?? null,
+  };
+}
 
 export type CustomHouseRuleRow = {
   id?: string;
@@ -42,6 +68,7 @@ export function mapHouseholdSettingsFromRow(
 ): Partial<HouseholdSnapshot> {
   if (!row) return {};
 
+  const premium = mapHouseholdPremiumFromRow(row);
   const prefsRaw = (row as { notification_prefs?: unknown }).notification_prefs;
   const notificationPrefs =
     prefsRaw && typeof prefsRaw === 'object'
@@ -64,6 +91,7 @@ export function mapHouseholdSettingsFromRow(
     sidekickPoppinsAi: Boolean(row.sidekick_poppins_ai),
     memberCapabilities: mapMemberCapabilitiesFromRow(row.member_capabilities),
     ...(notificationPrefs ? { notificationPrefs } : {}),
+    ...(premium ? { premium } : {}),
   };
 }
 

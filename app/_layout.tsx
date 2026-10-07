@@ -19,6 +19,7 @@ import { TourProvider } from '@/components/orbit/tour/tour-provider';
 import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
 import { useSessionEpoch } from '@/lib/navigation/session-epoch';
 import { PoppinsLiveProvider } from '@/lib/poppins/live-context';
+import { AccessProvider } from '@/lib/billing/access-provider';
 import { OrbitProvider } from '@/store/orbit-store';
 
 export const unstable_settings = {
@@ -46,6 +47,7 @@ export default function RootLayout() {
   return (
     <AppErrorBoundary>
       <OrbitProvider>
+        <AccessProvider>
         <OrbitAlertProvider>
         <PoppinsLiveProvider>
           <TourProvider>
@@ -303,6 +305,7 @@ export default function RootLayout() {
           </TourProvider>
         </PoppinsLiveProvider>
         </OrbitAlertProvider>
+        </AccessProvider>
       </OrbitProvider>
     </AppErrorBoundary>
   );

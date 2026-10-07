@@ -15,9 +15,9 @@ import {
   TOKEN_WEIGHT_SPEAK_BACK,
   TOKEN_WEIGHT_SPOKEN,
   TOKENS_PER_DAY,
-  TOKENS_PER_MONTH,
   ratesForModel,
 } from '@/constants/poppins-ai-rates';
+import { allowanceFraction, currentMonthlyAllowance } from '@/lib/billing/allowance-state';
 
 export {
   AI_TRIP_USD,
@@ -211,7 +211,7 @@ export function summarizeAiUsage(
     });
   }
 
-  const monthlyRemaining = Math.max(0, TOKENS_PER_MONTH - tokensUsedThisPeriod);
+  const monthlyRemaining = Math.max(0, currentMonthlyAllowance() - tokensUsedThisPeriod);
   const dailyRemaining = Math.max(0, TOKENS_PER_DAY - tokensUsedToday);
   const tokensRemaining = Math.max(0, Math.min(monthlyRemaining, dailyRemaining) + topUpBalance);
   // Speak trip is owned by summarizeActUsage — COGS summary never pauses Speak.
@@ -282,7 +282,7 @@ export function meterNearCap(summary: {
   tokensUsedToday: number;
 }): boolean {
   return (
-    summary.tokensUsedThisPeriod / TOKENS_PER_MONTH >= 0.8 ||
+    allowanceFraction(summary.tokensUsedThisPeriod) >= 0.8 ||
     summary.tokensUsedToday / TOKENS_PER_DAY >= 0.8
   );
 }
@@ -310,11 +310,15 @@ export function meterCaption(
 ): string {
   if (summary.tripped) {
     return isAdmin
-      ? `Paused · ${summary.tokensUsedThisPeriod} of ${TOKENS_PER_MONTH}`
+      ? currentMonthlyAllowance() > 0
+        ? `Paused · ${summary.tokensUsedThisPeriod} of ${currentMonthlyAllowance()}`
+        : 'Paused · buy actions to keep going'
       : 'Speak paused · type still works';
   }
   if (isAdmin) {
-    return `${summary.tokensUsedThisPeriod} of ${TOKENS_PER_MONTH} this month · ${summary.tokensUsedToday} today`;
+    return currentMonthlyAllowance() > 0
+      ? `${summary.tokensUsedThisPeriod} of ${currentMonthlyAllowance()} this month · ${summary.tokensUsedToday} today`
+      : `${summary.tokensUsedToday} today · bought actions`;
   }
   return personal > 0
     ? `${personal} of ${TOKENS_PER_DAY} today`

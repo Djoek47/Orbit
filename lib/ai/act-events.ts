@@ -6,9 +6,9 @@ import {
   TOKEN_WEIGHT_QUIET,
   TOKEN_WEIGHT_SPEAK_BACK,
   TOKENS_PER_DAY,
-  TOKENS_PER_MONTH,
 } from '@/constants/poppins-ai-rates';
 import type { PoppinsActMode } from '@/lib/ai/credits';
+import { currentMonthlyAllowance } from '@/lib/billing/allowance-state';
 import type { IuiWriteKind } from '@/lib/poppins/ui-scenes';
 
 export type ActKind =
@@ -69,6 +69,11 @@ export type SummarizeActUsageOpts = {
   now?: Date | string;
   topUpBalance?: number;
   todayKey?: string;
+  /**
+   * The month's free allowance. Zero on a free trial, where Poppins runs on bought credits
+   * only. Defaults to the household's current allowance — see lib/billing/allowance-state.
+   */
+  monthlyAllowance?: number;
 };
 
 /** Map PoppinsActMode → axes + weight. Legacy stored `live` migrates to Speak back. */
@@ -172,6 +177,7 @@ export function summarizeActUsage(
   const periodEnd = opts.periodEnd ? new Date(opts.periodEnd) : nextUtcMonth(now);
   const todayKey = opts.todayKey ?? now.toISOString().slice(0, 10);
   const topUpBalance = Math.max(0, Math.round(opts.topUpBalance ?? 0));
+  const monthlyAllowance = Math.max(0, Math.round(opts.monthlyAllowance ?? currentMonthlyAllowance()));
 
   const chronological = [...events].sort((a, b) => a.at.localeCompare(b.at));
   let tokensUsedThisPeriod = 0;
@@ -219,15 +225,15 @@ export function summarizeActUsage(
     });
 
     const allowanceExhausted =
-      tokensUsedThisPeriod > TOKENS_PER_MONTH || tokensUsedToday > TOKENS_PER_DAY;
+      tokensUsedThisPeriod > monthlyAllowance || tokensUsedToday > TOKENS_PER_DAY;
     if (!trippedAt && allowanceExhausted) trippedAt = event.at;
   }
 
-  const monthlyRemaining = Math.max(0, TOKENS_PER_MONTH - tokensUsedThisPeriod);
+  const monthlyRemaining = Math.max(0, monthlyAllowance - tokensUsedThisPeriod);
   const dailyRemaining = Math.max(0, TOKENS_PER_DAY - tokensUsedToday);
   const tokensRemaining = Math.max(0, Math.min(monthlyRemaining, dailyRemaining) + topUpBalance);
   const allowanceExhausted =
-    tokensUsedThisPeriod >= TOKENS_PER_MONTH || tokensUsedToday >= TOKENS_PER_DAY;
+    tokensUsedThisPeriod >= monthlyAllowance || tokensUsedToday >= TOKENS_PER_DAY;
 
   const byMember = members.map((member) => {
     const row = totals.get(member.id);

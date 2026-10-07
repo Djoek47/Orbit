@@ -24,6 +24,10 @@ import {
   type IapProductKey,
   type IapTokenPackKey,
 } from '@/constants/billing';
+import {
+  isFreeTrialOffer,
+  syncPayloadFromPurchase,
+} from '@/lib/billing/household-entitlement';
 import type { TokenGrant } from '@/lib/billing/token-grants';
 import { formatUnknownError } from '@/lib/errors/unknown-error';
 
@@ -164,11 +168,89 @@ async function finishPurchaseWithRetry(
     : new Error(`finishTransaction failed: ${formatUnknownError(lastError, 'finish failed')}`);
 }
 
+const SUBSCRIPTION_IDS: string[] = [
+  IAP_SUBSCRIPTIONS.monthly.productId,
+  IAP_SUBSCRIPTIONS.yearly.productId,
+];
+
+/**
+ * What StoreKit itself says this Apple ID is entitled to right now.
+ *
+ * Reads Transaction.currentEntitlements (through getAvailablePurchases with active items only),
+ * which is local and works offline. Every field comes from the transaction: the real expiry,
+ * and whether this period is the free trial. The app used to fill those in itself — a fixed
+ * 7 or 31 days, and a trial flag hardcoded to true on purchase and false on refresh — so a
+ * household that paid up front had Poppins locked for a week, and one on its trial had it
+ * unlocked after the first relaunch.
+ *
+ * Returns the purchase as well, so the caller can report it to the household.
+ */
+async function readStoreKitSubscription(
+  iap: typeof import('expo-iap')
+): Promise<{ state: EntitlementState; purchase: Record<string, unknown> } | null> {
+  const listed = await iap.getAvailablePurchases({ onlyIncludeActiveItemsIOS: true });
+  const subs = (Array.isArray(listed) ? listed : [])
+    .map((row) => row as unknown as Record<string, unknown>)
+    .filter((row) => SUBSCRIPTION_IDS.includes(String(row.productId ?? '')));
+  if (subs.length === 0) return null;
+
+  // Two products in one group can briefly both appear during an upgrade; the one that runs
+  // longest is the one the household actually has.
+  const expiryOf = (row: Record<string, unknown>) => {
+    const raw = row.expirationDateIOS;
+    if (typeof raw === 'number') return raw;
+    if (typeof raw === 'string') return new Date(raw).getTime();
+    return 0;
+  };
+  const best = subs.reduce((a, b) => (expiryOf(b) > expiryOf(a) ? b : a));
+  const expiresMs = expiryOf(best);
+
+  const state = entitlementFromPurchase({
+    productId: String(best.productId),
+    expiresAt: expiresMs > 0 ? new Date(expiresMs).toISOString() : null,
+    effectiveAt:
+      typeof best.transactionDate === 'number'
+        ? new Date(best.transactionDate).toISOString()
+        : null,
+    inTrial: isFreeTrialOffer(best.offerIOS as { type?: unknown; paymentMode?: unknown } | null),
+  });
+  return { state, purchase: best };
+}
+
+/**
+ * Tell the household about this phone's subscription, so the Sidekick phones and the shared
+ * tablet — which never bought anything and cannot see this Apple ID's purchases — unlock too.
+ *
+ * Best effort and silent: it only ever moves the household forward, the server ignores
+ * reports it cannot use, and a failure here must never stand between a paying admin and
+ * their own app. Called after purchase, after restore, and on every refresh.
+ */
+export async function syncHouseholdEntitlement(
+  householdId: string | null | undefined,
+  purchase: Record<string, unknown>
+): Promise<void> {
+  if (!householdId) return;
+  const payload = syncPayloadFromPurchase(purchase, householdId);
+  if (!payload) return;
+  try {
+    const { getSupabaseClient } = await import('@/lib/supabase/client');
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const { error } = await supabase.functions.invoke('sync-entitlement', { body: payload });
+    if (error) console.warn('syncHouseholdEntitlement', error.message);
+  } catch (error) {
+    console.warn('syncHouseholdEntitlement', formatUnknownError(error, 'sync failed'));
+  }
+}
+
+/** The latest StoreKit purchase seen this session, so the store can sync it once it knows the house. */
+let lastStoreKitPurchase: Record<string, unknown> | null = null;
+export function latestStoreKitPurchase(): Record<string, unknown> | null {
+  return lastStoreKitPurchase;
+}
+
 export async function fetchEntitlement(): Promise<EntitlementState> {
   const persisted = await loadPersistedEntitlement();
-  if (persisted && isPremiumActive(persisted)) {
-    return persisted;
-  }
 
   if (!isNativeIapAvailable()) {
     const mock = getMockEntitlement();
@@ -178,34 +260,57 @@ export async function fetchEntitlement(): Promise<EntitlementState> {
   try {
     return await withNativeIap(async (iap) => {
       await iap.initConnection();
-      const active = await iap.getActiveSubscriptions([
-        IAP_SUBSCRIPTIONS.monthly.productId,
-        IAP_SUBSCRIPTIONS.yearly.productId,
-      ]);
-      const first = Array.isArray(active) ? active[0] : null;
-      if (!first) {
-        return persisted ?? EMPTY_ENTITLEMENT;
+      const found = await readStoreKitSubscription(iap);
+      if (!found) {
+        // StoreKit's own entitlement list is local and authoritative: nothing in it means this
+        // Apple ID has nothing active. The household may still be paid through another admin;
+        // that is merged in by the caller, not invented here.
+        if (persisted) await persistEntitlement(EMPTY_ENTITLEMENT);
+        return EMPTY_ENTITLEMENT;
       }
-      const productId = String(
-        (first as { productId?: string }).productId ?? IAP_SUBSCRIPTIONS.monthly.productId
-      );
-      const rawExpiry = (first as { expirationDateIOS?: string | number | null }).expirationDateIOS;
-      const expiresAt =
-        typeof rawExpiry === 'string'
-          ? rawExpiry
-          : typeof rawExpiry === 'number'
-            ? new Date(rawExpiry).toISOString()
-            : null;
-      const state = entitlementFromPurchase({
-        productId,
-        expiresAt,
-        inTrial: false,
-      });
-      return persistEntitlement(state);
+      lastStoreKitPurchase = found.purchase;
+      return persistEntitlement(found.state);
     });
   } catch (error) {
+    // StoreKit unreachable (rare — the read is local). Keep what we had rather than lock out.
     console.warn('fetchEntitlement StoreKit skipped', error);
-    return persisted ?? getMockEntitlement();
+    return persisted ?? EMPTY_ENTITLEMENT;
+  }
+}
+
+/**
+ * Will buying this subscription start a free trial for this Apple ID?
+ *
+ * Two conditions, both Apple's: the product must actually carry a free-trial introductory
+ * offer in App Store Connect, and this Apple ID must not have used one in the group before.
+ * The paywall used to promise "Free for 7 days" unconditionally — to a returning subscriber,
+ * or against a product whose offer was never configured, Apple then charges on the spot while
+ * the screen said free, which is both a refund and a guideline 3.1.2 rejection.
+ *
+ * Off-device (Expo Go, tests) the trial is mocked, so the answer is yes. If StoreKit cannot be
+ * asked, also yes — the purchase sheet Apple shows is the final word, and a failed probe must
+ * not hide the trial from someone who has it.
+ */
+export async function isTrialEligible(productKey: IapProductKey): Promise<boolean> {
+  if (!isNativeIapAvailable()) return true;
+  const product = IAP_SUBSCRIPTIONS[productKey];
+  try {
+    return await withNativeIap(async (iap) => {
+      await iap.initConnection();
+      const listed = await iap.fetchProducts({ skus: [product.productId], type: 'subs' });
+      const row = (Array.isArray(listed) ? listed[0] : null) as Record<string, unknown> | null;
+      if (!row) return true;
+      const mode = String(row.introductoryPricePaymentModeIOS ?? '')
+        .toLowerCase()
+        .replace(/[^a-z]/g, '');
+      if (mode !== 'freetrial') return false;
+      const group = row.subscriptionGroupIdIOS;
+      if (typeof group !== 'string' || !group) return true;
+      return Boolean(await iap.isEligibleForIntroOfferIOS(group));
+    });
+  } catch (error) {
+    console.warn('isTrialEligible', formatUnknownError(error, 'probe failed'));
+    return true;
   }
 }
 
@@ -266,13 +371,28 @@ export async function purchasePremium(
     if (!productKeyForId(productId)) {
       throw new Error('unknown_subscription_product');
     }
+    await finishPurchaseWithRetry(iap, purchase, false);
+
+    // Read the result back from StoreKit rather than guessing. Whether this is a free trial
+    // depends on the user's eligibility, which only Apple knows: someone who had a trial
+    // before pays today, and must not have Poppins locked for a week they already paid for.
+    const found = await readStoreKitSubscription(iap).catch(() => null);
+    if (found) {
+      lastStoreKitPurchase = found.purchase;
+      return persistEntitlement(found.state);
+    }
     const state = entitlementFromPurchase({
       productId,
-      inTrial: true,
+      expiresAt:
+        typeof purchase.expirationDateIOS === 'number'
+          ? new Date(purchase.expirationDateIOS).toISOString()
+          : null,
+      inTrial: isFreeTrialOffer(
+        purchase.offerIOS as { type?: unknown; paymentMode?: unknown } | null
+      ),
     });
-    await persistEntitlement(state);
-    await finishPurchaseWithRetry(iap, purchase, false);
-    return state;
+    lastStoreKitPurchase = purchase;
+    return persistEntitlement(state);
   });
 }
 
@@ -455,23 +575,10 @@ export async function restorePurchases(): Promise<EntitlementState> {
     return await withNativeIap(async (iap) => {
       await iap.initConnection();
       await iap.restorePurchases();
-      const purchases = await iap.getAvailablePurchases();
-      const list = Array.isArray(purchases) ? purchases : [];
-      const match = list.find((item) => {
-        const id = String((item as { productId?: string }).productId ?? '');
-        return (
-          id === IAP_SUBSCRIPTIONS.monthly.productId ||
-          id === IAP_SUBSCRIPTIONS.yearly.productId
-        );
-      });
-      if (!match) {
-        return EMPTY_ENTITLEMENT;
-      }
-      const state = entitlementFromPurchase({
-        productId: String((match as { productId: string }).productId),
-        inTrial: false,
-      });
-      return persistEntitlement(state);
+      const found = await readStoreKitSubscription(iap);
+      if (!found) return persistEntitlement(EMPTY_ENTITLEMENT);
+      lastStoreKitPurchase = found.purchase;
+      return persistEntitlement(found.state);
     });
   } catch (error) {
     console.warn('restorePurchases StoreKit skipped', error);

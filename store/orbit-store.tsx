@@ -816,6 +816,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const [actEvents, setActEvents] = useState<ActEvent[]>([]);
   const actEventsRef = useRef<ActEvent[]>([]);
   actEventsRef.current = actEvents;
+
+  /**
+   * Is Poppins out of actions, counting the ones the household bought?
+   *
+   * The gates used to call summarizeActUsage(events).tripped with no top-up balance, so once
+   * the month ran out, bought credits were ignored and Poppins said "paused" to a household
+   * that had just paid for more. On a free trial, where the monthly allowance is zero, that
+   * meant Poppins could never run at all — buying a pack did nothing.
+   */
+  const poppinsMeterTripped = async (): Promise<boolean> => {
+    let topUpBalance = 0;
+    if (household.id) {
+      try {
+        const { loadTokenGrants, topUpBalanceFromGrants } = await import(
+          '@/lib/billing/token-grants'
+        );
+        topUpBalance = topUpBalanceFromGrants(await loadTokenGrants(household.id));
+      } catch (error) {
+        // Reading the bank failed; judge on the allowance alone, as before.
+        console.warn('poppinsMeterTripped', error);
+      }
+    }
+    return summarizeActUsage(actEventsRef.current, [], { topUpBalance }).tripped;
+  };
   const [poppinsConversation, setPoppinsConversation] = useState<PoppinsChatMessage[]>([]);
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>('dark');
   const [paletteId, setPaletteId] = useState<ColorPaletteId>(DEFAULT_COLOR_PALETTE_ID);
@@ -905,7 +929,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         event.outcome === 'committed' ? Math.max(0, Math.round(event.tokens)) : 0;
       if (charged > 0 && household.id) {
         try {
-          const { TOKENS_PER_DAY, TOKENS_PER_MONTH } = await import('@/constants/poppins-ai-rates');
+          const { TOKENS_PER_DAY } = await import('@/constants/poppins-ai-rates');
+          // Zero on a free trial: the whole charge then comes from bought credits.
+          const { currentMonthlyAllowance } = await import('@/lib/billing/allowance-state');
           const { consumeTopUpTokens, loadTokenGrants, topUpBalanceFromGrants } = await import(
             '@/lib/billing/token-grants'
           );
@@ -914,7 +940,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           const before = summarizeActUsage(actEventsRef.current.slice(0, -1), [], {
             topUpBalance: topUp,
           });
-          const monthlyLeft = Math.max(0, TOKENS_PER_MONTH - before.tokensUsedThisPeriod);
+          const monthlyLeft = Math.max(0, currentMonthlyAllowance() - before.tokensUsedThisPeriod);
           const dailyLeft = Math.max(0, TOKENS_PER_DAY - before.tokensUsedToday);
           const allowanceLeft = Math.min(monthlyLeft, dailyLeft);
           const fromTopUp = Math.max(0, charged - allowanceLeft);
@@ -6038,7 +6064,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         answer: 'Poppins is not available on this profile.',
       };
     }
-    if (summarizeActUsage(actEventsRef.current).tripped) {
+    if (await poppinsMeterTripped()) {
       return { question, answer: POPPINS_PAUSED_COPY, source: 'meter' };
     }
 
@@ -6118,7 +6144,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         answer: 'Poppins is not available on this profile.',
       };
     }
-    if (summarizeActUsage(actEventsRef.current).tripped) {
+    if (await poppinsMeterTripped()) {
       return { question: '', answer: POPPINS_PAUSED_COPY, source: 'meter' };
     }
     const { transcribeAndAskPoppins } = await import('@/lib/voice/poppins-voice');

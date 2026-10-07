@@ -2,8 +2,8 @@
  * Apple-caliber Premium subscription sheet — Monthly/Yearly segment + price crossfade.
  * Presentation only; purchase logic lives in the screen / facade.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View, Linking,} from 'react-native';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInUp,
@@ -52,6 +52,24 @@ export type PremiumPaywallProps = {
   onRestore: () => void;
   onContinue: () => void;
   onDismiss: () => void;
+  /**
+   * False when the paywall is the gate itself — after sign-up, or once a trial has ended.
+   * There is then no "Not now" into the app; the way out is Account, which must always lead
+   * to deleting the account (guideline 5.1.1(v)).
+   */
+  dismissible?: boolean;
+  /** Shown in place of the dismiss link when the paywall cannot be dismissed. */
+  onAccount?: () => void;
+  /**
+   * Whether purchasing each plan starts a free trial for this Apple ID, per StoreKit. Where it
+   * is false the screen must not mention a trial at all: Apple will charge on the spot.
+   * Missing entries count as eligible — the purchase sheet Apple shows is the final word.
+   */
+  trialEligibleByPeriod?: Partial<Record<IapProductKey, boolean>>;
+  /** One line above the price, e.g. "Your free trial has ended." */
+  notice?: string | null;
+  /** Rendered last, for sheets that belong to this screen. */
+  footerSlot?: ReactNode;
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -72,6 +90,11 @@ export function PremiumPaywall({
   onRestore,
   onContinue,
   onDismiss,
+  dismissible = true,
+  onAccount,
+  trialEligibleByPeriod,
+  notice = null,
+  footerSlot = null,
 }: PremiumPaywallProps) {
   const insets = useSafeAreaInsets();
   const { accentTheme, orbitPalette } = useOrbit();
@@ -107,6 +130,7 @@ export function PremiumPaywall({
     [busy, period, priceOpacity, revealPeriod]
   );
 
+  const trialEligible = trialEligibleByPeriod?.[period] ?? true;
   const yearly = IAP_PRODUCTS.yearly;
   const monthly = IAP_PRODUCTS.monthly;
   const selected = period === 'yearly' ? yearly : monthly;
@@ -114,9 +138,14 @@ export function PremiumPaywall({
   const secondaryLabel = variant === 'onboarding' ? 'Not now' : 'Close';
   const ctaLabel = alreadyPremium
     ? 'Continue'
-    : period === 'yearly'
-      ? 'Start yearly free trial'
-      : 'Start monthly free trial';
+    : trialEligible
+      ? period === 'yearly'
+        ? 'Start yearly free trial'
+        : 'Start monthly free trial'
+      : period === 'yearly'
+        ? 'Subscribe yearly'
+        : 'Subscribe monthly';
+  const ctaText = alreadyPremium ? 'Continue' : trialEligible ? 'Start Free Trial' : 'Subscribe';
 
   return (
     <View
@@ -152,12 +181,18 @@ export function PremiumPaywall({
         ) : null}
 
         <Animated.View entering={FadeInUp.delay(120).duration(480)} style={styles.priceBlock}>
-          <View style={[styles.trialPill, { backgroundColor: `${accentTheme.primary}18` }]}>
-            <Text style={[styles.trialText, { color: accentTheme.primary }]}>
-              Free for {BILLING_TRIAL_DAYS} days
-              {period === 'yearly' ? ` · ${yearly.savingsLabel}` : ''}
-            </Text>
-          </View>
+          {notice ? (
+            <Text style={[styles.notice, { color: c.text }]}>{notice}</Text>
+          ) : null}
+          {trialEligible || period === 'yearly' ? (
+            <View style={[styles.trialPill, { backgroundColor: `${accentTheme.primary}18` }]}>
+              <Text style={[styles.trialText, { color: accentTheme.primary }]}>
+                {trialEligible ? `Free for ${BILLING_TRIAL_DAYS} days` : ''}
+                {trialEligible && period === 'yearly' ? ' · ' : ''}
+                {period === 'yearly' ? yearly.savingsLabel : ''}
+              </Text>
+            </View>
+          ) : null}
           <Animated.View style={[styles.priceCrossfade, priceStyle]}>
             <Text style={[styles.priceLine, { color: c.text }]}>
               ${selected.priceUsd}
@@ -231,13 +266,14 @@ export function PremiumPaywall({
           accessibilityRole="button"
           accessibilityLabel={ctaLabel}>
           <Text style={[styles.ctaLabel, { color: isDark ? '#0A1018' : '#FFFFFF' }]}>
-            {busy ? 'Please wait…' : alreadyPremium ? 'Continue' : 'Start Free Trial'}
+            {busy ? 'Please wait…' : ctaText}
           </Text>
         </AnimatedPressable>
 
         <Text style={[styles.legal, { color: c.textSubtle }]}>
-          Payment is charged to your Apple ID after the trial unless you cancel at least 24 hours
-          before it ends. Manage it in your Apple ID settings, under Subscriptions.
+          {trialEligible
+            ? 'Payment is charged to your Apple ID after the trial unless you cancel at least 24 hours before it ends. Manage it in your Apple ID settings, under Subscriptions.'
+            : 'Payment is charged to your Apple ID when you confirm. Manage it in your Apple ID settings, under Subscriptions.'}
         </Text>
 
         <Text style={[styles.legal, { color: c.textSubtle }]}>
@@ -271,11 +307,23 @@ export function PremiumPaywall({
             <Text style={[styles.link, { color: c.textMuted }]}>Restore</Text>
           </Pressable>
           <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
-          <Pressable onPress={onDismiss} disabled={busy} hitSlop={12}>
-            <Text style={[styles.link, { color: c.textMuted }]}>{secondaryLabel}</Text>
-          </Pressable>
+          {dismissible ? (
+            <Pressable onPress={onDismiss} disabled={busy} hitSlop={12}>
+              <Text style={[styles.link, { color: c.textMuted }]}>{secondaryLabel}</Text>
+            </Pressable>
+          ) : onAccount ? (
+            <Pressable
+              onPress={onAccount}
+              disabled={busy}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Account: sign out, delete account, support">
+              <Text style={[styles.link, { color: c.textMuted }]}>Account</Text>
+            </Pressable>
+          ) : null}
         </View>
       </Animated.View>
+      {footerSlot}
     </View>
   );
 }
@@ -321,6 +369,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  notice: { fontSize: 15, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
   trialPill: {
     borderRadius: 999,
     paddingHorizontal: 14,

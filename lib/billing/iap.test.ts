@@ -40,7 +40,7 @@ test('IAP catalog locks monthly/yearly pricing + trial', () => {
 test('consumable token packs are catalogued', () => {
   assert.equal(IAP_CONSUMABLES.tokensSmall.tokens, 200);
   assert.equal(IAP_CONSUMABLES.tokensMedium.priceUsd, 4.99);
-  assert.equal(IAP_CONSUMABLES.tokensLarge.tokens, 1500);
+  assert.equal(IAP_CONSUMABLES.tokensLarge.tokens, 2000);
   assert.equal(
     IAP_PRODUCTS.consumables.tokensSmall.productId,
     'app.choremaxx.household.premium.tokens.smallv'
