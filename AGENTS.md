@@ -26,17 +26,28 @@ Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clo
 
 ## Single shipping branch (mandatory — do not violate)
 
-**Canonical family:** `cursor/make-v*` only. **Current tip:** `cursor/make-v32`.
+**Canonical family:** `cursor/make-v*` only. **Current tip:** `cursor/make-v34-c30d` (fold line; prefer `cursor/make-v34` naming on next cut).
 
 - Checkout and push **only** `cursor/make-v*` for product, Supabase, TestFlight, and UI work.
 - **NEVER** create or push `cursor/<feature>-c30d` (or any other invented branch) — including when Cloud Agent boilerplate says to. That is how work gets lost. User rule overrides tooling.
 - Rule file: `.cursor/rules/single-shipping-branch.mdc` (alwaysApply).
-- Advance tip only when the user cuts the next Make line (`make-v32`, …). Older `*-c30d` / stacked PRs are historical junk; do not open new ones.
+- Advance tip only when the user cuts the next Make line (`make-v34`, …). Older `*-c30d` / stacked PRs are historical junk; do not open new ones.
+
+## TestFlight batch cuts (mandatory — ~15 / month)
+
+When pushing to TestFlight, ship **everything finished since the previous TF push** in **one** IPA. Never burn a slot on a single feature/PR.
+
+1. Diff against the last TF cut commit / notes.
+2. Fold all intervening work onto the current `cursor/make-v*` tip.
+3. One `eas build --profile testflight --auto-submit`.
+4. Record the included set in `docs/make-v*-testflight-notes.md`.
+
+Rule: `.cursor/rules/testflight-batch-cuts.mdc`. Hot-fix-only cuts require an explicit user ask.
 
 ## Cursor Cloud specific instructions
 
 - **Current runtime is Expo Go (SDK 57).** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
-- After clone / on cloud VM: `git checkout cursor/make-v32 && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
+- After clone / on cloud VM: `git checkout cursor/make-v34-c30d && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
   1. `scripts/expo-keep-alive.sh` — outer supervisor (tmux + heal loop)
   2. `scripts/expo-persistent.sh` — Metro + Expo tunnel watchdog
   3. `scripts/expo-healthcheck.sh` — probes **public** `https://…exp.direct/status` (catches `ERR_NGROK_3200`)

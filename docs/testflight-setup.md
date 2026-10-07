@@ -93,6 +93,17 @@ Source copies: `docs/legal/privacy-policy.md`, `docs/legal/terms-of-service.md`
 
 ## Build & upload to TestFlight
 
+### Batch policy (mandatory — ~15 TF builds / month)
+
+**Never cut a single-feature TestFlight.** Each push must fold **all finished work since the previous TestFlight build**, then ship **one** IPA from the current `cursor/make-v*` tip.
+
+1. Find the last TF cut (notes under `docs/make-v*-testflight-notes.md` or latest EAS `testflight` build).
+2. Merge / fold every completed tip that landed after that cut onto `cursor/make-v*`.
+3. Run one `testflight` build + auto-submit.
+4. Document the included set in the make-v notes file.
+
+Do **not** burn a slot on one PR unless the user explicitly orders a hot-fix-only cut. Rule: `.cursor/rules/testflight-batch-cuts.mdc`.
+
 ### Preflight (local)
 
 ```bash
