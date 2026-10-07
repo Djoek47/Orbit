@@ -223,10 +223,10 @@ def compose_header(w: int, h: int) -> Image.Image:
     tag_y = sub_y + int(sh * 1.55)
     d.text((cx - tw // 2 - tbb[0], tag_y), tag, font=f_tag, fill=GOLD)
 
-    # Large blocky pills — ExtraBold, generous padding (roomy capsules)
-    f_pill = font(FONT_XB, max(28, int(title_size * 0.30)))
-    pad_x = max(64, int(title_size * 0.72))
-    pad_y = max(34, int(title_size * 0.42))
+    # Pills — same ExtraBold for both labels; ~25% smaller than prior pass
+    f_pill = font(FONT_XB, max(22, int(title_size * 0.225)))
+    pad_x = max(48, int(title_size * 0.54))
+    pad_y = max(24, int(title_size * 0.315))
     pill_y = tag_y + int(th * 2.6)
     # Keep pills inside safe zone; side by side centered
     left_label, right_label = "AI Household OS", "Family · Shared tablet"
@@ -293,10 +293,10 @@ def compose_search(w: int, h: int) -> Image.Image:
     tag_y = sub_y + int(title_size * 0.55)
     d.text((left, tag_y), "Tasks · Grocery · Ranks · Poppins", font=f_tag, fill=GOLD)
 
-    # Bigger, blockier pills — ExtraBold + heavy padding (roomy capsules)
-    f_pill = font(FONT_XB, max(28, int(title_size * 0.34)))
-    pad_x = max(68, int(title_size * 0.78))
-    pad_y = max(36, int(title_size * 0.46))
+    # Pills — same ExtraBold for both labels; ~38% smaller than prior pass
+    f_pill = font(FONT_XB, max(20, int(title_size * 0.21)))
+    pad_x = max(42, int(title_size * 0.48))
+    pad_y = max(22, int(title_size * 0.285))
     pill_y = int(h * 0.70)
 
     # Stack vertically on narrow canvases; side-by-side when wide
