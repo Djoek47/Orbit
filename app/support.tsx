@@ -3,14 +3,25 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
+import { FrostedPanel } from '@/components/orbit/frosted-panel';
 import { Moji } from '@/components/orbit/moji/moji';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
@@ -23,6 +34,7 @@ import {
   formatErrorLogForCopy,
   loadErrorLog,
   previewErrorLines,
+  recordAppError,
   type AppErrorEntry,
 } from '@/lib/errors/error-log';
 import { friendlyErrorMessage } from '@/lib/errors/friendly-error';
@@ -32,8 +44,14 @@ import {
   pickSupportScreenshot,
   type SupportShot,
 } from '@/lib/support/upload-support-shot';
-import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { glassBorder as themeGlassBorder, glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+
+type SentReceipt = {
+  ticketRef?: string;
+  ackEmailed: boolean;
+  errorCount: number;
+};
 
 export default function SupportScreen() {
   const insets = useSafeAreaInsets();
@@ -48,6 +66,9 @@ export default function SupportScreen() {
   const [busy, setBusy] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [shots, setShots] = useState<SupportShot[]>([]);
+  /** In-screen receipt — never nest orbitAlert over this Expo modal. */
+  const [sent, setSent] = useState<SentReceipt | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const refresh = useCallback(async () => {
     const next = await loadErrorLog();
@@ -106,7 +127,10 @@ export default function SupportScreen() {
   };
 
   const onSend = async () => {
+    if (busy) return;
     setBusy(true);
+    setSent(null);
+    const errorCount = selectedIds.size;
     try {
       const result = await sendSupportFeedback({
         message: note.trim() || 'Support request from the Choremaxx app.',
@@ -124,12 +148,39 @@ export default function SupportScreen() {
       if (result.ok) {
         setNote('');
         setShots([]);
-        orbitAlert('Sent', 'Thanks — check your email for a confirmation.', undefined, {
-          record: false,
+        setSent({
+          ticketRef: result.ticketRef,
+          ackEmailed: result.ackEmailed === true,
+          errorCount,
         });
-      } else {
-        orbitAlert('Could not send', result.error, undefined, { record: true, source: 'support' });
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return;
       }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      void recordAppError({
+        title: 'Could not send feedback',
+        message: result.error,
+        source: 'support',
+        category: 'network',
+      });
+      // Native Alert — Support is presentation:modal; orbitAlert nests and can vanish.
+      Alert.alert('Could not send', friendlyErrorMessage(result.error), [
+        { text: 'OK', style: 'cancel' },
+        {
+          text: 'Email instead',
+          onPress: () => {
+            void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`);
+          },
+        },
+      ]);
+    } catch (error) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        'Could not send',
+        friendlyErrorMessage(error instanceof Error ? error.message : 'Could not send feedback.'),
+        [{ text: 'OK', style: 'cancel' }]
+      );
     } finally {
       setBusy(false);
     }
@@ -146,6 +197,7 @@ export default function SupportScreen() {
       </View>
 
       <PersistentScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         indicatorColor={accent}>
         <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.header}>
@@ -165,72 +217,126 @@ export default function SupportScreen() {
           <Text style={[styles.sectionLabel, { color: accent }]}>Compose</Text>
         </View>
 
-        <Animated.View entering={FadeInDown.delay(40).duration(260)}>
-          <LinearGradient
-            colors={[`${accent}30`, `${accent}0A`]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.card, { borderColor: `${accent}55` }]}>
-            <Text style={[styles.cardLabel, { color: accent }]}>Message</Text>
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="What happened?"
-              placeholderTextColor={c.textFaint}
-              multiline
-              style={[
-                styles.input,
-                {
-                  color: isDark ? '#F7F2EC' : c.text,
-                  backgroundColor: glassFill(isDark),
-                  borderColor: glassBorder(0.1),
-                },
-              ]}
-            />
-
-            <Text style={[styles.cardLabel, { color: accent }]}>Screenshots</Text>
-            <View style={styles.shotRow}>
-              {shots.map((shot) => (
-                <View key={shot.uri} style={styles.shotWrap}>
-                  <Image source={{ uri: shot.uri }} style={styles.shot} />
-                  <Pressable
-                    onPress={() => setShots((prev) => prev.filter((s) => s.uri !== shot.uri))}
-                    style={[styles.shotRemove, { backgroundColor: c.background }]}
-                    hitSlop={6}
-                    accessibilityLabel="Remove screenshot">
-                    <MaterialIcons name="close" size={14} color={c.text} />
-                  </Pressable>
-                </View>
-              ))}
-              {shots.length < MAX_SUPPORT_SHOTS ? (
-                <Pressable
-                  onPress={() => void onAddShot()}
+        {sent ? (
+          <Animated.View entering={FadeInDown.delay(40).duration(280)}>
+            <FrostedPanel borderColor={`${accent}55`} style={styles.sentPanel}>
+              <View style={[styles.sentBadge, { backgroundColor: `${accent}22` }]}>
+                <MaterialIcons name="check-circle" size={28} color={accent} />
+              </View>
+              <Text style={[styles.sentTitle, { color: isDark ? '#F7F2EC' : c.text }]}>
+                Feedback sent
+              </Text>
+              <Text style={[styles.sentBody, { color: c.textMuted }]}>
+                {sent.ackEmailed
+                  ? 'We emailed you a confirmation. Our team got the report too.'
+                  : 'Our team got your report. If you’re signed in with email, a confirmation may follow shortly.'}
+              </Text>
+              {sent.ticketRef ? (
+                <View
                   style={[
-                    styles.shotAdd,
-                    { borderColor: `${accent}66`, backgroundColor: `${accent}14` },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Add screenshot">
-                  <Moji name="phone" size={22} />
-                  <Text style={[styles.shotAddLabel, { color: accent }]}>Add</Text>
-                </Pressable>
+                    styles.ticketChip,
+                    { backgroundColor: glassFill(isDark), borderColor: themeGlassBorder(isDark, 0.12) },
+                  ]}>
+                  <Text style={[styles.ticketLabel, { color: c.textSubtle }]}>Ticket</Text>
+                  <Text style={[styles.ticketValue, { color: accent }]}>{sent.ticketRef}</Text>
+                </View>
               ) : null}
-            </View>
+              {sent.errorCount > 0 ? (
+                <Text style={[styles.sentMeta, { color: c.textSubtle }]}>
+                  {sent.errorCount} error{sent.errorCount === 1 ? '' : 's'} attached
+                </Text>
+              ) : null}
+              <OrbitButton
+                style={styles.sentDone}
+                onPress={() => {
+                  setSent(null);
+                  try {
+                    router.back();
+                  } catch {
+                    /* stay on Support */
+                  }
+                }}>
+                Done
+              </OrbitButton>
+              <Pressable
+                onPress={() => setSent(null)}
+                style={styles.mailLink}
+                hitSlop={8}
+                accessibilityRole="button">
+                <Text style={[styles.mailLabel, { color: accent }]}>Send another</Text>
+              </Pressable>
+            </FrostedPanel>
+          </Animated.View>
+        ) : (
+          <Animated.View entering={FadeInDown.delay(40).duration(260)}>
+            <LinearGradient
+              colors={[`${accent}30`, `${accent}0A`]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.card, { borderColor: `${accent}55` }]}>
+              <Text style={[styles.cardLabel, { color: accent }]}>Message</Text>
+              <TextInput
+                value={note}
+                onChangeText={setNote}
+                placeholder="What happened?"
+                placeholderTextColor={c.textFaint}
+                multiline
+                style={[
+                  styles.input,
+                  {
+                    color: isDark ? '#F7F2EC' : c.text,
+                    backgroundColor: glassFill(isDark),
+                    borderColor: glassBorder(0.1),
+                  },
+                ]}
+              />
 
-            <OrbitButton disabled={busy} onPress={() => void onSend()}>
-              {busy
-                ? 'Sending…'
-                : `Send feedback${selectedIds.size ? ` · ${selectedIds.size} error${selectedIds.size === 1 ? '' : 's'}` : ''}`}
-            </OrbitButton>
-            <Pressable
-              onPress={() => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`)}
-              style={styles.mailLink}
-              hitSlop={8}>
-              <MaterialIcons name="email" size={16} color={accent} />
-              <Text style={[styles.mailLabel, { color: accent }]}>{CHOREMAXX_LEGAL.supportEmail}</Text>
-            </Pressable>
-          </LinearGradient>
-        </Animated.View>
+              <Text style={[styles.cardLabel, { color: accent }]}>Screenshots</Text>
+              <View style={styles.shotRow}>
+                {shots.map((shot) => (
+                  <View key={shot.uri} style={styles.shotWrap}>
+                    <Image source={{ uri: shot.uri }} style={styles.shot} />
+                    <Pressable
+                      onPress={() => setShots((prev) => prev.filter((s) => s.uri !== shot.uri))}
+                      style={[styles.shotRemove, { backgroundColor: c.background }]}
+                      hitSlop={6}
+                      accessibilityLabel="Remove screenshot">
+                      <MaterialIcons name="close" size={14} color={c.text} />
+                    </Pressable>
+                  </View>
+                ))}
+                {shots.length < MAX_SUPPORT_SHOTS ? (
+                  <Pressable
+                    onPress={() => void onAddShot()}
+                    style={[
+                      styles.shotAdd,
+                      { borderColor: `${accent}66`, backgroundColor: `${accent}14` },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add screenshot">
+                    <Moji name="phone" size={22} />
+                    <Text style={[styles.shotAddLabel, { color: accent }]}>Add</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <OrbitButton disabled={busy} onPress={() => void onSend()}>
+                {busy
+                  ? 'Sending…'
+                  : `Send feedback${selectedIds.size ? ` · ${selectedIds.size} error${selectedIds.size === 1 ? '' : 's'}` : ''}`}
+              </OrbitButton>
+              <Pressable
+                onPress={() => void Linking.openURL(`mailto:${CHOREMAXX_LEGAL.supportEmail}`)}
+                style={styles.mailLink}
+                hitSlop={8}>
+                <MaterialIcons name="email" size={16} color={accent} />
+                <Text style={[styles.mailLabel, { color: accent }]}>
+                  {CHOREMAXX_LEGAL.supportEmail}
+                </Text>
+              </Pressable>
+            </LinearGradient>
+          </Animated.View>
+        )}
 
         <View style={styles.sectionHead}>
           <View style={styles.groupHeadInline}>
@@ -428,6 +534,31 @@ const styles = StyleSheet.create({
   title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.6 },
   subtitle: { fontSize: 14, lineHeight: 20 },
   card: { borderCurve: 'continuous', borderRadius: 22, borderWidth: 1, gap: 12, padding: 16 },
+  sentPanel: { alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingVertical: 22 },
+  sentBadge: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 52,
+    justifyContent: 'center',
+    marginBottom: 2,
+    width: 52,
+  },
+  sentTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, textAlign: 'center' },
+  sentBody: { fontSize: 14.5, fontWeight: '600', lineHeight: 21, textAlign: 'center' },
+  sentMeta: { fontSize: 12, fontWeight: '700' },
+  sentDone: { alignSelf: 'stretch', marginTop: 4, width: '100%' },
+  ticketChip: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  ticketLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
+  ticketValue: { fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
   cardLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
   input: {
     borderCurve: 'continuous',

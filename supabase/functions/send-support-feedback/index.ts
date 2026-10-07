@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    let ackEmailed = false;
     if (userEmail) {
       const ack = renderSupportAckEmail({
         name: body.memberName || userEmail.split('@')[0] || 'there',
@@ -174,10 +175,15 @@ Deno.serve(async (req) => {
       if (!ackRes.ok) {
         const detail = await ackRes.text();
         console.warn('Resend support ack skipped', ackRes.status, detail.slice(0, 200));
+      } else {
+        ackEmailed = true;
       }
     }
 
-    return Response.json({ ok: true, ticketRef: ref }, { headers: corsHeaders(origin) });
+    return Response.json(
+      { ok: true, ticketRef: ref, ackEmailed },
+      { headers: corsHeaders(origin) }
+    );
   } catch (error) {
     console.error('send-support-feedback', error);
     return Response.json(
