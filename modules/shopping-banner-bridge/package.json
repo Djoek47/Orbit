@@ -1,0 +1,6 @@
+{
+  "name": "shopping-banner-bridge",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "private": true
+}

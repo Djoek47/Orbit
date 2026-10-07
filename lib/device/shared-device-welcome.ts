@@ -1,0 +1,122 @@
+/**
+ * What the welcome card shows after a shared-device QR is scanned.
+ *
+ * The old screen asked "Which device?" and offered "Continue as Emma's Sidekick phone" — a
+ * question the QR had already answered, phrased in words no parent standing in a kitchen
+ * would follow. This replaces the question with a confirmation: the household you are about
+ * to join, the device's name, a short code to check against the admin's screen, and who is
+ * already on it.
+ *
+ * Pure: no React Native, no storage.
+ */
+import {
+  resolveSharedDevicePeople,
+  SHARED_DEVICE_MAX_PEOPLE,
+} from '@/lib/household/shared-device';
+import { normalizeSharedDeviceLabel } from '@/lib/device/profile-picker-layout';
+import type { HouseholdMember } from '@/types/orbit';
+
+/** Unambiguous by eye: no O/0, I/1, S/5, B/8. */
+const ALPHABET = 'ACDEFGHJKLMNPQRTUVWXY234679';
+
+/**
+ * A four-character code for a household, the same every time.
+ *
+ * It proves nothing cryptographically and is not meant to — it is there so someone holding
+ * the tablet and someone holding the admin's phone can see the same four characters and know
+ * they scanned the right house. Derived from the household id so both ends compute it without
+ * talking to each other.
+ */
+export function householdMatchCode(householdId: string | null | undefined): string {
+  const seed = (householdId ?? '').trim();
+  if (!seed) return '----';
+  // FNV-1a, 32-bit. Small, stable, and good enough to scatter ids across the alphabet.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  let out = '';
+  for (let i = 0; i < 4; i += 1) {
+    out += ALPHABET[hash % ALPHABET.length];
+    hash = Math.floor(hash / ALPHABET.length) + 7919 * (i + 1);
+  }
+  return out;
+}
+
+/** Just what the card draws for a person — a full member, or one looked up before joining. */
+export type WelcomePerson = Pick<HouseholdMember, 'id' | 'name' | 'avatar'> & {
+  accentThemeId?: string;
+};
+
+export type SharedDeviceWelcome = {
+  householdName: string;
+  deviceLabel: string;
+  matchCode: string;
+  /**
+   * False before sign-in, when the store's household id is still null. The code would read
+   * "----", and the screen must not then tell anyone to check it against the admin's screen.
+   */
+  hasMatchCode: boolean;
+  /** Everyone already on the tablet, capped at what the picker can lay out. */
+  people: WelcomePerson[];
+  /** "Emma and Jack" · "Emma, Jack and 2 others" — never a bare list that runs off screen. */
+  peopleLabel: string;
+  full: boolean;
+};
+
+/** "Emma and Jack", "Emma, Jack and 2 others", "" when nobody is on it yet. */
+export function describePeople(people: WelcomePerson[]): string {
+  const names = people.map((p) => p.name.trim().split(/\s+/)[0] || p.name.trim()).filter(Boolean);
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0]!;
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  const rest = names.length - 2;
+  return `${names[0]}, ${names[1]} and ${rest} other${rest === 1 ? '' : 's'}`;
+}
+
+export function sharedDeviceWelcome(input: {
+  householdId: string | null | undefined;
+  householdName: string | null | undefined;
+  shell: HouseholdMember | null | undefined;
+  members: HouseholdMember[];
+}): SharedDeviceWelcome {
+  const people = resolveSharedDevicePeople(input.shell, input.members).slice(
+    0,
+    SHARED_DEVICE_MAX_PEOPLE
+  );
+  return {
+    householdName: input.householdName?.trim() || 'your household',
+    deviceLabel: normalizeSharedDeviceLabel(input.shell?.name),
+    matchCode: householdMatchCode(input.householdId),
+    hasMatchCode: Boolean(input.householdId?.trim()),
+    people,
+    peopleLabel: describePeople(people),
+    full: people.length >= SHARED_DEVICE_MAX_PEOPLE,
+  };
+}
+
+/**
+ * The same card, built from what a tablet can learn before it has joined: the invite's people,
+ * looked up one code at a time, rather than a household roster it does not have yet.
+ */
+export function welcomeFromPeople(input: {
+  householdId: string | null | undefined;
+  householdName: string | null | undefined;
+  deviceLabel: string | null | undefined;
+  people: WelcomePerson[];
+}): SharedDeviceWelcome {
+  const seen = new Set<string>();
+  const people = input.people
+    .filter((p) => p.id && !seen.has(p.id) && seen.add(p.id))
+    .slice(0, SHARED_DEVICE_MAX_PEOPLE);
+  return {
+    householdName: input.householdName?.trim() || 'your household',
+    deviceLabel: normalizeSharedDeviceLabel(input.deviceLabel ?? undefined),
+    matchCode: householdMatchCode(input.householdId),
+    hasMatchCode: Boolean(input.householdId?.trim()),
+    people,
+    peopleLabel: describePeople(people),
+    full: people.length >= SHARED_DEVICE_MAX_PEOPLE,
+  };
+}

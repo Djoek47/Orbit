@@ -1,41 +1,324 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect, type ReactNode } from 'react';
+import { LayoutAnimationConfig } from 'react-native-reanimated';
 import 'react-native-reanimated';
 
-import { orbitColors } from '@/constants/orbit-theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { OrbitProvider } from '@/store/orbit-store';
+import { AppErrorBoundary } from '@/components/orbit/app-error-boundary';
+import { DeepLinkBridge } from '@/components/orbit/deep-link-bridge';
+import { GlobalSigningOutCover } from '@/components/orbit/global-signing-out-cover';
+import { LegalLinksSheetHost } from '@/components/orbit/settings/legal-links-sheet-host';
+import { TourChapterSheetHost } from '@/components/orbit/tour/tour-chapter-sheet-host';
+import { MemberRemovedCountdown } from '@/components/orbit/member-removed-countdown';
+import { OrbitAlertProvider } from '@/components/orbit/orbit-alert';
+import { OrbitChromeBridge } from '@/components/orbit/orbit-chrome-bridge';
+import { OrbitNavTheme } from '@/components/orbit/orbit-nav-theme';
+import { KeyboardDoneAccessory } from '@/components/orbit/keyboard-done-accessory';
+import { TourProvider } from '@/components/orbit/tour/tour-provider';
+import { BRICOLAGE_FONT_MAP } from '@/constants/bricolage-font-assets';
+import { useSessionEpoch } from '@/lib/navigation/session-epoch';
+import { PoppinsLiveProvider } from '@/lib/poppins/live-context';
+import { AppColumn } from '@/components/orbit/layout/app-column';
+import { AccessProvider } from '@/lib/billing/access-provider';
+import { OrbitProvider, useOrbit } from '@/store/orbit-store';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: 'index',
 };
 
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* already prevented / native splash absent in some hosts */
+});
+
+/**
+ * The navigator inside one responsive column (see components/orbit/layout/app-column).
+ * Lives inside the providers so the margins either side wear the household's own background.
+ */
+function OrbitAppColumn({ children }: { children: ReactNode }) {
+  const { orbitPalette } = useOrbit();
+  return <AppColumn background={orbitPalette.background}>{children}</AppColumn>;
+}
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const [fontsLoaded, fontError] = useFonts(BRICOLAGE_FONT_MAP);
+  const sessionEpoch = useSessionEpoch();
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <AppErrorBoundary>
       <OrbitProvider>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="welcome" options={{ headerShown: false }} />
-          <Stack.Screen name="sign-in" options={{ title: 'Sign In' }} />
-          <Stack.Screen name="sign-up" options={{ title: 'Create Account' }} />
-          <Stack.Screen name="forgot-password" options={{ title: 'Reset Password' }} />
-          <Stack.Screen name="create-profile" options={{ title: 'Create Profile' }} />
-          <Stack.Screen name="household-setup" options={{ title: 'Household' }} />
-          <Stack.Screen name="create-household" options={{ presentation: 'modal', title: 'Create Household' }} />
-          <Stack.Screen name="join-household" options={{ presentation: 'modal', title: 'Join Household' }} />
-          <Stack.Screen name="invite-household" options={{ presentation: 'modal', title: 'Invite Members' }} />
-          <Stack.Screen name="household-members" options={{ presentation: 'modal', title: 'Members' }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          <Stack.Screen name="create-task" options={{ presentation: 'modal', title: 'Create Task' }} />
-          <Stack.Screen name="add-grocery" options={{ presentation: 'modal', title: 'Missing Item' }} />
-          <Stack.Screen name="create-event" options={{ presentation: 'modal', title: 'Create Event' }} />
-        </Stack>
+        <AccessProvider>
+        <OrbitAlertProvider>
+        <PoppinsLiveProvider>
+          <TourProvider>
+            <OrbitNavTheme>
+              <DeepLinkBridge />
+              <OrbitChromeBridge />
+              <MemberRemovedCountdown />
+              <GlobalSigningOutCover />
+              <LegalLinksSheetHost />
+              <TourChapterSheetHost />
+              <LayoutAnimationConfig
+                key={sessionEpoch}
+                skipEntering={sessionEpoch > 0}
+                skipExiting>
+                <OrbitAppColumn>
+                <Stack key={sessionEpoch}>
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="join/[code]" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="pending-approval"
+                    options={{ headerShown: false, title: 'Pending Approval' }}
+                  />
+                  <Stack.Screen
+                    name="join-display-name"
+                    options={{ headerShown: false, title: 'Your name' }}
+                  />
+                  <Stack.Screen
+                    name="join-profile"
+                    options={{ headerShown: false, title: 'Join profile' }}
+                  />
+                  <Stack.Screen
+                    name="join-shared-device"
+                    options={{ headerShown: false, title: 'Join shared device' }}
+                  />
+                  <Stack.Screen
+                    name="invite-unsupported"
+                    options={{ headerShown: false, title: 'Invite' }}
+                  />
+                  <Stack.Screen name="join-welcome" options={{ headerShown: false, title: 'Welcome' }} />
+                  <Stack.Screen
+                    name="redeem-member-invite"
+                    options={{ headerShown: false, title: 'Join' }}
+                  />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="welcome" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                  <Stack.Screen name="sign-in" options={{ headerShown: false, title: 'Sign In' }} />
+                  <Stack.Screen name="sign-up" options={{ headerShown: false, title: 'Create Account' }} />
+                  <Stack.Screen
+                    name="confirm-email"
+                    options={{ headerShown: false, title: 'Confirm Email' }}
+                  />
+                  <Stack.Screen
+                    name="delete-account"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Delete Account' }}
+                  />
+                  <Stack.Screen
+                    name="delete-household"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Delete Household' }}
+                  />
+                  <Stack.Screen
+                    name="household-recovery"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Recover household' }}
+                  />
+                  <Stack.Screen
+                    name="transfer-household"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Transfer ownership' }}
+                  />
+                  <Stack.Screen
+                    name="accept-household-transfer"
+                    options={{ headerShown: false, title: 'Take ownership' }}
+                  />
+                  <Stack.Screen name="premium" options={{ headerShown: false, title: 'Premium' }} />
+                  <Stack.Screen
+                    name="auth/callback"
+                    options={{ headerShown: false, title: 'Confirming' }}
+                  />
+                  <Stack.Screen
+                    name="forgot-password"
+                    options={{ headerShown: false, title: 'Reset Password' }}
+                  />
+                  <Stack.Screen
+                    name="reset-password"
+                    options={{ headerShown: false, title: 'New Password' }}
+                  />
+                  <Stack.Screen
+                    name="create-profile"
+                    options={{ headerShown: false, title: 'Create Profile' }}
+                  />
+                  <Stack.Screen
+                    name="household-setup"
+                    options={{ headerShown: false, title: 'Household' }}
+                  />
+                  <Stack.Screen
+                    name="create-household"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Create Household' }}
+                  />
+                  <Stack.Screen
+                    name="join-household"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Join Household' }}
+                  />
+                  <Stack.Screen
+                    name="invite-household"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Add New Member' }}
+                  />
+                  <Stack.Screen
+                    name="household-members"
+                    options={{ presentation: 'modal', title: 'Members' }}
+                  />
+                  <Stack.Screen
+                    name="select-profile"
+                    options={{ headerShown: false, title: 'Who is logging in' }}
+                  />
+                  <Stack.Screen
+                    name="setup-kid-device"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Shared device setup' }}
+                  />
+                  <Stack.Screen
+                    name="member/[id]"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Member' }}
+                  />
+                  <Stack.Screen
+                    name="settings"
+                    options={{
+                      presentation: 'modal',
+                      headerShown: false,
+                      gestureEnabled: true,
+                      fullScreenGestureEnabled: true,
+                      animation: 'slide_from_bottom',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="support"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Support' }}
+                  />
+                  {/* The Poppins pages draw their own header. Without these, iOS put a grey bar on
+                      top reading the raw route name ("poppins-how-it-works"). */}
+                  <Stack.Screen name="poppins-how-it-works" options={{ headerShown: false, title: 'How it works' }} />
+                  <Stack.Screen name="poppins-actions" options={{ headerShown: false, title: 'Actions' }} />
+                  <Stack.Screen name="poppins-credits" options={{ headerShown: false, title: 'Credits' }} />
+                  <Stack.Screen name="poppins-advanced" options={{ headerShown: false, title: 'Advanced' }} />
+                  <Stack.Screen
+                    name="tour/proof-walkthrough"
+                    options={{ presentation: 'modal', headerShown: false, title: 'How proof works' }}
+                  />
+                  <Stack.Screen
+                    name="create-allowance"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Allowance' }}
+                  />
+                  <Stack.Screen
+                    name="house-rules"
+                    options={{ presentation: 'modal', headerShown: false, title: 'House Rules' }}
+                  />
+                  <Stack.Screen
+                    name="recess"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Recess' }}
+                  />
+                  <Stack.Screen
+                    name="places"
+                    options={{ presentation: 'modal', headerShown: false, title: 'My Places' }}
+                  />
+                  <Stack.Screen
+                    name="notifications"
+                    options={{ presentation: 'modal', headerShown: false }}
+                  />
+                  <Stack.Screen name="momentum" options={{ title: 'Momentum' }} />
+                  <Stack.Screen
+                    name="household-balance"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Household Health' }}
+                  />
+                  <Stack.Screen
+                    name="completed-breakdown"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Completed' }}
+                  />
+                  <Stack.Screen name="weekly-report" options={{ title: 'Weekly Report' }} />
+                  <Stack.Screen name="badge-gallery" options={{ title: 'Badge Gallery' }} />
+                  <Stack.Screen
+                    name="shopping-recommendations"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Store Recommendations' }}
+                  />
+                  <Stack.Screen name="smart-home" options={{ title: 'Smart Home' }} />
+                  <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
+                  <Stack.Screen name="task/[id]" options={{ headerShown: false, title: 'Task' }} />
+                  <Stack.Screen name="event/[id]" options={{ headerShown: false, title: 'Event' }} />
+                  <Stack.Screen name="itinerary/[id]" options={{ headerShown: false, title: 'Trip' }} />
+                  <Stack.Screen name="create-task" options={{ presentation: 'modal', headerShown: false }} />
+                  <Stack.Screen
+                    name="assign-task"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Assign' }}
+                  />
+                  <Stack.Screen
+                    name="assign-homework"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Assign homework' }}
+                  />
+                  <Stack.Screen
+                    name="add-homework"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Homework' }}
+                  />
+                  <Stack.Screen
+                    name="add-grocery"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Missing Item' }}
+                  />
+                  <Stack.Screen
+                    name="scan-grocery"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Scan Product' }}
+                  />
+                  <Stack.Screen
+                    name="create-event"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Create Event' }}
+                  />
+                  <Stack.Screen
+                    name="create-itinerary"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Create Itinerary' }}
+                  />
+                  <Stack.Screen
+                    name="create-reward"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Mint a reward' }}
+                  />
+                  <Stack.Screen
+                    name="grant-allowance"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Grant Allowance' }}
+                  />
+                  <Stack.Screen
+                    name="special-reward-request"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Suggest a reward' }}
+                  />
+                  <Stack.Screen
+                    name="shopping-mode"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Shopping Mode' }}
+                  />
+                  <Stack.Screen
+                    name="grocery-browse"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Browse groceries' }}
+                  />
+                  <Stack.Screen
+                    name="reward-tally"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Reward history' }}
+                  />
+                  <Stack.Screen
+                    name="allowance-history"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Allowance history' }}
+                  />
+                  <Stack.Screen
+                    name="activity-log/index"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Activity log' }}
+                  />
+                  <Stack.Screen
+                    name="activity-log/[notificationId]"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Notification history' }}
+                  />
+                </Stack>
+                </OrbitAppColumn>
+                {/* One Done bar for every multi-line field in the app. */}
+                <KeyboardDoneAccessory />
+              </LayoutAnimationConfig>
+            </OrbitNavTheme>
+          </TourProvider>
+        </PoppinsLiveProvider>
+        </OrbitAlertProvider>
+        </AccessProvider>
       </OrbitProvider>
-      <StatusBar backgroundColor={orbitColors.background} style="light" />
-    </ThemeProvider>
+    </AppErrorBoundary>
   );
 }
