@@ -125,8 +125,3 @@ make-v36 is the Premium + shared-device fold after TF 120. The household pays on
 | `sku_not_found` on purchase if Apple has not listed the product yet | Expected; not a binary bug |
 | JWS / App Store Server Notifications | Deferred (known); renewals sync when admin opens app |
 
-| | |
-|--|--|
-| Version | **1.3.0 (121)** — make-v36 (pending cut) |
-| Branch | `cursor/make-v36-c30d` @ see `git rev-parse HEAD` |
-| Prior (120) | make-v35 — https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/fbf0926f-6f4a-4d9e-89ba-7947b2c8b653 |
