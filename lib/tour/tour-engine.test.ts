@@ -90,6 +90,20 @@ for (const s of admin.chapters.find((c) => c.id === 'homework')!.steps) {
   assert.equal(s.onEnter, 'tasks.homework', `${s.id} shows Homework`);
 }
 
+// Groceries step 2 targets a grid that only mounts when Browse is open.
+const groceries = admin.chapters.find((c) => c.id === 'groceries')!;
+assert.equal(groceries.steps.length, 3, 'groceries has add → aisle → store');
+assert.equal(groceries.steps[0]?.onEnter, 'groceries.list', 'search step closes Browse');
+assert.equal(groceries.steps[1]?.onEnter, 'groceries.browse', 'aisle step opens Browse');
+assert.equal(groceries.steps[1]?.targetId, 'groceries.aisles');
+assert.equal(groceries.steps[2]?.onEnter, 'groceries.list', 'store step closes Browse');
+assert.match(
+  read('app/(tabs)/groceries.tsx'),
+  /setGroceryBrowse/,
+  'groceries screen registers the Browse hook'
+);
+assert.match(read('lib/tour/tour-store.ts'), /groceries\.browse/);
+
 // Chapters stay short.
 for (const chapter of admin.chapters) {
   assert.ok(chapter.steps.length <= 6, `${chapter.id} has ${chapter.steps.length} steps`);
