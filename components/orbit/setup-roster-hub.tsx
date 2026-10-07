@@ -34,7 +34,7 @@ type SetupRosterHubProps = {
   /** Confirmed admin display name (You) — not a draft child invite. */
   ownerName?: string;
   ownerAvatar?: string;
-  /** Household created — show Sidekick share + QR per roster member. */
+  /** Household created — show Sidekick share + QR code per roster member. */
   rosterPostCreate?: boolean;
   sidekickInvitesByDraftId?: Record<string, RosterSidekickInvite>;
   expandedInviteDraftId?: string | null;
@@ -282,7 +282,7 @@ export function SetupRosterHub({
               </Text>
               <Text style={[typography.caption1, { color: c.textSubtle, textAlign: 'center' }]}>
                 We&apos;ll keep everything you&apos;ve set up. You can add the rest of your family any time
-                from Settings → Household.
+                from Household in Settings.
               </Text>
             </Pressable>
           </>

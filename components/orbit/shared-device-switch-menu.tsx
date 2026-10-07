@@ -123,7 +123,7 @@ export function SharedDeviceSwitchMenu({
         'Could not switch',
         error instanceof Error
           ? error.message
-          : 'Scan the shared-device QR again so this profile is on the tablet.',
+          : 'Scan the shared-device QR code again so this profile is on the tablet.',
         undefined,
         { record: true, source: 'shared-switch' }
       );

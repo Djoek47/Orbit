@@ -108,7 +108,7 @@ export default function AllowanceHistoryScreen() {
               </View>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
                 {member?.name ?? 'Sidekick'}
-                {` · ${entry.periodStart} → ${entry.periodEnd}`}
+                {` · ${entry.periodStart} to ${entry.periodEnd}`}
               </Text>
               <Text style={[styles.time, { color: c.textSubtle }]}>
                 {new Date(entry.createdAt).toLocaleString()}

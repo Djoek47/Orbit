@@ -128,9 +128,9 @@ export default function MemberHubScreen() {
     try {
       const next = await rotateMemberProfileInviteCode(member.id);
       if (next) setReadyCode(next);
-      orbitAlert('New QR ready', `Old codes for ${member.name} no longer work.`);
+      orbitAlert('New QR code ready', `Old codes for ${member.name} no longer work.`);
     } catch (error) {
-      orbitAlert('QR', userFacingMessage(error, 'Could not make a new code.'));
+      orbitAlert("Couldn't make a new code", userFacingMessage(error, 'Please try again.'));
     } finally {
       setRegenerating(false);
     }
@@ -254,7 +254,7 @@ export default function MemberHubScreen() {
             <ProfileQrCard
               qrValue={links.webLink}
               displayCode={links.code}
-              caption={`Scan or AirDrop this to ${member.name}'s phone. They open Get Started → Sidekick — no sign-in.`}
+              caption={`Scan or AirDrop this to ${member.name}'s phone. They tap Get Started, then Sidekick. No sign-in needed.`}
               onShare={async () => {
                 await shareInvite({
                   householdName: household.householdName,

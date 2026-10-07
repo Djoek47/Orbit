@@ -61,7 +61,7 @@ export class AppErrorBoundary extends Component<Props, State> {
         </View>
         <Text style={styles.title}>Something went wrong</Text>
         <Text style={styles.body}>
-          Restart to keep going. Details are saved under Settings → Support so you can send them to
+          Restart to keep going. Details are saved under Support in Settings so you can send them to
           us.
         </Text>
         <Text style={styles.detail} numberOfLines={3}>

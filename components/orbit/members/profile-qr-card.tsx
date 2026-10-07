@@ -12,9 +12,9 @@ import { radius, space, typography } from '@/constants/orbit-theme';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
-  /** Deep / web link encoded in the QR. */
+  /** Deep / web link encoded in the QR code. */
   qrValue: string;
-  /** Human-readable code shown under the QR (optional for shared-device links). */
+  /** Human-readable code shown under the QR code (optional for shared-device links). */
   displayCode?: string | null;
   caption?: string;
   onShare?: () => void | Promise<void>;
@@ -31,7 +31,7 @@ export function ProfileQrCard({
   onShare,
   shareLabel = 'AirDrop / Share invite',
   onRegenerate,
-  regenerateLabel = 'Generate new QR',
+  regenerateLabel = 'Generate new QR code',
   regenerating = false,
 }: Props) {
   const { c, glass, glassBorder } = useOrbitColors();

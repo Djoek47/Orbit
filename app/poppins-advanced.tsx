@@ -178,7 +178,7 @@ function PoppinsAdvancedScreenInner() {
               moji="moon"
               tone={TONE.home}
               label="Quiet hours"
-              sub={`Hold non-urgent banners ${quietStart}–${quietEnd}. Adjust the window in Settings → Alerts. Deadlines still fire.`}
+              sub={`Hold non-urgent banners ${quietStart}–${quietEnd}. Change the window under Alerts in Settings. Deadlines still come through.`}
               value={quietHours}
               disabled={readOnly}
               onChange={(value) => {

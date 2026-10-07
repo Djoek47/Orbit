@@ -187,7 +187,7 @@ export function IuiGroceryCard({
             <Text style={[styles.queueKicker, { color: faint }]}>NEXT, ON ITS OWN CARD</Text>
             <Text style={[styles.queueTitle, { color: isDark ? STAGE.ink.softDark : c.text }]} numberOfLines={1}>
               {queued[0]?.label}
-              {queued[0]?.assignee ? ` → ${queued[0].assignee}` : ''}
+              {queued[0]?.assignee ? ` · ${queued[0].assignee}` : ''}
               {queued[0]?.due ? ` · ${queued[0].due}` : ''}
             </Text>
           </View>

@@ -158,16 +158,16 @@ export function SharedDeviceManageCard({
       <Pressable
         onPress={() => router.push(`/setup-kid-device?deviceId=${encodeURIComponent(device.id)}` as never)}
         accessibilityRole="button"
-        accessibilityLabel={`Show QR for ${deviceName}`}
+        accessibilityLabel={`Show QR code for ${deviceName}`}
         style={[styles.showQr, { backgroundColor: `${accent}18`, borderColor: `${accent}44` }]}>
         <MaterialIcons name="qr-code-2" size={18} color={accent} />
-        <Text style={[styles.showQrText, { color: accent }]}>Show QR / regenerate</Text>
+        <Text style={[styles.showQrText, { color: accent }]}>Show the code</Text>
         <MaterialIcons name="chevron-right" size={18} color={accent} />
       </Pressable>
 
       <Text style={[styles.sectionLabel, { color: accent }]}>Who can use it</Text>
       <Text style={[styles.linkHint, { color: c.textMuted }]}>
-        Linked Sidekicks for the shared tablet QR — not a Switch menu on your phone.
+        These people appear on the tablet when it is unlocked.
       </Text>
       {onDevice.length === 0 ? (
         <View style={[styles.empty, { borderColor: glassBorder(0.12), backgroundColor: `${accent}10` }]}>

@@ -237,7 +237,7 @@ export function PremiumPaywall({
 
         <Text style={[styles.legal, { color: c.textSubtle }]}>
           Payment is charged to your Apple ID after the trial unless you cancel at least 24 hours
-          before it ends. Manage in Settings → Apple ID → Subscriptions.
+          before it ends. Manage it in your Apple ID settings, under Subscriptions.
         </Text>
 
         <Text style={[styles.legal, { color: c.textSubtle }]}>

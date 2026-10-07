@@ -226,7 +226,7 @@ export default function SetupKidDeviceScreen() {
       }
     }
     if (codes.length === 0) {
-      throw new Error('Add at least one Sidekick on this device before showing a QR.');
+      throw new Error('Add at least one Sidekick on this device before showing a QR code.');
     }
     const label = device.name?.trim() || DEFAULT_SHARED_IPAD_NAME;
     return buildSharedDeviceInviteLink({ label, codes });
@@ -246,7 +246,7 @@ export default function SetupKidDeviceScreen() {
       .catch((err) => {
         if (!cancelled) {
           setDetailLink(null);
-          setError(userFacingMessage(err, 'Could not load this device QR.'));
+          setError(userFacingMessage(err, 'Could not load this device QR code.'));
         }
       })
       .finally(() => {
@@ -319,7 +319,7 @@ export default function SetupKidDeviceScreen() {
     return buildSharedDeviceInviteLink({ label, codes });
   };
 
-  /** Admin phone: create device + QR. Never signs the admin out. */
+  /** Admin phone: create device + QR code. Never signs the admin out. */
   const finishWithQr = async () => {
     try {
       setBusy(true);
@@ -464,7 +464,7 @@ export default function SetupKidDeviceScreen() {
             ? 'Creating…'
             : inviteReady
               ? 'Done'
-              : 'Create QR';
+              : 'Create QR code';
 
   const cardStyle = [
     styles.stepCard,
@@ -481,7 +481,7 @@ export default function SetupKidDeviceScreen() {
         <View style={cardStyle}>
           <Text style={[styles.stepTitle, { color: c.text }]}>Name the device</Text>
           <Text style={[styles.stepSub, { color: c.textMuted }]}>
-            Only you see this name. The tablet joins by scanning a QR next.
+            Only you see this name. The tablet joins by scanning a QR code next.
           </Text>
           <Text style={[styles.fieldLabel, { color: c.textSubtle }]}>DEVICE NAME</Text>
           <TextInput
@@ -502,7 +502,7 @@ export default function SetupKidDeviceScreen() {
             onSubmitEditing={goNextStep}
           />
           <Text style={[styles.hint, { color: c.textSubtle }]}>
-            Do this on your phone — then scan the QR on the shared tablet.
+            Do this on your phone — then scan the QR code on the shared tablet.
           </Text>
         </View>
       );
@@ -573,7 +573,7 @@ export default function SetupKidDeviceScreen() {
           {codeMode ? (
             <View style={styles.codeBlock}>
               <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
-                Scan profile QR
+                Scan profile QR code
               </OrbitButton>
               <View style={styles.codeRow}>
                 <TextInput
@@ -669,7 +669,7 @@ export default function SetupKidDeviceScreen() {
         <Text style={[styles.stepSub, { color: c.textMuted }]}>
           {inviteReady
             ? `Scan this on ${labelPreview}. Your admin account stays signed in here.`
-            : `${hostedMembers.length} on ${labelPreview}. Create a QR — the tablet scans it to join. You stay signed in.`}
+            : `${hostedMembers.length} on ${labelPreview}. Create a QR code — the tablet scans it to join. You stay signed in.`}
         </Text>
 
         {inviteReady && inviteLink ? (
@@ -678,7 +678,7 @@ export default function SetupKidDeviceScreen() {
               <QRCode value={inviteLink} size={168} backgroundColor="#FFFFFF" color="#0F1C2A" />
             </View>
             <Text style={[styles.hint, { color: c.textSubtle, textAlign: 'center' }]}>
-              Open ChoreMaxx on the tablet → Get Started → scan this code.
+              On the tablet, open ChoreMaxx, tap Get Started, then scan this code.
             </Text>
             <Pressable
               onPress={() => {
@@ -736,7 +736,7 @@ export default function SetupKidDeviceScreen() {
             setError('');
           }}
           title={label}
-          purpose="Show the QR the tablet already uses — or mint a fresh one.">
+          purpose="Show the QR code the tablet already uses — or mint a fresh one.">
           <ScrollView
             contentContainerStyle={[styles.listBody, { paddingBottom: insets.bottom + 32 }]}
             showsVerticalScrollIndicator={false}>
@@ -793,7 +793,7 @@ export default function SetupKidDeviceScreen() {
                 </View>
               ) : (
                 <Text style={[styles.hint, { color: c.textSubtle }]}>
-                  Add Sidekicks on People → Shared tablets, then come back for the QR.
+                  Add Sidekicks under Shared devices in People, then come back for the code.
                 </Text>
               )}
             </Animated.View>
@@ -804,13 +804,13 @@ export default function SetupKidDeviceScreen() {
                 styles.detailCard,
                 { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
               ]}>
-              <Text style={[styles.emptyTitle, { color: c.text }]}>Device QR</Text>
+              <Text style={[styles.emptyTitle, { color: c.text }]}>Device QR code</Text>
               {detailBusy && !detailLink ? (
-                <Text style={[styles.hint, { color: c.textMuted }]}>Preparing QR…</Text>
+                <Text style={[styles.hint, { color: c.textMuted }]}>Preparing QR code…</Text>
               ) : detailLink ? (
                 <ProfileQrCard
                   qrValue={detailLink}
-                  caption="Open ChoreMaxx on the tablet → Get Started → scan this code."
+                  caption="On the tablet, open ChoreMaxx, tap Get Started, then scan this code."
                   onShare={async () => {
                     await Clipboard.setStringAsync(detailLink);
                     orbitAlert('Copied', 'Shared-device invite link copied.');
@@ -829,13 +829,13 @@ export default function SetupKidDeviceScreen() {
                             );
                             setDetailLink(link);
                             orbitAlert(
-                              'New QR ready',
+                              'New QR code ready',
                               'Old tablet scans for this handoff will stop working.'
                             );
                           } catch (err) {
                             orbitAlert(
-                              'QR',
-                              userFacingMessage(err, 'Could not generate a new QR.')
+                              'QR code',
+                              userFacingMessage(err, 'Could not generate a new QR code.')
                             );
                           } finally {
                             setRegeneratingDetail(false);
@@ -846,7 +846,7 @@ export default function SetupKidDeviceScreen() {
                 />
               ) : (
                 <Text style={[styles.hint, { color: c.textMuted }]}>
-                  {error || 'Add at least one Sidekick to show a QR.'}
+                  {error || 'Add at least one Sidekick to show a QR code.'}
                 </Text>
               )}
             </Animated.View>
@@ -864,7 +864,7 @@ export default function SetupKidDeviceScreen() {
         <SettingsModalChrome
           backLabel="People"
           title="Shared devices"
-          purpose="Create a QR on your phone. The tablet scans it — kids tap their profile to switch.">
+          purpose="Create a QR code on your phone. The tablet scans it — kids tap their profile to switch.">
           <View style={[styles.listBody, { paddingBottom: insets.bottom + 24 }]}>
             {devices.length === 0 ? (
               <View
@@ -874,7 +874,7 @@ export default function SetupKidDeviceScreen() {
                 ]}>
                 <Text style={[styles.emptyTitle, { color: c.text }]}>No shared devices yet</Text>
                 <Text style={[styles.stepSub, { color: c.textMuted }]}>
-                  Name it, pick Sidekicks, then hand the QR to the tablet.
+                  Name it, pick Sidekicks, then hand the QR code to the tablet.
                 </Text>
               </View>
             ) : (
@@ -887,7 +887,7 @@ export default function SetupKidDeviceScreen() {
                   ? `${names} · connected`
                   : lastIso
                     ? `${names} · last active ${formatLastSeen(lastIso)}`
-                    : `${names} · tap for QR`;
+                    : `${names} · tap for QR code`;
                 return (
                   <Pressable
                     key={device.id}
@@ -896,7 +896,7 @@ export default function SetupKidDeviceScreen() {
                       setViewingDeviceId(device.id);
                     }}
                     accessibilityRole="button"
-                    accessibilityLabel={`Open ${device.name?.trim() || DEFAULT_SHARED_IPAD_NAME} QR`}
+                    accessibilityLabel={`Open ${device.name?.trim() || DEFAULT_SHARED_IPAD_NAME} QR code`}
                     style={[
                       styles.deviceCard,
                       { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) },
@@ -926,7 +926,7 @@ export default function SetupKidDeviceScreen() {
                           styles.liveLabel,
                           { color: anyoneLive ? '#38BDF8' : c.textSubtle },
                         ]}>
-                        {anyoneLive ? 'Live' : 'QR'}
+                        {anyoneLive ? 'Live' : 'QR code'}
                       </Text>
                     </View>
                     <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
@@ -937,7 +937,7 @@ export default function SetupKidDeviceScreen() {
 
             {readOnly ? (
               <Text style={[styles.hint, { color: c.textSubtle, textAlign: 'center' }]}>
-                Ask an admin to create the invite QR on their phone.
+                Ask an admin to create the invite QR code on their phone.
               </Text>
             ) : (
               <>

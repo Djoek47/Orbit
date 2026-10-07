@@ -270,7 +270,7 @@ export default function SettingsScreen() {
     const pending = household.dailyDeadlinePending?.trim();
     const formatted = formatHouseRulesTime(current, houseRulesView.use24h);
     if (!pending || pending === current) return formatted;
-    return `${formatted} → ${formatHouseRulesTime(pending, houseRulesView.use24h)} tomorrow`;
+    return `${formatted}, becomes ${formatHouseRulesTime(pending, houseRulesView.use24h)} tomorrow`;
   }, [
     houseRulesDoc.settings.dailyDeadline.default,
     houseRulesView.dailyDeadline,
@@ -386,7 +386,7 @@ export default function SettingsScreen() {
     if (!opened) {
       orbitAlert(
         'Could not open Settings',
-        'Open Settings → Notifications → ChoreMaxx to change banners and alerts.'
+        'Open the Settings app, find Notifications, then ChoreMaxx, to change banners and alerts.'
       );
     }
   }, []);
@@ -665,7 +665,7 @@ export default function SettingsScreen() {
                       {household.householdName} will be permanently deleted on{' '}
                       {formatHouseholdDeletionDate(household.deletionScheduledFor)} (
                       {householdDeletionDaysRemaining(household.deletionScheduledFor)} days left).{' '}
-                      Reminder emails start in the final week (7d → 3d → 24h → ~1h).
+                      Reminder emails start in the final week: 7 days, 3 days, 24 hours, then about an hour.
                     </Text>
                     {currentMember?.role === 'owner' || currentMember?.role === 'admin' ? (
                       <Text
@@ -1179,7 +1179,7 @@ export default function SettingsScreen() {
                         icon="qr-code-2"
                         iconColor="#38BDF8"
                         label="Transfer ownership"
-                        subtitle="15-minute QR · empty account only"
+                        subtitle="15-minute QR code · empty account only"
                         onPress={() => router.push('/transfer-household' as never)}
                       />
                       <SettingsNavRow
@@ -1410,7 +1410,7 @@ export default function SettingsScreen() {
           />
           {currentMember?.role === 'owner' ? (
             <Text style={[styles.caption, { color: c.textMuted, textAlign: 'center', marginTop: 16 }]}>
-              Transfer ownership and delete household live under You → House ownership.
+              Transfer ownership and delete household are under You, in House ownership.
             </Text>
           ) : null}
           </>

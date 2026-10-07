@@ -394,7 +394,7 @@ export default function PlanScreen() {
             </View>
             {isAdmin && adminHomeworkReady && !adminShowHomework ? (
               <Text style={[styles.legendHint, { color: c.textSubtle }]} numberOfLines={1}>
-                Sidekicks still see theirs
+                Hidden for you only
               </Text>
             ) : null}
           </View>

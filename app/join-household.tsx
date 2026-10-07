@@ -94,7 +94,7 @@ export default function JoinHouseholdScreen() {
         showBack
         kicker="Join"
         title="Enter code"
-        subtitle="Paste a code, or scan the household QR.">
+        subtitle="Paste a code, or scan the household QR code.">
         <OrbitInput
           autoCapitalize="characters"
           label="Invite code"
@@ -115,7 +115,7 @@ export default function JoinHouseholdScreen() {
         </OrbitButton>
 
         <OrbitButton tone="secondary" onPress={() => setScannerOpen(true)}>
-          Scan QR
+          Scan QR code
         </OrbitButton>
       </AuthShell>
 

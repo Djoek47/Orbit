@@ -121,7 +121,7 @@ export default function SelectProfileScreen() {
         'Could not open profile',
         error instanceof Error
           ? error.message
-          : 'Scan the shared-device QR again so this profile is on the tablet.',
+          : 'Scan the shared-device QR code again so this profile is on the tablet.',
         undefined,
         { record: true, source: 'select-profile' }
       );
@@ -162,7 +162,7 @@ export default function SelectProfileScreen() {
   };
 
   const handleRemove = (member: HouseholdMember) => {
-    orbitAlert(`Remove ${member.name}?`, 'They can be added again with their profile QR.', [
+    orbitAlert(`Remove ${member.name}?`, 'They can be added again with their profile QR code.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
