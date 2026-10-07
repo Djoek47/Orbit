@@ -42,10 +42,14 @@ make-v35 is the Switch + shared-device polish cut before Apple. Shared tablets w
 
 1. [x] Apply v34-05 patch on make-v35
 2. [x] Multi-pass logic + UI audit; blockers fixed
-3. [ ] EAS TestFlight 1.3.0 (120) + ASC submit
+3. [x] EAS TestFlight 1.3.0 (120) + ASC submit
 
 | | |
 |--|--|
 | Version | **1.3.0 (120)** — make-v35 final pre-Apple |
-| Branch | `cursor/make-v35-c30d` |
+| Branch | `cursor/make-v35-c30d` @ `6a6f331` |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/fbf0926f-6f4a-4d9e-89ba-7947b2c8b653 — **FINISHED** |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/be781424-0253-4c11-be62-18336ff2ceef — **submitted to ASC** |
+| IPA | https://expo.dev/artifacts/eas/fOTNkr0Sxr2n05amVQ81FEIvXId1VTpEfDUTIKxPZgo.ipa |
 | ASC | https://appstoreconnect.apple.com/apps/6796850110/testflight/ios |
+| Prior (119) | make-v34 fold — https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/76664dbd-3577-4092-b3b2-40b135e62fea |
