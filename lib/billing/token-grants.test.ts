@@ -14,8 +14,8 @@ import {
 
 assert.equal(IAP_PRODUCTS.monthly.priceUsd, 6.99);
 assert.equal(IAP_CONSUMABLES.tokensSmall.tokens, 200);
-assert.equal(IAP_CONSUMABLES.tokensMedium.tokens, 600);
-assert.equal(IAP_CONSUMABLES.tokensLarge.tokens, 1500);
+assert.equal(IAP_CONSUMABLES.tokensMedium.tokens, 700);
+assert.equal(IAP_CONSUMABLES.tokensLarge.tokens, 2000);
 assert.equal(IAP_PRODUCTS.consumables.tokensSmall.productId, IAP_CONSUMABLES.tokensSmall.productId);
 
 const grants: TokenGrantBalance[] = [
@@ -32,19 +32,19 @@ const grants: TokenGrantBalance[] = [
     id: 'g2',
     householdId: 'hh',
     pack: 'medium',
-    tokens: 600,
+    tokens: 700,
     consumed: 0,
     transactionId: 't2',
     grantedAt: '2026-09-02T00:00:00.000Z',
   },
 ];
 
-assert.equal(topUpBalanceFromGrants(grants), 620);
+assert.equal(topUpBalanceFromGrants(grants), 720);
 const { grants: after, consumed } = applyTopUpConsumption(grants, 50);
 assert.equal(consumed, 50);
 assert.equal(after[0]!.consumed, 200, 'oldest drained first');
 assert.equal(after[1]!.consumed, 30);
-assert.equal(topUpBalanceFromGrants(after), 570);
+assert.equal(topUpBalanceFromGrants(after), 670);
 
 // New buys append — balance is old left + new pack, never a replace.
 {
@@ -52,7 +52,7 @@ assert.equal(topUpBalanceFromGrants(after), 570);
     id: 'mock-july',
     householdId: 'hh',
     pack: 'medium',
-    tokens: 600,
+    tokens: 700,
     consumed: 100,
     transactionId: 'buy-july',
     grantedAt: '2026-07-15T12:00:00.000Z',
@@ -67,23 +67,23 @@ assert.equal(topUpBalanceFromGrants(after), 570);
     grantedAt: '2026-08-20T12:00:00.000Z',
   };
   const banked = [july, august];
-  assert.equal(topUpBalanceFromGrants(banked), 700, '500 left from July + 200 August');
+  assert.equal(topUpBalanceFromGrants(banked), 800, '600 left from July + 200 August');
   const september: TokenGrantBalance = {
     id: 'mock-sep',
     householdId: 'hh',
     pack: 'large',
-    tokens: 1500,
+    tokens: 2000,
     consumed: 0,
     transactionId: 'buy-sep',
     grantedAt: '2026-09-05T12:00:00.000Z',
   };
   const next = [...banked, september];
-  assert.equal(topUpBalanceFromGrants(next), 2200, 'new buy adds on top of prior months');
+  assert.equal(topUpBalanceFromGrants(next), 2800, 'new buy adds on top of prior months');
   const summary = summarizeCredits(next, 300);
-  assert.equal(summary.balance, 2200);
-  assert.equal(summary.lifetimePurchased, 2300);
+  assert.equal(summary.balance, 2800);
+  assert.equal(summary.lifetimePurchased, 2900);
   assert.equal(summary.monthlyLeft, 0, 'allowance can be spent; credits still bank');
-  assert.equal(summary.totalAvailable, 2200);
+  assert.equal(summary.totalAvailable, 2800);
 }
 
 // Empty remote must not wipe local mock buys.
@@ -93,7 +93,7 @@ assert.equal(topUpBalanceFromGrants(after), 570);
       id: 'mock-txn-1',
       householdId: 'hh',
       pack: 'medium',
-      tokens: 600,
+      tokens: 700,
       consumed: 0,
       transactionId: 'mock-txn-1',
       grantedAt: '2026-09-01T00:00:00.000Z',
@@ -101,7 +101,7 @@ assert.equal(topUpBalanceFromGrants(after), 570);
   ];
   const mergedEmptyRemote = mergeTokenGrants(local, []);
   assert.equal(mergedEmptyRemote.length, 1);
-  assert.equal(topUpBalanceFromGrants(mergedEmptyRemote), 600);
+  assert.equal(topUpBalanceFromGrants(mergedEmptyRemote), 700);
 
   const remote: TokenGrantBalance[] = [
     {
@@ -116,7 +116,7 @@ assert.equal(topUpBalanceFromGrants(after), 570);
   ];
   const merged = mergeTokenGrants(local, remote);
   assert.equal(merged.length, 2);
-  assert.equal(topUpBalanceFromGrants(merged), 750);
+  assert.equal(topUpBalanceFromGrants(merged), 850);
 }
 
 console.log('PASS token-grants');

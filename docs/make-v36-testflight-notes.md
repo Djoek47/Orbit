@@ -96,10 +96,25 @@ make-v36 is the Premium + shared-device fold after TF 120. The household pays on
 
 1. [x] Fold v34-06 payments/iPad + URL cutover + review-demo removal + ASC creatives + v34-07 one-flow
 2. [x] Multi-pass audit; menus OK
-3. [ ] User: Supabase `db push` + deploy `sync-entitlement` / `grant-token-pack` (checklist §1–2)
-4. [ ] User: ASC IAP products Ready + attached to 1.3.0 (checklist §3)
-5. [ ] **Push `cursor/make-v36-c30d` + EAS TestFlight 1.3.0 (121)** — wait for explicit go
-6. [ ] Seed review household Premium in SQL; put real ASC review credentials
+3. [x] Staging: `redeem-profile-invite` redeployed
+4. [x] Staging: `sync-entitlement` + `grant-token-pack` (200/700/2000) redeployed
+5. [x] Staging: `20261007120000_household_premium.sql` applied (8 `premium_*` columns)
+6. [x] Payment final pass (see below) — code ready; ASC product Apple-verify still pending
+7. [ ] ASC: products attached to 1.3.0 / Apple clears review (user) — packs show **Soon** until StoreKit lists them
+8. [ ] **Push `cursor/make-v36-c30d` + EAS TestFlight 1.3.0 (121)**
+9. [ ] Seed review household Premium in SQL; put real ASC review credentials
+
+### Payment final pass (build 121)
+
+| Check | Result |
+|-------|--------|
+| SKUs match ASC ids character-for-character (`monthlyv` / `yearlyv` / `tokens.{small,medium,large}v`) | OK in `constants/billing.ts` + both edge functions |
+| Client ↔ server pack sizes 200 / 700 / 2000 | OK (`pack-parity`); `grant-token-pack` redeployed |
+| Household Premium columns + server-only trigger | OK on staging |
+| Gate: paid / trial (Poppins locked, packs unlock) / locked (kids: no buy CTA) | OK |
+| Credits UI: StoreKit probe → unlisted SKUs show **Soon** (not a crash) | OK — expected until Apple verifies e.g. `…tokens.smallv` |
+| `sku_not_found` on purchase if Apple has not listed the product yet | Expected; not a binary bug |
+| JWS / App Store Server Notifications | Deferred (known); renewals sync when admin opens app |
 
 | | |
 |--|--|

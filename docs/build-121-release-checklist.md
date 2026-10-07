@@ -15,6 +15,9 @@ supabase functions deploy grant-token-pack        # changed: packs now grant 700
 supabase functions deploy redeem-profile-invite   # shared-device people names (no sibling codes)
 ```
 
+**Staging (`dejrbyufotcvcillnneo`) ahead of TF 121:** premium migration applied; `sync-entitlement`,
+`grant-token-pack` (200/700/2000), and `redeem-profile-invite` redeployed.
+
 Why first: the app reads household Premium from the `households` row. The code fails *open* for
 Sidekick phones and shared tablets if the columns are missing, so nothing locks — but no
 household can record a subscription until the migration and function exist, and the packs keep
