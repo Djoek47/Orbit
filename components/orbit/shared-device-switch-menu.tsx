@@ -203,7 +203,7 @@ export function SharedDeviceSwitchMenu({
             { backgroundColor: glass(0.1), borderColor: glassBorder(0.14) },
           ]}>
           <Text style={[typography.caption1, { color: c.textMuted }]}>
-            {deviceName} · tap a face to carry on (no sign-out)
+            {deviceName} · tap a profile to carry on (no sign-out)
           </Text>
           <View style={styles.faces}>
             {people.map((member, index) => {

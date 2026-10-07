@@ -76,7 +76,7 @@ export const HOW_TO_INDEX: HowToEntry[] = [
     patterns: ['family ipad', 'shared device', 'shared devices', 'tablet profile', 'kid device'],
     steps: [
       { text: 'Open Home', route: '/(tabs)' },
-      { text: 'Tap the face to switch profiles' },
+      { text: 'Tap the profile to switch' },
     ],
     canDoItForYou: false,
   },
@@ -267,7 +267,7 @@ export const HOW_TO_INDEX: HowToEntry[] = [
   {
     id: 'switch-profiles',
     title: 'Switching profiles',
-    answer: 'Tap the face on Home to switch who is using the device.',
+    answer: 'Tap the profile on Home to switch who is using the device.',
     patterns: ['switch profiles', 'change profile', 'switch who'],
     steps: [
       { text: 'Open Home', route: '/(tabs)' },
