@@ -12,6 +12,7 @@ import {
 } from '@/lib/voice/mic-capture';
 import { VoiceFailureError } from '@/lib/voice/quiet-failures';
 import { serverNeedsMultipart, voiceResult, type VoiceResponse } from '@/lib/voice/voice-response';
+import { QUIET_AUDIO_FILENAME, QUIET_AUDIO_MIME } from '@/lib/voice/whisper-audio';
 import { poppinsService } from '@/services/poppins-service';
 import type { AudioRecorder } from 'expo-audio';
 import type { HouseholdSnapshot, PoppinsConversationAnswer, OrbitMetrics } from '@/types/orbit';
@@ -85,7 +86,7 @@ async function invokePoppinsVoice(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         audioBase64,
-        mimeType: 'audio/m4a',
+        mimeType: QUIET_AUDIO_MIME,
         householdId: household.id ?? '',
         metrics,
         household: householdPayload,
@@ -98,8 +99,8 @@ async function invokePoppinsVoice(
   const form = new FormData();
   form.append('audio', {
     uri: audioUri,
-    name: 'poppins.m4a',
-    type: 'audio/m4a',
+    name: QUIET_AUDIO_FILENAME,
+    type: QUIET_AUDIO_MIME,
   } as unknown as Blob);
   form.append('householdId', household.id ?? '');
   form.append('metrics', JSON.stringify(metrics));
