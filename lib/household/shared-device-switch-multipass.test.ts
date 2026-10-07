@@ -65,7 +65,7 @@ const members = [emma, jack, test];
 assert.match(read('app/(tabs)/index.tsx'), /SharedDeviceSwitchMenu/);
 assert.match(read('components/orbit/shared-device-switch-menu.tsx'), /no sign-out/i);
 assert.match(read('components/orbit/make-tab-bar.tsx'), /markNeedsProfilePick\(members\)/);
-assert.match(read('components/orbit/switch-people-icon.tsx'), /Switch \$\{n\} people/);
+assert.match(read('components/orbit/switch-people-icon.tsx'), /Switch between \$\{n\} people/);
 
 // Pass 2b — Connected chip is device-level (same for Jack and Emma), not lastSeen.
 {

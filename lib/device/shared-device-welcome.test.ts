@@ -142,6 +142,8 @@ assert.match(join, /setJoinFailed/, 'and the screen bumps it on failure');
 // Binding a device to nobody leaves a tablet that opens on an empty picker, and joining
 // without completeProfileJoin lands an unauthenticated Sidekick on the admin sign-in screen.
 assert.match(join, /await completeProfileJoin\(/, 'the session is created first');
+assert.match(join, /joined\.members/, 'the post-join roster binds the tablet, not the pre-join closure');
+assert.match(join, /inviteHouseholdId/, 'match code comes from the invite, not mock Rivera');
 assert.match(join, /roster\.length === 0/, 'and a device is never bound to nobody');
 
 console.log('shared-device-welcome: ok');

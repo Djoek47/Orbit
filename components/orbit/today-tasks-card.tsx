@@ -5,11 +5,14 @@ import { Link, router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
+  Easing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/orbit/avatar';
@@ -84,6 +87,21 @@ export function TodayTasksCard({
   }, [tasks]);
 
   const [spinning, setSpinning] = useState(false);
+  const spin = useSharedValue(0);
+  useEffect(() => {
+    if (!spinning) {
+      spin.value = 0;
+      return;
+    }
+    spin.value = withRepeat(
+      withTiming(360, { duration: 700, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, [spinning, spin]);
+  const freshSpinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value}deg` }],
+  }));
   // The freshness line ages on its own, so "just now" does not sit there for an hour.
   const [freshTick, setFreshTick] = useState(() => Date.now());
   useEffect(() => {
@@ -207,8 +225,7 @@ export function TodayTasksCard({
                       accessibilityRole="button"
                       accessibilityLabel={`Updated ${freshness}. Tap to update now.`}
                       style={({ pressed }) => [styles.freshBtn, { opacity: pressed ? 0.6 : 1 }]}>
-                      <Animated.View
-                        style={spinning ? styles.freshSpinning : undefined}>
+                      <Animated.View style={freshSpinStyle}>
                         <MaterialIcons
                           name="refresh"
                           size={12}
@@ -414,7 +431,6 @@ const styles = StyleSheet.create({
   eyebrowRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   freshBtn: { alignItems: 'center', flexDirection: 'row', gap: 3, minHeight: 20 },
   freshText: { fontSize: 11, fontWeight: '600' },
-  freshSpinning: { opacity: 0.9 },
   eyebrow: { fontSize: 12 },
   rightMeta: { alignItems: 'flex-end', gap: 6 },
   streakChip: {

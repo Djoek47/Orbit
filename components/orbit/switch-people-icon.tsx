@@ -37,9 +37,10 @@ export function SwitchPeopleIcon({ count, size = 22, color = '#041018' }: Props)
   const nodes = switchPeopleNodes(n);
   const edges = switchPeopleEdges(n);
   const dot = switchDotRadius(n);
-  // Six edges in the same box need a finer line than three, or the ring fills in solid.
-  const stroke = n <= 3 ? 0.1 : n <= 4 ? 0.09 : 0.08;
-  const head = headPath(n <= 3 ? 1.15 : 1);
+  // Variant B (ship mark): thicker ring than A, brownish stroke vs solid black dots.
+  // Six edges still need a slightly finer line or the ring fills in solid at 22px.
+  const stroke = n <= 3 ? 0.13 : n <= 4 ? 0.115 : 0.1;
+  const head = headPath(n <= 3 ? 1.2 : 1.05);
 
   return (
     <Svg
@@ -54,7 +55,7 @@ export function SwitchPeopleIcon({ count, size = 22, color = '#041018' }: Props)
             stroke={color}
             strokeWidth={stroke}
             strokeLinecap="round"
-            opacity={0.75}
+            opacity={0.82}
             fill="none"
           />
           {edge.showHead ? (
@@ -62,10 +63,11 @@ export function SwitchPeopleIcon({ count, size = 22, color = '#041018' }: Props)
               <Path
                 d={head}
                 stroke={color}
-                strokeWidth={stroke * 1.3}
+                strokeWidth={stroke * 1.35}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
+                opacity={0.9}
               />
             </G>
           ) : null}
