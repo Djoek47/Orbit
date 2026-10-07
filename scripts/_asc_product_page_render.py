@@ -42,8 +42,11 @@ def lerp(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def paint_background(w: int, h: int) -> Image.Image:
-    """Fast warm night wash (paint small, upscale + blur)."""
+def paint_background(w: int, h: int, *, quiet: bool = False) -> Image.Image:
+    """Fast warm night wash (paint small, upscale + blur).
+
+    quiet=True → softer edge washes only (header). No center bloom / sparkles.
+    """
     sw, sh = max(320, w // 8), max(180, h // 8)
     small = Image.new("RGB", (sw, sh), INK)
     px = small.load()
@@ -51,15 +54,17 @@ def paint_background(w: int, h: int) -> Image.Image:
         for x in range(sw):
             nx, ny = x / sw, y / sh
             base = lerp((22, 12, 16), INK, ny * 0.9)
-            d1 = math.hypot(nx - 0.30, ny - 0.75)
-            d2 = math.hypot(nx - 0.70, ny - 0.30)
-            d3 = math.hypot(nx - 0.50, ny - 0.15)
             c = list(base)
-            for d, col, strength, falloff in (
-                (d1, CORAL, 0.55, 0.55),
-                (d2, CITRUS, 0.40, 0.50),
-                (d3, GOLD, 0.22, 0.40),
-            ):
+            if quiet:
+                # Flat dark field for App Store header — no blooms at all
+                blooms = ()
+            else:
+                blooms = (
+                    (math.hypot(nx - 0.30, ny - 0.75), CORAL, 0.55, 0.55),
+                    (math.hypot(nx - 0.70, ny - 0.30), CITRUS, 0.40, 0.50),
+                    (math.hypot(nx - 0.50, ny - 0.15), GOLD, 0.22, 0.40),
+                )
+            for d, col, strength, falloff in blooms:
                 k = max(0.0, 1.0 - d / falloff) ** 2 * strength
                 for i in range(3):
                     c[i] = min(255, int(c[i] + (col[i] - c[i]) * k))
@@ -73,24 +78,27 @@ def paint_background(w: int, h: int) -> Image.Image:
     sd = ImageDraw.Draw(sheen)
     band = h // 3
     for i in range(band):
-        a = int(22 * (1 - i / band))
+        a = int((12 if quiet else 22) * (1 - i / band))
         sd.line([(0, i), (w, i)], fill=(255, 255, 255, a))
     img = Image.alpha_composite(img.convert("RGBA"), sheen).convert("RGB")
 
-    d = ImageDraw.Draw(img)
-    for nx, ny, r in (
-        (0.35, 0.18, 4),
-        (0.45, 0.12, 3),
-        (0.55, 0.16, 3),
-        (0.65, 0.11, 2),
-        (0.42, 0.24, 2),
-        (0.58, 0.22, 3),
-    ):
-        x, y = int(nx * w), int(ny * h)
-        d.ellipse([x - r, y - r, x + r, y + r], fill=GOLD)
+    if not quiet:
+        d = ImageDraw.Draw(img)
+        for nx, ny, r in (
+            (0.35, 0.18, 4),
+            (0.45, 0.12, 3),
+            (0.55, 0.16, 3),
+            (0.65, 0.11, 2),
+            (0.42, 0.24, 2),
+            (0.58, 0.22, 3),
+        ):
+            x, y = int(nx * w), int(ny * h)
+            d.ellipse([x - r, y - r, x + r, y + r], fill=GOLD)
 
-    bar = max(6, h // 90)
-    d.rectangle([0, h - bar, w, h], fill=CORAL)
+    if not quiet:
+        bar = max(6, h // 90)
+        d = ImageDraw.Draw(img)
+        d.rectangle([0, h - bar, w, h], fill=CORAL)
     return img
 
 
@@ -165,82 +173,52 @@ def fit_title(max_width: int, h: int) -> tuple[ImageFont.FreeTypeFont, int]:
 
 
 def compose_header(w: int, h: int) -> Image.Image:
-    """Centered lockup — survives App Store side crop."""
-    img = paint_background(w, h).convert("RGBA")
+    """Header only: small coral icon + choremaxx + tagline. No glow, no pills.
+
+    App Store center-crops this banner hard — keep a compact stack dead-center
+    inside the side safe zone so nothing clips on iPhone.
+    """
+    img = paint_background(w, h, quiet=True).convert("RGBA")
     d = ImageDraw.Draw(img)
 
-    safe_l = int(w * SAFE_SIDE)
-    safe_r = int(w * (1 - SAFE_SIDE))
-    safe_w = safe_r - safe_l
+    safe_w = int(w * (1 - 2 * SAFE_SIDE))
     cx = w // 2
 
-    # Single coral icon, centered above wordmark
-    icon_size = int(min(safe_w * 0.28, h * 0.38))
+    # Compact icon — no glow, no heavy shadow
+    icon_size = int(min(safe_w * 0.14, h * 0.16))
     icon = load_icon_rounded(ICON, icon_size)
-    corner = int(icon_size * 0.2237)
 
-    glow_r = int(icon_size * 0.78)
-    glow = Image.new("RGBA", (glow_r * 2, glow_r * 2), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    for i in range(glow_r, 0, -3):
-        t = i / glow_r
-        a = int(100 * (t**2))
-        col = lerp(CITRUS, CORAL, 1 - t)
-        gd.ellipse([glow_r - i, glow_r - i, glow_r + i, glow_r + i], fill=(*col, a))
-    glow = glow.filter(ImageFilter.GaussianBlur(28))
+    f_title, title_size = fit_title(int(safe_w * 0.80), h)
+    title_size = max(44, int(title_size * 0.78))
+    f_title = font(FONT_XB, title_size)
 
-    stack_top = int(h * 0.12)
-    icon_left = cx - icon_size // 2
-    icon_top = stack_top
+    f_sub = font(FONT_XB, max(24, int(title_size * 0.34)))
+    sub = "The calm OS for your household"
+    sw, sh_sub, sbb = text_size(f_sub, sub)
 
-    img.alpha_composite(glow, (cx - glow_r, icon_top + icon_size // 2 - glow_r))
-    shadow = rounded_shadow(icon_size, corner, blur=max(16, icon_size // 36))
-    sh_pad = (shadow.size[0] - icon_size) // 2
-    img.alpha_composite(shadow, (icon_left - sh_pad, icon_top - sh_pad))
-    img.alpha_composite(icon, (icon_left, icon_top))
-
-    # Wordmark under icon, centered in safe zone
-    f_title, title_size = fit_title(int(safe_w * 0.92), h)
-    chore_w, _, _ = text_size(f_title, "chore")
+    chore_w, title_h, _ = text_size(f_title, "chore")
     gap = max(2, int(title_size * 0.02))
     maxx_w, _, _ = text_size(f_title, "maxx")
     total_w = chore_w + gap + maxx_w
-    title_x = cx - total_w // 2
-    title_y = icon_top + icon_size + int(h * 0.04)
 
+    gap_icon_title = int(h * 0.028)
+    gap_title_sub = int(title_size * 0.32)
+    stack_h = icon_size + gap_icon_title + title_h + gap_title_sub + sh_sub
+
+    # Dead-center the lockup so ASC side/top crop keeps everything
+    stack_top = (h - stack_h) // 2
+    icon_left = cx - icon_size // 2
+    icon_top = stack_top
+
+    img.alpha_composite(icon, (icon_left, icon_top))
+
+    title_x = cx - total_w // 2
+    title_y = icon_top + icon_size + gap_icon_title
     d.text((title_x, title_y), "chore", font=f_title, fill=GOLD)
     d.text((title_x + chore_w + gap, title_y), "maxx", font=f_title, fill=CORAL)
 
-    f_sub = font(FONT_XB, max(28, int(title_size * 0.34)))
-    sub = "The calm OS for your household"
-    sw, sh, sbb = text_size(f_sub, sub)
-    sub_y = title_y + int(title_size * 1.12)
+    sub_y = title_y + title_h + gap_title_sub
     d.text((cx - sw // 2 - sbb[0], sub_y), sub, font=f_sub, fill=WHITE)
-
-    f_tag = font(FONT_SB, max(22, int(title_size * 0.24)))
-    tag = "Tasks · Grocery · Ranks · Poppins"
-    tw, th, tbb = text_size(f_tag, tag)
-    tag_y = sub_y + int(sh * 1.55)
-    d.text((cx - tw // 2 - tbb[0], tag_y), tag, font=f_tag, fill=GOLD)
-
-    # Pills — same ExtraBold for both labels; ~25% smaller than prior pass
-    f_pill = font(FONT_XB, max(22, int(title_size * 0.225)))
-    pad_x = max(48, int(title_size * 0.54))
-    pad_y = max(24, int(title_size * 0.315))
-    pill_y = tag_y + int(th * 2.6)
-    # Keep pills inside safe zone; side by side centered
-    left_label, right_label = "AI Household OS", "Family · Shared tablet"
-    # Measure to place as a pair
-    lw, lh, _ = text_size(f_pill, left_label)
-    rw, rh, _ = text_size(f_pill, right_label)
-    left_pill_w = lw + pad_x * 2
-    right_pill_w = rw + pad_x * 2
-    gap_pills = max(28, int(w * 0.016))
-    pair_w = left_pill_w + gap_pills + right_pill_w
-    left_cx = cx - pair_w // 2 + left_pill_w // 2
-    right_cx = cx + pair_w // 2 - right_pill_w // 2
-    draw_pill(img, left_cx, pill_y + lh // 2 + pad_y, left_label, CORAL, WHITE, f_pill, pad_x=pad_x, pad_y=pad_y)
-    draw_pill(img, right_cx, pill_y + rh // 2 + pad_y, right_label, CITRUS, BROWN, f_pill, pad_x=pad_x, pad_y=pad_y)
 
     return img.convert("RGB")
 
