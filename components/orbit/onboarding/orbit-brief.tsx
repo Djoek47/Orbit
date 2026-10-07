@@ -1,6 +1,7 @@
 /**
- * First screen after Get Started — visual brief (House Rules energy), then Continue.
- * Short labels + Moji cards; long explanations live later in the flow.
+ * First screen after Get Started — visual brief, then Continue.
+ * Merges the v32 Moji pillar cards with the earlier explained steps:
+ * colored Moji rows, each with a short title and one plain line.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,7 +11,6 @@ import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
-  ZoomIn,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
+import { BrandLegalFooter } from '@/components/orbit/brand-legal-footer';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { Moji } from '@/components/orbit/moji/moji';
 import type { MojiName } from '@/components/orbit/moji/art';
@@ -31,11 +32,26 @@ const PILLARS: ReadonlyArray<{
   moji: MojiName;
   color: string;
   label: string;
-  hint: string;
+  body: string;
 }> = [
-  { moji: 'home', color: '#7FC24A', label: 'One home', hint: 'Shared picture' },
-  { moji: 'poppins', color: '#4FA3FF', label: 'Poppins', hint: 'Speak it in' },
-  { moji: 'star', color: '#FF9F1C', label: 'Your XP', hint: 'You set the rules' },
+  {
+    moji: 'home',
+    color: '#7FC24A',
+    label: 'One Home. One App.',
+    body: 'From tasks to rewards, with Choremaxx, every household aspect is covered.',
+  },
+  {
+    moji: 'poppins',
+    color: '#4FA3FF',
+    label: 'Poppins',
+    body: 'Speak your wishes into existence with Poppins AI.',
+  },
+  {
+    moji: 'star',
+    color: '#FF9F1C',
+    label: 'Household Management.',
+    body: 'Turn chores into XP. And XP into rewards.',
+  },
 ];
 
 export function OrbitBrief({
@@ -63,24 +79,27 @@ export function OrbitBrief({
 
       <Animated.View entering={FadeIn.duration(280)} style={styles.heroBlock}>
         <ChoremaxxLogo size="md" />
-        <Text style={[styles.title, { color: c.text }]}>Chores into XP</Text>
-        <Text style={[styles.lede, { color: c.textMuted }]}>Three beats. Then you choose.</Text>
+        <Text style={[styles.title, { color: c.text }]}>Turn chores into XP</Text>
+        <Text style={[styles.lede, { color: c.textMuted }]}>
+          Run your household like never before.
+        </Text>
       </Animated.View>
 
       <View style={styles.pillars}>
         {PILLARS.map((pillar, index) => (
-          <PillarCard key={pillar.label} pillar={pillar} index={index} />
+          <PillarRow key={pillar.label} pillar={pillar} index={index} />
         ))}
       </View>
 
-      <Animated.View entering={FadeInDown.delay(360).duration(320)} style={styles.cta}>
+      <Animated.View entering={FadeInDown.delay(420).duration(320)} style={styles.cta}>
         <OrbitButton onPress={onContinue}>Continue</OrbitButton>
+        <BrandLegalFooter showLogo={false} compact />
       </Animated.View>
     </View>
   );
 }
 
-function PillarCard({
+function PillarRow({
   pillar,
   index,
 }: {
@@ -107,28 +126,31 @@ function PillarCard({
 
   const bobStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateY: -3.5 * bob.value },
+      { translateY: -3 * bob.value },
       { rotate: `${(bob.value - 0.5) * 4}deg` },
     ],
   }));
 
   return (
     <Animated.View
-      entering={ZoomIn.delay(100 + index * 90)
+      entering={FadeInDown.delay(120 + index * 90)
         .springify()
-        .damping(16)}
-      style={styles.pillarWrap}>
+        .damping(16)}>
       <LinearGradient
-        colors={[`${pillar.color}44`, `${pillar.color}12`]}
+        colors={[`${pillar.color}3D`, `${pillar.color}0F`]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.pillar, { borderColor: `${pillar.color}66` }]}>
+        style={[styles.pillar, { borderColor: `${pillar.color}5C` }]}
+        accessible
+        accessibilityLabel={`${index + 1}. ${pillar.label} ${pillar.body}`}>
         <Animated.View
           style={[styles.mojiWrap, { backgroundColor: `${pillar.color}2E` }, bobStyle]}>
-          <Moji name={pillar.moji} size={36} />
+          <Moji name={pillar.moji} size={32} />
         </Animated.View>
-        <Text style={[styles.pillarLabel, { color: c.text }]}>{pillar.label}</Text>
-        <Text style={[styles.pillarHint, { color: pillar.color }]}>{pillar.hint}</Text>
+        <View style={styles.pillarText}>
+          <Text style={[styles.pillarLabel, { color: c.text }]}>{pillar.label}</Text>
+          <Text style={[styles.pillarBody, { color: c.textMuted }]}>{pillar.body}</Text>
+        </View>
       </LinearGradient>
     </Animated.View>
   );
@@ -172,42 +194,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   pillars: {
-    flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     marginTop: 4,
-  },
-  pillarWrap: {
-    flex: 1,
   },
   pillar: {
     alignItems: 'center',
     borderCurve: 'continuous',
     borderRadius: 22,
     borderWidth: 1,
-    gap: 8,
-    minHeight: 148,
-    paddingHorizontal: 8,
-    paddingVertical: 16,
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
   mojiWrap: {
     alignItems: 'center',
-    borderRadius: 22,
-    height: 64,
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    height: 56,
     justifyContent: 'center',
-    width: 64,
+    width: 56,
+  },
+  pillarText: {
+    flex: 1,
+    gap: 4,
   },
   pillarLabel: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.2,
-    textAlign: 'center',
   },
-  pillarHint: {
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
+  pillarBody: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 19,
   },
   cta: {
+    gap: 10,
     marginTop: 8,
   },
 });
