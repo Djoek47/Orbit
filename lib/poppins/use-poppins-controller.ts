@@ -55,6 +55,7 @@ import {
 } from '@/lib/poppins/iui-continuity';
 import { copyIuiVoiceError } from '@/lib/poppins/iui-voice-error';
 import { drainPreviewFill, turnActCost } from '@/lib/poppins/orb-levels';
+import { subscribeTokenGrants } from '@/lib/billing/token-grants';
 import {
   DEFAULT_POPPINS_INTERACTION_PREFS,
   prefsForTier,
@@ -272,8 +273,13 @@ export function usePoppinsController() {
       const grants = await loadTokenGrants(household.id);
       if (!cancelled) setTopUpBalance(topUpBalanceFromGrants(grants));
     })();
+    // A pack bought anywhere refills the orb straight away.
+    const unsubscribe = subscribeTokenGrants((id, balance) => {
+      if (!cancelled && id === household.id) setTopUpBalance(balance);
+    });
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [household.id, actEvents]);
 
@@ -1777,6 +1783,10 @@ export function usePoppinsController() {
       label: `${majordomo.displayName}, ${cfg.label}`,
     },
     dailyLeft,
+    /** Everything this household can still spend: the month's allowance plus bought packs. */
+    tokensRemaining: aiSummary.tokensRemaining,
+    outOfActions: aiSummary.tripped,
+    topUpBalance: aiSummary.topUpBalance,
     meterLabel:
       drive.live && (liveScene === 'coach_steps' || liveScene === 'navigate_coach')
         ? 'NO ACTIONS USED'

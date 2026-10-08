@@ -14,7 +14,7 @@
  * every tap. It now scrolls inside the body and can never reach the dock.
  */
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, type ComponentType } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,6 +36,7 @@ import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { STAGE, stageFaint } from '@/constants/iui-stage';
 import { space } from '@/constants/orbit-theme';
+import { OutOfActionsSheet } from '@/components/orbit/billing/out-of-actions-sheet';
 import { PoppinsTrialLock, useBoughtBalance } from '@/components/orbit/billing/poppins-trial-lock';
 import { useAccess } from '@/lib/billing/access-provider';
 import { usePoppinsController } from '@/lib/poppins/use-poppins-controller';
@@ -78,6 +79,19 @@ function PoppinsScreenInner() {
   const { orbitPalette } = useOrbit();
   const tour = useTourControls();
   const p = usePoppinsController();
+  const innerAccess = useAccess();
+  // Out of actions on a paying household: the glass top-up sheet, once per time it runs out.
+  // Admins only — Poppins is theirs, and a pack is a purchase.
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const shownForTripRef = useRef(false);
+  useEffect(() => {
+    const out = p.outOfActions && p.canManageHousehold && innerAccess.view.level === 'paid';
+    if (out && !shownForTripRef.current) {
+      shownForTripRef.current = true;
+      setTopUpOpen(true);
+    }
+    if (!p.outOfActions) shownForTripRef.current = false;
+  }, [p.outOfActions, p.canManageHousehold, innerAccess.view.level]);
   // "Ask Poppins" elsewhere in the app lands here with a topic, so the tab opens ready to talk
   // about that thing instead of a blank stage. Nothing is sent — the words are theirs to send.
   const askParams = useLocalSearchParams<{ ask?: string }>();
@@ -305,6 +319,11 @@ function PoppinsScreenInner() {
         bottomInset={insets.bottom}
         showTierPills={!live || tourOnPoppins}
         folded={typing}
+      />
+      <OutOfActionsSheet
+        visible={topUpOpen}
+        balance={p.tokensRemaining}
+        onClose={() => setTopUpOpen(false)}
       />
     </KeyboardAvoidingView>
   );

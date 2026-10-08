@@ -41,12 +41,34 @@ export async function loadTokenGrants(
   return merged;
 }
 
+/**
+ * Told whenever a household's bank changes — a pack bought, actions spent — so the Poppins orb
+ * can refill and every counter can move without waiting for a screen to re-read.
+ */
+type GrantsListener = (householdId: string, balance: number) => void;
+const grantsListeners = new Set<GrantsListener>();
+
+export function subscribeTokenGrants(listener: GrantsListener): () => void {
+  grantsListeners.add(listener);
+  return () => {
+    grantsListeners.delete(listener);
+  };
+}
+
 export async function saveTokenGrants(
   householdId: string | null | undefined,
   grants: TokenGrant[]
 ): Promise<void> {
   if (!householdId) return;
   await saveLocal(householdId, grants);
+  const balance = topUpBalanceFromGrants(grants);
+  for (const listener of grantsListeners) {
+    try {
+      listener(householdId, balance);
+    } catch {
+      /* a listener must never break a purchase */
+    }
+  }
   if (!isPersistedHouseholdId(householdId)) return;
   await syncConsumedRemote(householdId, grants);
 }

@@ -86,7 +86,8 @@ export function accessView(
   now = new Date()
 ): AccessView {
   const level = accessLevel(entitlement, now);
-  const endsAt = entitlement?.expiresAt ?? null;
+  // The countdown is to the real end of the trial, never to the end of a grace period.
+  const endsAt = entitlement?.periodEndsAt ?? entitlement?.expiresAt ?? null;
 
   if (level !== 'trial') {
     return {

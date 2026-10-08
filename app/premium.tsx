@@ -114,7 +114,17 @@ export default function PremiumScreen() {
     gated && otherAdminName && (sub.mode === 'trial' || sub.mode === 'subscribe')
       ? `If ${otherAdminName} already pays for Premium, ask them to open ChoreMaxx once — this opens by itself.`
       : null;
-  const copy = sub.ready
+  // From Poppins during a trial: sell the subscription, which is what brings the 300 a month.
+  const upgradeFromTrial = params.source === 'poppins' && access.view.level === 'trial';
+  const copy = upgradeFromTrial
+    ? {
+        kicker: 'Poppins comes with Premium',
+        title: `${TOKENS_PER_MONTH} actions every month`,
+        body: 'Your trial covers chores, XP and rewards. Subscribe to talk to your house with Poppins — your actions refill every month.',
+        cta: 'Subscribe',
+        offersTrial: false,
+      }
+    : sub.ready
     ? paywallCopy(sub.mode, {
         firstName: (currentMember?.name ?? currentUser?.name ?? '').trim().split(/\s+/)[0],
         lastEndedAt: sub.lastEndedAt,
@@ -370,7 +380,13 @@ export default function PremiumScreen() {
   };
 
   // Covered, and opened from Settings: the dashboard, not a sales page.
-  if (variant === 'settings' && access.ready && !access.view.appLocked && isPremiumActive(access.entitlement)) {
+  if (
+    variant === 'settings' &&
+    !upgradeFromTrial &&
+    access.ready &&
+    !access.view.appLocked &&
+    isPremiumActive(access.entitlement)
+  ) {
     return (
       <SubscriptionDashboard
         entitlement={access.entitlement}
@@ -383,6 +399,7 @@ export default function PremiumScreen() {
         paidByAnotherAdmin={Boolean(entitlement) && !isPremiumActive(entitlement!)}
         onManage={() => void manage()}
         onRestore={() => void restore()}
+        onSubscribe={(period) => void startTrial(period)}
       />
     );
   }

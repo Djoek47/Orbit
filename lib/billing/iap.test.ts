@@ -110,8 +110,9 @@ test('Settings lists My Subscription with date fields', () => {
   const settings = readFileSync(join(process.cwd(), 'app/settings.tsx'), 'utf8');
   assert.match(settings, /label="My Subscription"/);
   assert.doesNotMatch(settings, /label="Premium"/);
-  assert.match(settings, /Effective date/);
-  assert.match(settings, /Expiration date/);
+  // The card now shows the household's status and days left, from the dashboard summary.
+  assert.match(settings, /subscriptionSummary\(/);
+  assert.match(settings, /daysLeftLabel\(/);
   assert.match(settings, /subscriptionDatesSubtitle/);
 });
 

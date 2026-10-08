@@ -195,7 +195,7 @@ export function subscriptionSummary(
   renewal: { willRenew: boolean | null; renewalDate?: string | null },
   now = new Date()
 ): SubscriptionSummary {
-  const endsAt = renewal.renewalDate ?? entitlement.expiresAt ?? null;
+  const endsAt = renewal.renewalDate ?? entitlement.periodEndsAt ?? entitlement.expiresAt ?? null;
   const endMs = endsAt ? new Date(endsAt).getTime() : NaN;
   const msLeft = Number.isFinite(endMs) ? Math.max(0, endMs - now.getTime()) : 0;
   const daysLeft = Math.ceil(msLeft / DAY_MS);

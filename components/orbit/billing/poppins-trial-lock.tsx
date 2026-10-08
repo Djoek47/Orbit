@@ -14,13 +14,15 @@
  *   │          expire                  │
  *   └──────────────────────────────────┘
  *
- * This is a sale, not a scolding. The trial household has already said yes to ChoreMaxx; the
+ * On a trial this sells the subscription — that is what brings Poppins its monthly actions.
+ * Packs stay available from Settings, under Poppins credits, for anyone who goes looking.
+ * Earlier note: this is a sale, not a scolding. The trial household has already said yes to ChoreMaxx; the
  * screen explains what Poppins costs and offers the one thing that unlocks it today. It does
  * not offer "subscribe" — they already have, and Apple will start charging on its own when
  * the trial ends. Offering to sell them the thing they bought would be wrong and confusing.
  */
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,11 +30,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
-import { IAP_CONSUMABLES } from '@/constants/billing';
 import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { space } from '@/constants/orbit-theme';
 import { useAccess } from '@/lib/billing/access-provider';
-import { formatPrice } from '@/lib/billing/topup-receipt';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -66,9 +66,21 @@ export function useBoughtBalance(): number | null {
   return balance;
 }
 
-function formatDay(iso: string | null): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+/**
+ * The orb's water rising and settling, over and over — a living orb rather than a picture of
+ * one. `target` moves the level; PoppinsOrb animates every change itself.
+ */
+export function useSloshingFill(levels: number[], everyMs = 2400): number {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const first = setTimeout(() => setI(1), 120);
+    const timer = setInterval(() => setI((n) => n + 1), everyMs);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [everyMs]);
+  return i === 0 ? 0 : levels[(i - 1) % levels.length]!;
 }
 
 export function PoppinsTrialLock() {
@@ -76,34 +88,42 @@ export function PoppinsTrialLock() {
   const { c } = useOrbitColors();
   const { accentTheme } = useOrbit();
   const access = useAccess();
-
-  const smallest = IAP_CONSUMABLES.tokensSmall;
-  const ends = formatDay(access.view.trialEndsAt);
+  const fill = useSloshingFill([0.82, 0.62, 0.9, 0.7]);
 
   return (
-    <View style={[styles.root, { backgroundColor: c.background, paddingTop: insets.top + 48 }]}>
+    <View
+      style={[
+        styles.root,
+        {
+          backgroundColor: c.background,
+          // Clear the global header chips above and the tab bar below, then centre between them.
+          paddingTop: insets.top + 84,
+          paddingBottom: insets.bottom + 110,
+        },
+      ]}>
       <View style={styles.body}>
         <Animated.View entering={FadeIn.duration(500)} style={styles.orb}>
-          <PoppinsOrb size={96} />
+          <PoppinsOrb size={150} dailyFill={fill} monthGlow={fill} accent={accentTheme.primary} />
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(80).duration(420)} style={styles.copy}>
-          <Text style={[styles.title, { color: c.text }]}>Poppins runs on actions</Text>
+          <Text style={[styles.kicker, { color: accentTheme.primary }]}>Poppins · Premium</Text>
+          <Text style={[styles.title, { color: c.text }]}>Talk to your house</Text>
           <Text style={[styles.text, { color: c.textMuted }]}>
-            Your free trial covers chores, XP and rewards. Buy a pack to try Poppins now
-            {ends
-              ? ` — your ${TOKENS_PER_MONTH} monthly actions start when the trial ends on ${ends}.`
-              : ` — your ${TOKENS_PER_MONTH} monthly actions start when the trial ends.`}
+            Say it once — chores assigned, groceries added, the week planned. Poppins comes with
+            Premium: {TOKENS_PER_MONTH} actions every month, refilled automatically.
           </Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(160).duration(420)} style={styles.actions}>
-          <OrbitButton onPress={() => router.push('/poppins-credits' as never)}>
-            Buy actions
+          <OrbitButton
+            onPress={() =>
+              router.push({ pathname: '/premium', params: { source: 'poppins' } } as never)
+            }>
+            Get Premium
           </OrbitButton>
           <Text style={[styles.fine, { color: c.textSubtle }]}>
-            {smallest.tokens} actions from {formatPrice(smallest.priceUsd)} · bought actions never
-            expire
+            Your free trial covers chores, XP and rewards.
           </Text>
           {access.view.trialLabel ? (
             <View style={[styles.chip, { backgroundColor: `${accentTheme.primary}18` }]}>
@@ -119,7 +139,8 @@ export function PoppinsTrialLock() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, justifyContent: 'center' },
+  kicker: { fontSize: 12.5, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
   body: {
     alignItems: 'center',
     alignSelf: 'center',

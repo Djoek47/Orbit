@@ -65,6 +65,7 @@ export function entitlementFromHousehold(
     productId: (premium.productId ?? null) as IapProductId | null,
     effectiveAt: null,
     expiresAt: graced.toISOString(),
+    periodEndsAt: new Date(expires).toISOString(),
     source: 'storekit',
     inTrial: premium.inTrial,
   };

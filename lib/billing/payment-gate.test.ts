@@ -76,8 +76,9 @@ assert.match(
   'locked only on a trial, only with nothing bought, only once both are known'
 );
 const lock = read('components/orbit/billing/poppins-trial-lock.tsx');
-assert.match(lock, /\/poppins-credits/, 'the way in is buying actions');
-assert.doesNotMatch(lock, /purchasePremium|Subscribe</, 'not selling a trial user what they have');
+// The trial page sells the subscription (owner's call): packs remain in Settings → credits.
+assert.match(lock, /source: 'poppins'/, 'the way in is Premium');
+assert.doesNotMatch(lock, /purchasePremium/, 'buying goes through the plans page, never from here');
 
 // Bought credits count at the gate — they used to be ignored once the month ran out.
 const store = read('store/orbit-store.tsx');

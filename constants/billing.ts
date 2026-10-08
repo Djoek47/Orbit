@@ -83,8 +83,13 @@ export type EntitlementState = {
   productId: IapProductId | null;
   /** ISO — when the current trial/paid period began (optional on older persisted rows). */
   effectiveAt?: string | null;
-  /** ISO — trial or paid period end */
+  /** ISO — trial or paid period end. On a household-derived entitlement this includes grace. */
   expiresAt: string | null;
+  /**
+   * ISO — the period's real end, without the household grace added to expiresAt. Countdowns
+   * use this: a 7-day trial read through the household row used to say "22 days left".
+   */
+  periodEndsAt?: string | null;
   source: 'mock' | 'storekit' | 'none';
   inTrial: boolean;
 };

@@ -165,11 +165,25 @@ export type RenewalState = {
   renewalDate: string | null;
   /** The plan the next renewal moves to, when an upgrade or downgrade is pending. */
   pendingProductId: string | null;
+  /**
+   * Apple could not charge the renewal and is retrying. During Apple's billing grace period
+   * (3 days, set in App Store Connect) the subscription stays active; StoreKit keeps it in the
+   * current entitlements, so nothing locks — the app only has to say what is wrong.
+   */
+  billingIssue?: boolean;
+  /** ISO. When Apple's billing grace period ends, if it is running. */
+  graceEndsAt?: string | null;
 };
 
 /** Apple's renewal status for the active subscription: will it renew, and when. */
 export async function fetchRenewalState(): Promise<RenewalState> {
-  const unknown: RenewalState = { willRenew: null, renewalDate: null, pendingProductId: null };
+  const unknown: RenewalState = {
+    willRenew: null,
+    renewalDate: null,
+    pendingProductId: null,
+    billingIssue: false,
+    graceEndsAt: null,
+  };
   if (!isNativeIapAvailable()) {
     const mock = getMockEntitlement();
     return isPremiumActive(mock)
@@ -192,6 +206,8 @@ export async function fetchRenewalState(): Promise<RenewalState> {
         renewalDate?: number | null;
         pendingUpgradeProductId?: string | null;
         autoRenewPreference?: string | null;
+        isInBillingRetry?: boolean | null;
+        gracePeriodExpirationDate?: number | null;
       } | null;
       const renewalMs =
         typeof info?.renewalDate === 'number'
@@ -213,6 +229,11 @@ export async function fetchRenewalState(): Promise<RenewalState> {
               : null,
         renewalDate: renewalMs ? new Date(renewalMs).toISOString() : null,
         pendingProductId: pending ?? null,
+        billingIssue: Boolean(info?.isInBillingRetry),
+        graceEndsAt:
+          typeof info?.gracePeriodExpirationDate === 'number'
+            ? new Date(info.gracePeriodExpirationDate).toISOString()
+            : null,
       };
     });
   } catch (error) {

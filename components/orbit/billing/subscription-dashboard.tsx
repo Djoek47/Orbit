@@ -52,6 +52,9 @@ type Props = {
   paidByAnotherAdmin?: boolean;
   onManage: () => void;
   onRestore: () => void;
+  /** Buy a plan outright — offered during a trial. Never a free-trial button: inside the app
+   * the trial has already been used. */
+  onSubscribe?: (period: 'monthly' | 'yearly') => void;
 };
 
 function Ring({ fraction, color, track }: { fraction: number; color: string; track: string }) {
@@ -97,6 +100,7 @@ export function SubscriptionDashboard({
   paidByAnotherAdmin,
   onManage,
   onRestore,
+  onSubscribe,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
@@ -134,7 +138,16 @@ export function SubscriptionDashboard({
               </Text>
             </View>
           </View>
-          {summary.inTrial && summary.willRenew !== false ? (
+          {renewal.billingIssue ? (
+            <Text style={[styles.note, { color: '#E9A23B', fontWeight: '700' }]}>
+              Apple couldn&apos;t charge your card.{' '}
+              {renewal.graceEndsAt
+                ? `Premium stays on until ${longDate(renewal.graceEndsAt)} while Apple retries.`
+                : 'Premium stays on for a few days while Apple retries.'}{' '}
+              Update your payment method from Manage below.
+            </Text>
+          ) : null}
+                    {summary.inTrial && summary.willRenew !== false ? (
             <Text style={[styles.note, { color: c.textMuted }]}>
               Your {BILLING_TRIAL_DAYS}-day free trial turns into Premium automatically. Apple charges{' '}
               {priceLine} on {longDate(summary.endsAt)} unless you cancel at least 24 hours before.
@@ -160,6 +173,68 @@ export function SubscriptionDashboard({
 
         {statusMessage ? <Text style={[styles.status, { color: c.primary }]}>{statusMessage}</Text> : null}
         {errorMessage ? <Text style={[styles.status, { color: c.danger }]}>{errorMessage}</Text> : null}
+
+        <View style={{ gap: 10 }}>
+          <Text style={[styles.sectionLabel, { color: c.textMuted }]}>PLANS</Text>
+          <View style={styles.planRow}>
+            {(['monthly', 'yearly'] as const).map((period) => {
+              const plan = IAP_SUBSCRIPTIONS[period];
+              const current = entitlement.productId === plan.productId;
+              const display = storePrices[plan.productId]?.display ?? `$${plan.priceUsd}`;
+              // During a trial: buy either plan now. Once paid: the current one is marked, the
+              // other switches through Apple's sheet (Apple applies plan changes itself).
+              const action = summary.inTrial && onSubscribe
+                ? () => onSubscribe(period)
+                : current
+                  ? null
+                  : onManage;
+              const label = summary.inTrial ? 'Subscribe' : current ? 'Current plan' : 'Switch';
+              return (
+                <View
+                  key={period}
+                  style={[
+                    styles.planCard,
+                    {
+                      backgroundColor: glass(0.05),
+                      borderColor: current ? toneColor : glassBorder(0.12),
+                    },
+                  ]}>
+                  <Text style={[styles.planName, { color: c.textMuted }]}>
+                    {period === 'yearly' ? 'YEARLY' : 'MONTHLY'}
+                  </Text>
+                  <Text style={[styles.planPrice, { color: c.text }]}>{display}</Text>
+                  <Text style={[styles.planPer, { color: c.textMuted }]}>
+                    {period === 'yearly' ? `per year · ${IAP_SUBSCRIPTIONS.yearly.savingsLabel}` : 'per month'}
+                  </Text>
+                  <Pressable
+                    disabled={!action || busy}
+                    onPress={action ?? undefined}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${label}, ${period}`}
+                    style={({ pressed }) => [
+                      styles.planBtn,
+                      {
+                        backgroundColor: action ? c.primary : 'transparent',
+                        borderColor: action ? c.primary : glassBorder(0.16),
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}>
+                    <Text style={[styles.planBtnText, { color: action ? '#fff' : c.textMuted }]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+          {summary.inTrial ? (
+            <Text style={[styles.note, { color: c.textMuted }]}>
+              Subscribing now is optional — your trial already becomes Premium on its own. Payment
+              is charged to your Apple ID when you confirm, and renews automatically unless
+              cancelled at least 24 hours before the end of the period.
+            </Text>
+          ) : null}
+        </View>
 
         <SettingsGroup header="Manage">
           <SettingsNavRow
@@ -257,6 +332,14 @@ const styles = StyleSheet.create({
   historyTitle: { fontSize: 15, fontWeight: '600' },
   historySub: { fontSize: 13, marginTop: 2 },
   footnote: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
+  sectionLabel: { fontSize: 12.5, fontWeight: '800', letterSpacing: 0.6, paddingHorizontal: 4 },
+  planRow: { flexDirection: 'row', gap: 10 },
+  planCard: { borderCurve: 'continuous', borderRadius: 18, borderWidth: 1, flex: 1, gap: 4, padding: 14 },
+  planName: { fontSize: 12, fontWeight: '800', letterSpacing: 0.6 },
+  planPrice: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  planPer: { fontSize: 12.5 },
+  planBtn: { alignItems: 'center', borderRadius: 999, borderWidth: 1, marginTop: 8, minHeight: 38, justifyContent: 'center' },
+  planBtnText: { fontSize: 14, fontWeight: '700' },
   links: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'center' },
   link: { fontSize: 14, fontWeight: '500' },
 });

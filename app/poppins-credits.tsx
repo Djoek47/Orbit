@@ -44,7 +44,6 @@ import {
   isNativeIapAvailable,
   isTokenPackAvailable,
   isUserCancelledPurchase,
-  probeAvailableTokenPacks,
   purchaseTokens,
   type IapTokenPackKey,
   fetchStorePrices,
@@ -83,6 +82,147 @@ type ReceiptMail =
   | { kind: 'failed' };
 
 type Congrats = { tokens: number; price: string; receipt: TopUpReceipt };
+
+/** On a trial: the subscription first. Packs stay below for anyone who wants them. */
+function PremiumPromo({ onStart }: { onStart: () => void }) {
+  const { c } = useOrbitColors();
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(40).duration(320)}
+      style={[styles.promo, { borderColor: `${TOPUP_TONE}66` }]}>
+      <LinearGradient
+        colors={[`${TOPUP_TONE}30`, `${TOPUP_DEEP}10`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <Text style={[styles.promoEyebrow, { color: TOPUP_TONE }]}>Premium</Text>
+      <Text style={[styles.promoTitle, { color: c.text }]}>
+        {TOKENS_PER_MONTH} actions every month
+      </Text>
+      <Text style={[styles.promoBody, { color: c.textMuted }]}>
+        Poppins comes with Premium. Subscribe and your monthly actions refill on their own, every
+        month.
+      </Text>
+      <Pressable
+        onPress={onStart}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.promoBtn, { opacity: pressed ? 0.85 : 1 }]}>
+        <Text style={styles.promoBtnText}>Start Premium now</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+type HistoryRow = { id: string; at: string; title: string; detail: string; delta: string; positive: boolean };
+
+/**
+ * What came in and what went out: packs bought, the monthly allowance arriving with each paid
+ * period, and what this month has spent. Newest first.
+ */
+function CreditHistory({
+  householdId,
+  monthUsed,
+  trial,
+}: {
+  householdId: string | null;
+  monthUsed: number;
+  trial: boolean;
+}) {
+  const { c, glassBorder, isDark } = useOrbitColors();
+  const [rows, setRows] = useState<HistoryRow[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void (async () => {
+        const [grants, periods] = await Promise.all([
+          loadTokenGrants(householdId).catch(() => []),
+          import('@/lib/billing/iap').then((m) => m.fetchSubscriptionHistory()).catch(() => []),
+        ]);
+        const out: HistoryRow[] = [];
+        for (const g of grants) {
+          out.push({
+            id: `g-${g.id}`,
+            at: g.grantedAt,
+            title: `Bought ${g.tokens.toLocaleString()} actions`,
+            detail: g.consumed > 0 ? `${g.consumed} used so far` : 'Never expire',
+            delta: `+${g.tokens}`,
+            positive: true,
+          });
+        }
+        for (const p of periods) {
+          if (p.kind !== 'paid') continue;
+          out.push({
+            id: `p-${p.id}`,
+            at: p.startedAt,
+            title: 'Premium monthly actions',
+            detail: 'Your allowance for the month',
+            delta: `+${TOKENS_PER_MONTH}`,
+            positive: true,
+          });
+        }
+        out.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+        if (!cancelled) setRows(out.slice(0, 20));
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [householdId])
+  );
+
+  const usedRow: HistoryRow | null =
+    monthUsed > 0
+      ? {
+          id: 'used',
+          at: new Date().toISOString(),
+          title: 'Used this month',
+          detail: trial ? 'Spent from bought actions' : 'Poppins actions',
+          delta: `−${monthUsed}`,
+          positive: false,
+        }
+      : null;
+  const all = usedRow ? [usedRow, ...rows] : rows;
+
+  return (
+    <Animated.View entering={FadeInDown.delay(120).duration(280)} style={{ gap: 8 }}>
+      <View style={styles.groupHead}>
+        <View style={[styles.groupMoji, { backgroundColor: '#7BD88F22' }]}>
+          <MaterialIcons name="history" size={16} color="#7BD88F" />
+        </View>
+        <Text style={[styles.groupLabel, { color: '#7BD88F' }]}>History</Text>
+      </View>
+      <View style={[styles.card, { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) }]}>
+        {all.length === 0 ? (
+          <Text style={[styles.ledgerSub, { color: c.textSubtle, padding: 14 }]}>
+            Packs you buy and your monthly actions will show up here.
+          </Text>
+        ) : (
+          all.map((row, index) => (
+            <View
+              key={row.id}
+              style={[
+                styles.ledgerRow,
+                index > 0 && { borderTopColor: glassBorder(0.08), borderTopWidth: StyleSheet.hairlineWidth },
+              ]}>
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={[styles.ledgerTitle, { color: c.text }]} numberOfLines={1}>
+                  {row.title}
+                </Text>
+                <Text style={[styles.ledgerSub, { color: c.textSubtle }]}>
+                  {row.id === 'used' ? 'So far' : new Date(row.at).toLocaleDateString()} · {row.detail}
+                </Text>
+              </View>
+              <Text style={[styles.ledgerLeft, { color: row.positive ? '#7BD88F' : c.textMuted }]}>
+                {row.delta}
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+    </Animated.View>
+  );
+}
 
 function PoppinsCreditsScreenInner() {
   const insets = useSafeAreaInsets();
@@ -174,16 +314,12 @@ function PoppinsCreditsScreenInner() {
       void readBalance().then((next) => {
         if (next) setCredits(next);
       });
-      let cancelled = false;
-      void (async () => {
-        const listed = await probeAvailableTokenPacks();
-        if (cancelled) return;
-        setAvailablePacks(listed);
-        setStoreProbeDone(true);
-      })();
-      return () => {
-        cancelled = true;
-      };
+      // Every pack stays on sale. The probe used to grey out any pack StoreKit did not list
+      // ("Soon · Not on this build"), which hid them while Apple was still reviewing. Now a
+      // tap always reaches StoreKit, and if Apple has not cleared the pack yet the purchase
+      // says so in plain words.
+      setAvailablePacks(null);
+      setStoreProbeDone(true);
     }, [readBalance])
   );
 
@@ -326,6 +462,10 @@ function PoppinsCreditsScreenInner() {
           trialEndsAt={access.view.level === 'trial' ? access.view.trialEndsAt : null}
         />
 
+        {access.view.level === 'trial' && isAdmin ? (
+          <PremiumPromo onStart={() => router.push({ pathname: '/premium', params: { source: 'poppins' } } as never)} />
+        ) : null}
+
         {congrats ? (
           <Animated.View
             entering={FadeInDown.duration(300).springify().damping(18)}
@@ -435,6 +575,8 @@ function PoppinsCreditsScreenInner() {
                 </Text>
               ) : null}
             </Animated.View>
+
+            <CreditHistory householdId={household.id} monthUsed={monthUsed} trial={access.view.level === 'trial'} />
 
             {receipts.length > 0 ? (
               <Animated.View entering={FadeInDown.delay(140).duration(280)} style={{ gap: 8 }}>
@@ -636,14 +778,10 @@ function CreditSummaryCard({
               {/* On a trial there is no monthly allowance yet. "0 of 300 · back on Nov 1" would
                   promise something the 1st does not bring; the trial's end does. */}
               <Text style={[styles.potEyebrow, { color: c.textSubtle }]}>Monthly</Text>
-              <Text style={[styles.potValue, { color: c.text }]}>{TOKENS_PER_MONTH}</Text>
-              <Text style={[styles.potLabel, { color: c.textMuted }]}>a month with Premium</Text>
+              <Text style={[styles.potValue, { color: c.text }]}>0</Text>
+              <Text style={[styles.potLabel, { color: c.textMuted }]}>on the free trial</Text>
               <Text style={[styles.potNote, { color: c.textSubtle }]}>
-                Starts{' '}
-                {new Date(trialEndsAt).toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                })}
+                {TOKENS_PER_MONTH} a month with Premium
               </Text>
             </>
           ) : (
@@ -813,6 +951,19 @@ function PackCard({
 }
 
 const styles = StyleSheet.create({
+  promo: { borderCurve: 'continuous', borderRadius: 22, borderWidth: 1, gap: 8, overflow: 'hidden', padding: 18 },
+  promoEyebrow: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  promoTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  promoBody: { fontSize: 14.5, lineHeight: 20 },
+  promoBtn: {
+    alignItems: 'center',
+    backgroundColor: TOPUP_TONE,
+    borderRadius: 999,
+    marginTop: 6,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  promoBtnText: { color: '#1A1006', fontSize: 16, fontWeight: '800' },
   bank: {
     borderCurve: 'continuous',
     borderRadius: 24,

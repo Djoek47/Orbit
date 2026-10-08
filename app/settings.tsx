@@ -32,7 +32,6 @@ import {
 } from '@/lib/ai/majordomo-profiles';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { MapsAppMark } from '@/components/orbit/maps-app-mark';
-import { BUILD_INFO } from '@/constants/build-info';
 import {
   loadErrorLog,
 } from '@/lib/errors/error-log';
@@ -101,7 +100,11 @@ import {
 } from '@/lib/billing/subscription-dates';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useAccess } from '@/lib/billing/access-provider';
-import { settingsPremiumButtonLabel } from '@/lib/billing/subscription-status';
+import {
+  daysLeftLabel,
+  settingsPremiumButtonLabel,
+  subscriptionSummary,
+} from '@/lib/billing/subscription-status';
 import { useSubscription } from '@/lib/billing/use-subscription';
 import { useOrbit } from '@/store/orbit-store';
 import type { MemberInvite } from '@/lib/household/member-invites';
@@ -920,7 +923,14 @@ export default function SettingsScreen() {
                       : 'Active'
                     : undefined
                 }
-                subtitle={subscriptionDatesSubtitle(entitlement)}
+                subtitle={
+                  premiumAccess.ready && isPremiumActive(premiumAccess.entitlement)
+                    ? (() => {
+                        const sm = subscriptionSummary(premiumAccess.entitlement, subscriptionInfo.renewal);
+                        return `${sm.statusLabel} · ${daysLeftLabel(sm.daysLeft)}`;
+                      })()
+                    : subscriptionDatesSubtitle(entitlement)
+                }
                 onPress={() => setSection('premium')}
               />
               <SettingsNavRow
@@ -958,14 +968,6 @@ export default function SettingsScreen() {
                 Delete account
               </Text>
             </Pressable>
-
-            <Text
-              style={[
-                styles.caption,
-                { color: c.textSubtle, textAlign: 'center', marginBottom: 8 },
-              ]}>
-              {BUILD_INFO.label}
-            </Text>
             <BrandLegalFooter style={styles.brand} />
           </>
         ) : null}
@@ -1345,22 +1347,28 @@ export default function SettingsScreen() {
                   <Text style={[styles.premiumHeroEyebrow, { color: '#E9B44C' }]}>
                     My Subscription
                   </Text>
-                  <Text style={[styles.premiumHeroTitle, { color: c.text }]} numberOfLines={2}>
-                    {entitlement ? premiumCopy(entitlement) : 'Loading…'}
-                  </Text>
-                  {entitlement && isPremiumActive(entitlement) ? (
-                    <>
-                      <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
-                        Effective date{' '}
-                        {formatSubscriptionDate(resolveEffectiveAt(entitlement))}
-                      </Text>
-                      <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
-                        Expiration date {formatSubscriptionDate(entitlement.expiresAt)}
-                      </Text>
-                    </>
+                  {/* The household's state, not this phone's: a trial started on another admin's
+                      phone, or recorded on the household, still reads as a trial here. */}
+                  {premiumAccess.ready && isPremiumActive(premiumAccess.entitlement) ? (
+                    (() => {
+                      const summary = subscriptionSummary(
+                        premiumAccess.entitlement,
+                        subscriptionInfo.renewal
+                      );
+                      return (
+                        <>
+                          <Text style={[styles.premiumHeroTitle, { color: c.text }]} numberOfLines={2}>
+                            {summary.statusLabel} · {daysLeftLabel(summary.daysLeft)}
+                          </Text>
+                          <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
+                            {summary.planLabel} · {summary.nextLine}
+                          </Text>
+                        </>
+                      );
+                    })()
                   ) : (
-                    <Text style={[styles.premiumHeroSub, { color: c.textSubtle }]}>
-                      {BILLING_TRIAL_DAYS}-day free trial · then billed via Apple
+                    <Text style={[styles.premiumHeroTitle, { color: c.text }]} numberOfLines={2}>
+                      {premiumAccess.ready ? 'Premium is not active' : 'Loading…'}
                     </Text>
                   )}
                   <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>
@@ -1377,8 +1385,7 @@ export default function SettingsScreen() {
                   router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
                 }>
                 {settingsPremiumButtonLabel(
-                  (entitlement && isPremiumActive(entitlement)) ||
-                    (premiumAccess.ready && isPremiumActive(premiumAccess.entitlement)),
+                  premiumAccess.ready && isPremiumActive(premiumAccess.entitlement),
                   // Until known, never offer a trial the house may already have had.
                   subscriptionInfo.ready ? subscriptionInfo.mode : 'subscribe'
                 )}

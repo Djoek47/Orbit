@@ -12,7 +12,6 @@ import { PaletteWheel } from '@/components/orbit/palette-wheel';
 import { PersonalizeLookSheet } from '@/components/orbit/personalize-look-sheet';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import { SettingsGroup, SettingsNavRow } from '@/components/orbit/settings/grouped';
-import { BUILD_INFO } from '@/constants/build-info';
 import { VOCAB } from '@/constants/vocabulary';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
@@ -273,9 +272,6 @@ export function SidekickSettingsScreen() {
             </Text>
           </Pressable>
 
-          <Text style={[styles.caption, { color: c.textSubtle, textAlign: 'center', marginBottom: 8 }]}>
-            {BUILD_INFO.label}
-          </Text>
           <BrandLegalFooter />
         </KeyboardScreen>
       </View>

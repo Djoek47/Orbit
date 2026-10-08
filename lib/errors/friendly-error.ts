@@ -25,7 +25,7 @@ export function friendlyErrorMessage(raw: string | null | undefined): string {
     return 'Payment may have gone through, but we couldn’t add credits to your household. Send feedback and we’ll fix it — don’t buy again until we confirm.';
   }
   if (lower.includes('sku_not_found') || lower.includes('empty product')) {
-    return 'This credit pack isn’t for sale on this build yet. Try another size, or send feedback so we can clear it in App Store Connect.';
+    return 'This pack isn’t live in the App Store yet. It opens as soon as Apple approves it — try again later.';
   }
   if (
     lower.includes('failed to request purchase') ||

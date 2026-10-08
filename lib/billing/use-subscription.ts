@@ -36,7 +36,13 @@ export type SubscriptionInfo = {
   refresh: () => Promise<void>;
 };
 
-const NO_RENEWAL: RenewalState = { willRenew: null, renewalDate: null, pendingProductId: null };
+const NO_RENEWAL: RenewalState = {
+  willRenew: null,
+  renewalDate: null,
+  pendingProductId: null,
+  billingIssue: false,
+  graceEndsAt: null,
+};
 
 export function useSubscription(householdPremium: HouseholdPremium | null | undefined): SubscriptionInfo {
   const [ready, setReady] = useState(false);
