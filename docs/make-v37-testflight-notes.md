@@ -49,21 +49,9 @@
 
 | | |
 |--|--|
-| Version | **1.3.0 (122)** — make-v37 (code ready; EAS build blocked) |
-| Branch | `cursor/make-v37-c30d` @ `913c3f9` |
+| Version | **1.3.0 (123)** — make-v37 (122 skipped: quota fail burned the number) |
+| Branch | `cursor/make-v37-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/125 |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/3aff88a9-4f1a-495e-ab8b-6e025588c3aa |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/a7314573-9585-4183-afc9-f2dc8bcd7612 |
 | Prior (121) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/9d650e20-249f-4214-ae59-67b73434b9b2 |
-
-### EAS block (need you)
-
-Free-plan iOS builds for `choremaxx-team` are exhausted this month (resets **Sun Nov 01 2026**).  
-Upload succeeded and remote `buildNumber` was already incremented **121 → 122**, then EAS refused the build.
-
-**To ship 122:** upgrade the Expo plan at https://expo.dev/accounts/choremaxx-team/settings/billing, then from tip:
-
-```bash
-git checkout cursor/make-v37-c30d
-eas build --platform ios --profile testflight --auto-submit
-```
-
-Or tell me once the plan has slots and I’ll re-run the cut.
