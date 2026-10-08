@@ -285,6 +285,7 @@ export function PremiumPaywall({
         {statusMessage ? <Text style={[styles.status, { color: accentTheme.primary }]}>{statusMessage}</Text> : null}
         {errorMessage ? <Text style={[styles.error, { color: c.danger }]}>{errorMessage}</Text> : null}
 
+        {notice ? <Text style={[styles.reassure, { color: c.text }]}>{notice}</Text> : null}
         <Text style={[styles.reassure, { color: c.textMuted }]}>Cancel anytime, no penalties or fees</Text>
 
         <AnimatedPressable
@@ -349,7 +350,6 @@ export function PremiumPaywall({
           ) : null}
         </View>
       </Animated.View>
-      {notice ? null : null}
       {footerSlot}
     </View>
   );

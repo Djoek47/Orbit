@@ -156,9 +156,9 @@ function CreditHistory({
           out.push({
             id: `p-${p.id}`,
             at: p.startedAt,
-            title: 'Monthly actions',
-            detail: 'Your allowance for the month',
-            delta: `+${TOKENS_PER_MONTH}`,
+            title: 'Subscription payment',
+            detail: 'Monthly actions refill on the 1st',
+            delta: '',
             positive: true,
           });
         }
@@ -781,7 +781,7 @@ function CreditSummaryCard({
               <Text style={[styles.potValue, { color: c.text }]}>0</Text>
               <Text style={[styles.potLabel, { color: c.textMuted }]}>on the free trial</Text>
               <Text style={[styles.potNote, { color: c.textSubtle }]}>
-                {TOKENS_PER_MONTH} a month with Premium
+                {TOKENS_PER_MONTH} a month with a subscription
               </Text>
             </>
           ) : (

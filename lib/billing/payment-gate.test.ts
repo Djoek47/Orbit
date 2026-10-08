@@ -119,7 +119,7 @@ assert.match(provider, /lastUserRef\.current === userId/);
 // Renewal travels with the report, and sets how long the children's devices keep working.
 assert.match(sync, /premium_will_renew: willRenew/);
 const ent = read('lib/billing/household-entitlement.ts');
-assert.match(ent, /premium\.willRenew === false \? HOUSEHOLD_PREMIUM_GRACE_MS : HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS/);
+assert.match(ent, /premium\.inTrial\s*\?\s*0\s*:\s*premium\.willRenew === false\s*\?\s*HOUSEHOLD_PREMIUM_GRACE_MS\s*:\s*HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS/, 'trials get no grace');
 
 // Prices on screen come from the storefront, not the USD catalogue.
 assert.match(paywall, /storePrices\[p\.productId\]\?\.display/);

@@ -58,8 +58,17 @@ export function useBoughtBalance(): number | null {
           if (!cancelled) setBalance(0);
         }
       })();
+      // Live: a pack bought anywhere moves this at once, so the lock lifts or returns mid-session.
+      let unsubscribe = () => {};
+      void import('@/lib/billing/token-grants').then(({ subscribeTokenGrants }) => {
+        if (cancelled) return;
+        unsubscribe = subscribeTokenGrants((id, next) => {
+          if (id === household.id) setBalance(next);
+        });
+      });
       return () => {
         cancelled = true;
+        unsubscribe();
       };
     }, [household.id])
   );

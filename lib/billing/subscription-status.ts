@@ -112,7 +112,7 @@ export function paywallCopy(
       return {
         kicker: 'ChoreMaxx',
         title: `Try it free for ${BILLING_TRIAL_DAYS} days`,
-        body: `${ctx.allowanceLine} Cancel any time before the trial ends and you pay nothing.`,
+        body: 'Chores, XP, rewards and the whole house, free for 7 days. Poppins and its monthly actions start with your first payment. Cancel any time before the trial ends and you pay nothing.',
         cta: 'Start free trial',
         offersTrial: true,
       };
@@ -198,7 +198,8 @@ export function subscriptionSummary(
   const endsAt = renewal.renewalDate ?? entitlement.periodEndsAt ?? entitlement.expiresAt ?? null;
   const endMs = endsAt ? new Date(endsAt).getTime() : NaN;
   const msLeft = Number.isFinite(endMs) ? Math.max(0, endMs - now.getTime()) : 0;
-  const daysLeft = Math.ceil(msLeft / DAY_MS);
+  // Same rounding as the trial countdown card, so the two never disagree.
+  const daysLeft = Math.floor(msLeft / DAY_MS);
   const total = periodDays(entitlement.productId, entitlement.inTrial);
   const remaining = Math.max(0, Math.min(1, msLeft / (total * DAY_MS)));
   const date = shortDate(endsAt) ?? 'the end of this period';
@@ -209,7 +210,10 @@ export function subscriptionSummary(
   let tone: SubscriptionSummary['tone'];
   if (entitlement.inTrial) {
     statusLabel = cancelled ? 'Free trial · cancelled' : 'Free trial';
-    nextLine = cancelled ? `Access ends ${date}` : `First charge ${date}`;
+    // Only claim a charge when Apple has said it will renew. A trial recorded on the household
+    // without an Apple subscription on this phone (null) has no charge coming from here.
+    nextLine =
+      renewal.willRenew === true ? `First charge ${date}` : cancelled ? `Access ends ${date}` : `Trial ends ${date}`;
     tone = cancelled || daysLeft <= 2 ? 'warn' : 'good';
   } else {
     statusLabel = cancelled ? 'Cancelled' : 'Active';

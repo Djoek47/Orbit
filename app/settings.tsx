@@ -917,8 +917,8 @@ export default function SettingsScreen() {
                 iconColor="#E9B44C"
                 label="My Subscription"
                 value={
-                  entitlement && isPremiumActive(entitlement)
-                    ? entitlement.inTrial
+                  premiumAccess.ready && isPremiumActive(premiumAccess.entitlement)
+                    ? premiumAccess.entitlement.inTrial
                       ? 'Trial'
                       : 'Active'
                     : undefined
@@ -1404,7 +1404,12 @@ export default function SettingsScreen() {
                     void restorePurchases()
                       .then((next) => {
                         setEntitlement(next);
-                        orbitAlert('Restore', premiumCopy(next));
+                        orbitAlert(
+                          'Restore',
+                          isPremiumActive(next)
+                            ? 'Subscription restored.'
+                            : 'No subscription found on this Apple ID.'
+                        );
                       })
                       .finally(() => setBillingBusy(false));
                   }}

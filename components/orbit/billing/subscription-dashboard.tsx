@@ -147,7 +147,7 @@ export function SubscriptionDashboard({
               Update your payment method from Manage below.
             </Text>
           ) : null}
-                    {summary.inTrial && summary.willRenew !== false ? (
+                    {summary.inTrial && summary.willRenew === true ? (
             <Text style={[styles.note, { color: c.textMuted }]}>
               Your {BILLING_TRIAL_DAYS}-day free trial turns into your subscription automatically. Apple charges{' '}
               {priceLine} on {longDate(summary.endsAt)} unless you cancel at least 24 hours before.
@@ -174,6 +174,7 @@ export function SubscriptionDashboard({
         {statusMessage ? <Text style={[styles.status, { color: c.primary }]}>{statusMessage}</Text> : null}
         {errorMessage ? <Text style={[styles.status, { color: c.danger }]}>{errorMessage}</Text> : null}
 
+        {paidByAnotherAdmin ? null : (
         <View style={{ gap: 10 }}>
           <Text style={[styles.sectionLabel, { color: c.textMuted }]}>PLANS</Text>
           <View style={styles.planRow}>
@@ -229,12 +230,13 @@ export function SubscriptionDashboard({
           </View>
           {summary.inTrial ? (
             <Text style={[styles.note, { color: c.textMuted }]}>
-              Subscribing now is optional — your trial already becomes Premium on its own. Payment
-              is charged to your Apple ID when you confirm, and renews automatically unless
-              cancelled at least 24 hours before the end of the period.
+              Your trial turns into your subscription on its own. Choosing a plan here is optional:
+              payment is charged to your Apple ID when you confirm, and renews automatically
+              unless cancelled at least 24 hours before the end of the period.
             </Text>
           ) : null}
         </View>
+        )}
 
         <SettingsGroup header="Manage">
           <SettingsNavRow

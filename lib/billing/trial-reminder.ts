@@ -66,7 +66,7 @@ export async function scheduleTrialReminders(plan: TrialReminder[]): Promise<voi
     for (const r of plan) {
       await Notifications.scheduleNotificationAsync({
         identifier: r.id,
-        content: { title: r.title, body: r.body, sound: true, data: { route: '/premium' } },
+        content: { title: r.title, body: r.body, sound: true, data: { route: '/premium?source=settings' } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.at },
       });
     }

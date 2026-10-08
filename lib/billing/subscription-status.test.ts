@@ -82,6 +82,8 @@ const inTrial: EntitlementState = {
 };
 const s1 = subscriptionSummary(inTrial, { willRenew: true }, now);
 assert.equal(s1.daysLeft, 5);
+// A trial with no Apple subscription behind it (willRenew unknown) promises no charge.
+assert.match(subscriptionSummary(inTrial, { willRenew: null }, now).nextLine, /^Trial ends /);
 assert.match(s1.nextLine, /^First charge /, 'Apple charges when the trial ends');
 assert.equal(s1.statusLabel, 'Free trial');
 assert.ok(Math.abs(s1.remaining - 5 / 7) < 0.01);

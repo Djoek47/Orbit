@@ -101,7 +101,7 @@ function PoppinsScreenInner() {
   );
   const shownForTripRef = useRef(false);
   useEffect(() => {
-    const out = p.outOfActions && p.canManageHousehold && innerAccess.view.level === 'paid';
+    const out = p.outOfActions && p.canManageHousehold && innerAccess.view.level !== 'locked';
     if (out && !shownForTripRef.current) {
       shownForTripRef.current = true;
       setTopUpOpen(true);
@@ -348,6 +348,7 @@ function PoppinsScreenInner() {
       <OutOfActionsSheet
         visible={topUpOpen}
         balance={p.tokensRemaining}
+        onTrial={innerAccess.view.level === 'trial'}
         onClose={() => {
           setTopUpOpen(false);
           // If they bought, play the refill on the big orb too.

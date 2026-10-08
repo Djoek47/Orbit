@@ -234,7 +234,7 @@ function parseHouseholdIntentRaw(
     return [{ type: 'navigate', route: '/recess', reason: 'I can open Recess for you.' }];
   }
   if (/\b(billing|premium|subscription)\b/.test(lower)) {
-    return [{ type: 'navigate', route: '/premium', reason: 'I can open billing for you.' }];
+    return [{ type: 'navigate', route: '/premium?source=settings', reason: 'I can open billing for you.' }];
   }
   if (/\b(settings|account)\b/.test(lower)) {
     return [{ type: 'navigate', route: '/settings', reason: 'I can open Settings for you.' }];

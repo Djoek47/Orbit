@@ -20,14 +20,14 @@ export const BILLING_TRIAL_DAYS = 7;
 export const IAP_SUBSCRIPTIONS = {
   monthly: {
     productId: 'app.choremaxx.household.premium.monthlyv',
-    label: 'Premium Monthly',
+    label: 'Monthly',
     priceUsd: 6.99,
     period: 'month' as const,
     trialDays: BILLING_TRIAL_DAYS,
   },
   yearly: {
     productId: 'app.choremaxx.household.premium.yearlyv',
-    label: 'Premium Yearly',
+    label: 'Yearly',
     priceUsd: 49.99,
     period: 'year' as const,
     trialDays: BILLING_TRIAL_DAYS,

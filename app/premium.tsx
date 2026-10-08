@@ -70,7 +70,10 @@ export default function PremiumScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([isTrialEligible('monthly'), isTrialEligible('yearly')]).then(
+    void Promise.all([
+      isTrialEligible('monthly').catch(() => true),
+      isTrialEligible('yearly').catch(() => true),
+    ]).then(
       ([monthly, yearly]) => {
         if (!cancelled) setEligible({ monthly, yearly });
       }
@@ -101,19 +104,11 @@ export default function PremiumScreen() {
   // A trial that has run out reads differently from a first visit: say what happened. And in
   // a two-parent house the one who did not pay may land here before the one who did has opened
   // this version — name them, so this reads as "ask Nero" rather than "pay again".
-  const otherAdmin = household.members.find(
-    (m) =>
-      m.id !== currentMember?.id &&
-      m.status === 'active' &&
-      (m.role === 'owner' || m.role === 'admin')
-  );
-  const otherAdminName = otherAdmin?.name.trim().split(/\s+/)[0];
+
   // The mode's own headline says "trial ended" or "welcome back"; the only extra line is for a
   // house that has never recorded a subscription but has a second admin who may be paying.
-  const notice =
-    gated && otherAdminName && (sub.mode === 'trial' || sub.mode === 'subscribe')
-      ? `If ${otherAdminName} already pays for Premium, ask them to open ChoreMaxx once — this opens by itself.`
-      : null;
+  // The owner asked for no extra line here; the mode's own headline carries the message.
+  const notice: string | null = null;
   // From Poppins during a trial: sell the subscription, which is what brings the 300 a month.
   const upgradeFromTrial = params.source === 'poppins' && access.view.level === 'trial';
   const copy = upgradeFromTrial
@@ -251,6 +246,19 @@ export default function PremiumScreen() {
   };
 
   const startTrial = async (product: 'yearly' | 'monthly') => {
+    // This Apple ID already has this plan (often its free trial): Apple will not sell it again
+    // and will not end the trial early. Say so instead of showing "Trial started" a second time.
+    const held = access.deviceEntitlement;
+    if (held?.active && held.productId === IAP_SUBSCRIPTIONS[product].productId) {
+      setErrorMessage(
+        held.inTrial
+          ? `You're already on the ${product} plan's free trial. It turns into your subscription on its own${
+              held.expiresAt ? ` on ${formatRenewalDate(held.expiresAt)}` : ''
+            }.`
+          : `You already have the ${product} plan.`
+      );
+      return;
+    }
     setBusy(true);
     setErrorMessage(null);
     setStatusMessage(null);
@@ -258,7 +266,7 @@ export default function PremiumScreen() {
       const next = await purchasePremium(product);
       setEntitlement(next);
       const catalog = IAP_SUBSCRIPTIONS[product];
-      const plan = `Choremaxx ${catalog.label}`;
+      const plan = `ChoreMaxx ${catalog.label}`;
       const price =
         catalog.period === 'year'
           ? `${formatPrice(catalog.priceUsd)}/year`
@@ -273,14 +281,14 @@ export default function PremiumScreen() {
         mock: next.source === 'mock',
         householdId: household?.id ?? undefined,
       }).then((mailed) => {
-        const started = next.inTrial ? 'Trial started' : 'Premium is on';
+        const started = next.inTrial ? 'Trial started' : 'Subscription active';
         if (mailed.ok) {
           setStatusMessage(`${started} · emailed ${mailed.to}`);
         } else {
           setStatusMessage(started);
         }
       });
-      setStatusMessage(next.inTrial ? 'Trial started' : 'Premium is on');
+      setStatusMessage(next.inTrial ? 'Trial started' : 'Subscription active');
       void sub.refresh();
       await setPremiumOnboardingGate('started');
       await new Promise((r) => setTimeout(r, 700));

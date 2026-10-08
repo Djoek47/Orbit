@@ -57,8 +57,13 @@ export function entitlementFromHousehold(
   if (!premium?.expiresAt) return null;
   const expires = new Date(premium.expiresAt).getTime();
   if (Number.isNaN(expires)) return null;
-  const grace =
-    premium.willRenew === false ? HOUSEHOLD_PREMIUM_GRACE_MS : HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS;
+  // A trial ends when it ends: Apple either converts it (and the admin's phone reports the
+  // paid period) or it lapses. Grace exists for renewals that have not been reported yet.
+  const grace = premium.inTrial
+    ? 0
+    : premium.willRenew === false
+      ? HOUSEHOLD_PREMIUM_GRACE_MS
+      : HOUSEHOLD_PREMIUM_RENEWING_GRACE_MS;
   const graced = new Date(expires + grace);
   return {
     active: graced.getTime() > now.getTime(),

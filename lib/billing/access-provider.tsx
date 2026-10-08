@@ -47,6 +47,8 @@ type AccessContextValue = {
   canPurchase: boolean;
   /** Re-read StoreKit — call after a purchase or restore. */
   refresh: () => Promise<void>;
+  /** What this phone's own Apple ID holds, before the household is merged in. */
+  deviceEntitlement: EntitlementState | null;
 };
 
 const PAID_DEFAULT = accessView(
@@ -60,6 +62,7 @@ const AccessContext = createContext<AccessContextValue>({
   entitlement: EMPTY_ENTITLEMENT,
   canPurchase: false,
   refresh: async () => {},
+  deviceEntitlement: null,
 });
 
 /** How often to re-check while the app sits open — a trial can end mid-session. */
@@ -154,12 +157,22 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     if (!local?.active) return;
     const purchase = latestStoreKitPurchase();
     if (!purchase) return;
-    const key = `${household.id}:${String(purchase.originalTransactionIdentifierIOS ?? purchase.id)}:${String(purchase.expirationDateIOS ?? '')}`;
-    if (syncedRef.current === key) return;
-    syncedRef.current = key;
-    void syncHouseholdEntitlement(household.id, purchase).then((result) => {
+    const householdId = household.id;
+    void (async () => {
+      // Turning renewal off has to reach the household too, or the children's devices keep
+      // the long renewing grace after a cancellation.
+      const { fetchRenewalState } = await import('@/lib/billing/iap');
+      const renewal = await fetchRenewalState().catch(() => null);
+      const withRenewal =
+        renewal && renewal.willRenew !== null
+          ? { ...purchase, renewalInfoIOS: { ...(purchase.renewalInfoIOS as object | null), willAutoRenew: renewal.willRenew } }
+          : purchase;
+      const key = `${householdId}:${String(purchase.originalTransactionIdentifierIOS ?? purchase.id)}:${String(purchase.expirationDateIOS ?? '')}:${String(renewal?.willRenew)}`;
+      if (syncedRef.current === key) return;
+      syncedRef.current = key;
+      const result = await syncHouseholdEntitlement(householdId, withRenewal);
       setClaimedElsewhere(result === 'claimed-elsewhere');
-    });
+    })();
   }, [canPurchase, household.id, local]);
 
   // The day-before reminder, and a "trial has ended" if renewal was turned off. Rescheduled
@@ -189,8 +202,8 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   }, [canPurchase, local]);
 
   const value = useMemo(
-    () => ({ ready, view, entitlement, canPurchase, refresh }),
-    [ready, view, entitlement, canPurchase, refresh]
+    () => ({ ready, view, entitlement, canPurchase, refresh, deviceEntitlement: local }),
+    [ready, view, entitlement, canPurchase, refresh, local]
   );
 
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;

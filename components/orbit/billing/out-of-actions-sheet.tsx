@@ -67,9 +67,11 @@ type Props = {
   visible: boolean;
   balance: number;
   onClose: () => void;
+  /** On a trial there is no monthly allowance coming back — say so. */
+  onTrial?: boolean;
 };
 
-export function OutOfActionsSheet({ visible, balance, onClose }: Props) {
+export function OutOfActionsSheet({ visible, balance, onClose, onTrial }: Props) {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const { household, accentTheme, currentMember, currentUser } = useOrbit();
@@ -160,8 +162,9 @@ export function OutOfActionsSheet({ visible, balance, onClose }: Props) {
             <Animated.View entering={FadeIn.duration(300)} style={styles.copy}>
               <Text style={[styles.title, { color: c.text }]}>You&apos;re out of actions</Text>
               <Text style={[styles.body, { color: c.textMuted }]}>
-                Your {TOKENS_PER_MONTH} come back on {formatResetDate()}. Top up now to keep going —
-                bought actions never expire.
+                {onTrial
+                  ? `Your bought actions are used up. Top up to keep going, or subscribe for ${TOKENS_PER_MONTH} every month.`
+                  : `Your ${TOKENS_PER_MONTH} come back on ${formatResetDate()}. Top up now to keep going — bought actions never expire.`}
               </Text>
               <View style={styles.packs}>
                 {packs.map((pack) => (
