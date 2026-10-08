@@ -3,7 +3,7 @@
 **Branch tip:** `cursor/make-v37-c30d`  
 **Base:** make-v36 / TF **1.3.0 (121)**; TF **123** had v36-01 only  
 **Patches:** `choremaxx-v36-all` (= v36-01 + v37-01) · `v37-01-console-diagnostics-sandbox` · `sandbox-testing.md`  
-**Status:** Multipass re-audit clean; cutting **1.3.0 (124)** with Purchase diagnostics + support console.
+**Status:** **1.3.0 (124)** finished + submitted to TestFlight (Purchase diagnostics + support console).
 
 ---
 

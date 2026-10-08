@@ -14,7 +14,7 @@ Update this file every time we cut or burn a build.
 |-------|------:|-------|
 | **EAS iOS slots remaining** | **43** | Started 45 → 123 + **124** |
 | **Next App Store buildNumber** | **125** | Remote autoIncrement |
-| **Latest shipped / in-flight** | **124** | make-v37 + v37-01 — EAS building / ASC submit queued |
+| **Latest shipped / in-flight** | **124** | make-v37 + v37-01 — finished + submitted to TestFlight |
 
 ### How to update after a cut
 
