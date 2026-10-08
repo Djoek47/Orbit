@@ -48,6 +48,47 @@ export async function loadTokenGrants(
 type GrantsListener = (householdId: string, balance: number) => void;
 const grantsListeners = new Set<GrantsListener>();
 
+function notifyGrants(householdId: string, grants: TokenGrant[]): void {
+  const balance = topUpBalanceFromGrants(grants);
+  for (const listener of grantsListeners) {
+    try {
+      listener(householdId, balance);
+    } catch {
+      /* a listener must never break a purchase */
+    }
+  }
+}
+
+const REFILL_KEY = (householdId: string) => `orbit.poppins-refill.${householdId}`;
+
+/**
+ * Actions bought since Poppins was last opened. The next time Poppins appears it drains the
+ * orb and fills it back up with these, so a purchase made anywhere — credits, the top-up
+ * sheet, Settings — is seen landing.
+ */
+async function addPendingRefill(householdId: string, tokens: number): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(REFILL_KEY(householdId));
+    const prev = raw ? Number(raw) || 0 : 0;
+    await AsyncStorage.setItem(REFILL_KEY(householdId), String(prev + tokens));
+  } catch {
+    /* the animation is a nicety */
+  }
+}
+
+/** Read and clear the pending refill. 0 when there is nothing to celebrate. */
+export async function takePendingRefill(householdId: string | null | undefined): Promise<number> {
+  if (!householdId) return 0;
+  try {
+    const raw = await AsyncStorage.getItem(REFILL_KEY(householdId));
+    if (!raw) return 0;
+    await AsyncStorage.removeItem(REFILL_KEY(householdId));
+    return Math.max(0, Number(raw) || 0);
+  } catch {
+    return 0;
+  }
+}
+
 export function subscribeTokenGrants(listener: GrantsListener): () => void {
   grantsListeners.add(listener);
   return () => {
@@ -61,14 +102,7 @@ export async function saveTokenGrants(
 ): Promise<void> {
   if (!householdId) return;
   await saveLocal(householdId, grants);
-  const balance = topUpBalanceFromGrants(grants);
-  for (const listener of grantsListeners) {
-    try {
-      listener(householdId, balance);
-    } catch {
-      /* a listener must never break a purchase */
-    }
-  }
+  notifyGrants(householdId, grants);
   if (!isPersistedHouseholdId(householdId)) return;
   await syncConsumedRemote(householdId, grants);
 }
@@ -236,6 +270,8 @@ export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenG
         ? existing
         : [...existing, row];
       await saveLocal(input.householdId, merged);
+      notifyGrants(input.householdId, merged);
+      if (merged !== existing) await addPendingRefill(input.householdId, row.tokens);
       return row;
     }
   }
@@ -255,6 +291,7 @@ export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenG
     return existing.find((g) => g.transactionId === input.transactionId)!;
   }
   await saveTokenGrants(input.householdId, [...existing, grant]);
+  await addPendingRefill(input.householdId, grant.tokens);
   return grant;
 }
 

@@ -16,6 +16,7 @@
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInUp, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -76,13 +77,28 @@ function PoppinsScreenInner() {
   const chromePad = useTabChromePaddingTop();
   const insets = useSafeAreaInsets();
   const { c, isDark, glass, glassBorder } = useOrbitColors();
-  const { orbitPalette } = useOrbit();
+  const { orbitPalette, household } = useOrbit();
   const tour = useTourControls();
   const p = usePoppinsController();
   const innerAccess = useAccess();
   // Out of actions on a paying household: the glass top-up sheet, once per time it runs out.
   // Admins only — Poppins is theirs, and a pack is a purchase.
   const [topUpOpen, setTopUpOpen] = useState(false);
+  // A purchase made anywhere lands here: the orb drains, then fills back up, with "+700".
+  const [refill, setRefill] = useState<{ tokens: number; draining: boolean } | null>(null);
+  const checkRefill = useCallback(async () => {
+    const { takePendingRefill } = await import('@/lib/billing/token-grants');
+    const tokens = await takePendingRefill(household.id);
+    if (tokens <= 0) return;
+    setRefill({ tokens, draining: true });
+    setTimeout(() => setRefill({ tokens, draining: false }), 450);
+    setTimeout(() => setRefill(null), 3200);
+  }, [household.id]);
+  useFocusEffect(
+    useCallback(() => {
+      void checkRefill();
+    }, [checkRefill])
+  );
   const shownForTripRef = useRef(false);
   useEffect(() => {
     const out = p.outOfActions && p.canManageHousehold && innerAccess.view.level === 'paid';
@@ -263,13 +279,22 @@ function PoppinsScreenInner() {
             accessibilityLabel={p.orb.label}>
             <PoppinsOrb
               size={p.orb.size}
-              state={p.orb.state}
               speaking={p.orb.speaking}
-              dailyFill={p.orb.dailyFill}
-              monthGlow={p.orb.monthGlow}
+              dailyFill={refill?.draining ? 0 : p.orb.dailyFill}
+              monthGlow={refill?.draining ? 0 : p.orb.monthGlow}
+              state={refill && !refill.draining ? 'success' : p.orb.state}
               accent={p.orb.accent}
               drainPreview={p.orb.drainPreview}
             />
+            {refill && !refill.draining ? (
+              <Animated.Text
+                entering={FadeInUp.springify().damping(14)}
+                exiting={FadeOut.duration(400)}
+                style={[styles.refillBadge, { color: p.orb.accent ?? '#FFB347' }]}
+                accessibilityLiveRegion="polite">
+                +{refill.tokens.toLocaleString()} actions
+              </Animated.Text>
+            ) : null}
           </View>
 
           {live ? (
@@ -323,7 +348,11 @@ function PoppinsScreenInner() {
       <OutOfActionsSheet
         visible={topUpOpen}
         balance={p.tokensRemaining}
-        onClose={() => setTopUpOpen(false)}
+        onClose={() => {
+          setTopUpOpen(false);
+          // If they bought, play the refill on the big orb too.
+          setTimeout(() => void checkRefill(), 350);
+        }}
       />
     </KeyboardAvoidingView>
   );
@@ -414,6 +443,15 @@ const styles = StyleSheet.create({
   stageTour: { width: '100%' },
   waveWrap: { marginTop: space.lg, width: '100%' },
   remoteAudio: { height: 0, opacity: 0, width: 0 },
+  refillBadge: {
+    alignSelf: 'center',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginTop: 10,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowRadius: 8,
+  },
 });
 
 /** Sidekicks never get Poppins — any way in (a link, a notification, a stale tab) lands on Home. */
