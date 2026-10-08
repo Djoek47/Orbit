@@ -5,9 +5,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
+  Easing,
   FadeIn,
   FadeInUp,
+  withDelay,
+  withRepeat,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -89,8 +93,8 @@ export type PremiumPaywallProps = {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const PERIOD_OPTIONS: { value: IapProductKey; label: string }[] = [
-  { value: 'yearly', label: 'Yearly' },
   { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly', label: 'Yearly' },
 ];
 
 export function PremiumPaywall({
@@ -178,71 +182,91 @@ export function PremiumPaywall({
     { month: 'long', day: 'numeric' }
   );
 
-  return (
-    <View
-      style={[
-        styles.root,
-        {
-          backgroundColor: orbitPalette.background,
-          paddingTop: insets.top + 28,
-          paddingBottom: Math.max(insets.bottom, 24),
-        },
-      ]}>
-      {!dismissible && onAccount ? (
-        <Pressable
-          onPress={onAccount}
-          disabled={busy}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Account and settings: sign out, transfer or delete the household, delete account, help"
-          style={({ pressed }) => [
-            styles.accountChip,
-            {
-              top: insets.top + 10,
-              backgroundColor: glassFill(isDark),
-              borderColor: `${accentTheme.primary}55`,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}>
-          <MaterialIcons name="settings" size={18} color={accentTheme.primary} />
-          <Text style={[styles.accountChipText, { color: c.text }]}>Account</Text>
-        </Pressable>
-      ) : null}
+  const offerLine = trialEligible
+    ? `${BILLING_TRIAL_DAYS} days free, then ${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`
+    : `${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`;
 
-      <Animated.View entering={FadeIn.duration(420)} style={styles.mark}>
-        <ChoremaxxLogo size="md" variant="icon" />
-      </Animated.View>
+  return (
+    <View style={[styles.root, { backgroundColor: orbitPalette.background }]}>
+      {/* Hero: a deep wash of the household's colour, with a few stars that drift and twinkle. */}
+      <LinearGradient
+        colors={[`${accentTheme.primary}55`, `${accentTheme.secondary ?? accentTheme.primary}22`, orbitPalette.background]}
+        locations={[0, 0.45, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <Sparkles color={accentTheme.primary} />
+
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        {!dismissible && onAccount ? (
+          <Pressable
+            onPress={onAccount}
+            disabled={busy}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Account and settings: sign out, transfer or delete the household, delete account, help"
+            style={({ pressed }) => [
+              styles.accountChip,
+              { backgroundColor: glassFill(isDark), borderColor: `${accentTheme.primary}55`, opacity: pressed ? 0.7 : 1 },
+            ]}>
+            <MaterialIcons name="settings" size={18} color={accentTheme.primary} />
+            <Text style={[styles.accountChipText, { color: c.text }]}>Account</Text>
+          </Pressable>
+        ) : dismissible ? (
+          <Pressable
+            onPress={onDismiss}
+            disabled={busy}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={secondaryLabel}
+            style={[styles.closeBtn, { backgroundColor: glassFill(isDark) }]}>
+            <MaterialIcons name="close" size={22} color={c.text} />
+          </Pressable>
+        ) : (
+          <View />
+        )}
+        <LinearGradient
+          colors={[accentTheme.primary, accentTheme.secondary ?? accentTheme.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.brandPill}>
+          <Text style={styles.brandPillText}>CHOREMAXX</Text>
+        </LinearGradient>
+      </View>
 
       <View style={styles.hero}>
-        <Animated.View entering={FadeInUp.delay(40).duration(480)}>
+        <Animated.View entering={FadeInUp.delay(40).duration(480)} style={{ alignItems: 'center', gap: 10 }}>
+          <Text style={[styles.headline, { color: c.text }]}>
+            {copy && !alreadyPremium ? copy.title : 'ChoreMaxx'}
+          </Text>
           {copy && !alreadyPremium ? (
-            <Text style={[styles.kicker, { color: accentTheme.primary }]}>{copy.kicker}</Text>
+            <Text style={[styles.highlight, { color: accentTheme.primary }]}>{copy.kicker}</Text>
           ) : null}
-          <Text style={[copy && !alreadyPremium ? styles.headlineMode : styles.headline, { color: c.text }]}>
-            {copy && !alreadyPremium ? copy.title : 'Choremaxx Premium'}
-          </Text>
-          <Text style={[styles.support, { color: c.textMuted }]}>
-            {copy && !alreadyPremium ? copy.body : PREMIUM_ALLOWANCE_COPY}
-          </Text>
+          {copy && !alreadyPremium && copy.body ? (
+            <Text style={[styles.support, { color: c.textMuted }]}>{copy.body}</Text>
+          ) : null}
         </Animated.View>
+        <FloatingMark />
+      </View>
 
+      {/* The sheet: a soft curved card rising from the bottom, holding the choice and the button. */}
+      <Animated.View
+        entering={FadeInUp.delay(120).duration(520)}
+        style={[
+          styles.sheet,
+          {
+            backgroundColor: isDark ? '#FFFFFF0D' : '#FFFFFFE6',
+            borderColor: `${accentTheme.primary}33`,
+            paddingBottom: Math.max(insets.bottom, 20),
+          },
+        ]}>
         {!alreadyPremium ? (
-          <Animated.View entering={FadeInUp.delay(100).duration(420)} style={styles.segmentWrap}>
-            <SegmentedControl
-              options={PERIOD_OPTIONS}
-              value={period}
-              onChange={onPeriodChange}
-              disabled={busy}
-            />
-          </Animated.View>
+          <SegmentedControl options={PERIOD_OPTIONS} value={period} onChange={onPeriodChange} disabled={busy} />
         ) : null}
 
-        <Animated.View entering={FadeInUp.delay(120).duration(480)} style={styles.priceBlock}>
-          {notice ? (
-            <Text style={[styles.notice, { color: c.text }]}>{notice}</Text>
-          ) : null}
+        <Animated.View style={[styles.priceCrossfade, priceStyle]}>
           {trialEligible || period === 'yearly' ? (
-            <View style={[styles.trialPill, { backgroundColor: `${accentTheme.primary}18` }]}>
+            <View style={[styles.trialPill, { backgroundColor: `${accentTheme.primary}1F` }]}>
               <Text style={[styles.trialText, { color: accentTheme.primary }]}>
                 {trialEligible ? `Free for ${BILLING_TRIAL_DAYS} days` : ''}
                 {trialEligible && period === 'yearly' ? ' · ' : ''}
@@ -250,60 +274,29 @@ export function PremiumPaywall({
               </Text>
             </View>
           ) : null}
-          <Animated.View style={[styles.priceCrossfade, priceStyle]}>
-            <Text style={[styles.priceLine, { color: c.text }]}>
-              {priceOf(selected)}
-              <Text style={[styles.pricePeriod, { color: c.textMuted }]}>
-                {period === 'yearly' ? ' / year' : ' / month'}
-              </Text>
+          <Text style={[styles.priceLine, { color: c.text }]}>
+            {priceOf(selected)}
+            <Text style={[styles.pricePeriod, { color: c.textMuted }]}>
+              {period === 'yearly' ? ' / year' : ' / month'}
             </Text>
-            {trialEligible && !alreadyPremium ? (
-              <Text style={[styles.subPrice, { color: c.text }]}>
-                Free today · first charge {firstCharge} · cancel any time before
-              </Text>
-            ) : null}
-            <Text style={[styles.subPrice, { color: c.textMuted }]}>
-              {period === 'yearly'
-                ? `About ${yearlyPerMonth}/mo · ${priceOf(yearly)}/year (${yearly.savingsLabel})`
-                : `Or ${priceOf(yearly)}/year at ${yearly.savingsLabel} · ${priceOf(monthly)}/month`}
-            </Text>
-          </Animated.View>
+          </Text>
+          <Text style={[styles.subPrice, { color: c.textMuted }]}>
+            {period === 'yearly'
+              ? `About ${yearlyPerMonth}/mo, billed yearly`
+              : `Or ${priceOf(yearly)}/year — ${yearly.savingsLabel}`}
+          </Text>
         </Animated.View>
 
         {alreadyPremium && usage ? (
-          <Animated.View
-            entering={FadeInUp.delay(160).duration(420)}
-            style={[
-              styles.usageCard,
-              {
-                backgroundColor: glassFill(isDark),
-                borderColor: `${accentTheme.primary}44`,
-              },
-            ]}>
-            <Text style={[styles.usageTitle, { color: c.text }]}>Your actions</Text>
-            <Text style={[styles.usageLine, { color: c.textMuted }]}>
-              {usage.tokensUsedThisPeriod} of {usage.tokensPerMonth} this period
-            </Text>
-            <Text style={[styles.usageLine, { color: c.textSubtle }]}>
-              Resets {new Date(usage.periodResetsAt).toLocaleDateString()}
-              {usage.topUpBalance ? ` · ${usage.topUpBalance} top-up` : ''}
-            </Text>
-            {usage.onBuyMore ? (
-              <Pressable onPress={usage.onBuyMore} hitSlop={8} style={styles.buyMore}>
-                <Text style={[styles.link, { color: accentTheme.primary }]}>Buy more actions</Text>
-              </Pressable>
-            ) : null}
-          </Animated.View>
+          <Text style={[styles.subPrice, { color: c.textMuted }]}>
+            {usage.tokensUsedThisPeriod} of {usage.tokensPerMonth} actions used this period
+          </Text>
         ) : null}
-      </View>
 
-      <Animated.View entering={FadeInUp.delay(200).duration(420)} style={styles.footer}>
-        {statusMessage ? (
-          <Text style={[styles.status, { color: accentTheme.primary }]}>{statusMessage}</Text>
-        ) : null}
-        {errorMessage ? (
-          <Text style={[styles.error, { color: c.danger }]}>{errorMessage}</Text>
-        ) : null}
+        {statusMessage ? <Text style={[styles.status, { color: accentTheme.primary }]}>{statusMessage}</Text> : null}
+        {errorMessage ? <Text style={[styles.error, { color: c.danger }]}>{errorMessage}</Text> : null}
+
+        <Text style={[styles.reassure, { color: c.textMuted }]}>Cancel anytime, no penalties or fees</Text>
 
         <AnimatedPressable
           disabled={busy}
@@ -317,14 +310,7 @@ export function PremiumPaywall({
             if (alreadyPremium) onContinue();
             else onStartTrial(period);
           }}
-          style={[
-            styles.cta,
-            ctaStyle,
-            {
-              backgroundColor: accentTheme.primary,
-              opacity: busy ? 0.55 : 1,
-            },
-          ]}
+          style={[styles.cta, ctaStyle, { backgroundColor: accentTheme.primary, opacity: busy ? 0.55 : 1 }]}
           accessibilityRole="button"
           accessibilityLabel={ctaLabel}>
           <Text style={[styles.ctaLabel, { color: isDark ? '#0A1018' : '#FFFFFF' }]}>
@@ -332,18 +318,16 @@ export function PremiumPaywall({
           </Text>
         </AnimatedPressable>
 
+        {/* Required by Apple next to the button (3.1.2): price, period, auto-renewal, how to cancel. */}
         <Text style={[styles.legal, { color: c.textSubtle }]}>
+          {offerLine}.{' '}
           {trialEligible
-            ? 'Payment is charged to your Apple ID after the trial unless you cancel at least 24 hours before it ends. Manage it in your Apple ID settings, under Subscriptions.'
-            : 'Payment is charged to your Apple ID when you confirm. Manage it in your Apple ID settings, under Subscriptions.'}
+            ? 'Payment is charged to your Apple ID when the trial ends'
+            : 'Payment is charged to your Apple ID when you confirm'}
+          {' '}and renews automatically unless cancelled at least 24 hours before the end of the
+          period, in your Apple ID settings under Subscriptions.
         </Text>
 
-        <Text style={[styles.legal, { color: c.textSubtle }]}>
-          Subscriptions renew automatically unless cancelled at least 24 hours before the end of
-          the period. Any unused part of a free trial is forfeited when a subscription is bought.
-        </Text>
-
-        {/* Guideline 3.1.2 — a subscription screen must link to both from the screen itself. */}
         <View style={styles.links}>
           <Pressable
             onPress={() => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl)}
@@ -351,7 +335,7 @@ export function PremiumPaywall({
             hitSlop={12}
             accessibilityRole="link"
             accessibilityLabel="Terms of Use">
-            <Text style={[styles.link, { color: c.textMuted }]}>Terms of Use</Text>
+            <Text style={[styles.link, { color: c.textMuted }]}>Terms</Text>
           </Pressable>
           <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
           <Pressable
@@ -360,15 +344,12 @@ export function PremiumPaywall({
             hitSlop={12}
             accessibilityRole="link"
             accessibilityLabel="Privacy Policy">
-            <Text style={[styles.link, { color: c.textMuted }]}>Privacy Policy</Text>
+            <Text style={[styles.link, { color: c.textMuted }]}>Privacy</Text>
           </Pressable>
-        </View>
-
-        <View style={styles.links}>
+          <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
           <Pressable onPress={onRestore} disabled={busy} hitSlop={12}>
             <Text style={[styles.link, { color: c.textMuted }]}>Restore</Text>
           </Pressable>
-          {/* When the paywall is the gate, Account sits in its own button at the top instead. */}
           {dismissible ? (
             <>
               <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
@@ -379,15 +360,98 @@ export function PremiumPaywall({
           ) : null}
         </View>
       </Animated.View>
+      {notice ? null : null}
       {footerSlot}
     </View>
   );
 }
 
+/** Four small stars that twinkle and drift — life without illustrations. */
+function Sparkles({ color }: { color: string }) {
+  const spots = [
+    { top: '14%', left: '12%', size: 14, delay: 0 },
+    { top: '22%', left: '82%', size: 10, delay: 700 },
+    { top: '34%', left: '20%', size: 9, delay: 1300 },
+    { top: '30%', left: '70%', size: 16, delay: 400 },
+  ] as const;
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {spots.map((spot, i) => (
+        <Star key={i} {...spot} color={color} />
+      ))}
+    </View>
+  );
+}
+
+function Star({
+  top,
+  left,
+  size,
+  delay,
+  color,
+}: {
+  top: `${number}%`;
+  left: `${number}%`;
+  size: number;
+  delay: number;
+  color: string;
+}) {
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = withDelay(
+      delay,
+      withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true)
+    );
+  }, [delay, t]);
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.25 + t.value * 0.65,
+    transform: [{ translateY: -6 * t.value }, { scale: 0.8 + t.value * 0.35 }],
+  }));
+  return (
+    <Animated.Text style={[{ position: 'absolute', top, left, fontSize: size, color }, style]}>✦</Animated.Text>
+  );
+}
+
+/** The house mark, floating gently in a soft halo. */
+function FloatingMark() {
+  const { accentTheme } = useOrbit();
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = withRepeat(withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [t]);
+  const float = useAnimatedStyle(() => ({ transform: [{ translateY: -10 * t.value }] }));
+  const halo = useAnimatedStyle(() => ({ opacity: 0.35 + 0.3 * t.value, transform: [{ scale: 0.95 + 0.1 * t.value }] }));
+  return (
+    <View style={styles.markWrap}>
+      <Animated.View style={[styles.halo, { backgroundColor: `${accentTheme.primary}33` }, halo]} />
+      <Animated.View style={float}>
+        <ChoremaxxLogo size="lg" variant="icon" />
+      </Animated.View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  topBar: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space.lg },
+  closeBtn: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
+  brandPill: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, transform: [{ skewX: '-10deg' }] },
+  brandPillText: { color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 1 },
+  highlight: { fontSize: 18, fontWeight: '800', letterSpacing: -0.2, textAlign: 'center' },
+  markWrap: { alignItems: 'center', height: 150, justifyContent: 'center' },
+  halo: { borderRadius: 80, height: 150, position: 'absolute', width: 150 },
+  sheet: {
+    borderCurve: 'continuous',
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    gap: 12,
+    paddingHorizontal: space.xl,
+    paddingTop: 22,
+  },
+  reassure: { fontSize: 14.5, fontWeight: '600', marginTop: 4, textAlign: 'center' },
   root: {
     flex: 1,
-    paddingHorizontal: space.xl,
   },
   mark: {
     alignItems: 'center',
@@ -395,14 +459,14 @@ const styles = StyleSheet.create({
   hero: {
     flex: 1,
     justifyContent: 'center',
-    gap: 28,
-    paddingBottom: space.xl,
+    gap: 18,
+    paddingHorizontal: space.xl,
   },
   headline: {
-    fontSize: 40,
-    fontWeight: '300',
-    letterSpacing: -1.1,
-    lineHeight: 46,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    lineHeight: 38,
     textAlign: 'center',
   },
   support: {
