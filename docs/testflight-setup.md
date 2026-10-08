@@ -97,7 +97,7 @@ Source copies: `docs/legal/privacy-policy.md`, `docs/legal/terms-of-service.md`
 
 **Never cut a single-feature TestFlight.** Each push must fold **all finished work since the previous TestFlight build**, then ship **one** IPA from the current `cursor/make-v*` tip.
 
-1. Find the last TF cut (notes under `docs/make-v*-testflight-notes.md` or latest EAS `testflight` build).
+1. Find the last TF cut (notes under `docs/make-v*-testflight-notes.md` or latest EAS `testflight` build). Keep the slot/buildNumber counter in [`docs/eas-build-counter.md`](./eas-build-counter.md) — decrement remaining slots and append a log row every cut.
 2. Merge / fold every completed tip that landed after that cut onto `cursor/make-v*`.
 3. Run one `testflight` build + auto-submit.
 4. Document the included set in the make-v notes file.
