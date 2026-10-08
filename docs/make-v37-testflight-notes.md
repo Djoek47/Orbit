@@ -68,8 +68,8 @@
 | Version | **1.3.0 (125)** — v37-03 plan picker / emails / attachments |
 | Branch | `cursor/make-v37-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/125 |
-| Build | *(filling after cut)* |
-| Submit | *(filling after cut)* |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/23e0cb50-dbf5-4c1e-8b35-b5ce48550a11 |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/8cf4bae7-76c5-4b1d-80b8-7bd4a8d50400 |
 | Prior (124) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/73613804-113e-46fa-9b12-d2169ec56058 |
 | Prior (123) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/3aff88a9-4f1a-495e-ab8b-6e025588c3aa |
 

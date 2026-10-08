@@ -14,7 +14,7 @@ Update this file every time we cut or burn a build.
 |-------|------:|-------|
 | **EAS iOS slots remaining** | **42** | Started 45 → 123 + 124 + **125** |
 | **Next App Store buildNumber** | **126** | Remote autoIncrement |
-| **Latest shipped / in-flight** | **125** | make-v37 + v37-03 — cutting |
+| **Latest shipped / in-flight** | **125** | make-v37 + v37-03 — EAS building / ASC submit queued |
 
 ### How to update after a cut
 
@@ -31,7 +31,7 @@ If Expo says quota exhausted, set remaining to **0** and stop cutting until topp
 
 | When (UTC) | buildNumber | Branch | EAS build | Result | Slots after |
 |------------|------------:|--------|-----------|--------|------------:|
-| 2026-10-08 | **125** | `cursor/make-v37-c30d` | *(filling after cut)* | cutting — v37-03 plan picker / emails / attachments | **42** |
+| 2026-10-08 | **125** | `cursor/make-v37-c30d` | [23e0cb50…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/23e0cb50-dbf5-4c1e-8b35-b5ce48550a11) | in progress → ASC submit [8cf4bae7…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/8cf4bae7-76c5-4b1d-80b8-7bd4a8d50400) | **42** |
 | 2026-10-08 | **124** | `cursor/make-v37-c30d` | [73613804…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/73613804-113e-46fa-9b12-d2169ec56058) | in progress → ASC submit [d585bf03…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/d585bf03-20f7-429c-b79a-6c4bf1222562) | **43** |
 | 2026-10-08 | **123** | `cursor/make-v37-c30d` | [3aff88a9…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/3aff88a9-4f1a-495e-ab8b-6e025588c3aa) | finished (v36-01 only — before v37-01) | **44** |
 | 2026-10-08 | **122** | `cursor/make-v37-c30d` | — | **burned** — free-plan quota refused after number increment | (pre top-up) |
