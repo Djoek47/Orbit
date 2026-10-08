@@ -180,6 +180,40 @@ Deno.serve(async (req) => {
       }
     }
 
+    // File it in the console's inbox too (support_tickets). Best effort: the email above is
+    // already on its way, and a missing table (console migration not applied) must not fail
+    // the customer's message.
+    try {
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      if (supabaseUrl && serviceKey) {
+        const admin = createClient(supabaseUrl, serviceKey);
+        const meta = (body.meta ?? {}) as Record<string, unknown>;
+        const topCategory = body.categories
+          ? Object.entries(body.categories).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+          : null;
+        const { error: ticketError } = await admin.from('support_tickets').insert({
+          ref,
+          via: 'app',
+          category: topCategory,
+          subject: message.slice(0, 120),
+          body: message,
+          from_name: body.memberName ?? null,
+          from_email: userEmail || null,
+          user_id: userId || null,
+          household_id: body.householdId ?? null,
+          member_role: typeof meta.role === 'string' ? meta.role : null,
+          app_version: typeof meta.appVersion === 'string' ? meta.appVersion : null,
+          device: typeof meta.device === 'string' ? meta.device : null,
+          error_count: errorCount,
+          error_log: body.errorLog?.slice(0, 20000) ?? null,
+          meta: { ...meta, screenshotUrls, categories: body.categories ?? {} },
+        });
+        if (ticketError) console.warn('support ticket not filed', ticketError.message);
+      }
+    } catch (fileError) {
+      console.warn('support ticket not filed', fileError);
+    }
+
     return Response.json(
       { ok: true, ticketRef: ref, ackEmailed },
       { headers: corsHeaders(origin) }

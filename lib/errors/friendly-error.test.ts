@@ -29,11 +29,11 @@ test('detects error-like alert titles', () => {
   assert.equal(looksLikeErrorAlert('Reminder sent', 'Emma was notified.'), false);
 });
 
-test('sku_not_found credit pack copy steers to another size or feedback', () => {
+test('sku_not_found credit pack copy says the pack is not live yet', () => {
   const msg = friendlyErrorMessage(
     'sku_not_found: app.choremaxx.household.premium.tokens.mediumv is not available from App Store Connect for this build.'
   );
-  assert.match(msg, /not for sale|another size|App Store Connect/i);
+  assert.match(msg, /isn’t live in the App Store yet/i);
   assert.doesNotMatch(msg, /sku_not_found/);
   assert.doesNotMatch(msg, /tokens\.medium/);
 });

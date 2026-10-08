@@ -103,6 +103,10 @@ export async function recordAppError(input: {
     ...current.filter((e) => e.message !== entry.message || e.at !== entry.at),
   ]);
 
+  // Report to the support console (app_error_reports): title, source and category only — no
+  // stack, no user content. Fire and forget; reporting must never become its own error.
+  void reportToConsole(entry);
+
   const last = {
     message: entry.title ? `${entry.title}: ${entry.message}` : entry.message,
     stack: entry.stack,
@@ -153,4 +157,33 @@ export function formatErrorLogForCopy(entries: AppErrorEntry[]): string {
 export function previewErrorLines(entry: AppErrorEntry, maxLines = 3): string {
   const raw = [entry.title, entry.message].filter(Boolean).join('\n');
   return raw.split('\n').slice(0, maxLines).join('\n');
+}
+
+/** Repeats of the same error share a fingerprint, so the console groups them. */
+export function errorFingerprint(entry: { source?: string; title?: string; message: string }): string {
+  const text = `${entry.source ?? ''}|${entry.title ?? entry.message}`
+    .toLowerCase()
+    .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/g, '#')
+    .replace(/\d+/g, '#')
+    .slice(0, 160);
+  return text;
+}
+
+async function reportToConsole(entry: AppErrorEntry): Promise<void> {
+  try {
+    const { getSupabaseClient } = await import('@/lib/supabase/client');
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return;
+    await supabase.from('app_error_reports' as never).insert({
+      source: entry.source ?? 'app',
+      category: entry.category ?? null,
+      title: (entry.title ?? entry.message).slice(0, 200),
+      message: entry.message.slice(0, 500),
+      fingerprint: errorFingerprint(entry),
+    } as never);
+  } catch {
+    /* never throw from error reporting */
+  }
 }
