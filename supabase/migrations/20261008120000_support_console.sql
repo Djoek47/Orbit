@@ -238,7 +238,7 @@ begin
   return query
   select e.fingerprint, max(e.title), max(e.source), max(e.category), count(*)::int,
          count(distinct e.household_id)::int, max(e.at),
-         array(select count(*)::int from generate_series(p_days - 1, 0, -1) d
+         array(select count(x.id)::int from generate_series(p_days - 1, 0, -1) d
                left join app_error_reports x on x.fingerprint = e.fingerprint
                  and x.at::date = (now() - make_interval(days => d))::date
                group by d order by d desc)
