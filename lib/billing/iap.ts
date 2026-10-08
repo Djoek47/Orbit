@@ -651,6 +651,50 @@ function productIdFromStoreItem(item: unknown): string {
  * Expo Go / mock: all catalog packs. Native: only SKUs Apple lists for the build.
  * On probe failure: null (UI keeps packs tappable; purchase still validates).
  */
+export type StoreProbe = {
+  native: boolean;
+  /** Every product id StoreKit returned, with its storefront price. */
+  found: Record<string, string>;
+  /** Product ids we asked for and StoreKit did not return. */
+  missing: string[];
+  error: string | null;
+};
+
+/**
+ * Ask StoreKit for every product the app sells and report what came back. The quickest way to
+ * tell "the code is wrong" from "App Store Connect isn't ready" (agreement, metadata, review).
+ */
+export async function probeStoreProducts(): Promise<StoreProbe> {
+  const wanted = [...SUBSCRIPTION_IDS, ...Object.values(IAP_CONSUMABLES).map((p) => p.productId)];
+  if (!isNativeIapAvailable()) {
+    return { native: false, found: {}, missing: wanted, error: 'StoreKit is not in this build (Expo Go or web).' };
+  }
+  try {
+    return await withNativeIap(async (iap) => {
+      await iap.initConnection();
+      const subs = await iap.fetchProducts({ skus: SUBSCRIPTION_IDS, type: 'subs' }).catch(() => []);
+      const packs = await iap
+        .fetchProducts({ skus: Object.values(IAP_CONSUMABLES).map((p) => p.productId), type: 'in-app' })
+        .catch(() => []);
+      const found: Record<string, string> = {};
+      for (const raw of [...(Array.isArray(subs) ? subs : []), ...(Array.isArray(packs) ? packs : [])]) {
+        const row = raw as unknown as Record<string, unknown>;
+        const id = productIdFromStoreItem(row);
+        if (id) found[id] = typeof row.displayPrice === 'string' ? row.displayPrice : '—';
+      }
+      return { native: true, found, missing: wanted.filter((id) => !found[id]), error: null };
+    });
+  } catch (error) {
+    return { native: true, found: {}, missing: wanted, error: formatUnknownError(error, 'StoreKit probe failed') };
+  }
+}
+
+/** The environment of the active subscription transaction, if any: 'Sandbox' | 'Production' | 'Xcode'. */
+export function currentStoreEnvironment(): string | null {
+  const env = lastStoreKitPurchase?.environmentIOS;
+  return typeof env === 'string' ? env : null;
+}
+
 export async function probeAvailableTokenPacks(): Promise<IapTokenPackKey[] | null> {
   if (!isNativeIapAvailable()) {
     return [...ALL_TOKEN_PACK_KEYS];

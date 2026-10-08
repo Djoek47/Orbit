@@ -259,6 +259,13 @@ export function SubscriptionDashboard({
             label="Poppins credits"
             subtitle="Your monthly actions and extra packs"
             onPress={() => router.push('/poppins-credits' as never)}
+          />
+          <SettingsNavRow
+            icon="science"
+            iconColor="#8E8E93"
+            label="Purchase diagnostics"
+            subtitle="What StoreKit and the household say — for sandbox testing"
+            onPress={() => router.push('/billing-diagnostics' as never)}
             last
           />
         </SettingsGroup>

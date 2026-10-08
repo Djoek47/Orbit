@@ -59,6 +59,13 @@ export function AccountEscapeSheet({ visible, onClose, onRestore, onSignOut, isO
     },
     { key: 'support', icon: 'support-agent', label: 'Get help', onPress: () => go('/support') },
     {
+      key: 'diagnostics',
+      icon: 'science',
+      label: 'Purchase diagnostics',
+      hint: 'What StoreKit sees — for sandbox testing',
+      onPress: () => go('/billing-diagnostics'),
+    },
+    {
       key: 'terms',
       icon: 'description',
       label: 'Terms of Use',

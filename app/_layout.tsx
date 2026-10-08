@@ -190,6 +190,10 @@ export default function RootLayout() {
                     }}
                   />
                   <Stack.Screen
+                    name="billing-diagnostics"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Purchase diagnostics' }}
+                  />
+                  <Stack.Screen
                     name="support"
                     options={{ presentation: 'modal', headerShown: false, title: 'Support' }}
                   />
