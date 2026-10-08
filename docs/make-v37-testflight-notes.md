@@ -3,7 +3,7 @@
 **Branch tip:** `cursor/make-v37-c30d`  
 **Base:** make-v36 / TF **1.3.0 (121)**; TF **123** had v36-01 only  
 **Patches:** `choremaxx-v36-all` (= v36-01 + v37-01) · `v37-01-console-diagnostics-sandbox` · `sandbox-testing.md`  
-**Status:** Cutting **1.3.0 (125)** — v37-03 (plan picker, hide diagnostics in App Store, household emails, support attachments).
+**Status:** **1.3.0 (125)** finished + submitted; staging SQL + edge functions deployed.
 
 ---
 
@@ -57,7 +57,7 @@
 | subscription-status, payment-gate, household-entitlement, access-gate, pack-parity, premium-ui, iap, token-grants, shopping-run-ui, shared-device-one-flow, friendly-error, topup-receipt, credit-ledger, allowance-state | PASS |
 | lint | 0 errors (pre-existing warnings only) |
 | testflight:preflight | PASS (HaveIBeenPwned warn unchanged — same as 121/123) |
-| Staging: support migration + functions | **Still blocked** until `SUPABASE_ACCESS_TOKEN` refreshed |
+| Staging SQL + edge functions (support console, attachments, send-household-email / support-inbound / send-support-feedback) | **Deployed** via Supabase MCP |
 
 ---
 
