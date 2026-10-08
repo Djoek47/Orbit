@@ -105,8 +105,6 @@
           "color": "#D85A30"
         }
       ],
-      "expo-live-activity",
-      "./plugins/with-shopping-live-activity.js",
       [
         "expo-location",
         {

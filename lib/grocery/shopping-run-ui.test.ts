@@ -23,7 +23,6 @@ assert.doesNotMatch(screen, /startShoppingBanner/, 'Lock Screen grocery banner i
 assert.doesNotMatch(screen, /updateShoppingBanner/, 'Lock Screen grocery banner is not updated');
 assert.doesNotMatch(screen, /loadShoppingBannerEnabled/, 'no Lock Screen switch pref');
 assert.doesNotMatch(screen, /drainLockScreenCheckOffs/, 'no Lock Screen check-off drain');
-assert.match(screen, /stopShoppingBanner/, 'leftover banners from older builds are cleared');
 assert.match(screen, /showEndRun/, 'End run stays in-app');
 
 const header = read('components/orbit/grocery/shopping-run-header.tsx');
@@ -31,11 +30,17 @@ assert.doesNotMatch(header, /lockScreen/, 'no Lock Screen switch in the header')
 assert.doesNotMatch(header, /accessibilityRole="switch"/, 'no Lock Screen toggle');
 assert.match(header, /showEndRun/, 'End run is driven by the in-app list');
 
-// Native stubs may remain for a future re-enable / trip Live Activity shared widget —
-// but the shopping app path must not wire them.
-assert.ok(
-  existsSync(join(process.cwd(), 'lib/grocery/shopping-live-activity.ts')),
-  'stop helper kept so older activities can be dismissed'
-);
+// The Lock Screen Live Activity is removed until it is rebuilt — no module, no plugin.
+for (const gone of [
+  'lib/grocery/shopping-live-activity.ts',
+  'lib/itinerary/trip-live-activity.ts',
+  'components/orbit/trip-live-watcher.tsx',
+  'plugins/with-shopping-live-activity.js',
+]) {
+  assert.ok(!existsSync(join(process.cwd(), gone)), `${gone} is removed`);
+}
+const appJson = read('app.json');
+assert.doesNotMatch(appJson, /live-activity/, 'no Live Activity plugin in the build');
+assert.doesNotMatch(read('package.json'), /expo-live-activity/);
 
 console.log('shopping-run-ui: ok');

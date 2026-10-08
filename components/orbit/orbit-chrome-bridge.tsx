@@ -3,7 +3,6 @@ import { StatusBar } from 'expo-status-bar';
 import { NearShopWatcher } from '@/components/orbit/near-shop-watcher';
 import { NotificationTapBridge } from '@/components/orbit/notification-tap-bridge';
 import { PoppinsInPlaceSheet } from '@/components/orbit/poppins-in-place-sheet';
-import { TripLiveWatcher } from '@/components/orbit/trip-live-watcher';
 import { useSidekickLiveSync } from '@/lib/refresh/use-sidekick-live-sync';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -15,7 +14,6 @@ export function OrbitChromeBridge() {
     <>
       <StatusBar style={orbitPalette.isDark ? 'light' : 'dark'} />
       <NearShopWatcher />
-      <TripLiveWatcher />
       <NotificationTapBridge />
       <PoppinsInPlaceSheet />
     </>

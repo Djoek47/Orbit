@@ -33,7 +33,6 @@ import {
   shoppingRunLabel,
   type ShoppingListItem,
 } from '@/lib/grocery/shopping-palette';
-import { stopShoppingBanner } from '@/lib/grocery/shopping-live-activity';
 import { ShoppingAmbient } from '@/components/orbit/grocery/shopping-ambient';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -184,11 +183,9 @@ export default function ShoppingModeScreen() {
   // Grocery Lock Screen Live Activity is off for now — clear any leftover banner from
   // older builds when opening or leaving shopping mode. In-app aisle list stays.
   useEffect(() => {
-    stopShoppingBanner();
   }, []);
 
   const endRun = useCallback(() => {
-    stopShoppingBanner();
     router.back();
   }, []);
 

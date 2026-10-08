@@ -2,8 +2,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {  AppState, LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
 import { orbitAlert } from '@/components/orbit/orbit-alert';
 import Animated, {
   FadeIn,
@@ -24,25 +24,13 @@ import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PersistentScrollView } from '@/components/orbit/persistent-scroll-view';
 import { space } from '@/constants/orbit-theme';
 import {
-  isGroceryStop,
   makeStopNextIds,
   moveOpenStopIds,
   stopPlaceLine,
   todayIso,
   tripIntent,
 } from '@/lib/itinerary/trip-intent';
-import { stopsToBannerItems } from '@/lib/itinerary/trip-banner-copy';
-import {
-  startTripBanner,
-  stopTripBanner,
-  updateTripBanner,
-} from '@/lib/itinerary/trip-live-activity';
-import {
-  getTripLiveSnapshot,
-  subscribeTripLive,
-} from '@/lib/itinerary/trip-live-session';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
-import { drainLockScreenCheckOffs } from '@/modules/shopping-banner-bridge';
 import { useOrbit } from '@/store/orbit-store';
 import type { ItineraryStop, ItineraryStopKind } from '@/types/orbit';
 
@@ -86,8 +74,6 @@ export default function ItineraryDetailScreen() {
   const [editingRoute, setEditingRoute] = useState(false);
   /** Local: arrived at current stop → show I'm done before advancing. */
   const [arrivedStopId, setArrivedStopId] = useState<string | null>(null);
-  const [liveDistance, setLiveDistance] = useState<number | null>(null);
-  const bannerStarted = useRef(false);
 
   const itinerary = household.itineraries?.find((item) => item.id === id);
   const intent = useMemo(
@@ -106,21 +92,6 @@ export default function ItineraryDetailScreen() {
     }
   }, [intent?.current?.id, arrivedStopId]);
 
-  // GPS arrival / distance from TripLiveWatcher (works even after leaving this screen).
-  useEffect(() => {
-    const sync = () => {
-      const snap = getTripLiveSnapshot();
-      if (itinerary && snap.itineraryId === itinerary.id) {
-        setLiveDistance(snap.distanceMeters);
-        if (snap.stopId && snap.arrived && snap.stopId === intent?.current?.id) {
-          setArrivedStopId(snap.stopId);
-        }
-      }
-    };
-    sync();
-    return subscribeTripLive(sync);
-  }, [itinerary, intent?.current?.id]);
-
   const tripColor = accentTheme.primary;
   // Warm brown canvases can report isDark=false while still being dark — never trust that
   // for the page title. Always use cream ink on this screen.
@@ -133,87 +104,6 @@ export default function ItineraryDetailScreen() {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     orbitAlert(message);
   };
-
-  const bannerRun = useMemo(() => {
-    if (!itinerary || !intent?.current) return null;
-    const remaining = intent.remaining;
-    return {
-      tripTitle: itinerary.title,
-      index: intent.completed.length,
-      total: itinerary.stops.length,
-      currentLabel: intent.current.label,
-      arrived,
-      distanceMeters: liveDistance,
-      hasShoppingList: isGroceryStop(intent.current),
-      remainingStops: stopsToBannerItems(remaining, (kind) => STOP_EMOJI[kind]),
-    };
-  }, [itinerary, intent, arrived, liveDistance]);
-
-  const syncBanner = useCallback(() => {
-    if (!itinerary || !bannerRun || !intent?.current) {
-      if (bannerStarted.current) {
-        stopTripBanner();
-        bannerStarted.current = false;
-      }
-      return;
-    }
-    if (intent.phase === 'completed') {
-      if (bannerStarted.current) {
-        stopTripBanner(bannerRun);
-        bannerStarted.current = false;
-      }
-      return;
-    }
-    if (!bannerStarted.current) {
-      bannerStarted.current = true;
-      startTripBanner(itinerary.id, bannerRun, tripColor);
-      return;
-    }
-    updateTripBanner(bannerRun);
-  }, [bannerRun, intent?.current, intent?.phase, itinerary, tripColor]);
-
-  useEffect(() => {
-    syncBanner();
-  }, [syncBanner]);
-
-  useEffect(() => {
-    return () => {
-      // Keep the Lock Screen banner alive when leaving the screen mid-trip —
-      // only stop when the trip finishes (handled above) or the component unmounts
-      // after completion. Mid-trip leave: leave banner running like shopping.
-    };
-  }, []);
-
-  const applyLockScreenAdvances = useCallback(() => {
-    if (!itinerary || !intent?.current) return;
-    const ids = drainLockScreenCheckOffs();
-    if (!ids.length) return;
-    const currentId = intent.current.id;
-    if (ids.includes(currentId)) {
-      void (async () => {
-        try {
-          LayoutAnimation.configureNext(LayoutAnimation.create(180, 'easeInEaseOut', 'opacity'));
-          await advanceItineraryStop(itinerary.id, currentId);
-          setArrivedStopId(null);
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch {
-          fail('Couldn’t update this stop. Try again.');
-        }
-      })();
-    }
-  }, [advanceItineraryStop, intent?.current, itinerary]);
-
-  useEffect(() => {
-    applyLockScreenAdvances();
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') applyLockScreenAdvances();
-    });
-    const tick = setInterval(applyLockScreenAdvances, 2500);
-    return () => {
-      sub.remove();
-      clearInterval(tick);
-    };
-  }, [applyLockScreenAdvances]);
 
   if (!itinerary || !intent) {
     return (
@@ -239,10 +129,6 @@ export default function ItineraryDetailScreen() {
 
   const onDirections = async () => {
     try {
-      if (bannerRun && !bannerStarted.current) {
-        bannerStarted.current = true;
-        startTripBanner(itinerary.id, bannerRun, tripColor);
-      }
       await openFullItineraryInMaps(itinerary.id);
     } catch {
       fail(`Couldn’t open ${mapsName}. Try again in a moment.`);
@@ -265,8 +151,6 @@ export default function ItineraryDetailScreen() {
       await advanceItineraryStop(itinerary.id, current.id);
       setArrivedStopId(null);
       if (wasLast) {
-        stopTripBanner();
-        bannerStarted.current = false;
         router.back();
       }
     } catch {
