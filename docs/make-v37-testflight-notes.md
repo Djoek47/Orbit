@@ -57,9 +57,9 @@
 | | |
 |--|--|
 | Version | **1.3.0 (124)** — make-v37 + v37-01 (123 = v36-01 only; 122 burned) |
-| Branch | `cursor/make-v37-c30d` |
+| Branch | `cursor/make-v37-c30d` @ `065c768` |
 | PR | https://github.com/Djoek47/Orbit/pull/125 |
-| Build | *(filling after cut)* |
-| Submit | *(filling after cut)* |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/73613804-113e-46fa-9b12-d2169ec56058 |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/d585bf03-20f7-429c-b79a-6c4bf1222562 |
 | Prior (123) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/3aff88a9-4f1a-495e-ab8b-6e025588c3aa |
 | Prior (121) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/9d650e20-249f-4214-ae59-67b73434b9b2 |
