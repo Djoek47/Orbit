@@ -54,7 +54,7 @@ export function AccountEscapeSheet({ visible, onClose, onRestore, onSignOut, isO
       hint: 'Already subscribed on this Apple ID',
       onPress: () => {
         onClose();
-        onRestore();
+        setTimeout(onRestore, 280);
       },
     },
     { key: 'support', icon: 'support-agent', label: 'Get help', onPress: () => go('/support') },
@@ -101,7 +101,9 @@ export function AccountEscapeSheet({ visible, onClose, onRestore, onSignOut, isO
       label: 'Sign out',
       onPress: () => {
         onClose();
-        onSignOut();
+        // Wait for the sheet to finish closing: starting navigation while an RN Modal is still
+        // animating out freezes iOS, which left sign-out on a blank screen.
+        setTimeout(onSignOut, 280);
       },
     },
   ];

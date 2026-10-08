@@ -28,6 +28,11 @@ import {
   isFreeTrialOffer,
   syncPayloadFromPurchase,
 } from '@/lib/billing/household-entitlement';
+import {
+  historyFromTransactions,
+  mergeHistory,
+  type HistoryEntry,
+} from '@/lib/billing/subscription-status';
 import type { TokenGrant } from '@/lib/billing/token-grants';
 import { formatUnknownError } from '@/lib/errors/unknown-error';
 
@@ -66,6 +71,20 @@ function productKeyForId(productId: string | null | undefined): IapProductKey | 
 
 async function persistEntitlement(state: EntitlementState): Promise<EntitlementState> {
   cachedEntitlement = state;
+  // Every period this phone has seen goes in the ledger. It is how the paywall knows, after a
+  // trial has gone and StoreKit's active list is empty, that this house already had its trial.
+  if (state.active && state.expiresAt && state.source !== 'mock') {
+    const startedAt = state.effectiveAt ?? new Date().toISOString();
+    void recordHistory([
+      {
+        id: `${state.productId ?? 'premium'}:${state.inTrial ? 'trial' : 'paid'}:${state.expiresAt}`,
+        productId: state.productId,
+        startedAt,
+        endsAt: state.expiresAt,
+        kind: state.inTrial ? 'trial' : 'paid',
+      },
+    ]);
+  }
   try {
     await AsyncStorage.setItem(ENTITLEMENT_KEY, JSON.stringify(state));
   } catch (error) {
@@ -85,6 +104,120 @@ async function loadPersistedEntitlement(): Promise<EntitlementState | null> {
     return parsed;
   } catch {
     return null;
+  }
+}
+
+const HISTORY_KEY = '@orbit/premium_history.v1';
+
+async function loadHistoryLedger(): Promise<HistoryEntry[]> {
+  try {
+    const raw = await AsyncStorage.getItem(HISTORY_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as HistoryEntry[]).filter((e) => e && e.id) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Writes run one after another, so two read-merge-writes cannot drop each other's entries. */
+let historyChain: Promise<unknown> = Promise.resolve();
+
+function recordHistory(entries: HistoryEntry[]): Promise<HistoryEntry[]> {
+  const next = historyChain.then(async () => {
+    const merged = mergeHistory(await loadHistoryLedger(), entries);
+    try {
+      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(merged));
+    } catch {
+      /* best effort */
+    }
+    return merged;
+  });
+  historyChain = next.catch(() => undefined);
+  return next;
+}
+
+/**
+ * Every subscription period this Apple ID has had with ChoreMaxx, newest first: trials,
+ * first payments and each renewal. From StoreKit's full transaction list where it can be read,
+ * merged with what this phone has seen before, so it still answers offline and in Expo Go.
+ */
+export async function fetchSubscriptionHistory(): Promise<HistoryEntry[]> {
+  if (!isNativeIapAvailable()) return loadHistoryLedger();
+  try {
+    const rows = await withNativeIap(async (iap) => {
+      await iap.initConnection();
+      const listed = await iap.getAvailablePurchases({ onlyIncludeActiveItemsIOS: false });
+      return (Array.isArray(listed) ? listed : [])
+        .map((row) => row as unknown as Record<string, unknown>)
+        .filter((row) => SUBSCRIPTION_IDS.includes(String(row.productId ?? '')));
+    });
+    return recordHistory(historyFromTransactions(rows));
+  } catch (error) {
+    console.warn('fetchSubscriptionHistory', formatUnknownError(error, 'history failed'));
+    return loadHistoryLedger();
+  }
+}
+
+export type RenewalState = {
+  /** False once the person turned auto-renew off in Apple's settings. Null when unknown. */
+  willRenew: boolean | null;
+  /** ISO. When Apple will next charge (or, if cancelled, when access ends). */
+  renewalDate: string | null;
+  /** The plan the next renewal moves to, when an upgrade or downgrade is pending. */
+  pendingProductId: string | null;
+};
+
+/** Apple's renewal status for the active subscription: will it renew, and when. */
+export async function fetchRenewalState(): Promise<RenewalState> {
+  const unknown: RenewalState = { willRenew: null, renewalDate: null, pendingProductId: null };
+  if (!isNativeIapAvailable()) {
+    const mock = getMockEntitlement();
+    return isPremiumActive(mock)
+      ? { willRenew: true, renewalDate: mock.expiresAt, pendingProductId: null }
+      : unknown;
+  }
+  try {
+    return await withNativeIap(async (iap) => {
+      await iap.initConnection();
+      const subs = await iap.getActiveSubscriptions(SUBSCRIPTION_IDS);
+      const list = (Array.isArray(subs) ? subs : []) as unknown as Record<string, unknown>[];
+      const best = list.reduce<Record<string, unknown> | null>((a, b) => {
+        const exp = (r: Record<string, unknown> | null) =>
+          typeof r?.expirationDateIOS === 'number' ? r.expirationDateIOS : 0;
+        return exp(b) > exp(a) ? b : a;
+      }, null);
+      if (!best) return unknown;
+      const info = (best.renewalInfoIOS ?? null) as {
+        willAutoRenew?: boolean;
+        renewalDate?: number | null;
+        pendingUpgradeProductId?: string | null;
+        autoRenewPreference?: string | null;
+      } | null;
+      const renewalMs =
+        typeof info?.renewalDate === 'number'
+          ? info.renewalDate
+          : typeof best.expirationDateIOS === 'number'
+            ? best.expirationDateIOS
+            : null;
+      const pending =
+        info?.pendingUpgradeProductId ??
+        (info?.autoRenewPreference && info.autoRenewPreference !== best.productId
+          ? info.autoRenewPreference
+          : null);
+      return {
+        willRenew:
+          typeof info?.willAutoRenew === 'boolean'
+            ? info.willAutoRenew
+            : typeof best.autoRenewingAndroid === 'boolean'
+              ? best.autoRenewingAndroid
+              : null,
+        renewalDate: renewalMs ? new Date(renewalMs).toISOString() : null,
+        pendingProductId: pending ?? null,
+      };
+    });
+  } catch (error) {
+    console.warn('fetchRenewalState', formatUnknownError(error, 'renewal read failed'));
+    return unknown;
   }
 }
 
@@ -395,10 +528,17 @@ export async function purchasePremium(
 
   return withNativeIap(async (iap) => {
     await iap.initConnection();
-    await iap.fetchProducts({
+    const listed = await iap.fetchProducts({
       skus: [product.productId],
       type: 'subs',
     });
+    // Asking StoreKit to buy a product it did not return fails with "SKU not found". Say
+    // what that means instead: until Apple approves the subscription it cannot be sold.
+    if (!Array.isArray(listed) || listed.length === 0) {
+      throw new Error(
+        'This plan is not available from the App Store yet. It opens once Apple approves it — try again later.'
+      );
+    }
 
     const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const removeUpdated = iap.purchaseUpdatedListener((event) => {

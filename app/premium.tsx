@@ -29,12 +29,18 @@ import {
   type StorePrice,
 } from '@/lib/billing/iap';
 import { AccountEscapeSheet } from '@/components/orbit/billing/account-escape-sheet';
+import { SubscriptionDashboard } from '@/components/orbit/billing/subscription-dashboard';
+import { PREMIUM_ALLOWANCE_COPY } from '@/constants/billing';
+import { openManageSubscriptions } from '@/lib/billing/manage-subscriptions';
+import { paywallCopy } from '@/lib/billing/subscription-status';
+import { useSubscription } from '@/lib/billing/use-subscription';
 import { useAccess } from '@/lib/billing/access-provider';
 import { setPremiumOnboardingGate } from '@/lib/billing/premium-onboarding';
 import { sendSubscriptionReceiptEmail } from '@/lib/billing/send-subscription-receipt';
 import { loadTokenGrants, topUpBalanceFromGrants } from '@/lib/billing/token-grants';
 import { formatPrice } from '@/lib/billing/topup-receipt';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { isSignOutInFlight, signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { useOrbit } from '@/store/orbit-store';
 
 function formatRenewalDate(iso: string | null | undefined): string {
@@ -57,6 +63,7 @@ export default function PremiumScreen() {
   const insets = useSafeAreaInsets();
   const { household, orbitPalette, accentTheme, currentMember, currentUser, signOut } = useOrbit();
   const access = useAccess();
+  const sub = useSubscription(household.premium);
   const [accountOpen, setAccountOpen] = useState(false);
   const [eligible, setEligible] = useState<Partial<Record<'monthly' | 'yearly', boolean>>>({});
   const [storePrices, setStorePrices] = useState<Record<string, StorePrice>>({});
@@ -81,7 +88,7 @@ export default function PremiumScreen() {
   // Without this they would face a paywall with no way past it for a house that has paid.
   const stepAsideRef = useRef(false);
   useEffect(() => {
-    if (dismissible || stepAsideRef.current) return;
+    if (dismissible || stepAsideRef.current || isSignOutInFlight()) return;
     if (!access.ready || access.view.appLocked) return;
     stepAsideRef.current = true;
     void (async () => {
@@ -101,12 +108,18 @@ export default function PremiumScreen() {
       (m.role === 'owner' || m.role === 'admin')
   );
   const otherAdminName = otherAdmin?.name.trim().split(/\s+/)[0];
-  const notice = gated
-    ? access.entitlement.inTrial
-      ? 'Your free trial has ended.'
-      : otherAdminName
-        ? `If ${otherAdminName} already pays for Premium, ask them to open ChoreMaxx once — this opens by itself.`
-        : 'Choose a plan to open ChoreMaxx.'
+  // The mode's own headline says "trial ended" or "welcome back"; the only extra line is for a
+  // house that has never recorded a subscription but has a second admin who may be paying.
+  const notice =
+    gated && otherAdminName && (sub.mode === 'trial' || sub.mode === 'subscribe')
+      ? `If ${otherAdminName} already pays for Premium, ask them to open ChoreMaxx once — this opens by itself.`
+      : null;
+  const copy = sub.ready
+    ? paywallCopy(sub.mode, {
+        firstName: (currentMember?.name ?? currentUser?.name ?? '').trim().split(/\s+/)[0],
+        lastEndedAt: sub.lastEndedAt,
+        allowanceLine: PREMIUM_ALLOWANCE_COPY,
+      })
     : null;
   const { c } = useOrbitColors();
   const members = household.members;
@@ -250,15 +263,15 @@ export default function PremiumScreen() {
         mock: next.source === 'mock',
         householdId: household?.id ?? undefined,
       }).then((mailed) => {
+        const started = next.inTrial ? 'Trial started' : 'Premium is on';
         if (mailed.ok) {
-          setStatusMessage(`Trial started · emailed ${mailed.to}`);
-        } else if (mailed.skipped) {
-          setStatusMessage('Trial started');
+          setStatusMessage(`${started} · emailed ${mailed.to}`);
         } else {
-          setStatusMessage(`Trial started · email pending`);
+          setStatusMessage(started);
         }
       });
-      setStatusMessage('Trial started');
+      setStatusMessage(next.inTrial ? 'Trial started' : 'Premium is on');
+      void sub.refresh();
       await setPremiumOnboardingGate('started');
       await new Promise((r) => setTimeout(r, 700));
       await leave('started');
@@ -341,10 +354,46 @@ export default function PremiumScreen() {
     );
   }
 
+  const manage = async () => {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      await openManageSubscriptions();
+    } catch {
+      setErrorMessage('Could not open Apple subscriptions. Open Settings → your name → Subscriptions.');
+    } finally {
+      // The sheet may have cancelled or changed the plan: read it all again.
+      await access.refresh();
+      await sub.refresh();
+      setBusy(false);
+    }
+  };
+
+  // Covered, and opened from Settings: the dashboard, not a sales page.
+  if (variant === 'settings' && access.ready && !access.view.appLocked && isPremiumActive(access.entitlement)) {
+    return (
+      <SubscriptionDashboard
+        entitlement={access.entitlement}
+        renewal={sub.renewal}
+        history={sub.history}
+        storePrices={storePrices}
+        busy={busy}
+        statusMessage={statusMessage}
+        errorMessage={errorMessage}
+        paidByAnotherAdmin={Boolean(entitlement) && !isPremiumActive(entitlement!)}
+        onManage={() => void manage()}
+        onRestore={() => void restore()}
+      />
+    );
+  }
+
   return (
     <PremiumPaywall
+      copy={copy}
       variant={variant}
-      busy={busy}
+      // Hold the button until the page knows which version it is — a returning subscriber must
+      // never be offered a trial for the split second before "Welcome back" loads.
+      busy={busy || !sub.ready}
       alreadyPremium={entitlement ? isPremiumActive(entitlement) : false}
       statusMessage={statusMessage}
       errorMessage={errorMessage}
@@ -363,7 +412,7 @@ export default function PremiumScreen() {
           visible={accountOpen}
           onClose={() => setAccountOpen(false)}
           onRestore={() => void restore()}
-          onSignOut={() => void signOut()}
+          onSignOut={() => void signOutAndLeave(signOut)}
           isOwner={currentMember?.role === 'owner'}
         />
       }

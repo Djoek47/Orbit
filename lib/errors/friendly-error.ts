@@ -34,7 +34,7 @@ export function friendlyErrorMessage(raw: string | null | undefined): string {
     lower.includes('storekit') ||
     lower.includes('token_pack_product_mismatch')
   ) {
-    return 'Apple couldn’t start this purchase. The credit pack may not be live in App Store Connect yet — try again later, or send feedback so we can check.';
+    return 'Apple couldn’t start this purchase. It may not be live in the App Store yet — try again later, or send feedback so we can check.';
   }
   if (
     lower.includes('non-2xx') ||

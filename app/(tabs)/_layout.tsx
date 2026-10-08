@@ -13,6 +13,7 @@ import { canShowPoppinsTab } from '@/lib/sidekick/permissions';
 import { useTabFifthSlot } from '@/lib/navigation/use-tab-fifth-slot';
 import { HouseholdLockedScreen } from '@/components/orbit/billing/household-locked-screen';
 import { useAccess } from '@/lib/billing/access-provider';
+import { signOutAndLeave } from '@/lib/auth/sign-out-and-leave';
 import { useOrbit } from '@/store/orbit-store';
 
 /** Map household role → onboarding role for tab visibility. */
@@ -132,7 +133,7 @@ export default function TabLayout() {
           await refreshHousehold();
           await access.refresh();
         }}
-        onSignOut={() => void signOut()}
+        onSignOut={() => void signOutAndLeave(signOut)}
       />
     );
   }

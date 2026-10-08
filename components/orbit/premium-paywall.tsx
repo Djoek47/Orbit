@@ -2,6 +2,7 @@
  * Apple-caliber Premium subscription sheet — Monthly/Yearly segment + price crossfade.
  * Presentation only; purchase logic lives in the screen / facade.
  */
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
@@ -17,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { formatStoreFraction, type StorePrice } from '@/lib/billing/iap';
+import type { PaywallCopy } from '@/lib/billing/subscription-status';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
@@ -77,6 +79,11 @@ export type PremiumPaywallProps = {
    * Apple's purchase sheet is a guideline 3.1.2 rejection.
    */
   storePrices?: Record<string, StorePrice>;
+  /**
+   * Which version of the page: start a trial, trial ended, welcome back / renew, or subscribe.
+   * Decides the headline, the button and whether a trial is mentioned anywhere at all.
+   */
+  copy?: PaywallCopy | null;
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -103,6 +110,7 @@ export function PremiumPaywall({
   notice = null,
   footerSlot = null,
   storePrices = {},
+  copy = null,
 }: PremiumPaywallProps) {
   const insets = useSafeAreaInsets();
   const { accentTheme, orbitPalette } = useOrbit();
@@ -138,7 +146,9 @@ export function PremiumPaywall({
     [busy, period, priceOpacity, revealPeriod]
   );
 
-  const trialEligible = trialEligibleByPeriod?.[period] ?? true;
+  // The page's mode has the last word: a house that already had its trial is never offered one,
+  // whatever this Apple ID's eligibility says.
+  const trialEligible = copy ? copy.offersTrial && (trialEligibleByPeriod?.[period] ?? true) : (trialEligibleByPeriod?.[period] ?? true);
   const yearly = IAP_PRODUCTS.yearly;
   const monthly = IAP_PRODUCTS.monthly;
   const selected = period === 'yearly' ? yearly : monthly;
@@ -156,7 +166,17 @@ export function PremiumPaywall({
       : period === 'yearly'
         ? 'Subscribe yearly'
         : 'Subscribe monthly';
-  const ctaText = alreadyPremium ? 'Continue' : trialEligible ? 'Start Free Trial' : 'Subscribe';
+  const fallbackCta = trialEligible ? 'Start Free Trial' : 'Subscribe';
+  const ctaText = alreadyPremium
+    ? 'Continue'
+    : copy && !(copy.offersTrial && !trialEligible)
+      ? copy.cta
+      : fallbackCta;
+  // Apple sets the first charge for the day the trial ends; say the date, so nobody is surprised.
+  const firstCharge = new Date(Date.now() + BILLING_TRIAL_DAYS * 86_400_000).toLocaleDateString(
+    'en-US',
+    { month: 'long', day: 'numeric' }
+  );
 
   return (
     <View
@@ -168,15 +188,41 @@ export function PremiumPaywall({
           paddingBottom: Math.max(insets.bottom, 24),
         },
       ]}>
+      {!dismissible && onAccount ? (
+        <Pressable
+          onPress={onAccount}
+          disabled={busy}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Account and settings: sign out, transfer or delete the household, delete account, help"
+          style={({ pressed }) => [
+            styles.accountChip,
+            {
+              top: insets.top + 10,
+              backgroundColor: glassFill(isDark),
+              borderColor: `${accentTheme.primary}55`,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}>
+          <MaterialIcons name="settings" size={18} color={accentTheme.primary} />
+          <Text style={[styles.accountChipText, { color: c.text }]}>Account</Text>
+        </Pressable>
+      ) : null}
+
       <Animated.View entering={FadeIn.duration(420)} style={styles.mark}>
         <ChoremaxxLogo size="md" variant="icon" />
       </Animated.View>
 
       <View style={styles.hero}>
         <Animated.View entering={FadeInUp.delay(40).duration(480)}>
-          <Text style={[styles.headline, { color: c.text }]}>Choremaxx Premium</Text>
+          {copy && !alreadyPremium ? (
+            <Text style={[styles.kicker, { color: accentTheme.primary }]}>{copy.kicker}</Text>
+          ) : null}
+          <Text style={[copy && !alreadyPremium ? styles.headlineMode : styles.headline, { color: c.text }]}>
+            {copy && !alreadyPremium ? copy.title : 'Choremaxx Premium'}
+          </Text>
           <Text style={[styles.support, { color: c.textMuted }]}>
-            {PREMIUM_ALLOWANCE_COPY}
+            {copy && !alreadyPremium ? copy.body : PREMIUM_ALLOWANCE_COPY}
           </Text>
         </Animated.View>
 
@@ -211,6 +257,11 @@ export function PremiumPaywall({
                 {period === 'yearly' ? ' / year' : ' / month'}
               </Text>
             </Text>
+            {trialEligible && !alreadyPremium ? (
+              <Text style={[styles.subPrice, { color: c.text }]}>
+                Free today · first charge {firstCharge} · cancel any time before
+              </Text>
+            ) : null}
             <Text style={[styles.subPrice, { color: c.textMuted }]}>
               {period === 'yearly'
                 ? `About ${yearlyPerMonth}/mo · ${priceOf(yearly)}/year (${yearly.savingsLabel})`
@@ -317,20 +368,14 @@ export function PremiumPaywall({
           <Pressable onPress={onRestore} disabled={busy} hitSlop={12}>
             <Text style={[styles.link, { color: c.textMuted }]}>Restore</Text>
           </Pressable>
-          <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
+          {/* When the paywall is the gate, Account sits in its own button at the top instead. */}
           {dismissible ? (
-            <Pressable onPress={onDismiss} disabled={busy} hitSlop={12}>
-              <Text style={[styles.link, { color: c.textMuted }]}>{secondaryLabel}</Text>
-            </Pressable>
-          ) : onAccount ? (
-            <Pressable
-              onPress={onAccount}
-              disabled={busy}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Account: sign out, delete account, support">
-              <Text style={[styles.link, { color: c.textMuted }]}>Account</Text>
-            </Pressable>
+            <>
+              <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
+              <Pressable onPress={onDismiss} disabled={busy} hitSlop={12}>
+                <Text style={[styles.link, { color: c.textMuted }]}>{secondaryLabel}</Text>
+              </Pressable>
+            </>
           ) : null}
         </View>
       </Animated.View>
@@ -469,5 +514,34 @@ const styles = StyleSheet.create({
   },
   dot: {
     fontSize: 15,
+  },
+  accountChip: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    position: 'absolute',
+    right: space.lg,
+    zIndex: 2,
+  },
+  accountChipText: { fontSize: 15, fontWeight: '700' },
+  kicker: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  headlineMode: {
+    fontSize: 32,
+    fontWeight: '600',
+    letterSpacing: -0.8,
+    lineHeight: 38,
+    textAlign: 'center',
   },
 });

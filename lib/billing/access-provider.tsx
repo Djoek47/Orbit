@@ -162,6 +162,32 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     });
   }, [canPurchase, household.id, local]);
 
+  // The day-before reminder, and a "trial has ended" if renewal was turned off. Rescheduled
+  // whenever the trial's end or renewal changes; cleared once it is no longer a trial.
+  const reminderKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!GATE_ENABLED || !canPurchase || !local) return;
+    void (async () => {
+      const { fetchRenewalState } = await import('@/lib/billing/iap');
+      const { scheduleTrialReminders, trialReminderPlan } = await import('@/lib/billing/trial-reminder');
+      const { IAP_SUBSCRIPTIONS } = await import('@/constants/billing');
+      const renewal = local.inTrial ? await fetchRenewalState() : { willRenew: null };
+      const key = `${local.inTrial}:${local.expiresAt}:${renewal.willRenew}`;
+      if (reminderKeyRef.current === key) return;
+      reminderKeyRef.current = key;
+      const yearly = local.productId === IAP_SUBSCRIPTIONS.yearly.productId;
+      const catalog = yearly ? IAP_SUBSCRIPTIONS.yearly : IAP_SUBSCRIPTIONS.monthly;
+      await scheduleTrialReminders(
+        trialReminderPlan({
+          inTrial: local.inTrial && local.active,
+          endsAt: local.expiresAt,
+          willRenew: renewal.willRenew,
+          priceLine: `$${catalog.priceUsd}/${yearly ? 'year' : 'month'}`,
+        })
+      );
+    })();
+  }, [canPurchase, local]);
+
   const value = useMemo(
     () => ({ ready, view, entitlement, canPurchase, refresh }),
     [ready, view, entitlement, canPurchase, refresh]

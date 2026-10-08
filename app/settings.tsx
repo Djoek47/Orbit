@@ -100,6 +100,9 @@ import {
   subscriptionDatesSubtitle,
 } from '@/lib/billing/subscription-dates';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { useAccess } from '@/lib/billing/access-provider';
+import { settingsPremiumButtonLabel } from '@/lib/billing/subscription-status';
+import { useSubscription } from '@/lib/billing/use-subscription';
 import { useOrbit } from '@/store/orbit-store';
 import type { MemberInvite } from '@/lib/household/member-invites';
 import type { HouseholdMember } from '@/types/orbit';
@@ -278,6 +281,8 @@ export default function SettingsScreen() {
     household.dailyDeadlinePending,
   ]);
   const [entitlement, setEntitlement] = useState<EntitlementState | null>(null);
+  const premiumAccess = useAccess();
+  const subscriptionInfo = useSubscription(household.premium);
   const [billingBusy, setBillingBusy] = useState(false);
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameInput, setDisplayNameInput] = useState(
@@ -1371,9 +1376,12 @@ export default function SettingsScreen() {
                 onPress={() =>
                   router.push({ pathname: '/premium', params: { source: 'settings' } } as never)
                 }>
-                {entitlement && isPremiumActive(entitlement)
-                  ? 'Manage subscription'
-                  : 'Start free trial'}
+                {settingsPremiumButtonLabel(
+                  (entitlement && isPremiumActive(entitlement)) ||
+                    (premiumAccess.ready && isPremiumActive(premiumAccess.entitlement)),
+                  // Until known, never offer a trial the house may already have had.
+                  subscriptionInfo.ready ? subscriptionInfo.mode : 'subscribe'
+                )}
               </OrbitButton>
 
               <SettingsGroup header="Purchases">
