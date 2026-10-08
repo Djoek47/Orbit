@@ -18,19 +18,28 @@ phone and the household say at every step — check it after each row below.
    minutes, a year about an hour) and renews a limited number of times, then stops — check the
    current rates on the tester's page in App Store Connect.
 
-**The test iPhone**
-1. Turn on **Developer Mode** (Settings → Privacy & Security → Developer Mode). It appears
-   only after the phone has been connected to Xcode once; if you have no Mac, skip to the note.
-2. Install the build from TestFlight with your normal Apple ID.
-3. Settings → [your name] → **Media & Purchases → Sign Out**.
-4. Settings → **Developer → Sandbox Apple Account → Sign In** with tester 1.
-5. Settings → Developer → Sandbox Apple Account → **Manage**: here you can *Clear Purchase
-   History* (makes the tester eligible for the free trial again — sign out and back in after),
-   change the renewal rate, and turn on *Interrupted Purchases*.
+**The test iPhone — no Mac needed**
 
-> No Mac / no Developer Mode: TestFlight still runs in sandbox with your own Apple ID, but you
-> can't clear history, so the free trial can be tested only once per Apple ID. Use a spare
-> Apple ID per run.
+Sandbox accounts live in **Settings → Developer**, and that menu needs Developer Mode. Without a
+Mac, unlock it once with an EAS development build:
+
+1. Register the iPhone: `npx eas device:create` → open the link on the iPhone → install the
+   profile it offers (Settings → General → VPN & Device Management).
+2. Build and install a development build: `npx eas build --profile development-device
+   --platform ios`, open the install link from the build page on the iPhone. It doesn't need to
+   run — installing a development-signed app is what makes the toggle appear.
+3. Settings → Privacy & Security → **Developer Mode → On** → restart → confirm.
+4. Install the real build from TestFlight with your normal Apple ID.
+5. Settings → [your name] → **Media & Purchases → Sign Out**.
+6. Settings → **Developer → Sandbox Apple Account → Sign In** with tester 1.
+7. Settings → Developer → Sandbox Apple Account → **Manage**: *Clear Purchase History* (makes
+   the tester eligible for the free trial again — sign out and back in after), renewal rate,
+   *Interrupted Purchases*.
+
+**Quick path, no Developer Mode at all:** TestFlight already buys in sandbox with your own
+Apple ID — nothing is charged. Limits: subscriptions renew **daily, up to 6 times**, then stop;
+you can't clear history, so the free trial can be tested **once per Apple ID** (use a second
+Apple ID, e.g. a family member's phone, for a second trial run); no billing-retry tests.
 
 Diagnostics should now show **all 5 products ✓ with CA$ prices**. If any is ✗, stop: that's
 App Store Connect, not the app.
