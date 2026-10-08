@@ -31,7 +31,8 @@ If Expo says quota exhausted, set remaining to **0** and stop cutting until topp
 
 | When (UTC) | buildNumber | Branch | EAS build | Result | Slots after |
 |------------|------------:|--------|-----------|--------|------------:|
-| 2026-10-08 | **123** | `cursor/make-v37-c30d` | [3aff88a9…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/3aff88a9-4f1a-495e-ab8b-6e025588c3aa) | in progress → ASC submit queued | **44** |
+| 2026-10-08 | **124** | `cursor/make-v37-c30d` | *(filling after cut)* | cutting — v37-01 console/diagnostics/sandbox | **43** |
+| 2026-10-08 | **123** | `cursor/make-v37-c30d` | [3aff88a9…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/3aff88a9-4f1a-495e-ab8b-6e025588c3aa) | finished (v36-01 only — before v37-01) | **44** |
 | 2026-10-08 | **122** | `cursor/make-v37-c30d` | — | **burned** — free-plan quota refused after number increment | (pre top-up) |
 | 2026-10-07 | **121** | `cursor/make-v36-c30d` | [9d650e20…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/9d650e20-249f-4214-ae59-67b73434b9b2) | finished + submitted | — |
 | 2026-10-07 | **120** | `cursor/make-v35-c30d` | [fbf0926f…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/fbf0926f-6f4a-4d9e-89ba-7947b2c8b653) | finished + submitted | — |

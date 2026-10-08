@@ -1,9 +1,9 @@
-# make-v37 TestFlight — release notes (build 122)
+# make-v37 TestFlight — release notes (build 124)
 
 **Branch tip:** `cursor/make-v37-c30d`  
-**Base:** make-v36 / TF **1.3.0 (121)**  
-**Patch:** `v36-01-subscription-credits-poppins` (7 commits)  
-**Status:** Live Activity Lock Screen removed (archived outside repo); subscription/Poppins fold.
+**Base:** make-v36 / TF **1.3.0 (121)**; TF **123** had v36-01 only  
+**Patches:** `choremaxx-v36-all` (= v36-01 + v37-01) · `v37-01-console-diagnostics-sandbox` · `sandbox-testing.md`  
+**Status:** Multipass re-audit clean; cutting **1.3.0 (124)** with Purchase diagnostics + support console.
 
 ---
 
@@ -37,18 +37,18 @@
 
 ---
 
-## Matrix pass
+## Matrix pass (re-audit before 124)
 
 | Check | Result |
 |-------|--------|
-| v36-01 (7) already on tip; `choremaxx-v36-all` not re-applied (would duplicate) | OK |
-| v37-01 (3) `git am` clean | OK |
-| Live Activity files/plugins/dep gone; archive not in repo | OK |
+| Uploaded `v37-01` new files byte-match tip (`billing-diagnostics`, support-inbound/reply, migration) | OK |
+| Uploaded `sandbox-testing.md` identical to `docs/sandbox-testing.md` | OK |
+| `choremaxx-v36-all` = v36-01 (already on tip) + v37-01 (on tip); Live Activity deletes intentional | OK |
 | `tsc --noEmit` | OK |
-| subscription-status, payment-gate, household-entitlement, access-gate, pack-parity, credits-buy, premium-ui, iap, shopping-run-ui, shared-device-one-flow, friendly-error | PASS |
-| Trial grace = 0 on household row | OK |
-| testflight:preflight | PASS (HaveIBeenPwned warn unchanged) |
-| Staging: support migration + functions | **Blocked this session** — `SUPABASE_ACCESS_TOKEN` 401; deploy when token refreshed |
+| subscription-status, payment-gate, household-entitlement, access-gate, pack-parity, premium-ui, iap, token-grants, shopping-run-ui, shared-device-one-flow, friendly-error, topup-receipt, credit-ledger, allowance-state | PASS |
+| lint | 0 errors (pre-existing warnings only) |
+| testflight:preflight | PASS (HaveIBeenPwned warn unchanged — same as 121/123) |
+| Staging: support migration + functions | **Still blocked** until `SUPABASE_ACCESS_TOKEN` refreshed |
 
 ---
 
@@ -56,9 +56,10 @@
 
 | | |
 |--|--|
-| Version | **1.3.0 (123)** — make-v37 (122 skipped: quota fail burned the number) |
+| Version | **1.3.0 (124)** — make-v37 + v37-01 (123 = v36-01 only; 122 burned) |
 | Branch | `cursor/make-v37-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/125 |
-| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/3aff88a9-4f1a-495e-ab8b-6e025588c3aa |
-| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/a7314573-9585-4183-afc9-f2dc8bcd7612 |
+| Build | *(filling after cut)* |
+| Submit | *(filling after cut)* |
+| Prior (123) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/3aff88a9-4f1a-495e-ab8b-6e025588c3aa |
 | Prior (121) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/9d650e20-249f-4214-ae59-67b73434b9b2 |
