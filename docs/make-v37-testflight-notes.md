@@ -30,18 +30,25 @@
 ### Paused Sidekick / shared tablet
 - Names admin who can renew; Account sheet (help, legal, switch, sign out); no purchase CTA
 
+### v37-01 — console / diagnostics / sandbox (on tip)
+- Support console backend: migration + `support-inbound` / `support-reply`; app feedback also files tickets; error reports (no stacks)
+- **Purchase diagnostics** screen (admin/owner): StoreKit products, phone plan, household row, access decision, credits
+- `docs/sandbox-testing.md` — 16-row sandbox matrix; `development-device` EAS profile to unlock Developer Mode without a Mac
+
 ---
 
 ## Matrix pass
 
 | Check | Result |
 |-------|--------|
-| All 7 patch commits apply clean | OK |
+| v36-01 (7) already on tip; `choremaxx-v36-all` not re-applied (would duplicate) | OK |
+| v37-01 (3) `git am` clean | OK |
 | Live Activity files/plugins/dep gone; archive not in repo | OK |
 | `tsc --noEmit` | OK |
-| subscription-status, payment-gate, household-entitlement, access-gate, pack-parity, credits-buy, premium-ui, shopping-run-ui, shared-device-one-flow, settings-signout | PASS |
+| subscription-status, payment-gate, household-entitlement, access-gate, pack-parity, credits-buy, premium-ui, iap, shopping-run-ui, shared-device-one-flow, friendly-error | PASS |
 | Trial grace = 0 on household row | OK |
-| testflight:preflight | PASS (HaveIBeenPwned warn unchanged from 121) |
+| testflight:preflight | PASS (HaveIBeenPwned warn unchanged) |
+| Staging: support migration + functions | **Blocked this session** — `SUPABASE_ACCESS_TOKEN` 401; deploy when token refreshed |
 
 ---
 
