@@ -1,0 +1,307 @@
+/**
+ * Token top-up grants — monthly allowance first, then oldest top-ups.
+ * Authoritative balance is server-side; client cache for display + Expo Go mock.
+ */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { IAP_CONSUMABLES, type IapTokenPackKey } from '@/constants/billing';
+import {
+  applyTopUpConsumption,
+  mergeTokenGrants,
+  topUpBalanceFromGrants,
+  type TokenGrantBalance,
+} from '@/lib/billing/token-grants-math';
+import { notifyTokenGrantsChanged } from '@/lib/billing/token-grants-events';
+import { isPersistedHouseholdId } from '@/lib/household/persisted-household-id';
+
+/** Lazy — keeps Expo Go / Node unit tests from loading SecureStore at import time. */
+async function supabaseClient() {
+  const { getSupabaseClient } = await import('@/lib/supabase/client');
+  return getSupabaseClient();
+}
+
+export type TokenGrant = TokenGrantBalance;
+export { applyTopUpConsumption, mergeTokenGrants, topUpBalanceFromGrants };
+
+const keyFor = (householdId: string) => `orbit.token-grants.${householdId}`;
+
+/** In-memory bank when AsyncStorage is unavailable (Node unit tests). */
+const memoryBanks = new Map<string, TokenGrant[]>();
+
+export async function loadTokenGrants(
+  householdId: string | null | undefined
+): Promise<TokenGrant[]> {
+  const local = await loadLocal(householdId);
+  if (!isPersistedHouseholdId(householdId)) return local;
+  const remote = await loadRemote(householdId!);
+  if (!remote) return local;
+  // Merge — never replace local banked credits with an empty/partial remote list.
+  const merged = mergeTokenGrants(local, remote);
+  await saveLocal(householdId!, merged);
+  return merged;
+}
+
+/**
+ * Told whenever a household's bank changes — a pack bought, actions spent — so the Poppins orb
+ * can refill and every counter can move without waiting for a screen to re-read.
+ */
+type GrantsListener = (householdId: string, balance: number) => void;
+const grantsListeners = new Set<GrantsListener>();
+
+function notifyGrants(householdId: string, grants: TokenGrant[]): void {
+  const balance = topUpBalanceFromGrants(grants);
+  for (const listener of grantsListeners) {
+    try {
+      listener(householdId, balance);
+    } catch {
+      /* a listener must never break a purchase */
+    }
+  }
+}
+
+const REFILL_KEY = (householdId: string) => `orbit.poppins-refill.${householdId}`;
+
+/**
+ * Actions bought since Poppins was last opened. The next time Poppins appears it drains the
+ * orb and fills it back up with these, so a purchase made anywhere — credits, the top-up
+ * sheet, Settings — is seen landing.
+ */
+async function addPendingRefill(householdId: string, tokens: number): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(REFILL_KEY(householdId));
+    const prev = raw ? Number(raw) || 0 : 0;
+    await AsyncStorage.setItem(REFILL_KEY(householdId), String(prev + tokens));
+  } catch {
+    /* the animation is a nicety */
+  }
+}
+
+/** Read and clear the pending refill. 0 when there is nothing to celebrate. */
+export async function takePendingRefill(householdId: string | null | undefined): Promise<number> {
+  if (!householdId) return 0;
+  try {
+    const raw = await AsyncStorage.getItem(REFILL_KEY(householdId));
+    if (!raw) return 0;
+    await AsyncStorage.removeItem(REFILL_KEY(householdId));
+    return Math.max(0, Number(raw) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+export function subscribeTokenGrants(listener: GrantsListener): () => void {
+  grantsListeners.add(listener);
+  return () => {
+    grantsListeners.delete(listener);
+  };
+}
+
+export async function saveTokenGrants(
+  householdId: string | null | undefined,
+  grants: TokenGrant[]
+): Promise<void> {
+  if (!householdId) return;
+  await saveLocal(householdId, grants);
+  notifyGrants(householdId, grants);
+  if (!isPersistedHouseholdId(householdId)) return;
+  await syncConsumedRemote(householdId, grants);
+}
+
+async function loadLocal(householdId: string | null | undefined): Promise<TokenGrant[]> {
+  if (!householdId) return [];
+  try {
+    const raw = await AsyncStorage.getItem(keyFor(householdId));
+    if (!raw) return memoryBanks.get(householdId) ?? [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return memoryBanks.get(householdId) ?? [];
+    return parsed.filter(isGrant);
+  } catch {
+    return memoryBanks.get(householdId) ?? [];
+  }
+}
+
+async function saveLocal(householdId: string, grants: TokenGrant[]): Promise<void> {
+  memoryBanks.set(householdId, grants);
+  try {
+    await AsyncStorage.setItem(keyFor(householdId), JSON.stringify(grants));
+  } catch {
+    /* Node / missing native storage — memory bank still holds the balance */
+  }
+  notifyTokenGrantsChanged();
+}
+
+async function loadRemote(householdId: string): Promise<TokenGrant[] | null> {
+  const supabase = await supabaseClient();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('token_grants')
+      .select('id, household_id, pack, tokens, consumed, transaction_id, granted_at')
+      .eq('household_id', householdId)
+      .order('granted_at', { ascending: true });
+    if (error) {
+      console.warn('[token-grants] remote load skipped', error.message);
+      return null;
+    }
+    return (data ?? []).map((row) => {
+      const item = row as Record<string, unknown>;
+      return {
+        id: String(item.id),
+        householdId: String(item.household_id),
+        pack: String(item.pack),
+        tokens: Number(item.tokens) || 0,
+        consumed: Number(item.consumed) || 0,
+        transactionId: String(item.transaction_id),
+        grantedAt: String(item.granted_at),
+      };
+    });
+  } catch (error) {
+    console.warn('[token-grants] remote load failed', error);
+    return null;
+  }
+}
+
+async function syncConsumedRemote(householdId: string, grants: TokenGrant[]): Promise<void> {
+  const supabase = await supabaseClient();
+  if (!supabase) return;
+  for (const grant of grants) {
+    if (!grant.id || grant.id.startsWith('mock-') || grant.id.startsWith('local-')) continue;
+    try {
+      const { error } = await supabase
+        .from('token_grants')
+        .update({ consumed: grant.consumed } as never)
+        .eq('id', grant.id)
+        .eq('household_id', householdId);
+      if (error) console.warn('[token-grants] consume sync skipped', error.message);
+    } catch (error) {
+      console.warn('[token-grants] consume sync failed', error);
+    }
+  }
+}
+
+function isGrant(value: unknown): value is TokenGrant {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as TokenGrant;
+  return (
+    typeof row.id === 'string' &&
+    typeof row.householdId === 'string' &&
+    typeof row.transactionId === 'string' &&
+    typeof row.tokens === 'number'
+  );
+}
+
+export type GrantTokenPackInput = {
+  householdId: string;
+  packKey: IapTokenPackKey | 'mock';
+  transactionId: string;
+  /** Product id from StoreKit; validated against catalog. */
+  productId?: string;
+  /** Expo Go mock only — unreachable in production builds. */
+  mock?: boolean;
+};
+
+/**
+ * Validate → grant. Server path uses grant-token-pack edge (unique transaction_id).
+ * Expo Go mock writes local-only grant clearly marked.
+ */
+export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenGrant> {
+  const pack =
+    input.packKey === 'mock'
+      ? { pack: 'mock' as const, tokens: 50, productId: 'mock', label: '50 actions' }
+      : IAP_CONSUMABLES[input.packKey];
+
+  if (input.productId && input.packKey !== 'mock') {
+    if (pack.productId !== input.productId) {
+      throw new Error('token_pack_product_mismatch');
+    }
+  }
+
+  if (input.mock || input.packKey === 'mock') {
+    // Expo Go / Credits test buy — mints the real pack size and appends to the bank.
+    // Credits never expire; each buy adds to whatever is already left.
+    const grant: TokenGrant = {
+      id: `mock-${input.transactionId}`,
+      householdId: input.householdId,
+      pack: pack.pack,
+      tokens: pack.tokens,
+      consumed: 0,
+      transactionId: input.transactionId,
+      grantedAt: new Date().toISOString(),
+    };
+    const existing = await loadTokenGrants(input.householdId);
+    if (existing.some((g) => g.transactionId === input.transactionId)) {
+      return existing.find((g) => g.transactionId === input.transactionId)!;
+    }
+    const next = [...existing, grant];
+    await saveTokenGrants(input.householdId, next);
+    return grant;
+  }
+
+  const supabase = await supabaseClient();
+  if (supabase && isPersistedHouseholdId(input.householdId)) {
+    const { data, error } = await supabase.functions.invoke('grant-token-pack', {
+      body: {
+        householdId: input.householdId,
+        pack: pack.pack,
+        tokens: pack.tokens,
+        transactionId: input.transactionId,
+        productId: pack.productId,
+      },
+    });
+    if (error) {
+      // supabase-js hides the body behind "non-2xx" — dig out `{ error }` so
+      // friendly copy can say "payment may have gone through" instead of offline.
+      const { edgeErrorMessage } = await import('@/lib/supabase/edge-error');
+      const detail = await edgeErrorMessage(error, 'grant_token_pack_failed');
+      throw new Error(
+        detail.includes('grant_token_pack') || detail.includes('grant failed')
+          ? detail
+          : `grant_token_pack_failed: ${detail}`
+      );
+    }
+    const payload = data as { grant?: TokenGrant; error?: string } | null;
+    if (payload?.error) {
+      throw new Error(`grant_token_pack_failed: ${String(payload.error)}`);
+    }
+    const row = payload?.grant;
+    if (row) {
+      const existing = await loadTokenGrants(input.householdId);
+      const merged = existing.some((g) => g.transactionId === row.transactionId)
+        ? existing
+        : [...existing, row];
+      await saveLocal(input.householdId, merged);
+      notifyGrants(input.householdId, merged);
+      if (merged !== existing) await addPendingRefill(input.householdId, row.tokens);
+      return row;
+    }
+  }
+
+  // Offline / no edge: local grant with unique transaction id (replay-safe locally).
+  const grant: TokenGrant = {
+    id: `local-${input.transactionId}`,
+    householdId: input.householdId,
+    pack: pack.pack,
+    tokens: pack.tokens,
+    consumed: 0,
+    transactionId: input.transactionId,
+    grantedAt: new Date().toISOString(),
+  };
+  const existing = await loadTokenGrants(input.householdId);
+  if (existing.some((g) => g.transactionId === input.transactionId)) {
+    return existing.find((g) => g.transactionId === input.transactionId)!;
+  }
+  await saveTokenGrants(input.householdId, [...existing, grant]);
+  await addPendingRefill(input.householdId, grant.tokens);
+  return grant;
+}
+
+export async function consumeTopUpTokens(
+  householdId: string | null | undefined,
+  amount: number
+): Promise<number> {
+  if (!householdId || amount <= 0) return 0;
+  const grants = await loadTokenGrants(householdId);
+  const { grants: next, consumed } = applyTopUpConsumption(grants, amount);
+  if (consumed > 0) await saveTokenGrants(householdId, next);
+  return consumed;
+}
