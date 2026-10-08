@@ -75,21 +75,20 @@ test('Pass C2: purchase errors never stringify to [object Object]', () => {
   assert.match(fmt, /\[object Object\]/);
 });
 
-test('Pass C2b: Credits probes StoreKit and disables packs Apple does not list', () => {
+test('Pass C2b: Credits keeps every pack tappable; StoreKit says so if a SKU is not live', () => {
   const credits = read('app/poppins-credits.tsx');
   const iap = read('lib/billing/iap.ts');
-  const picker = read('components/orbit/token-top-up-picker.tsx');
-  assert.match(iap, /probeAvailableTokenPacks/);
-  assert.match(iap, /isTokenPackAvailable/);
-  assert.match(credits, /probeAvailableTokenPacks/);
-  assert.match(credits, /unavailable/);
-  assert.match(credits, /Not on this build/);
-  assert.match(picker, /probeAvailableTokenPacks/);
-  assert.match(picker, /Not on this build/);
+  // Credits used to grey out unlisted packs ("Soon"). That hid them during ASC review.
+  // Now every pack stays on sale; purchaseTokens / friendly-error explain sku_not_found.
+  assert.match(credits, /setAvailablePacks\(null\)/);
+  assert.match(credits, /Every pack stays on sale|tap always reaches StoreKit/i);
+  assert.doesNotMatch(credits, /probeAvailableTokenPacks/);
+  assert.match(iap, /probeAvailableTokenPacks/, 'probe still exists for other surfaces');
+  assert.match(iap, /sku_not_found/);
   const friendly = read('lib/errors/friendly-error.ts');
   const skuIdx = friendly.indexOf("lower.includes('sku_not_found')");
   assert.ok(skuIdx > 0, 'sku_not_found has dedicated friendly copy');
-  assert.match(friendly.slice(skuIdx, skuIdx + 280), /not for sale|another size/i);
+  assert.match(friendly.slice(skuIdx, skuIdx + 280), /not for sale|another size|App Store/i);
 });
 
 test('Pass C3: token pack listener ignores other SKUs; grant errors dig edge body', () => {

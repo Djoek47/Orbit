@@ -36,7 +36,7 @@ test('settings premium section is glass hero + one primary CTA', () => {
   assert.doesNotMatch(settings, /Open Premium/);
 });
 
-test('paywall uses monthly/yearly segment and period-aware trial', () => {
+test('paywall uses monthly/yearly segment and situation-aware copy', () => {
   const paywall = readFileSync(
     join(process.cwd(), 'components/orbit/premium-paywall.tsx'),
     'utf8'
@@ -44,9 +44,14 @@ test('paywall uses monthly/yearly segment and period-aware trial', () => {
   assert.match(paywall, /SegmentedControl/);
   assert.match(paywall, /priceCrossfade|priceOpacity/);
   assert.match(paywall, /onStartTrial: \(period: IapProductKey\) => void/);
-  assert.match(paywall, /PREMIUM_ALLOWANCE_COPY/);
+  // Allowance / trial wording comes from paywallCopy(mode) via the copy prop — not a hard-coded constant.
+  assert.match(paywall, /PaywallCopy|copy\?\.|copy &&/);
+  assert.doesNotMatch(paywall, /PREMIUM_ALLOWANCE_COPY/);
   assert.doesNotMatch(paywall, /onStartMonthly/);
   assert.doesNotMatch(paywall, /Or \$\$\{monthly\.priceUsd\}\/month after trial/);
+  const status = readFileSync(join(process.cwd(), 'lib/billing/subscription-status.ts'), 'utf8');
+  assert.match(status, /export function paywallCopy/);
+  assert.match(status, /allowanceLine/);
 });
 
 test('premium screen passes selected period into purchasePremium', () => {
