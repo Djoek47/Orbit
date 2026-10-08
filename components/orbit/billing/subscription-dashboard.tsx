@@ -142,14 +142,14 @@ export function SubscriptionDashboard({
             <Text style={[styles.note, { color: '#E9A23B', fontWeight: '700' }]}>
               Apple couldn&apos;t charge your card.{' '}
               {renewal.graceEndsAt
-                ? `Premium stays on until ${longDate(renewal.graceEndsAt)} while Apple retries.`
-                : 'Premium stays on for a few days while Apple retries.'}{' '}
+                ? `Everything stays on until ${longDate(renewal.graceEndsAt)} while Apple retries.`
+                : 'Everything stays on for a few days while Apple retries.'}{' '}
               Update your payment method from Manage below.
             </Text>
           ) : null}
                     {summary.inTrial && summary.willRenew !== false ? (
             <Text style={[styles.note, { color: c.textMuted }]}>
-              Your {BILLING_TRIAL_DAYS}-day free trial turns into Premium automatically. Apple charges{' '}
+              Your {BILLING_TRIAL_DAYS}-day free trial turns into your subscription automatically. Apple charges{' '}
               {priceLine} on {longDate(summary.endsAt)} unless you cancel at least 24 hours before.
             </Text>
           ) : null}
@@ -285,7 +285,7 @@ export function SubscriptionDashboard({
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.historyTitle, { color: c.text }]}>
                     {entry.kind === 'trial' ? 'Free trial' : 'Payment'} ·{' '}
-                    {planLabelFor(entry.productId).replace('Premium · ', '')}
+                    {planLabelFor(entry.productId).replace(' plan', '')}
                   </Text>
                   <Text style={[styles.historySub, { color: c.textMuted }]}>
                     {longDate(entry.startedAt)}

@@ -110,7 +110,7 @@ export function paywallCopy(
   switch (mode) {
     case 'trial':
       return {
-        kicker: 'ChoreMaxx Premium',
+        kicker: 'ChoreMaxx',
         title: `Try it free for ${BILLING_TRIAL_DAYS} days`,
         body: `${ctx.allowanceLine} Cancel any time before the trial ends and you pay nothing.`,
         cta: 'Start free trial',
@@ -126,16 +126,16 @@ export function paywallCopy(
       };
     case 'renew':
       return {
-        kicker: ended ? `Premium ended ${ended}` : 'Your Premium has ended',
+        kicker: ended ? `Your subscription ended ${ended}` : 'Your subscription has ended',
         title: name ? `Welcome back, ${name}` : 'Welcome back',
         body: 'Everything is where you left it — tasks, streaks, rewards and history. Renew to pick up right where you stopped.',
-        cta: 'Renew Premium',
+        cta: 'Renew my subscription',
         offersTrial: false,
       };
     case 'subscribe':
     default:
       return {
-        kicker: 'ChoreMaxx Premium',
+        kicker: 'ChoreMaxx',
         title: 'Run your whole house',
         body: ctx.allowanceLine,
         cta: 'Subscribe',
@@ -151,7 +151,7 @@ export function settingsPremiumButtonLabel(active: boolean, mode: PaywallMode): 
     case 'trial':
       return 'Start free trial';
     case 'renew':
-      return 'Renew Premium';
+      return 'Renew subscription';
     default:
       return 'Subscribe';
   }
@@ -173,9 +173,9 @@ export type SubscriptionSummary = {
 };
 
 export function planLabelFor(productId: string | null | undefined): string {
-  if (productId === IAP_SUBSCRIPTIONS.yearly.productId) return 'Premium · Yearly';
-  if (productId === IAP_SUBSCRIPTIONS.monthly.productId) return 'Premium · Monthly';
-  return 'Premium';
+  if (productId === IAP_SUBSCRIPTIONS.yearly.productId) return 'Yearly plan';
+  if (productId === IAP_SUBSCRIPTIONS.monthly.productId) return 'Monthly plan';
+  return 'ChoreMaxx';
 }
 
 function periodDays(productId: string | null | undefined, inTrial: boolean): number {

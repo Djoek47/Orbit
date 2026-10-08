@@ -132,14 +132,14 @@ export function settingsAllowedWhenLocked(key: string): boolean {
 export function poppinsLockCopy(view: AccessView, monthlyAllowanceWhenPaid: number) {
   if (view.level === 'locked') {
     return {
-      title: 'Poppins is part of Premium',
+      title: 'Poppins comes with your subscription',
       body: 'Subscribe to talk to your house instead of typing at it.',
       primary: 'See plans',
       secondary: null as string | null,
     };
   }
   return {
-    title: 'Poppins comes with Premium',
+    title: 'Poppins comes with your subscription',
     body: `Your trial covers chores, XP and rewards. Poppins runs on actions — subscribe for ${monthlyAllowanceWhenPaid} every month, or buy a pack to try it now.`,
     primary: 'Subscribe',
     secondary: 'Buy actions',

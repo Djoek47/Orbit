@@ -116,13 +116,13 @@ export function TrialCountdownCard() {
         },
       ]}
       accessible
-      accessibilityLabel={`${headline}. Ends ${when}.${price ? ` Then Premium at ${price}, renewing automatically.` : ''}`}>
+      accessibilityLabel={`${headline}. Ends ${when}.${price ? ` Then ${price}, renewing automatically.` : ''}`}>
       <Ring fraction={fractionLeft} color={tone} track={glassBorder(0.14)} />
       <View style={styles.copy}>
         <Text style={[styles.headline, { color: c.text }]}>{headline}</Text>
         <Text style={[styles.line, { color: c.textMuted }]}>Ends {when}</Text>
         <Text style={[styles.line, { color: c.textSubtle }]}>
-          {price ? `Then Premium · ${price}, renews automatically. ` : 'Then Premium renews automatically. '}
+          {price ? `Then ${price}, renews automatically. ` : 'Then it renews automatically. '}
           <Text
             style={[styles.manage, { color: c.textMuted }]}
             onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}

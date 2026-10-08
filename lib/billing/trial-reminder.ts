@@ -40,8 +40,8 @@ export function trialReminderPlan(input: {
       title: 'Your free trial ends tomorrow',
       body:
         input.willRenew === false
-          ? 'After tomorrow, ChoreMaxx needs Premium to open. Subscribe any time from Settings.'
-          : `Premium starts automatically at ${input.priceLine}. To stop it, cancel from Subscription in ChoreMaxx settings before then.`,
+          ? 'After tomorrow, ChoreMaxx needs a subscription to open. Subscribe any time from Settings.'
+          : `Your subscription starts automatically at ${input.priceLine}. To stop it, cancel from Subscription in ChoreMaxx settings before then.`,
     });
   }
   if (input.willRenew === false) {

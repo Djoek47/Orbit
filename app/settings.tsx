@@ -1368,7 +1368,7 @@ export default function SettingsScreen() {
                     })()
                   ) : (
                     <Text style={[styles.premiumHeroTitle, { color: c.text }]} numberOfLines={2}>
-                      {premiumAccess.ready ? 'Premium is not active' : 'Loading…'}
+                      {premiumAccess.ready ? 'No active subscription' : 'Loading…'}
                     </Text>
                   )}
                   <Text style={[styles.premiumHeroSub, { color: c.textMuted }]}>

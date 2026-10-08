@@ -7,11 +7,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-  Easing,
-  FadeIn,
   FadeInUp,
-  withDelay,
-  withRepeat,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -24,18 +20,17 @@ import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { formatStoreFraction, type StorePrice } from '@/lib/billing/iap';
 import type { PaywallCopy } from '@/lib/billing/subscription-status';
 import { AppText as Text } from '@/components/orbit/app-text';
-import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { SegmentedControl } from '@/components/orbit/segmented-control';
 import {
   BILLING_TRIAL_DAYS,
   IAP_PRODUCTS,
-  PREMIUM_ALLOWANCE_COPY,
   type IapProductKey,
 } from '@/constants/billing';
 import { motion } from '@/constants/motion-tokens';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { FloatingMark, Sparkles } from '@/components/orbit/billing/paywall-decor';
 
 export type PremiumUsagePanel = {
   tokensUsedThisPeriod: number;
@@ -176,12 +171,6 @@ export function PremiumPaywall({
     : copy && !(copy.offersTrial && !trialEligible)
       ? copy.cta
       : fallbackCta;
-  // Apple sets the first charge for the day the trial ends; say the date, so nobody is surprised.
-  const firstCharge = new Date(Date.now() + BILLING_TRIAL_DAYS * 86_400_000).toLocaleDateString(
-    'en-US',
-    { month: 'long', day: 'numeric' }
-  );
-
   const offerLine = trialEligible
     ? `${BILLING_TRIAL_DAYS} days free, then ${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`
     : `${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`;
@@ -362,71 +351,6 @@ export function PremiumPaywall({
       </Animated.View>
       {notice ? null : null}
       {footerSlot}
-    </View>
-  );
-}
-
-/** Four small stars that twinkle and drift — life without illustrations. */
-function Sparkles({ color }: { color: string }) {
-  const spots = [
-    { top: '14%', left: '12%', size: 14, delay: 0 },
-    { top: '22%', left: '82%', size: 10, delay: 700 },
-    { top: '34%', left: '20%', size: 9, delay: 1300 },
-    { top: '30%', left: '70%', size: 16, delay: 400 },
-  ] as const;
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {spots.map((spot, i) => (
-        <Star key={i} {...spot} color={color} />
-      ))}
-    </View>
-  );
-}
-
-function Star({
-  top,
-  left,
-  size,
-  delay,
-  color,
-}: {
-  top: `${number}%`;
-  left: `${number}%`;
-  size: number;
-  delay: number;
-  color: string;
-}) {
-  const t = useSharedValue(0);
-  useEffect(() => {
-    t.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true)
-    );
-  }, [delay, t]);
-  const style = useAnimatedStyle(() => ({
-    opacity: 0.25 + t.value * 0.65,
-    transform: [{ translateY: -6 * t.value }, { scale: 0.8 + t.value * 0.35 }],
-  }));
-  return (
-    <Animated.Text style={[{ position: 'absolute', top, left, fontSize: size, color }, style]}>✦</Animated.Text>
-  );
-}
-
-/** The house mark, floating gently in a soft halo. */
-function FloatingMark() {
-  const { accentTheme } = useOrbit();
-  const t = useSharedValue(0);
-  useEffect(() => {
-    t.value = withRepeat(withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [t]);
-  const float = useAnimatedStyle(() => ({ transform: [{ translateY: -10 * t.value }] }));
-  const halo = useAnimatedStyle(() => ({ opacity: 0.35 + 0.3 * t.value, transform: [{ scale: 0.95 + 0.1 * t.value }] }));
-  return (
-    <View style={styles.markWrap}>
-      <Animated.View style={[styles.halo, { backgroundColor: `${accentTheme.primary}33` }, halo]} />
-      <Animated.View style={float}>
-        <ChoremaxxLogo size="lg" variant="icon" />
-      </Animated.View>
     </View>
   );
 }

@@ -107,11 +107,11 @@ export function PoppinsTrialLock() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(80).duration(420)} style={styles.copy}>
-          <Text style={[styles.kicker, { color: accentTheme.primary }]}>Poppins · Premium</Text>
+          <Text style={[styles.kicker, { color: accentTheme.primary }]}>Poppins</Text>
           <Text style={[styles.title, { color: c.text }]}>Talk to your house</Text>
           <Text style={[styles.text, { color: c.textMuted }]}>
             Say it once — chores assigned, groceries added, the week planned. Poppins comes with
-            Premium: {TOKENS_PER_MONTH} actions every month, refilled automatically.
+            your subscription: {TOKENS_PER_MONTH} actions every month, refilled automatically.
           </Text>
         </Animated.View>
 
@@ -120,7 +120,7 @@ export function PoppinsTrialLock() {
             onPress={() =>
               router.push({ pathname: '/premium', params: { source: 'poppins' } } as never)
             }>
-            Get Premium
+            Subscribe
           </OrbitButton>
           <Text style={[styles.fine, { color: c.textSubtle }]}>
             Your free trial covers chores, XP and rewards.

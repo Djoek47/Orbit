@@ -97,19 +97,19 @@ function PremiumPromo({ onStart }: { onStart: () => void }) {
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
-      <Text style={[styles.promoEyebrow, { color: TOPUP_TONE }]}>Premium</Text>
+      <Text style={[styles.promoEyebrow, { color: TOPUP_TONE }]}>Subscription</Text>
       <Text style={[styles.promoTitle, { color: c.text }]}>
         {TOKENS_PER_MONTH} actions every month
       </Text>
       <Text style={[styles.promoBody, { color: c.textMuted }]}>
-        Poppins comes with Premium. Subscribe and your monthly actions refill on their own, every
+        Poppins comes with your subscription. Subscribe and your monthly actions refill on their own, every
         month.
       </Text>
       <Pressable
         onPress={onStart}
         accessibilityRole="button"
         style={({ pressed }) => [styles.promoBtn, { opacity: pressed ? 0.85 : 1 }]}>
-        <Text style={styles.promoBtnText}>Start Premium now</Text>
+        <Text style={styles.promoBtnText}>Subscribe now</Text>
       </Pressable>
     </Animated.View>
   );
@@ -156,7 +156,7 @@ function CreditHistory({
           out.push({
             id: `p-${p.id}`,
             at: p.startedAt,
-            title: 'Premium monthly actions',
+            title: 'Monthly actions',
             detail: 'Your allowance for the month',
             delta: `+${TOKENS_PER_MONTH}`,
             positive: true,

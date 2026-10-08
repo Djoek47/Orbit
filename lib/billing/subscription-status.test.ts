@@ -63,13 +63,13 @@ for (const mode of ['trial-ended', 'renew', 'subscribe'] as const) {
   assert.doesNotMatch(c.cta, /trial/i);
 }
 assert.equal(paywallCopy('renew', { firstName: 'Nero', allowanceLine: '' }).title, 'Welcome back, Nero');
-assert.equal(paywallCopy('renew', { allowanceLine: '' }).cta, 'Renew Premium');
+assert.equal(paywallCopy('renew', { allowanceLine: '' }).cta, 'Renew my subscription');
 assert.match(paywallCopy('trial-ended', { allowanceLine: '' }).kicker, /trial has ended/);
 
 assert.equal(settingsPremiumButtonLabel(true, 'trial'), 'Manage subscription');
 assert.equal(settingsPremiumButtonLabel(false, 'trial'), 'Start free trial');
 assert.equal(settingsPremiumButtonLabel(false, 'trial-ended'), 'Subscribe');
-assert.equal(settingsPremiumButtonLabel(false, 'renew'), 'Renew Premium');
+assert.equal(settingsPremiumButtonLabel(false, 'renew'), 'Renew subscription');
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 const inTrial: EntitlementState = {

@@ -24,7 +24,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { ChoremaxxBadge } from '@/components/orbit/choremaxx-logo';
+import { FloatingMark, Sparkles } from '@/components/orbit/billing/paywall-decor';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { space } from '@/constants/orbit-theme';
@@ -95,11 +95,14 @@ export function HouseholdLockedScreen({
         styles.root,
         { backgroundColor: c.background, paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 },
       ]}>
+      {/* Same look as the paywall: a wash of the household colour and stars that drift. */}
       <LinearGradient
-        colors={[`${c.primary}26`, 'transparent']}
+        colors={[`${c.primary}55`, `${c.primary}18`, c.background]}
+        locations={[0, 0.45, 1]}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
+      <Sparkles color={c.primary} />
       <Pressable
         onPress={() => setMenuOpen(true)}
         hitSlop={8}
@@ -114,8 +117,8 @@ export function HouseholdLockedScreen({
       </Pressable>
 
       <View style={styles.body}>
-        <Animated.View entering={FadeIn.duration(400)} style={[styles.lockWell, { backgroundColor: glass(0.06), borderColor: glassBorder(0.14) }]}>
-          <ChoremaxxBadge size="lg" />
+        <Animated.View entering={FadeIn.duration(400)}>
+          <FloatingMark />
           <View style={[styles.lockBadge, { backgroundColor: c.background, borderColor: glassBorder(0.2) }]}>
             <MaterialIcons name="lock" size={16} color={c.primary} />
           </View>
@@ -125,7 +128,7 @@ export function HouseholdLockedScreen({
           <Text style={[styles.kicker, { color: c.primary }]}>{house}</Text>
           <Text style={[styles.title, { color: c.text }]}>ChoreMaxx is paused</Text>
           <Text style={[styles.body1, { color: c.textMuted }]}>
-            {house}&apos;s Premium isn&apos;t active, so this device can&apos;t open right now.
+            {house}&apos;s subscription isn&apos;t active, so this device can&apos;t open right now.
           </Text>
         </Animated.View>
 
@@ -134,7 +137,7 @@ export function HouseholdLockedScreen({
           style={[styles.card, { backgroundColor: glass(0.05), borderColor: glassBorder(0.12) }]}>
           <MaterialIcons name="admin-panel-settings" size={22} color={c.primary} />
           <Text style={[styles.cardText, { color: c.text }]}>
-            Only {who} can renew Premium, from their own phone. As soon as they do, this device
+            Only {who} can renew the subscription, from their own phone. As soon as they do, this device
             opens again by itself — everything is saved.
           </Text>
         </Animated.View>
@@ -193,7 +196,7 @@ const styles = StyleSheet.create({
   copy: { alignItems: 'center', gap: 10 },
   kicker: { fontSize: 12.5, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
   lockWell: { alignItems: 'center', borderRadius: 36, borderWidth: 1, height: 112, justifyContent: 'center', width: 112 },
-  lockBadge: { alignItems: 'center', borderRadius: 16, borderWidth: 1, bottom: -6, height: 32, justifyContent: 'center', position: 'absolute', right: -6, width: 32 },
+  lockBadge: { alignItems: 'center', alignSelf: 'center', borderRadius: 16, borderWidth: 1, bottom: 18, height: 32, justifyContent: 'center', marginLeft: 44, position: 'absolute', width: 32 },
   card: { alignItems: 'flex-start', alignSelf: 'stretch', borderCurve: 'continuous', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 16 },
   cardText: { flex: 1, fontSize: 15, lineHeight: 21 },
   accountChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, minHeight: 40, paddingHorizontal: 14, position: 'absolute', right: space.lg, zIndex: 2 },
