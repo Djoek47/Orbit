@@ -191,6 +191,22 @@ Deno.serve(async (req) => {
         const topCategory = body.categories
           ? Object.entries(body.categories).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
           : null;
+        // Screenshots go to the private support-attachments bucket so the console can show them.
+        const attachmentPaths: string[] = [];
+        for (const [i, a] of attachments.entries()) {
+          try {
+            const bytes = Uint8Array.from(atob(a.content), (ch) => ch.charCodeAt(0));
+            const ext = (a.filename.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const path = `${ref}/${i + 1}.${ext || 'jpg'}`;
+            const { error: upErr } = await admin.storage
+              .from('support-attachments')
+              .upload(path, bytes, { contentType: a.content_type, upsert: true });
+            if (!upErr) attachmentPaths.push(path);
+            else console.warn('support screenshot not stored', upErr.message);
+          } catch (e) {
+            console.warn('support screenshot not stored', e);
+          }
+        }
         const { error: ticketError } = await admin.from('support_tickets').insert({
           ref,
           via: 'app',
@@ -206,7 +222,7 @@ Deno.serve(async (req) => {
           device: typeof meta.device === 'string' ? meta.device : null,
           error_count: errorCount,
           error_log: body.errorLog?.slice(0, 20000) ?? null,
-          meta: { ...meta, screenshotUrls, categories: body.categories ?? {} },
+          meta: { ...meta, screenshotUrls, attachmentPaths, categories: body.categories ?? {} },
         });
         if (ticketError) console.warn('support ticket not filed', ticketError.message);
       }

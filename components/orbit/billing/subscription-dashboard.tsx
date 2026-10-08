@@ -22,7 +22,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -38,6 +44,7 @@ import {
   subscriptionSummary,
   type HistoryEntry,
 } from '@/lib/billing/subscription-status';
+import { useShowBillingDiagnostics } from '@/lib/billing/store-environment';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
@@ -48,8 +55,9 @@ type Props = {
   busy?: boolean;
   statusMessage?: string | null;
   errorMessage?: string | null;
-  /** True when this phone's Apple ID is not the one paying — another admin is. */
-  paidByAnotherAdmin?: boolean;
+  /** The plan this iPhone's own Apple ID holds, if any. Null when the household is covered some
+   * other way (another admin's Apple ID, or a trial recorded on the household). */
+  deviceProductId?: string | null;
   onManage: () => void;
   onRestore: () => void;
   /** Buy a plan outright — offered during a trial. Never a free-trial button: inside the app
@@ -97,12 +105,13 @@ export function SubscriptionDashboard({
   busy,
   statusMessage,
   errorMessage,
-  paidByAnotherAdmin,
+  deviceProductId = null,
   onManage,
   onRestore,
   onSubscribe,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const showDiagnostics = useShowBillingDiagnostics();
   const { c, glass, glassBorder } = useOrbitColors();
   const summary = subscriptionSummary(entitlement, renewal);
   const toneColor = summary.tone === 'warn' ? '#E9A23B' : summary.tone === 'good' ? '#3BB273' : c.textMuted;
@@ -164,79 +173,19 @@ export function SubscriptionDashboard({
               Switching to {planLabelFor(renewal.pendingProductId)} at the next renewal.
             </Text>
           ) : null}
-          {paidByAnotherAdmin ? (
-            <Text style={[styles.note, { color: c.textMuted }]}>
-              Another admin in your household pays for this subscription. Only they can manage it.
-            </Text>
-          ) : null}
         </Animated.View>
 
         {statusMessage ? <Text style={[styles.status, { color: c.primary }]}>{statusMessage}</Text> : null}
         {errorMessage ? <Text style={[styles.status, { color: c.danger }]}>{errorMessage}</Text> : null}
 
-        {paidByAnotherAdmin ? null : (
-        <View style={{ gap: 10 }}>
-          <Text style={[styles.sectionLabel, { color: c.textMuted }]}>PLANS</Text>
-          <View style={styles.planRow}>
-            {(['monthly', 'yearly'] as const).map((period) => {
-              const plan = IAP_SUBSCRIPTIONS[period];
-              const current = entitlement.productId === plan.productId;
-              const display = storePrices[plan.productId]?.display ?? `$${plan.priceUsd}`;
-              // During a trial: buy either plan now. Once paid: the current one is marked, the
-              // other switches through Apple's sheet (Apple applies plan changes itself).
-              const action = summary.inTrial && onSubscribe
-                ? () => onSubscribe(period)
-                : current
-                  ? null
-                  : onManage;
-              const label = summary.inTrial ? 'Subscribe' : current ? 'Current plan' : 'Switch';
-              return (
-                <View
-                  key={period}
-                  style={[
-                    styles.planCard,
-                    {
-                      backgroundColor: glass(0.05),
-                      borderColor: current ? toneColor : glassBorder(0.12),
-                    },
-                  ]}>
-                  <Text style={[styles.planName, { color: c.textMuted }]}>
-                    {period === 'yearly' ? 'YEARLY' : 'MONTHLY'}
-                  </Text>
-                  <Text style={[styles.planPrice, { color: c.text }]}>{display}</Text>
-                  <Text style={[styles.planPer, { color: c.textMuted }]}>
-                    {period === 'yearly' ? `per year · ${IAP_SUBSCRIPTIONS.yearly.savingsLabel}` : 'per month'}
-                  </Text>
-                  <Pressable
-                    disabled={!action || busy}
-                    onPress={action ?? undefined}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${label}, ${period}`}
-                    style={({ pressed }) => [
-                      styles.planBtn,
-                      {
-                        backgroundColor: action ? c.primary : 'transparent',
-                        borderColor: action ? c.primary : glassBorder(0.16),
-                        opacity: pressed ? 0.8 : 1,
-                      },
-                    ]}>
-                    <Text style={[styles.planBtnText, { color: action ? '#fff' : c.textMuted }]}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            })}
-          </View>
-          {summary.inTrial ? (
-            <Text style={[styles.note, { color: c.textMuted }]}>
-              Your trial turns into your subscription on its own. Choosing a plan here is optional:
-              payment is charged to your Apple ID when you confirm, and renews automatically
-              unless cancelled at least 24 hours before the end of the period.
-            </Text>
-          ) : null}
-        </View>
-        )}
+        <PlanPicker
+          storePrices={storePrices}
+          deviceProductId={deviceProductId}
+          householdEndsAt={summary.endsAt}
+          busy={busy}
+          onSubscribe={onSubscribe}
+          onManage={onManage}
+        />
 
         <SettingsGroup header="Manage">
           <SettingsNavRow
@@ -260,6 +209,7 @@ export function SubscriptionDashboard({
             subtitle="Your monthly actions and extra packs"
             onPress={() => router.push('/poppins-credits' as never)}
           />
+          {showDiagnostics ? (
           <SettingsNavRow
             icon="science"
             iconColor="#8E8E93"
@@ -268,6 +218,7 @@ export function SubscriptionDashboard({
             onPress={() => router.push('/billing-diagnostics' as never)}
             last
           />
+          ) : null}
         </SettingsGroup>
 
         <SettingsGroup header="History">
@@ -324,7 +275,165 @@ export function SubscriptionDashboard({
   );
 }
 
+/**
+ * Monthly and Yearly, side by side, right under the countdown. Tap one to choose it — it lifts,
+ * its border lights and a check appears — then one button underneath does the right thing:
+ *
+ *   this iPhone holds no plan      Subscribe · <price>        → Apple's purchase sheet
+ *   this iPhone holds this plan    Your plan (disabled)
+ *   this iPhone holds the other    Switch to <plan>           → Apple's subscription sheet
+ *
+ * Never a free-trial button: inside the app, the trial has already been used.
+ */
+function PlanPicker({
+  storePrices,
+  deviceProductId,
+  householdEndsAt,
+  busy,
+  onSubscribe,
+  onManage,
+}: {
+  storePrices: Record<string, StorePrice>;
+  deviceProductId: string | null;
+  householdEndsAt: string | null;
+  busy?: boolean;
+  onSubscribe?: (period: 'monthly' | 'yearly') => void;
+  onManage: () => void;
+}) {
+  const { c, glass, glassBorder } = useOrbitColors();
+  const heldPeriod =
+    deviceProductId === IAP_SUBSCRIPTIONS.yearly.productId
+      ? 'yearly'
+      : deviceProductId === IAP_SUBSCRIPTIONS.monthly.productId
+        ? 'monthly'
+        : null;
+  const [picked, setPicked] = useState<'monthly' | 'yearly'>(heldPeriod === 'yearly' ? 'monthly' : 'yearly');
+  const priceOf = (period: 'monthly' | 'yearly') =>
+    storePrices[IAP_SUBSCRIPTIONS[period].productId]?.display ?? `$${IAP_SUBSCRIPTIONS[period].priceUsd}`;
+
+  const isHeld = heldPeriod === picked;
+  const cta = isHeld
+    ? 'Your plan'
+    : heldPeriod
+      ? `Switch to ${picked === 'yearly' ? 'Yearly' : 'Monthly'}`
+      : `Subscribe ${picked === 'yearly' ? 'yearly' : 'monthly'} · ${priceOf(picked)}`;
+  const act = isHeld ? null : heldPeriod ? onManage : onSubscribe ? () => onSubscribe(picked) : null;
+
+  return (
+    <Animated.View entering={FadeInDown.delay(80).duration(380)} style={{ gap: 10 }}>
+      <Text style={[styles.sectionLabel, { color: c.textMuted }]}>PLANS</Text>
+      <View style={styles.planRow}>
+        {(['monthly', 'yearly'] as const).map((period, index) => (
+          <PlanCard
+            key={period}
+            index={index}
+            title={period === 'yearly' ? 'Yearly' : 'Monthly'}
+            price={priceOf(period)}
+            per={period === 'yearly' ? 'per year' : 'per month'}
+            badge={period === 'yearly' ? IAP_SUBSCRIPTIONS.yearly.savingsLabel : heldPeriod === period ? 'Your plan' : null}
+            held={heldPeriod === period}
+            selected={picked === period}
+            onPress={() => setPicked(period)}
+            disabled={busy}
+            colors={{ text: c.text, muted: c.textMuted, accent: c.primary, fill: glass(0.05), border: glassBorder(0.12) }}
+          />
+        ))}
+      </View>
+      <Pressable
+        disabled={!act || busy}
+        onPress={act ?? undefined}
+        accessibilityRole="button"
+        accessibilityLabel={cta}
+        style={({ pressed }) => [
+          styles.planCta,
+          {
+            backgroundColor: act ? c.primary : 'transparent',
+            borderColor: act ? c.primary : glassBorder(0.16),
+            opacity: busy ? 0.55 : pressed ? 0.85 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          },
+        ]}>
+        <Text style={[styles.planCtaText, { color: act ? '#fff' : c.textMuted }]}>{busy ? 'Please wait…' : cta}</Text>
+      </Pressable>
+      <Text style={[styles.note, { color: c.textMuted }]}>
+        {heldPeriod
+          ? 'Plan changes are made in Apple’s subscription settings and take effect at your next renewal or straight away, as Apple decides.'
+          : householdEndsAt
+            ? `Your household is covered until ${longDate(householdEndsAt)}. Subscribing here starts a plan on this iPhone’s Apple ID. `
+            : ''}
+        Payment is charged to your Apple ID when you confirm and renews automatically unless cancelled at least 24 hours before the end of the period.
+      </Text>
+    </Animated.View>
+  );
+}
+
+function PlanCard({
+  index,
+  title,
+  price,
+  per,
+  badge,
+  held,
+  selected,
+  onPress,
+  disabled,
+  colors,
+}: {
+  index: number;
+  title: string;
+  price: string;
+  per: string;
+  badge: string | null;
+  held: boolean;
+  selected: boolean;
+  onPress: () => void;
+  disabled?: boolean;
+  colors: { text: string; muted: string; accent: string; fill: string; border: string };
+}) {
+  const lift = useSharedValue(selected ? 1 : 0);
+  useEffect(() => {
+    lift.value = withSpring(selected ? 1 : 0, { damping: 14, stiffness: 180 });
+  }, [selected, lift]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: -4 * lift.value }, { scale: 1 + 0.02 * lift.value }],
+    shadowOpacity: 0.25 * lift.value,
+  }));
+  return (
+    <Animated.View entering={FadeInDown.delay(140 + index * 90).springify().damping(16)} style={[{ flex: 1 }, style, styles.planShadow]}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityRole="radio"
+        accessibilityState={{ selected }}
+        accessibilityLabel={`${title}, ${price} ${per}${held ? ', your plan' : ''}`}
+        style={[
+          styles.planCard,
+          { backgroundColor: colors.fill, borderColor: selected ? colors.accent : colors.border, borderWidth: selected ? 2 : 1 },
+        ]}>
+        <View style={styles.planTop}>
+          <Text style={[styles.planName, { color: colors.muted }]}>{title.toUpperCase()}</Text>
+          {selected ? <MaterialIcons name="check-circle" size={18} color={colors.accent} /> : <View style={[styles.planDot, { borderColor: colors.border }]} />}
+        </View>
+        <Text style={[styles.planPrice, { color: colors.text }]}>{price}</Text>
+        <Text style={[styles.planPer, { color: colors.muted }]}>{per}</Text>
+        {badge ? (
+          <View style={[styles.planBadge, { backgroundColor: `${colors.accent}22` }]}>
+            <Text style={[styles.planBadgeText, { color: colors.accent }]}>{badge}</Text>
+          </View>
+        ) : null}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
+  planShadow: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowRadius: 16 },
+  planTop: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  planDot: { borderRadius: 9, borderWidth: 1.5, height: 18, width: 18 },
+  planBadge: { alignSelf: 'flex-start', borderRadius: 999, marginTop: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  planBadgeText: { fontSize: 11.5, fontWeight: '800' },
+  planCta: { alignItems: 'center', borderRadius: 999, borderWidth: 1, justifyContent: 'center', minHeight: 50 },
+  planCtaText: { fontSize: 16, fontWeight: '800' },
   body: { gap: 18, paddingHorizontal: 20, paddingTop: 8 },
   hero: { borderCurve: 'continuous', borderRadius: 22, borderWidth: 1, gap: 14, padding: 18 },
   heroTop: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },

@@ -1,4 +1,5 @@
 import { AppState } from 'react-native';
+import { sendHouseholdEmail } from '@/lib/billing/send-household-email';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -7150,6 +7151,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       members: [...current.members, created],
     }));
     await trackAnalytics('member.shared_device_created', { memberId: created.id }, analyticsContext);
+    sendHouseholdEmail({
+      kind: 'shared_device_created',
+      householdId: household.id ?? '',
+      subjectName: created.name,
+      dedupeKey: `device:${created.id}`,
+    });
     emitTourEvent('shared_device_set_up', { memberId: created.id });
     return created;
   };
@@ -7289,6 +7296,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         code: member.profileInviteCode,
       });
       created.push(member);
+      sendHouseholdEmail({
+        kind: 'sidekick_added',
+        householdId,
+        subjectName: member.name,
+        code: member.profileInviteCode,
+        dedupeKey: `sidekick:${member.id}`,
+      });
       emitTourEvent('member_created', { memberId: member.id });
     }
 
@@ -7360,6 +7374,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           householdId,
           householdName,
           code: member.profileInviteCode,
+        });
+        sendHouseholdEmail({
+          kind: 'sidekick_added',
+          householdId,
+          subjectName: member.name,
+          code: member.profileInviteCode,
+          dedupeKey: `sidekick:${member.id}`,
         });
       }
       created.push(member);

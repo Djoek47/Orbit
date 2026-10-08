@@ -114,10 +114,10 @@ export function OutOfActionsSheet({ visible, balance, onClose, onTrial }: Props)
       // The refill: water rises, the number counts up.
       setFill(1);
       setShownTarget((n) => n + bought.grant.tokens);
-      setDone({ tokens: bought.grant.tokens, mail: 'Sending your receipt…' });
+      setDone({ tokens: bought.grant.tokens, mail: 'Confirmation email on its way…' });
       void bought.mailed.then((m) =>
         setDone((d) =>
-          d ? { ...d, mail: m.ok ? `Receipt sent to ${m.to}` : 'Receipt saved in Poppins credits' } : d
+          d ? { ...d, mail: m.ok ? `Confirmation email sent to ${m.to}` : 'Receipt saved in Poppins credits' } : d
         )
       );
     } catch (err) {

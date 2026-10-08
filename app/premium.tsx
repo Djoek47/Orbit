@@ -3,7 +3,7 @@
  */
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -289,6 +289,13 @@ export default function PremiumScreen() {
         }
       });
       setStatusMessage(next.inTrial ? 'Trial started' : 'Subscription active');
+      const inbox = currentUser?.email ? ` to ${currentUser.email}` : '';
+      Alert.alert(
+        next.inTrial ? 'Your free trial has started' : 'You’re subscribed',
+        next.inTrial
+          ? `Welcome to ${plan}. Nothing is charged until ${formatRenewalDate(next.expiresAt)}, and you can cancel any time in your Apple subscriptions. A confirmation email is on its way${inbox}.`
+          : `${plan} is active, ${price}. A confirmation email is on its way${inbox}.`
+      );
       void sub.refresh();
       await setPremiumOnboardingGate('started');
       await new Promise((r) => setTimeout(r, 700));
@@ -404,7 +411,9 @@ export default function PremiumScreen() {
         busy={busy}
         statusMessage={statusMessage}
         errorMessage={errorMessage}
-        paidByAnotherAdmin={Boolean(entitlement) && !isPremiumActive(entitlement!)}
+        deviceProductId={
+          access.deviceEntitlement?.active ? access.deviceEntitlement.productId ?? null : null
+        }
         onManage={() => void manage()}
         onRestore={() => void restore()}
         onSubscribe={(period) => void startTrial(period)}

@@ -668,11 +668,11 @@ function ReceiptMailRow({ mail }: { mail: ReceiptMail | null }) {
   if (!mail) return null;
   const label =
     mail.kind === 'sending'
-      ? 'Sending your receipt…'
+      ? 'Confirmation email on its way…'
       : mail.kind === 'sent'
         ? mail.to
-          ? `Receipt sent to ${mail.to}`
-          : 'Receipt sent to your email'
+          ? `Confirmation email sent to ${mail.to}`
+          : 'Confirmation email sent'
         : mail.kind === 'saved'
           ? 'Receipt saved on this device'
           : 'Receipt saved here · the email didn’t send';

@@ -198,8 +198,20 @@ export function AccessProvider({ children }: { children: ReactNode }) {
           priceLine: `$${catalog.priceUsd}/${yearly ? 'year' : 'month'}`,
         })
       );
+      // Trial-ending email, once per trial, inside the last ~26 hours.
+      const left = local.expiresAt ? new Date(local.expiresAt).getTime() - Date.now() : NaN;
+      if (local.inTrial && local.active && left > 0 && left <= 26 * 3600_000 && household.id) {
+        const { sendHouseholdEmail } = await import('@/lib/billing/send-household-email');
+        sendHouseholdEmail({
+          kind: 'trial_ending',
+          householdId: household.id,
+          endsAt: local.expiresAt!,
+          priceLine: renewal.willRenew === false ? undefined : `$${catalog.priceUsd}/${yearly ? 'year' : 'month'}`,
+          dedupeKey: `trial-ending:${local.expiresAt}`,
+        });
+      }
     })();
-  }, [canPurchase, local]);
+  }, [canPurchase, local, household.id]);
 
   const value = useMemo(
     () => ({ ready, view, entitlement, canPurchase, refresh, deviceEntitlement: local }),

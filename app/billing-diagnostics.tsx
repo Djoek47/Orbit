@@ -38,6 +38,7 @@ import {
 import { openManageSubscriptions } from '@/lib/billing/manage-subscriptions';
 import { loadTokenGrants, topUpBalanceFromGrants } from '@/lib/billing/token-grants';
 import type { EntitlementState } from '@/constants/billing';
+import { useShowBillingDiagnostics } from '@/lib/billing/store-environment';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -59,6 +60,7 @@ export default function BillingDiagnosticsScreen() {
   const { c, glass, glassBorder } = useOrbitColors();
   const { household, currentMember } = useOrbit();
   const access = useAccess();
+  const showDiagnostics = useShowBillingDiagnostics();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -101,7 +103,8 @@ export default function BillingDiagnosticsScreen() {
     }
   };
 
-  if (currentMember && currentMember.role !== 'owner' && currentMember.role !== 'admin') {
+  // App Store installs never show this screen, even through a stale link.
+  if (!showDiagnostics || (currentMember && currentMember.role !== 'owner' && currentMember.role !== 'admin')) {
     return <Redirect href={'/(tabs)' as never} />;
   }
 

@@ -94,9 +94,14 @@ Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
   // A reply to an existing ticket: "Re: [ChoreMaxx Support CMX-4821] …"
-  const ref = subject.match(/CMX-\d{4}/)?.[0];
+  // Refs: console tickets "CMX-4821", app tickets "CMX-SUP-XFCZB0".
+  const ref = subject.match(/CMX-SUP-[A-Z0-9]{4,}|CMX-\d{4}/)?.[0];
+  // The app's own copy of a support request (sent from noreply, reply-to the customer).
+  const fromApp = fromEmail.startsWith('noreply@') && /Support request from the Choremaxx app/i.test(subject + text);
   if (ref) {
     const { data: ticket } = await admin.from('support_tickets').select('id').eq('ref', ref).maybeSingle();
+    // The app already filed this ticket with its error log and screenshots: nothing to add.
+    if (ticket && fromApp) return Response.json({ ok: true, ticket: ref, duplicate: true });
     if (ticket) {
       await admin.from('support_replies').upsert(
         {
@@ -136,16 +141,32 @@ Deno.serve(async (req) => {
     householdId = member?.household_id ?? null;
   }
 
+  // An app request whose ticket wasn't filed (older builds): rebuild it from the email so the
+  // console still gets the customer, household and error log.
+  const line = (label: string) => text.match(new RegExp(`^${label}:\\s*(.+)$`, 'mi'))?.[1]?.trim() ?? null;
+  const appFrom = fromApp ? line('From') : null;
+  const appEmail = appFrom?.match(/<([^>]+)>/)?.[1]?.toLowerCase() ?? null;
+  const errorLog = fromApp ? text.split(/—— Error log ——/)[1]?.trim() ?? null : null;
+  const uuid = (v: string | null) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null);
+
   const { error } = await admin.from('support_tickets').upsert(
     {
-      ref: ticketRef(),
-      via: 'email',
+      ref: fromApp && ref ? ref : ticketRef(),
+      via: fromApp ? 'app' : 'email',
       subject: subject || '(no subject)',
-      body: text,
-      from_name: fromName,
-      from_email: fromEmail,
-      user_id: userId,
-      household_id: householdId,
+      body: fromApp ? text.split('—— Error log ——')[0].trim() : text,
+      from_name: fromApp ? appFrom?.replace(/<[^>]+>/, '').trim() || null : fromName,
+      from_email: fromApp ? appEmail : fromEmail,
+      user_id: fromApp ? uuid(line('User id')) : userId,
+      household_id: fromApp ? uuid(line('Household')) : householdId,
+      ...(fromApp
+        ? {
+            member_role: line('memberRole'),
+            app_version: line('appVersion'),
+            error_count: Number(line('Errors attached') ?? 0) || 0,
+            error_log: errorLog?.slice(0, 20000) ?? null,
+          }
+        : {}),
       resend_email_id: event.data.email_id,
     },
     { onConflict: 'resend_email_id', ignoreDuplicates: true }
