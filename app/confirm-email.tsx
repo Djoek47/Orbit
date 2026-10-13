@@ -118,8 +118,11 @@ export default function ConfirmEmailScreen() {
   };
 
   /** Signed in + confirmed: hydrate (bounded) and move on. Never waits on an auth listener. */
+  const continuingRef = useRef(false);
+  const lastSilentCheckRef = useRef(0);
   const continueSignedIn = async () => {
-    if (finishingRef.current) return;
+    if (finishingRef.current || continuingRef.current) return;
+    continuingRef.current = true;
     try {
       const next = await withTimeout(
         import('@/repositories/auth-repository').then((m) => m.authRepository.getCurrentSession()),
@@ -134,12 +137,22 @@ export default function ConfirmEmailScreen() {
     } catch (err) {
       console.warn('confirm-email continueSignedIn', err);
     }
-    await finishOnboarding();
+    try {
+      await finishOnboarding();
+    } finally {
+      continuingRef.current = false;
+    }
   };
 
   /** Shared by "Already confirmed", app-foreground and code-error fallbacks. Single-flight. */
-  const runConfirmCheck = (silent: boolean) =>
-    checkFlight.run(async () => {
+  const runConfirmCheck = (silent: boolean) => {
+    // Background checks sign in with the saved password: at most once every 30 s, so switching
+    // apps while waiting for the email can't run into Supabase's auth rate limit.
+    if (silent) {
+      if (Date.now() - lastSilentCheckRef.current < 30_000) return Promise.resolve('unknown' as ConfirmCheckResult);
+      lastSilentCheckRef.current = Date.now();
+    }
+    return checkFlight.run(async () => {
       if (!silent) {
         setChecking(true);
         setIssue(null);
@@ -170,6 +183,7 @@ export default function ConfirmEmailScreen() {
         if (!silent) setChecking(false);
       }
     });
+  };
 
   // Confirmed in Safari/Chrome, then came back: re-check on foreground (and once on mount).
   useEffect(() => {

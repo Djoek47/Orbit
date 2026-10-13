@@ -103,11 +103,18 @@ const MOCK_PLACE_IDS = new Set([
   'store-quickstop',
   'store-wholesale',
 ]);
-const MOCK_PLACE_NAMES = new Set(['freshmart', 'quickstop', 'orbit wholesale']);
+/** Name + address pairs of the demo stores. A real shop with the same name elsewhere is kept. */
+const MOCK_NAME_ADDRESS = new Set([
+  'freshmart|1200 market street',
+  'freshmart|850 main st',
+  'quickstop|45 oak avenue',
+  'orbit wholesale|880 industrial blvd',
+]);
 
 export function isMockSeedPlace(place: Pick<SavedPlace, 'id' | 'name' | 'address'>): boolean {
   if (MOCK_PLACE_IDS.has(place.id)) return true;
-  return MOCK_PLACE_NAMES.has((place.name ?? '').trim().toLowerCase());
+  const key = `${(place.name ?? '').trim().toLowerCase()}|${(place.address ?? '').trim().toLowerCase().replace(/,.*$/, '')}`;
+  return MOCK_NAME_ADDRESS.has(key);
 }
 
 /** Real households: strip any demo seed copies that leaked into storage. */

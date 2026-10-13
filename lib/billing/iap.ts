@@ -484,8 +484,8 @@ export async function isTrialEligible(productKey: IapProductKey): Promise<boolea
       const mode = String(row.introductoryPricePaymentModeIOS ?? '')
         .toLowerCase()
         .replace(/[^a-z]/g, '');
-      // No intro-offer field at all (sandbox, offer not attached yet): unknown, not "no".
-      if (!mode) return true;
+      // The product is live but has no introductory offer: Apple charges on confirm. No trial.
+      if (!mode) return false;
       if (mode !== 'freetrial') return false;
       const group = row.subscriptionGroupIdIOS;
       if (typeof group !== 'string' || !group) return true;

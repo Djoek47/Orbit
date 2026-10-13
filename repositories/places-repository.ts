@@ -20,7 +20,9 @@ export const placesRepository = {
     if (raw == null || isMockMode()) return raw;
     // Real households never carry demo seed places; clean any copies that leaked in.
     const clean = stripMockSeedPlaces(raw);
-    if (clean.length !== raw.length) void placesRepository.saveAll(householdId, clean);
+    if (clean.length !== raw.length) {
+      placesRepository.saveAll(householdId, clean).catch((error: unknown) => console.warn('places cleanup', error));
+    }
     return clean;
   },
 

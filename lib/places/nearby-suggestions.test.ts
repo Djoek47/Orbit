@@ -107,8 +107,13 @@ console.log('nearby-suggestions: ok');
   assert.deepEqual(list.map((x) => x.id), ['home', 'x', 'y']);
   assert.deepEqual(appendSavedPlace(list, p('x', 'IGA 2')).map((x) => x.name), ['Home', 'IGA 2', 'Metro']);
   assert.deepEqual(
-    stripMockSeedPlaces([p('place-shop', 'FreshMart'), p('z', 'FreshMart'), p('k', 'Metro')]).map((x) => x.id),
-    ['k']
+    stripMockSeedPlaces([
+      p('place-shop', 'FreshMart'),
+      { ...p('z', 'FreshMart'), address: '1200 Market Street' },
+      { ...p('real', 'FreshMart'), address: '4500 Rue Real, Montréal' },
+      p('k', 'Metro'),
+    ]).map((x) => x.id),
+    ['real', 'k']
   );
 }
 console.log('nearby-suggestions add-flow ok');
