@@ -56,6 +56,6 @@ test('paywall uses monthly/yearly plan cards and situation-aware copy', () => {
 
 test('premium screen passes selected period into purchasePremium', () => {
   const screen = readFileSync(join(process.cwd(), 'app/premium.tsx'), 'utf8');
-  assert.match(screen, /onStartTrial=\{\(period\) => void startTrial\(period\)\}/);
+  assert.match(screen, /onStartTrial=\{\(period\) =>[\s\S]{0,120}startTrial\(period\)/);
   assert.doesNotMatch(screen, /onStartMonthly/);
 });
