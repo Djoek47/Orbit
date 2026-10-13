@@ -348,14 +348,9 @@ export function PremiumPaywall({
           </Pressable>
         ) : null}
 
-        {/* Required by Apple next to the button (3.1.2): price, period, auto-renewal, how to cancel. */}
+        {/* Required by Apple next to the button (3.1.2): price, period, auto-renewal, how to cancel. Kept to one line. */}
         <Text style={[styles.legal, { color: halloween ? '#9D8FBF' : c.textSubtle }]}>
-          {offerLine}.{' '}
-          {trialEligible
-            ? 'Payment is charged to your Apple ID when the trial ends'
-            : 'Payment is charged to your Apple ID when you confirm'}
-          {' '}and renews automatically unless cancelled at least 24 hours before the end of the
-          period, in your Apple ID settings under Subscriptions.
+          {offerLine}, renews automatically. Cancel anytime in Settings › Apple ID › Subscriptions.
         </Text>
 
         <View style={styles.links}>

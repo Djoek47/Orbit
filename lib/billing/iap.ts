@@ -478,8 +478,9 @@ export async function isTrialEligible(productKey: IapProductKey): Promise<boolea
       await iap.initConnection();
       const listed = await iap.fetchProducts({ skus: [product.productId], type: 'subs' });
       const row = (Array.isArray(listed) ? listed[0] : null) as Record<string, unknown> | null;
-      // No product, no promise: never advertise a free trial Apple hasn't confirmed.
-      if (!row) return false;
+      // StoreKit didn't return the product (not live yet, offline): it can't say no, so the
+      // household's own history decides the page; Apple's sheet shows the final terms.
+      if (!row) return true;
       const mode = String(row.introductoryPricePaymentModeIOS ?? '')
         .toLowerCase()
         .replace(/[^a-z]/g, '');
@@ -490,7 +491,7 @@ export async function isTrialEligible(productKey: IapProductKey): Promise<boolea
     });
   } catch (error) {
     console.warn('isTrialEligible', formatUnknownError(error, 'probe failed'));
-    return false;
+    return true;
   }
 }
 

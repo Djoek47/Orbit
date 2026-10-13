@@ -56,7 +56,7 @@ assert.match(paywall, /dismissible \? \(/, 'the dismiss link is conditional');
 assert.match(paywall, /Account/, 'and the gate offers Account instead');
 // Trial wording only where StoreKit says the trial applies.
 assert.match(paywall, /trialEligible \? 'Start Free Trial' : 'Subscribe'/);
-assert.match(paywall, /Payment is charged to your Apple ID when you confirm/);
+assert.match(paywall, /renews automatically\. Cancel anytime in Settings/, "the one-line 3.1.2 disclosure: price, period, auto-renew, how to cancel");
 // Still carries what 3.1.2 needs, in both states.
 assert.match(paywall, /CHOREMAXX_LEGAL\.termsUrl/);
 assert.match(paywall, /CHOREMAXX_LEGAL\.privacyUrl/);
