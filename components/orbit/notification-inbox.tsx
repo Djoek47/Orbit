@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { HalloweenCard } from '@/components/orbit/seasonal/seasonal-card';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -353,6 +354,7 @@ export function NotificationInbox({
         style={styles.scroll}
         contentContainerStyle={[orbitScreen.content, { paddingTop: space.sm, paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}>
+        <HalloweenCard placement="activity" />
         {segment === 'alerts' ? (
           <AlertsFeed
             isAdmin={isAdmin}

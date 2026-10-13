@@ -8,7 +8,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "choremaxx",
     "userInterfaceStyle": "automatic",
-      "ios": {
+    "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.choremaxx.household",
       "buildNumber": "1",
@@ -28,7 +28,9 @@
         "NSPhotoLibraryUsageDescription": "Choremaxx uses your photos for profile pictures and task proof attachments.",
         "NSPhotoLibraryAddUsageDescription": "Choremaxx can save task proof photos to your library when you choose.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "UISupportedInterfaceOrientations~ipad": [
           "UIInterfaceOrientationPortrait",
           "UIInterfaceOrientationPortraitUpsideDown",
@@ -40,7 +42,9 @@
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           }
         ]
       }
@@ -70,7 +74,10 @@
               "pathPrefix": "/join"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "permissions": [
@@ -197,6 +204,54 @@
             },
             "android": {
               "foregroundImage": "./assets/brand/icons/icon-berry-foreground.png",
+              "backgroundColor": "#7F77DD"
+            }
+          },
+          {
+            "name": "SkyHalloween",
+            "ios": {
+              "light": "./assets/brand/icons/halloween/icon-sky-halloween.png",
+              "dark": "./assets/brand/icons/halloween/icon-sky-halloween-dark.png",
+              "tinted": "./assets/brand/icons/halloween/icon-sky-halloween-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/halloween/icon-sky-halloween-foreground.png",
+              "backgroundColor": "#378ADD"
+            }
+          },
+          {
+            "name": "CitrusHalloween",
+            "ios": {
+              "light": "./assets/brand/icons/halloween/icon-citrus-halloween.png",
+              "dark": "./assets/brand/icons/halloween/icon-citrus-halloween-dark.png",
+              "tinted": "./assets/brand/icons/halloween/icon-citrus-halloween-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/halloween/icon-citrus-halloween-foreground.png",
+              "backgroundColor": "#EF9F27"
+            }
+          },
+          {
+            "name": "CoralHalloween",
+            "ios": {
+              "light": "./assets/brand/icons/halloween/icon-coral-halloween.png",
+              "dark": "./assets/brand/icons/halloween/icon-coral-halloween-dark.png",
+              "tinted": "./assets/brand/icons/halloween/icon-coral-halloween-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/halloween/icon-coral-halloween-foreground.png",
+              "backgroundColor": "#D85A30"
+            }
+          },
+          {
+            "name": "BerryHalloween",
+            "ios": {
+              "light": "./assets/brand/icons/halloween/icon-berry-halloween.png",
+              "dark": "./assets/brand/icons/halloween/icon-berry-halloween-dark.png",
+              "tinted": "./assets/brand/icons/halloween/icon-berry-halloween-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/brand/icons/halloween/icon-berry-halloween-foreground.png",
               "backgroundColor": "#7F77DD"
             }
           }

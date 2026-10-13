@@ -7,6 +7,7 @@ import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native
 import { Avatar } from '@/components/orbit/avatar';
 import { GlassCard } from '@/components/orbit/glass-card';
 import { GettingStartedCard } from '@/components/orbit/tour/getting-started-card';
+import { HalloweenCard } from '@/components/orbit/seasonal/seasonal-card';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { TourUpgradeOfferCard } from '@/components/orbit/tour/tour-upgrade-offer';
 import { TourContinueCard } from '@/components/orbit/tour/tour-continue-card';
@@ -378,6 +379,7 @@ export default function HomeScreen() {
           </TourTarget>
         ) : null}
 
+        <HalloweenCard placement="home" />
         <TourUpgradeOfferCard />
         <TourContinueCard />
         {tour?.checklistVisible ? (

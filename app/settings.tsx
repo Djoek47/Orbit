@@ -1,4 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { setHalloween, useSeasonal } from '@/lib/theme/seasonal';
+import { SeasonMonster } from '@/components/orbit/seasonal/halloween-decor';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -155,6 +157,23 @@ type Section =
   | 'premium';
 
 /** Make AdminScreen.tsx — Settings sheet chrome. */
+/** Seasonal switch — only during the season, only in a build that has it. */
+function HalloweenToggle() {
+  const season = useSeasonal();
+  const { c } = useOrbitColors();
+  if (!season.available) return null;
+  return (
+    <View style={{ alignItems: 'center', flexDirection: 'row', gap: 12, marginTop: 14 }}>
+      <SeasonMonster size={30} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: c.text, fontSize: 17, fontWeight: '600' }}>Halloween theme</Text>
+        <Text style={{ color: c.textMuted, fontSize: 13 }}>On top of your color · ends November 1</Text>
+      </View>
+      <Switch value={season.halloween} onValueChange={(v) => void setHalloween(v)} accessibilityLabel="Halloween theme" />
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const {
@@ -1120,6 +1139,7 @@ export default function SettingsScreen() {
                 Color for {currentMember?.name ?? 'you'} · each palette has Day and Night
               </Text>
               <PaletteWheel value={paletteId} onChange={updatePalette} label="Palette" />
+              <HalloweenToggle />
               <View style={{ marginTop: 14 }}>
                 <SegmentedControl
                   label="Day / Night"

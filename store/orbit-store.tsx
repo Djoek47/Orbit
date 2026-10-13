@@ -1,4 +1,5 @@
 import { AppState } from 'react-native';
+import { halloweenPalette, useSeasonal } from '@/lib/theme/seasonal';
 import { sendHouseholdEmail } from '@/lib/billing/send-household-email';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -5621,10 +5622,19 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return migrateColorPaletteId(paletteId ?? DEFAULT_COLOR_PALETTE_ID);
   }, [currentMember, household.accentThemeId, paletteId]);
 
-  const accentTheme = useMemo(
-    () => getAccentTheme(resolvedPaletteId),
-    [resolvedPaletteId]
-  );
+  const seasonal = useSeasonal();
+  const accentTheme = useMemo(() => {
+    const base = getAccentTheme(resolvedPaletteId);
+    if (!seasonal.halloween) return base;
+    return { ...base, primary: halloweenPalette(resolveTheme('dark', resolvedPaletteId), resolvedPaletteId).primary };
+  }, [resolvedPaletteId, seasonal.halloween]);
+
+  // Home-screen icon follows the season: witch hat while Halloween is on, back after.
+  useEffect(() => {
+    void import('@/lib/brand/sync-app-icon').then(({ syncSeasonalIcon }) =>
+      syncSeasonalIcon(resolvedPaletteId, seasonal.halloween)
+    );
+  }, [resolvedPaletteId, seasonal.halloween]);
 
   const updateAccentTheme = (themeId: AccentThemeId) => {
     const memberId = currentMember?.id;
@@ -5634,7 +5644,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       void saveAccentThemeId(household.id, themeId);
       void savePaletteId(household.id, null, themeId);
       void import('@/lib/brand/sync-app-icon').then(({ syncHomeScreenIcon }) =>
-        syncHomeScreenIcon(themeId)
+        syncHomeScreenIcon(themeId, seasonal.halloween)
       );
       return;
     }
@@ -5647,7 +5657,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     void saveMemberAccentThemeId(household.id, memberId, themeId);
     void savePaletteId(household.id, memberId, themeId);
     void import('@/lib/brand/sync-app-icon').then(({ syncHomeScreenIcon }) =>
-      syncHomeScreenIcon(themeId)
+      syncHomeScreenIcon(themeId, seasonal.halloween)
     );
   };
 
@@ -5687,10 +5697,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     void savePreferredMapsApp(app);
   };
 
-  const orbitPalette = useMemo(
-    () => resolveTheme(appearanceMode, resolvedPaletteId),
-    [appearanceMode, resolvedPaletteId]
-  );
+  const orbitPalette = useMemo(() => {
+    const base = resolveTheme(appearanceMode, resolvedPaletteId);
+    return seasonal.halloween ? halloweenPalette(base, resolvedPaletteId) : base;
+  }, [appearanceMode, resolvedPaletteId, seasonal.halloween]);
 
   const persistSavedPlaces = async (
     householdId: string | null | undefined,

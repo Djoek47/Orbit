@@ -1,4 +1,6 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Redirect, router, Tabs } from 'expo-router';
+import { HalloweenScreenDecor } from '@/components/orbit/seasonal/halloween-decor';
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -28,6 +30,7 @@ function resolveUiRole(
 }
 
 export default function TabLayout() {
+  const tabInsets = useSafeAreaInsets();
   const {
     currentUser,
     currentMember,
@@ -188,6 +191,7 @@ export default function TabLayout() {
         <Tabs.Screen name="poppins" options={{ href: showPoppins ? undefined : null, title: majordomoName }} />
       </Tabs>
 
+      <HalloweenScreenDecor topInset={tabInsets.top} />
       <GlobalHeaderChips />
       <HouseholdSwitchBar />
     </View>

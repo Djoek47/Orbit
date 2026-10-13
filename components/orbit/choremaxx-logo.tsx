@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { useSeasonal } from '@/lib/theme/seasonal';
+
 import { resolveBrandLockup, type BrandLockupColors } from '@/constants/brand-lockup';
 import { useOrbitOptional } from '@/store/orbit-store';
 
@@ -89,9 +91,11 @@ type IconProps = {
 export function ChoremaxxIcon({ width = 34, height = 30, colors }: IconProps) {
   const live = useBrandLockup();
   const c = colors ?? live;
+  // Halloween: same mark, plus a witch hat on the roof and a sleepy face. Off = untouched.
+  const halloween = useSeasonal().halloween;
 
   return (
-    <Svg width={width} height={height} viewBox="0 0 56 48" fill="none">
+    <Svg width={width} height={height} viewBox={halloween ? '0 -5 56 53' : '0 0 56 48'} fill="none">
       {/* Sparkle */}
       <Path d="M14 3.5 L15.1 7.2 L14 10.9 L12.9 7.2 Z" fill={c.sparkle} />
       <Path d="M10.2 7.2 L14 8.3 L17.8 7.2 L14 6.1 Z" fill={c.sparkle} />
@@ -116,6 +120,15 @@ export function ChoremaxxIcon({ width = 34, height = 30, colors }: IconProps) {
         strokeLinecap="round"
         fill="none"
       />
+      {halloween ? (
+        <>
+          <Path d="M23.5 6 L32.5 6 L31 -1 L34 -4.5 L29.5 -3.5 L26.5 0 Z" fill="#6842AA" />
+          <Path d="M18.5 6.4 C22 4.6 34 4.6 37.5 6.4 C34 8 22 8 18.5 6.4 Z" fill="#6842AA" />
+          <Path d="M23.7 4.3 L32.3 4.3 L32.5 6 L23.5 6 Z" fill="#FF9A2E" />
+          <Path d="M24.6 33.2 a1.1 1.3 0 1 0 0.01 0 Z M31.4 33.2 a1.1 1.3 0 1 0 0.01 0 Z" fill="#2A1747" />
+          <Path d="M26.4 36.6 Q28 37.8 29.6 36.6" stroke="#2A1747" strokeWidth={0.9} strokeLinecap="round" fill="none" />
+        </>
+      ) : null}
     </Svg>
   );
 }
