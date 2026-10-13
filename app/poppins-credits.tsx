@@ -11,6 +11,7 @@
  * Confirm uses native Alert (never orbitAlert) so Settings-under-stack never leaves
  * an invisible touch blocker after a pack tap.
  */
+import { PaywallMessage } from '@/components/orbit/billing/paywall-decor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,7 +53,6 @@ import {
 import { sendCreditReceiptEmail } from '@/lib/billing/send-credit-receipt';
 import { loadTokenGrants } from '@/lib/billing/token-grants';
 import { summarizeActUsage } from '@/lib/ai/act-events';
-import { showNativeAppError } from '@/lib/errors/show-native-app-error';
 import {
   buildTopUpReceipt,
   fileReceipt,
@@ -328,18 +328,28 @@ function PoppinsCreditsScreenInner() {
   const anyPackForSale =
     availablePacks == null ? true : packs.some((pack) => availablePacks.includes(pack.key));
 
+  // Payment problems show as a soft card on the page (logged for Support), not a system alert.
+  const [buyError, setBuyError] = useState<string | null>(null);
+  const showBuyError = useCallback(async (error: unknown) => {
+    const { formatUnknownError } = await import('@/lib/errors/unknown-error');
+    const { friendlyErrorMessage } = await import('@/lib/errors/friendly-error');
+    const { recordAppError } = await import('@/lib/errors/error-log');
+    const raw = formatUnknownError(error, 'That didn’t go through');
+    void recordAppError({ title: 'That didn’t go through', message: raw, source: 'poppins-credits', category: 'billing' });
+    setBuyError(friendlyErrorMessage(raw));
+  }, []);
+
   const runPurchase = useCallback(
     async (pack: TopUpPack) => {
       if (!isTokenPackAvailable(pack.key, availablePacks)) {
-        await showNativeAppError(
-          "That didn't go through",
-          new Error(`sku_not_found: ${pack.productId} is not available from App Store Connect for this build.`),
-          { source: 'poppins-credits', category: 'billing' }
+        await showBuyError(
+          new Error(`sku_not_found: ${pack.productId} is not available from App Store Connect for this build.`)
         );
         return;
       }
       const seq = ++purchaseSeq.current;
       setBuying(pack.key);
+      setBuyError(null);
       setCongrats(null);
       setReceiptMail(null);
       setOpenReceipt(null);
@@ -390,10 +400,7 @@ function PoppinsCreditsScreenInner() {
         // Native Alert + feedback loop — never orbitAlert under Settings (touch freeze).
         if (!isUserCancelledPurchase(error)) {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          await showNativeAppError("That didn't go through", error, {
-            source: 'poppins-credits',
-            category: 'billing',
-          });
+          await showBuyError(error);
         }
       } finally {
         if (seq === purchaseSeq.current) setBuying(null);
@@ -495,6 +502,11 @@ function PoppinsCreditsScreenInner() {
               </Text>{' '}
               for {congrats.price} are in your bank. They never expire.
             </Text>
+            {buyError ? (
+              <Pressable onPress={() => router.push('/support' as never)} accessibilityHint="Opens Support">
+                <PaywallMessage tone="error" message={`${buyError} Tap to tell us.`} dark={isDark} />
+              </Pressable>
+            ) : null}
             <ReceiptMailRow mail={receiptMail} />
             <View style={styles.congratsActions}>
               <Pressable

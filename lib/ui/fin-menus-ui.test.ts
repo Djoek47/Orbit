@@ -47,7 +47,7 @@ test('recovery actions have coloured group label', () => {
 
 test('premium paywall usage card uses glassFill not cardMuted', () => {
   const src = read('components/orbit/premium-paywall.tsx');
-  assert.match(src, /glassFill\(isDark\)/);
+  assert.match(src, /glassFill\(isDark/);
   assert.doesNotMatch(src, /orbitPalette\.cardMuted/);
 });
 

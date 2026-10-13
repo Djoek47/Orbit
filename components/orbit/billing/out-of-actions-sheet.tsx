@@ -17,6 +17,7 @@
  * receipt went to their inbox. Only shown to admins on a paid household; a trial is sold the
  * subscription instead (see PoppinsTrialLock).
  */
+import { PaywallMessage } from '@/components/orbit/billing/paywall-decor';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
@@ -197,7 +198,7 @@ export function OutOfActionsSheet({ visible, balance, onClose, onTrial }: Props)
                   </Pressable>
                 ))}
               </View>
-              {error ? <Text style={[styles.error, { color: c.danger }]}>{error}</Text> : null}
+              {error ? <PaywallMessage tone="error" message={error} dark={isDark} /> : null}
               <Pressable onPress={onClose} hitSlop={10} style={styles.later} accessibilityRole="button">
                 <Text style={[styles.laterText, { color: c.textMuted }]}>Not now</Text>
               </Pressable>

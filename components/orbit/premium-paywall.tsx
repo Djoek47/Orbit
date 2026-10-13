@@ -1,6 +1,7 @@
 /**
- * Apple-caliber Premium subscription sheet — Monthly/Yearly segment + price crossfade.
- * Presentation only; purchase logic lives in the screen / facade.
+ * The payment page, light: logo, one line, two plan cards, one button (Duolingo-style calm).
+ * Moves a little: drifting colour behind, bouncy cards, a burst on the button. Halloween
+ * version when the seasonal theme is on. Presentation only; purchase logic lives in the screen.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
@@ -20,7 +21,6 @@ import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { formatStoreFraction, type StorePrice } from '@/lib/billing/iap';
 import type { PaywallCopy } from '@/lib/billing/subscription-status';
 import { AppText as Text } from '@/components/orbit/app-text';
-import { SegmentedControl } from '@/components/orbit/segmented-control';
 import {
   BILLING_TRIAL_DAYS,
   IAP_PRODUCTS,
@@ -30,7 +30,16 @@ import { motion } from '@/constants/motion-tokens';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
-import { FloatingMark, Sparkles } from '@/components/orbit/billing/paywall-decor';
+import { BrandTile, Burst, LivingBackground, PaywallMessage } from '@/components/orbit/billing/paywall-decor';
+import {
+  BatFlyby,
+  Cobweb,
+  DanglingSpider,
+  HalloweenKitten,
+  SeasonMonster,
+} from '@/components/orbit/seasonal/halloween-decor';
+import { useSeasonal } from '@/lib/theme/seasonal';
+import * as Haptics from 'expo-haptics';
 
 export type PremiumUsagePanel = {
   tokensUsedThisPeriod: number;
@@ -175,16 +184,34 @@ export function PremiumPaywall({
     ? `${BILLING_TRIAL_DAYS} days free, then ${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`
     : `${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`;
 
+  const halloween = useSeasonal().halloween;
+  const [burst, setBurst] = useState(0);
+  const [pop, setPop] = useState(0);
+  const savings = yearly.savingsLabel;
+  const onCta = () => {
+    if (busy) return;
+    setBurst((n) => n + 1);
+    setPop((n) => n + 1);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+    if (alreadyPremium) onContinue();
+    else onStartTrial(period);
+  };
+  const pick = (next: IapProductKey) => {
+    if (next === period || busy) return;
+    void Haptics.selectionAsync().catch(() => undefined);
+    setPop((n) => n + 1);
+    onPeriodChange(next);
+  };
+
   return (
-    <View style={[styles.root, { backgroundColor: orbitPalette.background }]}>
-      {/* Hero: a deep wash of the household's colour, with a few stars that drift and twinkle. */}
-      <LinearGradient
-        colors={[`${accentTheme.primary}55`, `${accentTheme.secondary ?? accentTheme.primary}22`, orbitPalette.background]}
-        locations={[0, 0.45, 1]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <Sparkles color={accentTheme.primary} />
+    <View style={[styles.root, { backgroundColor: halloween ? '#120B24' : orbitPalette.background }]}>
+      <LivingBackground color={accentTheme.primary} secondary={accentTheme.secondary ?? accentTheme.primary} halloween={halloween} />
+      {halloween ? (
+        <>
+          <Cobweb corner="tl" size={110} style={{ position: 'absolute', left: 0, top: 0 }} />
+          <BatFlyby top={insets.top + 120} every={9000} />
+        </>
+      ) : null}
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
         {!dismissible && onAccount ? (
@@ -196,10 +223,10 @@ export function PremiumPaywall({
             accessibilityLabel="Account and settings: sign out, transfer or delete the household, delete account, help"
             style={({ pressed }) => [
               styles.accountChip,
-              { backgroundColor: glassFill(isDark), borderColor: `${accentTheme.primary}55`, opacity: pressed ? 0.7 : 1 },
+              { backgroundColor: glassFill(isDark || halloween), borderColor: `${accentTheme.primary}55`, opacity: pressed ? 0.7 : 1 },
             ]}>
             <MaterialIcons name="settings" size={18} color={accentTheme.primary} />
-            <Text style={[styles.accountChipText, { color: c.text }]}>Account</Text>
+            <Text style={[styles.accountChipText, { color: halloween ? '#F5EEFF' : c.text }]}>Account</Text>
           </Pressable>
         ) : dismissible ? (
           <Pressable
@@ -208,108 +235,106 @@ export function PremiumPaywall({
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={secondaryLabel}
-            style={[styles.closeBtn, { backgroundColor: glassFill(isDark) }]}>
-            <MaterialIcons name="close" size={22} color={c.text} />
+            style={[styles.closeBtn, { backgroundColor: glassFill(isDark || halloween) }]}>
+            <MaterialIcons name="close" size={22} color={halloween ? '#F5EEFF' : c.text} />
           </Pressable>
         ) : (
           <View />
         )}
-        <LinearGradient
-          colors={[accentTheme.primary, accentTheme.secondary ?? accentTheme.primary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.brandPill}>
-          <Text style={styles.brandPillText}>CHOREMAXX</Text>
-        </LinearGradient>
       </View>
 
       <View style={styles.hero}>
-        <Animated.View entering={FadeInUp.delay(40).duration(480)} style={{ alignItems: 'center', gap: 10 }}>
-          <Text style={[styles.headline, { color: c.text }]}>
+        <Animated.View entering={FadeInUp.delay(40).duration(520)} style={styles.heroInner}>
+          <View>
+            <BrandTile size={104} pop={pop} />
+            {halloween ? <SeasonMonster size={52} style={styles.monster} /> : null}
+          </View>
+          <Text style={[styles.headline, { color: halloween ? '#F5EEFF' : c.text }]}>
             {copy && !alreadyPremium ? copy.title : 'ChoreMaxx'}
           </Text>
           {copy && !alreadyPremium ? (
             <Text style={[styles.highlight, { color: accentTheme.primary }]}>{copy.kicker}</Text>
           ) : null}
-          {copy && !alreadyPremium && copy.body ? (
-            <Text style={[styles.support, { color: c.textMuted }]}>{copy.body}</Text>
-          ) : null}
+          <Animated.View style={[styles.priceCrossfade, priceStyle]}>
+            <Text style={[styles.support, { color: halloween ? '#C7B9E6' : c.textMuted }]}>
+              {alreadyPremium && usage
+                ? `${usage.tokensUsedThisPeriod} of ${usage.tokensPerMonth} actions used this period`
+                : offerLine}
+            </Text>
+          </Animated.View>
         </Animated.View>
-        <FloatingMark />
+        {halloween ? <HalloweenKitten size={60} style={styles.kitten} /> : null}
       </View>
 
-      {/* The sheet: a soft curved card rising from the bottom, holding the choice and the button. */}
       <Animated.View
-        entering={FadeInUp.delay(120).duration(520)}
-        style={[
-          styles.sheet,
-          {
-            backgroundColor: isDark ? '#FFFFFF0D' : '#FFFFFFE6',
-            borderColor: `${accentTheme.primary}33`,
-            paddingBottom: Math.max(insets.bottom, 20),
-          },
-        ]}>
+        entering={FadeInUp.delay(140).duration(520)}
+        style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]}>
         {!alreadyPremium ? (
-          <SegmentedControl options={PERIOD_OPTIONS} value={period} onChange={onPeriodChange} disabled={busy} />
+          <View style={styles.plans}>
+            {PERIOD_OPTIONS.slice().reverse().map((opt) => (
+              <PlanCard
+                key={opt.value}
+                label={opt.label}
+                price={priceOf(opt.value === 'yearly' ? yearly : monthly)}
+                per={opt.value === 'yearly' ? 'per year' : 'per month'}
+                sub={opt.value === 'yearly' ? `About ${yearlyPerMonth} a month` : 'Flexible'}
+                badge={opt.value === 'yearly' ? savings : null}
+                selected={period === opt.value}
+                accent={accentTheme.primary}
+                dark={isDark || halloween}
+                disabled={busy}
+                onPress={() => pick(opt.value)}
+              />
+            ))}
+          </View>
         ) : null}
 
-        <Animated.View style={[styles.priceCrossfade, priceStyle]}>
-          {trialEligible || period === 'yearly' ? (
-            <View style={[styles.trialPill, { backgroundColor: `${accentTheme.primary}1F` }]}>
-              <Text style={[styles.trialText, { color: accentTheme.primary }]}>
-                {trialEligible ? `Free for ${BILLING_TRIAL_DAYS} days` : ''}
-                {trialEligible && period === 'yearly' ? ' · ' : ''}
-                {period === 'yearly' ? yearly.savingsLabel : ''}
-              </Text>
+        {statusMessage ? <PaywallMessage tone="success" message={statusMessage} dark={isDark || halloween} /> : null}
+        {errorMessage ? <PaywallMessage tone="error" message={errorMessage} dark={isDark || halloween} /> : null}
+        {notice ? <PaywallMessage tone="info" message={notice} dark={isDark || halloween} /> : null}
+        <Text style={[styles.reassure, { color: halloween ? '#C7B9E6' : c.textMuted }]}>Cancel anytime, no penalties or fees</Text>
+
+        <View>
+          <AnimatedPressable
+            disabled={busy}
+            onPressIn={() => {
+              press.value = withSpring(0.96, motion.snappy);
+            }}
+            onPressOut={() => {
+              press.value = withSpring(1, motion.snappy);
+            }}
+            onPress={onCta}
+            style={[
+              styles.cta,
+              ctaStyle,
+              {
+                backgroundColor: accentTheme.primary,
+                borderBottomColor: `${accentTheme.primary}`,
+                shadowColor: accentTheme.primary,
+                opacity: busy ? 0.6 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={ctaLabel}>
+            <View style={styles.ctaLip} />
+            <Text style={styles.ctaLabel}>{busy ? 'Please wait…' : ctaText.toUpperCase()}</Text>
+          </AnimatedPressable>
+          {halloween ? (
+            <View pointerEvents="none" style={styles.ctaSpider}>
+              <DanglingSpider thread={14} size={14} />
             </View>
           ) : null}
-          <Text style={[styles.priceLine, { color: c.text }]}>
-            {priceOf(selected)}
-            <Text style={[styles.pricePeriod, { color: c.textMuted }]}>
-              {period === 'yearly' ? ' / year' : ' / month'}
-            </Text>
-          </Text>
-          <Text style={[styles.subPrice, { color: c.textMuted }]}>
-            {period === 'yearly'
-              ? `About ${yearlyPerMonth}/mo, billed yearly`
-              : `Or ${priceOf(yearly)}/year — ${yearly.savingsLabel}`}
-          </Text>
-        </Animated.View>
+          <Burst trigger={burst} halloween={halloween} color={accentTheme.primary} />
+        </View>
 
-        {alreadyPremium && usage ? (
-          <Text style={[styles.subPrice, { color: c.textMuted }]}>
-            {usage.tokensUsedThisPeriod} of {usage.tokensPerMonth} actions used this period
-          </Text>
+        {dismissible ? (
+          <Pressable onPress={onDismiss} disabled={busy} hitSlop={8} accessibilityRole="button">
+            <Text style={[styles.secondary, { color: accentTheme.primary }]}>{secondaryLabel.toUpperCase()}</Text>
+          </Pressable>
         ) : null}
 
-        {statusMessage ? <Text style={[styles.status, { color: accentTheme.primary }]}>{statusMessage}</Text> : null}
-        {errorMessage ? <Text style={[styles.error, { color: c.danger }]}>{errorMessage}</Text> : null}
-
-        {notice ? <Text style={[styles.reassure, { color: c.text }]}>{notice}</Text> : null}
-        <Text style={[styles.reassure, { color: c.textMuted }]}>Cancel anytime, no penalties or fees</Text>
-
-        <AnimatedPressable
-          disabled={busy}
-          onPressIn={() => {
-            press.value = withSpring(0.97, motion.snappy);
-          }}
-          onPressOut={() => {
-            press.value = withSpring(1, motion.snappy);
-          }}
-          onPress={() => {
-            if (alreadyPremium) onContinue();
-            else onStartTrial(period);
-          }}
-          style={[styles.cta, ctaStyle, { backgroundColor: accentTheme.primary, opacity: busy ? 0.55 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel={ctaLabel}>
-          <Text style={[styles.ctaLabel, { color: isDark ? '#0A1018' : '#FFFFFF' }]}>
-            {busy ? 'Please wait…' : ctaText}
-          </Text>
-        </AnimatedPressable>
-
         {/* Required by Apple next to the button (3.1.2): price, period, auto-renewal, how to cancel. */}
-        <Text style={[styles.legal, { color: c.textSubtle }]}>
+        <Text style={[styles.legal, { color: halloween ? '#9D8FBF' : c.textSubtle }]}>
           {offerLine}.{' '}
           {trialEligible
             ? 'Payment is charged to your Apple ID when the trial ends'
@@ -325,7 +350,7 @@ export function PremiumPaywall({
             hitSlop={12}
             accessibilityRole="link"
             accessibilityLabel="Terms of Use">
-            <Text style={[styles.link, { color: c.textMuted }]}>Terms</Text>
+            <Text style={[styles.link, { color: halloween ? '#C7B9E6' : c.textMuted }]}>Terms</Text>
           </Pressable>
           <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
           <Pressable
@@ -334,20 +359,12 @@ export function PremiumPaywall({
             hitSlop={12}
             accessibilityRole="link"
             accessibilityLabel="Privacy Policy">
-            <Text style={[styles.link, { color: c.textMuted }]}>Privacy</Text>
+            <Text style={[styles.link, { color: halloween ? '#C7B9E6' : c.textMuted }]}>Privacy</Text>
           </Pressable>
           <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
           <Pressable onPress={onRestore} disabled={busy} hitSlop={12}>
-            <Text style={[styles.link, { color: c.textMuted }]}>Restore</Text>
+            <Text style={[styles.link, { color: halloween ? '#C7B9E6' : c.textMuted }]}>Restore</Text>
           </Pressable>
-          {dismissible ? (
-            <>
-              <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
-              <Pressable onPress={onDismiss} disabled={busy} hitSlop={12}>
-                <Text style={[styles.link, { color: c.textMuted }]}>{secondaryLabel}</Text>
-              </Pressable>
-            </>
-          ) : null}
         </View>
       </Animated.View>
       {footerSlot}
@@ -355,25 +372,110 @@ export function PremiumPaywall({
   );
 }
 
+/** One plan as a card: lifts and gets a coloured edge when chosen. */
+function PlanCard({
+  label,
+  price,
+  per,
+  sub,
+  badge,
+  selected,
+  accent,
+  dark,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  price: string;
+  per: string;
+  sub: string;
+  badge: string | null;
+  selected: boolean;
+  accent: string;
+  dark: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const lift = useSharedValue(selected ? 1 : 0);
+  useEffect(() => {
+    lift.value = withSpring(selected ? 1 : 0, { damping: 12, stiffness: 220 });
+  }, [lift, selected]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: -3 * lift.value }, { scale: 1 + 0.02 * lift.value }],
+  }));
+  const text = dark ? '#F5EEFF' : '#2A1F1A';
+  const muted = dark ? 'rgba(235,225,255,0.7)' : 'rgba(42,31,26,0.6)';
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${label}, ${price} ${per}`}
+      style={[
+        styles.plan,
+        style,
+        {
+          backgroundColor: dark ? 'rgba(255,255,255,0.06)' : '#FFFFFF',
+          borderColor: selected ? accent : dark ? 'rgba(255,255,255,0.14)' : 'rgba(42,31,26,0.1)',
+          borderBottomWidth: selected ? 4 : 2,
+        },
+      ]}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8 }}>
+          <Text style={[styles.planLabel, { color: text }]}>{label}</Text>
+          {badge ? (
+            <View style={[styles.planBadge, { backgroundColor: accent }]}>
+              <Text style={styles.planBadgeText}>{badge.toUpperCase()}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={[styles.planSub, { color: muted }]}>{sub}</Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={[styles.planPrice, { color: text }]}>{price}</Text>
+        <Text style={[styles.planSub, { color: muted }]}>{per}</Text>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  heroInner: { alignItems: 'center', gap: 12 },
+  monster: { position: 'absolute', right: -40, top: -18 },
+  kitten: { bottom: 6, left: 18, position: 'absolute' },
+  plans: { gap: 10 },
+  plan: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 20,
+    borderWidth: 2,
+    flexDirection: 'row',
+    minHeight: 64,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  planLabel: { fontSize: 17, fontWeight: '600' },
+  planSub: { fontSize: 13 },
+  planPrice: { fontSize: 17, fontWeight: '700' },
+  planBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  planBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+  ctaLip: { backgroundColor: 'rgba(0,0,0,0.18)', bottom: 0, height: 4, left: 0, position: 'absolute', right: 0 },
+  ctaSpider: { position: 'absolute', right: 26, top: -20 },
+  secondary: { fontSize: 15, fontWeight: '700', letterSpacing: 0.4, paddingVertical: 4, textAlign: 'center' },
   topBar: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space.lg },
   closeBtn: { alignItems: 'center', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
   brandPill: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, transform: [{ skewX: '-10deg' }] },
   brandPillText: { color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 1 },
-  highlight: { fontSize: 18, fontWeight: '800', letterSpacing: -0.2, textAlign: 'center' },
+  highlight: { fontSize: 20, fontWeight: '700', letterSpacing: -0.2, textAlign: 'center' },
   markWrap: { alignItems: 'center', height: 150, justifyContent: 'center' },
   halo: { borderRadius: 80, height: 150, position: 'absolute', width: 150 },
   sheet: {
-    borderCurve: 'continuous',
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    gap: 12,
+    gap: 10,
     paddingHorizontal: space.xl,
-    paddingTop: 22,
+    paddingTop: 8,
   },
-  reassure: { fontSize: 14.5, fontWeight: '600', marginTop: 4, textAlign: 'center' },
+  reassure: { fontSize: 15, fontWeight: '500', textAlign: 'center' },
   root: {
     flex: 1,
   },
@@ -387,17 +489,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xl,
   },
   headline: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-    lineHeight: 38,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    lineHeight: 34,
+    marginTop: 10,
     textAlign: 'center',
   },
   support: {
     fontSize: 17,
     fontWeight: '400',
-    lineHeight: 24,
-    marginTop: 14,
+    lineHeight: 22,
     textAlign: 'center',
     paddingHorizontal: space.sm,
   },
@@ -472,15 +574,20 @@ const styles = StyleSheet.create({
   cta: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: radius.cardLarge,
+    borderRadius: 18,
     justifyContent: 'center',
-    minHeight: 54,
+    minHeight: 56,
+    overflow: 'hidden',
     paddingHorizontal: space.xl,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
   },
   ctaLabel: {
+    color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: -0.2,
+    fontWeight: '700',
+    letterSpacing: 0.6,
   },
   legal: {
     fontSize: 11,

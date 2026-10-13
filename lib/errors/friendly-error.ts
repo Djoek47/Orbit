@@ -24,6 +24,22 @@ export function friendlyErrorMessage(raw: string | null | undefined): string {
   ) {
     return 'Payment may have gone through, but we couldn’t add credits to your household. Send feedback and we’ll fix it — don’t buy again until we confirm.';
   }
+  // Apple payment outcomes (expo-iap error codes and StoreKit wording).
+  if (lower.includes('deferred') || lower.includes('ask to buy') || lower.includes('pending approval')) {
+    return 'Waiting for approval. Someone in your Family Sharing group needs to approve this purchase. It’ll arrive on its own once they do.';
+  }
+  if (lower.includes('payment-not-allowed') || lower.includes('payment not allowed') || lower.includes('not allowed to make payments')) {
+    return 'Purchases are turned off on this iPhone. Check Settings › Screen Time › Content & Privacy, then try again.';
+  }
+  if (lower.includes('payment-invalid') || lower.includes('payment invalid') || lower.includes('declined') || lower.includes('billing issue')) {
+    return 'Apple couldn’t take the payment. Check your card in Settings › your name › Payment & Shipping, then try again. You weren’t charged.';
+  }
+  if (lower.includes('already-owned') || lower.includes('already owned') || lower.includes('already subscribed')) {
+    return 'You already have this. Tap Restore to bring it back on this phone.';
+  }
+  if (lower.includes('billing-unavailable') || lower.includes('cannot connect to itunes') || lower.includes('store unavailable')) {
+    return 'The App Store isn’t answering right now. Give it a minute and try again. You weren’t charged.';
+  }
   if (lower.includes('sku_not_found') || lower.includes('empty product')) {
     return 'This pack isn’t live in the App Store yet. It opens as soon as Apple approves it — try again later.';
   }

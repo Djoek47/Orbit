@@ -36,12 +36,12 @@ test('settings premium section is glass hero + one primary CTA', () => {
   assert.doesNotMatch(settings, /Open Premium/);
 });
 
-test('paywall uses monthly/yearly segment and situation-aware copy', () => {
+test('paywall uses monthly/yearly plan cards and situation-aware copy', () => {
   const paywall = readFileSync(
     join(process.cwd(), 'components/orbit/premium-paywall.tsx'),
     'utf8'
   );
-  assert.match(paywall, /SegmentedControl/);
+  assert.match(paywall, /PlanCard/);
   assert.match(paywall, /priceCrossfade|priceOpacity/);
   assert.match(paywall, /onStartTrial: \(period: IapProductKey\) => void/);
   // Allowance / trial wording comes from paywallCopy(mode) via the copy prop — not a hard-coded constant.
