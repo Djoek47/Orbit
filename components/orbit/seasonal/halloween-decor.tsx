@@ -141,6 +141,9 @@ export function HalloweenKitten({ size = 64, style }: { size?: number; style?: V
         <Path d="M18 22 L20 8 L28 17 Z M44 22 L42 8 L34 17 Z" fill="#15101F" />
         <Path d="M21 18 l1-6 4 4z M41 18 l-1-6 -4 4z" fill="#FF8FB4" opacity={0.6} />
         <Circle cx={31} cy={28} r={14} fill="#15101F" />
+        {/* Masquerade mask */}
+        <Path d="M16.5 26 Q19 21 25 22.5 Q31 24.5 37 22.5 Q43 21 45.5 26 Q45 32 39 32.5 Q34 32.5 31 29.5 Q28 32.5 23 32.5 Q17 32 16.5 26Z" fill="#7B3FE4" />
+        <Path d="M16.5 26 L13 24 L15.5 27.5 Z M45.5 26 L49 24 L46.5 27.5 Z" fill="#7B3FE4" />
         {blink ? (
           <>
             <Rect x={21} y={27.4} width={8} height={1.4} rx={0.7} fill="#FFD84D" />
@@ -155,6 +158,9 @@ export function HalloweenKitten({ size = 64, style }: { size?: number; style?: V
           </>
         )}
         <Path d="M29.5 34 l1.5 1.4 1.5-1.4" stroke="#FF8FB4" strokeWidth={1.3} fill="none" />
+        {/* Little vampire fangs, with a drop of milk */}
+        <Path d="M27.4 35.6 l1.1 3.2 1.1-3.2z M32.4 35.6 l1.1 3.2 1.1-3.2z" fill="#FFFFFF" />
+        <Path d="M33.5 38.8 q-0.9 1.6 0 2.4 q0.9-0.8 0-2.4z" fill="#FFFFFF" />
       </Svg>
     </View>
   );
