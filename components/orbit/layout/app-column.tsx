@@ -16,6 +16,7 @@
  */
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { columnWidth, layoutClass, type LayoutClass } from '@/lib/ui/layout-metrics';
 
@@ -25,21 +26,28 @@ type ContentWidth = {
   /** The whole window, for the rare thing that should still span it. */
   windowWidth: number;
   layout: LayoutClass;
+  /** Left edge of the column within the window (safe-area inset plus centring margin). */
+  left?: number;
 };
 
 const ContentWidthContext = createContext<ContentWidth | null>(null);
 
 export function AppColumn({ background, children }: { background: string; children: ReactNode }) {
   const { width: windowWidth } = useWindowDimensions();
-  const width = columnWidth(windowWidth);
+  // Side insets: iPhone Duo keeps its status bar and camera on the right edge, and a landscape
+  // iPhone has the island on one side. Content stays clear of both; the band shows the background.
+  const insets = useSafeAreaInsets();
+  const usable = Math.max(0, windowWidth - insets.left - insets.right);
+  const width = columnWidth(usable);
+  const left = insets.left + Math.max(0, (usable - width) / 2);
   const value = useMemo(
-    () => ({ width, windowWidth, layout: layoutClass(windowWidth) }),
-    [width, windowWidth]
+    () => ({ width, windowWidth, layout: layoutClass(usable), left }),
+    [width, windowWidth, usable, left]
   );
 
   return (
     <ContentWidthContext.Provider value={value}>
-      <View style={[styles.outer, { backgroundColor: background }]}>
+      <View style={[styles.outer, { backgroundColor: background, paddingLeft: insets.left, paddingRight: insets.right }]}>
         <View style={[styles.column, { width }]}>{children}</View>
       </View>
     </ContentWidthContext.Provider>
@@ -76,10 +84,11 @@ export function useContentWidth(): ContentWidth {
 export function useModalColumnStyle(
   mode: 'flow' | 'absolute' = 'flow'
 ): { width: number; alignSelf: 'center' } | { left: number; right: number; width: number } | null {
-  const { width, windowWidth } = useContentWidth();
-  const inset = Math.max(0, (windowWidth - width) / 2);
-  if (inset <= 0) return null;
-  return mode === 'absolute' ? { left: inset, right: inset, width } : { width, alignSelf: 'center' };
+  const { width, windowWidth, left } = useContentWidth();
+  const leftEdge = left ?? Math.max(0, (windowWidth - width) / 2);
+  const rightEdge = Math.max(0, windowWidth - width - leftEdge);
+  if (leftEdge <= 0 && rightEdge <= 0) return null;
+  return mode === 'absolute' ? { left: leftEdge, right: rightEdge, width } : { width, alignSelf: 'center' };
 }
 
 const styles = StyleSheet.create({
