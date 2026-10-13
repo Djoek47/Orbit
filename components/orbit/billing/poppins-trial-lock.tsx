@@ -30,7 +30,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { OrbitButton } from '@/components/orbit/orbit-button';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
-import { TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 import { space } from '@/constants/orbit-theme';
 import { useAccess } from '@/lib/billing/access-provider';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
@@ -116,12 +115,9 @@ export function PoppinsTrialLock() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(80).duration(420)} style={styles.copy}>
-          <Text style={[styles.kicker, { color: accentTheme.primary }]}>Poppins</Text>
+          <Text style={[styles.kicker, { color: accentTheme.primary }]}>Poppin AI</Text>
           <Text style={[styles.title, { color: c.text }]}>Talk to your house</Text>
-          <Text style={[styles.text, { color: c.textMuted }]}>
-            Say it once — chores assigned, groceries added, the week planned. Poppins comes with
-            your subscription: {TOKENS_PER_MONTH} tokens every month, refilled automatically.
-          </Text>
+          <Text style={[styles.text, { color: c.textMuted }]}>Tokens refill every month with your plan.</Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(160).duration(420)} style={styles.actions}>
@@ -131,9 +127,6 @@ export function PoppinsTrialLock() {
             }>
             Subscribe
           </OrbitButton>
-          <Text style={[styles.fine, { color: c.textSubtle }]}>
-            Your free trial covers chores, XP and rewards.
-          </Text>
           {access.view.trialLabel ? (
             <View style={[styles.chip, { backgroundColor: `${accentTheme.primary}18` }]}>
               <Text style={[styles.chipText, { color: accentTheme.primary }]}>

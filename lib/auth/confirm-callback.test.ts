@@ -6,8 +6,15 @@
 import assert from 'node:assert/strict';
 
 import {
+  OTP_CODE_TYPES,
   classifyConfirmError,
+  confirmCheckMessage,
   createConfirmController,
+  createSingleFlight,
+  isTokenMismatchError,
+  isUsedOrExpiredLinkError,
+  isUserEmailConfirmed,
+  normalizeOtpCode,
   shouldResumeSignedInOnConfirmLink,
   withTimeout,
 } from './confirm-callback';
@@ -91,6 +98,60 @@ async function main() {
     const value = await withTimeout(Promise.resolve(7), 200, 'nope');
     assert.equal(value, 7);
     pass('withTimeout rejects hung work and returns fast success');
+  }
+
+  {
+    assert.deepEqual(normalizeOtpCode('5440 9146'), { code: '54409146', valid: true });
+    assert.equal(normalizeOtpCode('123456').valid, true);
+    assert.equal(normalizeOtpCode('12345').valid, false);
+    assert.equal(normalizeOtpCode('1234567890').valid, true);
+    assert.equal(normalizeOtpCode('12345678901').code.length, 10);
+    pass('OTP codes accept 6–10 digits (8-digit project setting)');
+  }
+
+  {
+    assert.deepEqual([...OTP_CODE_TYPES], ['signup', 'email']);
+    assert.equal(isTokenMismatchError({ code: 'otp_expired', message: 'Token has expired or is invalid' }), true);
+    assert.equal(isTokenMismatchError({ message: 'For security purposes, you can only request this after 30 seconds' }), false);
+    assert.equal(isUsedOrExpiredLinkError({ code: 'otp_expired' }), true);
+    assert.equal(isUsedOrExpiredLinkError(new Error('Email link is invalid or has expired')), true);
+    assert.equal(isUsedOrExpiredLinkError(new Error('invalid flow state, no valid flow state found')), true);
+    assert.equal(isUsedOrExpiredLinkError(new Error('Network request failed')), false);
+    pass('used/expired link and token-mismatch detection');
+  }
+
+  {
+    assert.equal(isUserEmailConfirmed({ email_confirmed_at: '2026-10-13T00:00:00Z' }), true);
+    assert.equal(isUserEmailConfirmed({ confirmed_at: '2026-10-13T00:00:00Z' }), true);
+    assert.equal(isUserEmailConfirmed({ email_confirmed_at: null }), false);
+    assert.equal(isUserEmailConfirmed(null), false);
+    assert.match(confirmCheckMessage('confirmed'), /already confirmed, continuing/);
+    assert.match(confirmCheckMessage('not_confirmed'), /Not confirmed yet/);
+    pass('confirmed-user detection and check copy');
+  }
+
+  {
+    const flight = createSingleFlight<number>();
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const a = flight.run(async () => {
+      calls += 1;
+      await gate;
+      return 1;
+    });
+    const b = flight.run(async () => {
+      calls += 1;
+      return 2;
+    });
+    assert.equal(flight.busy, true);
+    release();
+    assert.deepEqual(await Promise.all([a, b]), [1, 1]);
+    assert.equal(calls, 1);
+    assert.equal(flight.busy, false, 'busy clears after finish');
+    await assert.rejects(() => flight.run(async () => { throw new Error('x'); }));
+    assert.equal(flight.busy, false, 'busy clears after failure');
+    pass('single-flight check: concurrent taps join, never stuck busy');
   }
 
   console.log('\nconfirm-callback tests passed');

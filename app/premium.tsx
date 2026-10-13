@@ -442,7 +442,10 @@ export default function PremiumScreen() {
       statusMessage={statusMessage}
       errorMessage={errorMessage}
       usage={usagePanel}
-      onStartTrial={(period) => void startTrial(period)}
+      // A failed renewal is fixed in Apple's payment settings, not by buying again.
+      onStartTrial={(period) =>
+        void (!upgradeFromTrial && sub.mode === 'payment-issue' ? manage() : startTrial(period))
+      }
       onRestore={() => void restore()}
       onContinue={() => void leave('started')}
       onDismiss={() => void leave(fromOnboarding ? 'deferred' : 'skipped')}

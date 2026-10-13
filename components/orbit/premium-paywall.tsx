@@ -179,10 +179,16 @@ export function PremiumPaywall({
   const fallbackCta = trialEligible ? 'Start Free Trial' : 'Subscribe';
   const ctaText = alreadyPremium
     ? 'Continue'
-    : copy && !(copy.offersTrial && !trialEligible)
+    : !copy
+      ? 'Loading…'
+      : copy && !(copy.offersTrial && !trialEligible)
       ? copy.cta
       : fallbackCta;
-  const offerLine = trialEligible
+  // Mode not known yet: neither a trial nor a subscribe page — a neutral line until it loads.
+  const loading = !copy && !alreadyPremium;
+  const offerLine = loading
+    ? ' '
+    : trialEligible
     ? `${BILLING_TRIAL_DAYS} days free, then ${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`
     : `${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`;
 

@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/orbit/app-text';
 import { AuthErrorBanner } from '@/components/orbit/auth-error-banner';
@@ -11,7 +11,6 @@ import { OrbitInput } from '@/components/orbit/orbit-input';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import {
   authIssue,
-  isEmailNotConfirmedError,
   resolveAuthIssue,
   type AuthIssue,
 } from '@/lib/auth/auth-errors';
@@ -22,7 +21,17 @@ import {
   hydratePendingSignup,
   resendSignupConfirmation,
   verifySignupEmailOtp,
+  checkEmailConfirmed,
 } from '@/lib/auth/email-confirmation';
+import {
+  VERIFY_TIMEOUT_MS,
+  confirmCheckMessage,
+  createSingleFlight,
+  isUserEmailConfirmed,
+  normalizeOtpCode,
+  withTimeout,
+  type ConfirmCheckResult,
+} from '@/lib/auth/confirm-callback';
 import {
   goPremiumOnboardingOnce,
   premiumOnboardingHref,
@@ -35,7 +44,7 @@ import { useOrbit } from '@/store/orbit-store';
 
 export default function ConfirmEmailScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
-  const { accentTheme, hydrateFromSession, signIn, applyStashedInvite } = useOrbit();
+  const { accentTheme, hydrateFromSession, applyStashedInvite } = useOrbit();
   const { c, glass, glassBorder, isDark } = useOrbitColors();
   const [pendingPassword, setPendingPassword] = useState(getPendingSignup()?.password ?? '');
   const email = useMemo(
@@ -69,59 +78,125 @@ export default function ConfirmEmailScreen() {
     return () => clearInterval(id);
   }, []);
 
+  const checkFlight = useRef(createSingleFlight<ConfirmCheckResult>()).current;
+  const [checking, setChecking] = useState(false);
+
   const finishOnboarding = async () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
     clearPendingSignup();
-    const memberHref = await import('@/lib/invite/member-invite-token-store').then((m) =>
-      m.memberInviteRedeemHref()
-    );
-    if (memberHref) {
-      router.replace(memberHref as never);
-      return;
-    }
-    const joined = await applyStashedInvite();
-    if (joined === 'active') {
-      router.replace('/join-welcome' as never);
-      return;
-    }
-    const skipPremium = await shouldSkipPremiumForInvite();
-    if (skipPremium) {
-      router.replace('/join-welcome' as never);
-      return;
-    }
-    const navigated = await goPremiumOnboardingOnce(() => {
-      router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
-    });
-    if (!navigated) {
-      finishingRef.current = false;
+    try {
+      const memberHref = await import('@/lib/invite/member-invite-token-store').then((m) =>
+        m.memberInviteRedeemHref()
+      );
+      if (memberHref) {
+        router.replace(memberHref as never);
+        return;
+      }
+      const joined = await withTimeout(applyStashedInvite(), 8_000, 'invite timed out').catch(
+        () => null
+      );
+      if (joined === 'active') {
+        router.replace('/join-welcome' as never);
+        return;
+      }
+      const skipPremium = await shouldSkipPremiumForInvite().catch(() => false);
+      if (skipPremium) {
+        router.replace('/join-welcome' as never);
+        return;
+      }
+      const navigated = await goPremiumOnboardingOnce(() => {
+        router.replace(premiumOnboardingHref({ source: 'onboarding' }) as never);
+      }).catch(() => false);
+      // Premium gate already seen (or lock held): never strand the user here — the root
+      // router sends a signed-in user without a household to household setup.
+      if (!navigated) router.replace('/' as never);
+    } catch (err) {
+      console.warn('confirm-email finishOnboarding', err);
+      router.replace('/' as never);
     }
   };
+
+  /** Signed in + confirmed: hydrate (bounded) and move on. Never waits on an auth listener. */
+  const continueSignedIn = async () => {
+    if (finishingRef.current) return;
+    try {
+      const next = await withTimeout(
+        import('@/repositories/auth-repository').then((m) => m.authRepository.getCurrentSession()),
+        8_000,
+        'session timed out'
+      );
+      if (next) {
+        await withTimeout(hydrateFromSession(next), 8_000, 'hydrate timed out').catch((e) =>
+          console.warn('confirm-email hydrateFromSession', e)
+        );
+      }
+    } catch (err) {
+      console.warn('confirm-email continueSignedIn', err);
+    }
+    await finishOnboarding();
+  };
+
+  /** Shared by "Already confirmed", app-foreground and code-error fallbacks. Single-flight. */
+  const runConfirmCheck = (silent: boolean) =>
+    checkFlight.run(async () => {
+      if (!silent) {
+        setChecking(true);
+        setIssue(null);
+        setInfo('');
+      }
+      try {
+        const pwd = password.trim() || getPendingSignup()?.password || '';
+        const { result } = await withTimeout(
+          checkEmailConfirmed(email, pwd),
+          12_000,
+          'check timed out'
+        ).catch(() => ({ result: 'unknown' as ConfirmCheckResult }));
+        if (result === 'confirmed') {
+          setIssue(null);
+          setInfo(confirmCheckMessage('confirmed'));
+          cancelSignedOutRestart();
+          await continueSignedIn();
+        } else if (!silent) {
+          if (result === 'unknown' && !pwd) setShowPassword(true);
+          setInfo(
+            result === 'unknown' && !pwd
+              ? 'Enter your password above, then tap again — or use the code.'
+              : confirmCheckMessage(result)
+          );
+        }
+        return result;
+      } finally {
+        if (!silent) setChecking(false);
+      }
+    });
+
+  // Confirmed in Safari/Chrome, then came back: re-check on foreground (and once on mount).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && !finishingRef.current) void runConfirmCheck(true);
+    });
+    const t = setTimeout(() => void runConfirmCheck(true), 600);
+    return () => {
+      sub.remove();
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once; reads latest via getters
+  }, []);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
 
+    // IMPORTANT: never await supabase.auth.* inside this callback. supabase-js runs it while
+    // holding the auth lock, so awaiting getSession() here deadlocked verifyOtp/signIn —
+    // the "Confirming…" / "Checking…" forever spinner. Defer to the next tick.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== 'SIGNED_IN' || !session?.user) return;
-      try {
-        const next = await import('@/repositories/auth-repository').then((m) =>
-          m.authRepository.getCurrentSession()
-        );
-        if (next) {
-          try {
-            await hydrateFromSession(next);
-            await finishOnboarding();
-          } catch (hydrateErr) {
-            console.warn('confirm-email auth listener hydrate', hydrateErr);
-            await finishOnboarding();
-          }
-        }
-      } catch {
-        // stay on screen — user can enter code or continue
-      }
+      if (!isUserEmailConfirmed(session.user)) return;
+      setTimeout(() => void continueSignedIn(), 0);
     });
 
     return () => subscription.unsubscribe();
@@ -137,26 +212,28 @@ export default function ConfirmEmailScreen() {
     setIssue(null);
     setInfo('');
     try {
-      await resendSignupConfirmation(email);
-      setInfo('New email sent. Check inbox and spam.');
+      await withTimeout(resendSignupConfirmation(email), 15_000, 'Sending timed out. Try again.');
+      setInfo(`New email sent to ${email}. Check inbox and spam — use the newest one.`);
     } catch (err) {
       setIssue(resolveAuthIssue(err));
     } finally {
       setResending(false);
+      setCooldownSec(Math.ceil(getResendCooldownRemainingMs() / 1000));
     }
   };
 
   const handleVerifyCode = async () => {
+    if (busy) return;
     if (!email) {
       setIssue(authIssue('missing_fields', { message: 'Add the email you signed up with.' }));
       return;
     }
-    const cleaned = code.replace(/\s+/g, '');
-    if (cleaned.length < 6) {
+    const { code: cleaned, valid } = normalizeOtpCode(code);
+    if (!valid) {
       setIssue(
         authIssue('missing_fields', {
           title: 'Enter your code',
-          message: 'Use the code from the confirmation email.',
+          message: 'Use the 6–10 digit code from the confirmation email.',
         })
       );
       return;
@@ -164,22 +241,29 @@ export default function ConfirmEmailScreen() {
 
     setBusy(true);
     setIssue(null);
+    setInfo('');
     try {
-      const session = await verifySignupEmailOtp(email, cleaned);
-      if (!session) {
+      let verified = false;
+      try {
+        const session = await withTimeout(
+          verifySignupEmailOtp(email, cleaned),
+          VERIFY_TIMEOUT_MS,
+          'Confirmation timed out.'
+        );
+        verified = Boolean(session);
+      } catch (err) {
+        // Code rejected — but maybe the link already confirmed this account.
+        const check = await runConfirmCheck(true).catch(() => 'unknown' as ConfirmCheckResult);
+        if (check === 'confirmed') return;
+        throw err;
+      }
+      if (!verified) {
+        const check = await runConfirmCheck(true);
+        if (check === 'confirmed') return;
         throw new Error('Could not verify that code.');
       }
-      const next = await import('@/repositories/auth-repository').then((m) =>
-        m.authRepository.getCurrentSession()
-      );
-      if (next) {
-        try {
-          await hydrateFromSession(next);
-        } catch (hydrateErr) {
-          console.warn('confirm-email hydrateFromSession', hydrateErr);
-        }
-      }
-      await finishOnboarding();
+      setInfo('Email confirmed. Continuing…');
+      await continueSignedIn();
     } catch (err) {
       setIssue(resolveAuthIssue(err));
     } finally {
@@ -187,44 +271,12 @@ export default function ConfirmEmailScreen() {
     }
   };
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     if (!email) {
       setIssue(authIssue('missing_fields', { message: 'Add the email you signed up with.' }));
       return;
     }
-    const pwd = password.trim() || getPendingSignup()?.password || '';
-    if (!pwd) {
-      setShowPassword(true);
-      setIssue(
-        authIssue('missing_fields', {
-          title: 'Password needed',
-          message: 'Enter the password you created, then continue after confirming.',
-        })
-      );
-      return;
-    }
-
-    setBusy(true);
-    setIssue(null);
-    try {
-      cancelSignedOutRestart();
-      await signIn({ email, password: pwd });
-      await finishOnboarding();
-    } catch (err) {
-      if (isEmailNotConfirmedError(err)) {
-        setIssue(
-          authIssue('email_not_confirmed', {
-            title: 'Still waiting',
-            message: 'Enter the code from your email, or tap the Confirm email link, then try again.',
-            email,
-          })
-        );
-      } else {
-        setIssue(resolveAuthIssue(err));
-      }
-    } finally {
-      setBusy(false);
-    }
+    void runConfirmCheck(false);
   };
 
   return (
@@ -284,12 +336,12 @@ export default function ConfirmEmailScreen() {
 
         <AuthErrorBanner issue={issue} actionParams={{ email }} onDismiss={() => setIssue(null)} />
         {info ? (
-          <View>
+          <View accessibilityLiveRegion="polite">
             <Text style={[styles.info, { color: c.success }]}>{info}</Text>
           </View>
         ) : null}
 
-        <OrbitButton disabled={busy || code.length < 6} onPress={() => void handleVerifyCode()}>
+        <OrbitButton disabled={busy || !normalizeOtpCode(code).valid} onPress={() => void handleVerifyCode()}>
           {busy ? 'Confirming…' : 'Confirm with code'}
         </OrbitButton>
 
@@ -314,14 +366,16 @@ export default function ConfirmEmailScreen() {
         <View style={[styles.divider, { backgroundColor: glassBorder(0.08) }]} />
 
         <Pressable
-          onPress={() => void handleContinue()}
-          disabled={busy}
+          onPress={handleContinue}
+          disabled={busy || checking}
+          accessibilityRole="button"
+          accessibilityState={{ busy: checking }}
           style={[styles.secondaryRow, { backgroundColor: glass(0.04), borderColor: glassBorder(0.08) }]}
           hitSlop={6}>
           <MaterialIcons name="mark-email-read" size={20} color={c.textSoft} />
           <View style={styles.secondaryCopy}>
             <Text style={[styles.secondaryTitle, { color: c.text }]}>
-              {busy ? 'Checking…' : 'Already confirmed'}
+              {checking ? 'Checking…' : 'Already confirmed'}
             </Text>
             <Text style={[styles.secondaryBody, { color: c.textMuted }]}>
               Continue if you already tapped the email link

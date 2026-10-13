@@ -3,6 +3,13 @@ import type { EmailOtpType, Session } from '@supabase/supabase-js';
 
 import { throwMappedAuthError } from '@/lib/auth/auth-errors';
 import { paramsFromUrl } from '@/lib/auth/auth-url-params';
+import {
+  OTP_CODE_TYPES,
+  isTokenMismatchError,
+  isUserEmailConfirmed,
+  normalizeOtpCode,
+  type ConfirmCheckResult,
+} from '@/lib/auth/confirm-callback';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 export { paramsFromUrl, urlHasAuthPayload } from '@/lib/auth/auth-url-params';
@@ -153,25 +160,61 @@ export async function createSessionFromUrl(url: string): Promise<Session | null>
   return null;
 }
 
-/** Confirm signup with the numeric code from the email (“Or enter this code”). */
+/**
+ * Confirm signup with the numeric code from the email (6–10 digits, per project OTP length).
+ * Tries `signup` first, then `email` (codes re-sent to an existing user use that type).
+ */
 export async function verifySignupEmailOtp(email: string, token: string): Promise<Session | null> {
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error('Live auth is not configured.');
   }
-  const cleaned = token.replace(/\s+/g, '').trim();
-  if (!cleaned) {
-    throw new Error('Enter the code from your email.');
+  const { code, valid } = normalizeOtpCode(token);
+  if (!valid) {
+    throw new Error('Enter the 6–10 digit code from your email.');
   }
-  const { data, error } = await supabase.auth.verifyOtp({
-    email: email.trim(),
-    token: cleaned,
-    type: 'signup',
-  });
-  if (error) {
-    throwMappedAuthError(error);
+  let lastError: unknown = null;
+  for (const type of OTP_CODE_TYPES) {
+    const { data, error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type });
+    if (!error) return data.session;
+    lastError = error;
+    if (!isTokenMismatchError(error)) break;
   }
-  return data.session;
+  throwMappedAuthError(lastError as { message?: string; status?: number });
+}
+
+/**
+ * Is this signup already confirmed? Never throws.
+ * 1. Existing session → refresh + getUser → email_confirmed_at.
+ * 2. Else, with the pending password, a sign-in succeeds only once confirmed.
+ */
+export async function checkEmailConfirmed(
+  email: string,
+  password: string | undefined
+): Promise<{ result: ConfirmCheckResult; session: Session | null }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return { result: 'unknown', session: null };
+  try {
+    const { data: s } = await supabase.auth.getSession();
+    if (s.session) {
+      await supabase.auth.refreshSession().catch(() => undefined);
+      const { data: u } = await supabase.auth.getUser();
+      if (isUserEmailConfirmed(u.user)) {
+        const { data: fresh } = await supabase.auth.getSession();
+        return { result: 'confirmed', session: fresh.session ?? s.session };
+      }
+    }
+    if (!email || !password) return { result: s.session ? 'not_confirmed' : 'unknown', session: null };
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (!error && data.session) return { result: 'confirmed', session: data.session };
+    const msg = `${error?.code ?? ''} ${error?.message ?? ''}`.toLowerCase();
+    if (msg.includes('not confirmed') || msg.includes('email_not_confirmed')) {
+      return { result: 'not_confirmed', session: null };
+    }
+    return { result: 'unknown', session: null };
+  } catch {
+    return { result: 'unknown', session: null };
+  }
 }
 
 export async function resendSignupConfirmation(email: string) {

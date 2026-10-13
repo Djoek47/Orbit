@@ -47,7 +47,11 @@
             ]
           }
         ]
-      }
+      },
+      "associatedDomains": [
+        "applinks:choremaxx.app",
+        "applinks:www.choremaxx.app"
+      ]
     },
     "android": {
       "package": "app.choremaxx.household",
@@ -72,6 +76,16 @@
               "scheme": "https",
               "host": "www.choremaxx.app",
               "pathPrefix": "/join"
+            },
+            {
+              "scheme": "https",
+              "host": "choremaxx.app",
+              "pathPrefix": "/auth/callback"
+            },
+            {
+              "scheme": "https",
+              "host": "www.choremaxx.app",
+              "pathPrefix": "/auth/callback"
             }
           ],
           "category": [

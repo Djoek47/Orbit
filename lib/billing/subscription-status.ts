@@ -21,7 +21,7 @@
 import { BILLING_TRIAL_DAYS, IAP_SUBSCRIPTIONS, type EntitlementState } from '@/constants/billing';
 import type { HouseholdPremium } from '@/types/orbit';
 
-export type PaywallMode = 'trial' | 'trial-ended' | 'renew' | 'subscribe';
+export type PaywallMode = 'trial' | 'trial-ended' | 'renew' | 'payment-issue' | 'subscribe';
 
 /** What is known about the household's past, from every source that remembers any of it. */
 export type BillingPast = {
@@ -76,9 +76,11 @@ export function paywallMode(input: {
   /** Apple's answer for this Apple ID. Undefined while unknown — treated as eligible. */
   appleTrialEligible: boolean | undefined;
   past: BillingPast;
+  /** Apple reports a failed renewal charge (billing retry) for this Apple ID. */
+  billingIssue?: boolean;
 }): PaywallMode {
   const { past } = input;
-  if (past.everPaid) return 'renew';
+  if (past.everPaid) return input.billingIssue ? 'payment-issue' : 'renew';
   if (past.usedTrial) return 'trial-ended';
   if (input.appleTrialEligible === false) return 'subscribe';
   return 'trial';
@@ -132,11 +134,19 @@ export function paywallCopy(
         cta: 'Renew my subscription',
         offersTrial: false,
       };
+    case 'payment-issue':
+      return {
+        kicker: 'Payment issue',
+        title: "Apple couldn't charge your card",
+        body: 'Update your payment method with Apple to reopen ChoreMaxx. Everything is where you left it.',
+        cta: 'Update payment',
+        offersTrial: false,
+      };
     case 'subscribe':
     default:
       return {
         kicker: 'ChoreMaxx',
-        title: 'Run your whole house',
+        title: 'Keep your home on track',
         body: ctx.allowanceLine,
         cta: 'Subscribe',
         offersTrial: false,
@@ -152,6 +162,8 @@ export function settingsPremiumButtonLabel(active: boolean, mode: PaywallMode): 
       return 'Start free trial';
     case 'renew':
       return 'Renew subscription';
+    case 'payment-issue':
+      return 'Fix payment';
     default:
       return 'Subscribe';
   }

@@ -86,7 +86,7 @@ export function classifyConfirmError(err: unknown): { phase: ConfirmPhase; messa
       phase: 'needs_continue',
       message: lower.includes('timed out')
         ? 'This is taking too long. Enter the code from your email, or continue to sign in.'
-        : 'This link was already used or expired. Enter the code from your email, or continue to sign in.',
+        : 'This link was already used — your email is likely confirmed. Sign in, or enter the code from your email.',
     };
   }
   return { phase: 'error', message: issue.message };
@@ -98,4 +98,79 @@ export function classifyConfirmError(err: unknown): { phase: ConfirmPhase; messa
  */
 export function shouldResumeSignedInOnConfirmLink(hasSession: boolean): boolean {
   return hasSession;
+}
+
+/** Supabase OTP length is configurable (6–10). Strip non-digits; valid when 6–10 digits. */
+export function normalizeOtpCode(raw: string): { code: string; valid: boolean } {
+  const code = (raw || '').replace(/\D/g, '').slice(0, 10);
+  return { code, valid: code.length >= 6 && code.length <= 10 };
+}
+
+/**
+ * Signup codes are `signup`; codes from resend/magic-link on an existing user are `email`.
+ * Try in this order; only retry on a token mismatch, never on rate limits.
+ */
+export const OTP_CODE_TYPES = ['signup', 'email'] as const;
+
+export function isTokenMismatchError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  const blob = `${e?.code ?? ''} ${e?.message ?? (typeof err === 'string' ? err : '')}`.toLowerCase();
+  return (
+    blob.includes('otp_expired') ||
+    blob.includes('expired') ||
+    blob.includes('invalid') ||
+    blob.includes('not found') ||
+    blob.includes('token')
+  );
+}
+
+/** Link already consumed (e.g. the website or another browser verified it first) or expired. */
+export function isUsedOrExpiredLinkError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  const blob = `${e?.code ?? ''} ${e?.message ?? (typeof err === 'string' ? err : '')}`.toLowerCase();
+  return (
+    blob.includes('otp_expired') ||
+    blob.includes('expired') ||
+    blob.includes('already') ||
+    blob.includes('invalid') ||
+    blob.includes('access_denied') ||
+    blob.includes('flow state') ||
+    blob.includes('code verifier')
+  );
+}
+
+export function isUserEmailConfirmed(
+  user: { email_confirmed_at?: string | null; confirmed_at?: string | null } | null | undefined
+): boolean {
+  return Boolean(user?.email_confirmed_at || user?.confirmed_at);
+}
+
+/** One in-flight check at a time; extra taps join the running promise. */
+export function createSingleFlight<T>() {
+  let running: Promise<T> | null = null;
+  return {
+    get busy() {
+      return running !== null;
+    },
+    run(task: () => Promise<T>): Promise<T> {
+      if (running) return running;
+      running = (async () => {
+        try {
+          return await task();
+        } finally {
+          running = null;
+        }
+      })();
+      return running;
+    },
+  };
+}
+
+export type ConfirmCheckResult = 'confirmed' | 'not_confirmed' | 'unknown';
+
+export function confirmCheckMessage(result: ConfirmCheckResult): string {
+  if (result === 'confirmed') return "You're already confirmed, continuing…";
+  if (result === 'not_confirmed')
+    return "Not confirmed yet. Tap the link in the email or enter the code above.";
+  return "Couldn't check right now. Enter the code above, or try again in a moment.";
 }

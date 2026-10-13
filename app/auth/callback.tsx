@@ -17,6 +17,7 @@ import { radius, space, typography } from '@/constants/orbit-theme';
 import { callbackDestination } from '@/lib/auth/password-reset';
 import {
   clearPendingSignup,
+  checkEmailConfirmed,
   createSessionFromUrl,
   getPendingSignup,
   paramsFromUrl,
@@ -29,6 +30,7 @@ import {
   SUCCESS_HOLD_MS,
   classifyConfirmError,
   createConfirmController,
+  isUsedOrExpiredLinkError,
   shouldResumeSignedInOnConfirmLink,
   withTimeout,
 } from '@/lib/auth/confirm-callback';
@@ -289,6 +291,26 @@ export default function AuthCallbackScreen() {
         } catch {
           /* show continue if we cannot read a session */
         }
+        // Link already consumed (website/other browser verified it) or expired: if this signup
+        // is in fact confirmed, say so and continue instead of showing an error.
+        if (!controller.finished && isUsedOrExpiredLinkError(err)) {
+          const pending = getPendingSignup();
+          if (pending?.email) {
+            const check = await withTimeout(
+              checkEmailConfirmed(pending.email, pending.password),
+              VERIFY_TIMEOUT_MS,
+              'check timed out'
+            ).catch(() => ({ result: 'unknown' as const, session: null }));
+            if (check.result === 'confirmed' && !controller.finished) {
+              setMessage("You're already confirmed, continuing…");
+              const next = await authRepository.getCurrentSession().catch(() => null);
+              if (next) await hydrateQuietly(next);
+              await finishSuccess();
+              return;
+            }
+          }
+        }
+        if (controller.finished) return;
         const classified = classifyConfirmError(err);
         controller.markFinished();
         setPhase(classified.phase);

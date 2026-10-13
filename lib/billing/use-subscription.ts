@@ -74,7 +74,7 @@ export function useSubscription(householdPremium: HouseholdPremium | null | unde
     eligible.monthly === undefined && eligible.yearly === undefined
       ? undefined
       : Boolean(eligible.monthly || eligible.yearly);
-  const mode = paywallMode({ appleTrialEligible, past });
+  const mode = paywallMode({ appleTrialEligible, past, billingIssue: renewal.billingIssue });
 
   return { ready, history, renewal, eligible, mode, lastEndedAt: past.lastEndedAt, refresh };
 }
