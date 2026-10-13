@@ -1,6 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
@@ -13,7 +12,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -32,19 +30,34 @@ import {
 } from '@/lib/itinerary/trip-intent';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { SAVED_GOLD } from '@/components/orbit/trips/saved-trips';
 import type { ItineraryStop, ItineraryStopKind } from '@/types/orbit';
+import { Moji } from '@/components/orbit/moji/moji';
+import type { MojiName } from '@/components/orbit/moji/art';
 
-const STOP_EMOJI: Record<ItineraryStopKind, string> = {
-  school: '🏫',
-  work: '💼',
-  grocery: '🛒',
-  pickup: '📦',
-  practice: '🏃',
-  family: '🏠',
-  home: '🏡',
-  shop: '🛒',
-  custom: '📍',
+const STOP_MOJI: Record<ItineraryStopKind, MojiName> = {
+  school: 'school',
+  work: 'briefcase',
+  grocery: 'cart',
+  pickup: 'box',
+  practice: 'ball',
+  family: 'heartHome',
+  home: 'home',
+  shop: 'cart',
+  custom: 'pin',
 };
+
+/** Darken a #RRGGBB colour for the button's bottom lip. */
+function shade(hex: string, amount = 0.28): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const f = (v: number) => Math.max(0, Math.round(v * (1 - amount)));
+  const r = f((n >> 16) & 255);
+  const g = f((n >> 8) & 255);
+  const b = f(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
 
 const ARRIVED_GREEN = '#34D399';
 
@@ -93,10 +106,13 @@ export default function ItineraryDetailScreen() {
   }, [intent?.current?.id, arrivedStopId]);
 
   const tripColor = accentTheme.primary;
-  // Warm brown canvases can report isDark=false while still being dark — never trust that
-  // for the page title. Always use cream ink on this screen.
-  const titleColor = '#F7F2EC';
-  const softColor = '#C9B8AA';
+  const titleColor = c.text;
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
   const arrived = Boolean(intent?.current && arrivedStopId === intent.current.id);
   const isLastStop = (intent?.remaining.length ?? 0) <= 1;
 
@@ -123,9 +139,20 @@ export default function ItineraryDetailScreen() {
 
   const current = intent.current;
   const mapsName = mapsSpokenName(preferredMapsApp);
-  const favoriteLabel = itinerary.favorite
-    ? 'Remove from preferred trips'
-    : 'Save as preferred trip';
+  const favoriteLabel = itinerary.favorite ? 'Remove from saved trips' : 'Save this trip';
+  const stepsTotal = itinerary.stops.length;
+  const stepIndex = Math.min(stepsTotal, intent.completed.length + (current ? 1 : 0));
+
+  const onToggleFavorite = async () => {
+    const wasFavorite = Boolean(itinerary.favorite);
+    try {
+      await toggleItineraryFavorite(itinerary.id);
+      void Haptics.selectionAsync();
+      setToast(wasFavorite ? 'Removed from saved' : 'Saved to your trips');
+    } catch {
+      fail('Couldn’t save this trip. Try again.');
+    }
+  };
 
   const onDirections = async () => {
     try {
@@ -201,32 +228,66 @@ export default function ItineraryDetailScreen() {
         <View style={styles.topBar}>
           <Pressable
             onPress={() => router.back()}
-            style={styles.backBtn}
+            style={[styles.iconBtn, { backgroundColor: glass(0.06), borderColor: glassBorder(0.1) }]}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Back to Plan">
-            <MaterialIcons name="chevron-left" size={22} color={tripColor} />
-            <Text style={[styles.backLabel, { color: tripColor }]}>Plan</Text>
+            <MaterialIcons name="chevron-left" size={24} color={c.text} />
           </Pressable>
-          <GlowStar
-            favorite={Boolean(itinerary.favorite)}
-            onPress={() => void toggleItineraryFavorite(itinerary.id)}
-            label={favoriteLabel}
-            muted={c.textMuted}
-            glassBg={glass(0.06)}
-            glassBd={glassBorder(0.1)}
-          />
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={[styles.eyebrow, { color: c.textMuted }]} numberOfLines={1}>
+              {intent.subtitle}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => void onToggleFavorite()}
+            style={[
+              styles.iconBtn,
+              {
+                backgroundColor: itinerary.favorite ? `${SAVED_GOLD}2E` : glass(0.06),
+                borderColor: itinerary.favorite ? `${SAVED_GOLD}99` : glassBorder(0.1),
+              },
+            ]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={favoriteLabel}
+            accessibilityState={{ selected: Boolean(itinerary.favorite) }}>
+            <MaterialIcons
+              name={itinerary.favorite ? 'star' : 'star-border'}
+              size={22}
+              color={itinerary.favorite ? SAVED_GOLD : c.textMuted}
+            />
+          </Pressable>
         </View>
 
         <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.header}>
-          <Text style={[styles.eyebrow, { color: tripColor }]}>{intent.subtitle}</Text>
-          <Text style={styles.pageTitle} accessibilityRole="header">
+          <Text style={[styles.pageTitle, { color: c.text }]} accessibilityRole="header" numberOfLines={2}>
             {itinerary.title}
           </Text>
-          {!itinerary.favorite ? (
-            <Text style={[styles.saveHint, { color: softColor }]}>
-              Tap the star to save this trip
-            </Text>
+          {stepsTotal > 0 && current ? (
+            <View
+              style={styles.progress}
+              accessibilityLabel={`Stop ${stepIndex} of ${stepsTotal}`}>
+              {itinerary.stops.map((stop, i) => (
+                <View
+                  key={stop.id}
+                  style={[
+                    styles.progressSeg,
+                    {
+                      backgroundColor:
+                        i < stepIndex - 1
+                          ? ARRIVED_GREEN
+                          : i === stepIndex - 1
+                            ? tripColor
+                            : glass(0.12),
+                    },
+                  ]}
+                />
+              ))}
+              <Text style={[styles.progressLabel, { color: c.textMuted }]}>
+                {stepIndex} of {stepsTotal}
+              </Text>
+            </View>
           ) : null}
         </Animated.View>
 
@@ -248,84 +309,91 @@ export default function ItineraryDetailScreen() {
         {current ? (
           <Animated.View
             entering={FadeInDown.delay(80).springify().damping(18)}
-            layout={Layout.springify()}>
-            <LinearGradient
-              colors={
-                arrived
-                  ? [`${ARRIVED_GREEN}44`, `${ARRIVED_GREEN}14`, isDark ? 'rgba(7,13,28,0.2)' : 'rgba(255,255,255,0.4)']
-                  : [`${tripColor}40`, `${tripColor}12`, isDark ? 'rgba(7,13,28,0.2)' : 'rgba(255,255,255,0.4)']
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            layout={Layout.springify()}
+            style={[
+              styles.hero,
+              {
+                backgroundColor: glass(0.06),
+                borderColor: arrived ? `${ARRIVED_GREEN}88` : glassBorder(0.12),
+              },
+            ]}>
+            <View
               style={[
-                styles.hero,
-                { borderColor: arrived ? `${ARRIVED_GREEN}77` : `${tripColor}55` },
+                styles.heroMark,
+                { backgroundColor: arrived ? `${ARRIVED_GREEN}26` : `${tripColor}1F` },
               ]}>
-              <View
-                style={[
-                  styles.heroMark,
-                  { backgroundColor: arrived ? `${ARRIVED_GREEN}30` : `${tripColor}28` },
-                ]}>
-                <Text style={styles.heroEmoji}>{STOP_EMOJI[current.kind]}</Text>
-              </View>
-              <Text style={[styles.heroName, { color: titleColor }]}>{current.label}</Text>
-              {stopPlaceLine(current) ? (
-                <Text style={[styles.heroPlace, { color: softColor }]} numberOfLines={2}>
-                  {stopPlaceLine(current)}
-                </Text>
+              <Moji name={STOP_MOJI[current.kind]} size={34} />
+            </View>
+            <Text style={[styles.heroName, { color: c.text }]}>{current.label}</Text>
+            {stopPlaceLine(current) ? (
+              <Text style={[styles.heroPlace, { color: c.textMuted }]} numberOfLines={2}>
+                {stopPlaceLine(current)}
+              </Text>
+            ) : null}
+
+            <View style={styles.heroActions}>
+              {intent.showDirections && !arrived ? (
+                <LipButton
+                  color={tripColor}
+                  icon="near-me"
+                  label={intent.primaryCtaLabel}
+                  onPress={() => void onDirections()}
+                />
               ) : null}
 
-              <View style={styles.heroActions}>
-                {intent.showDirections && !arrived ? (
-                  <OrbitButton onPress={() => void onDirections()}>
-                    {intent.primaryCtaLabel}
-                  </OrbitButton>
-                ) : null}
+              {!arrived && intent.showImHere ? (
+                <Pressable
+                  onPress={onImHere}
+                  style={({ pressed }) => [
+                    styles.secondaryBtn,
+                    { borderColor: glassBorder(0.16), backgroundColor: pressed ? glass(0.08) : 'transparent' },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="I’m here">
+                  <Text style={[styles.secondaryLabel, { color: c.text }]}>I’m here</Text>
+                </Pressable>
+              ) : null}
 
-                {!arrived && intent.showImHere ? (
-                  <OrbitButton tone="secondary" onPress={onImHere}>
-                    I’m here
-                  </OrbitButton>
-                ) : null}
+              {arrived && intent.showShopping ? (
+                <LipButton
+                  color={tripColor}
+                  icon="shopping-cart"
+                  label="Open shopping list"
+                  onPress={() => router.push('/shopping-mode' as never)}
+                />
+              ) : null}
 
-                {arrived && intent.showShopping ? (
-                  <OrbitButton onPress={() => router.push('/shopping-mode' as never)}>
-                    Open shopping list
-                  </OrbitButton>
-                ) : null}
+              {arrived ? (
+                <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)}>
+                  <DoneSlideButton
+                    label={
+                      isLastStop
+                        ? 'I’m done · finish'
+                        : intent.showShopping
+                          ? 'List done · next stop'
+                          : 'I’m done · next'
+                    }
+                    onDone={() => void onImDone()}
+                  />
+                </Animated.View>
+              ) : null}
 
-                {arrived ? (
-                  <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(160)}>
-                    <DoneSlideButton
-                      label={
-                        isLastStop
-                          ? 'I’m done · finish'
-                          : intent.showShopping
-                            ? 'List done · next stop'
-                            : 'I’m done · next'
-                      }
-                      onDone={() => void onImDone()}
-                    />
-                  </Animated.View>
-                ) : null}
-
-                {intent.showShopping && !arrived ? (
-                  <Pressable
-                    onPress={() => router.push('/shopping-mode' as never)}
-                    style={styles.textLink}
-                    accessibilityRole="button"
-                    accessibilityLabel="Open shopping list">
-                    <Text style={[styles.textLinkLabel, { color: tripColor }]}>Open list</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </LinearGradient>
+              {intent.showShopping && !arrived ? (
+                <Pressable
+                  onPress={() => router.push('/shopping-mode' as never)}
+                  style={styles.textLink}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open shopping list">
+                  <Text style={[styles.textLinkLabel, { color: tripColor }]}>Open list</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </Animated.View>
         ) : null}
 
         {intent.primaryCta === 'run_again' ? (
           <Animated.View entering={FadeInDown.delay(100).duration(280)}>
-            <OrbitButton onPress={() => void onRunAgain()}>{intent.primaryCtaLabel}</OrbitButton>
+            <LipButton color={tripColor} icon="replay" label={intent.primaryCtaLabel} onPress={() => void onRunAgain()} />
           </Animated.View>
         ) : null}
 
@@ -336,12 +404,13 @@ export default function ItineraryDetailScreen() {
               styles.card,
               { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) },
             ]}>
-            <Text style={[styles.sectionHeading, { color: tripColor }]}>Coming up</Text>
+            <Text style={[styles.sectionHeading, { color: c.textMuted }]}>Coming up</Text>
             {intent.upcoming.map((stop, index) => (
               <UpcomingRow
                 key={stop.id}
                 stop={stop}
                 index={index}
+                number={intent.completed.length + 2 + index}
                 muted={c.textMuted}
                 text={titleColor}
                 accent={tripColor}
@@ -370,12 +439,13 @@ export default function ItineraryDetailScreen() {
               styles.card,
               { backgroundColor: glass(0.05), borderColor: `${tripColor}44` },
             ]}>
-            <Text style={[styles.sectionHeading, { color: tripColor }]}>Route</Text>
+            <Text style={[styles.sectionHeading, { color: c.textMuted }]}>Route</Text>
             {intent.remaining.map((stop, index) => (
               <UpcomingRow
                 key={stop.id}
                 stop={stop}
                 index={index}
+                number={intent.completed.length + 1 + index}
                 muted={c.textMuted}
                 text={titleColor}
                 accent={tripColor}
@@ -410,8 +480,8 @@ export default function ItineraryDetailScreen() {
                 style={[styles.upcomingRow, { backgroundColor: glass(0.04) }]}
                 accessibilityRole="button"
                 accessibilityLabel={`Reopen ${stop.label}`}>
-                <View style={[styles.upcomingMark, { backgroundColor: `${tripColor}18` }]}>
-                  <Text style={styles.upcomingEmoji}>{STOP_EMOJI[stop.kind]}</Text>
+                <View style={[styles.numDot, { backgroundColor: `${ARRIVED_GREEN}26` }]}>
+                  <MaterialIcons name="check" size={14} color={ARRIVED_GREEN} />
                 </View>
                 <Text style={[styles.doneLine, { color: c.textSubtle, flex: 1 }]}>{stop.label}</Text>
                 <Text style={[styles.reopenLabel, { color: tripColor }]}>Redo</Text>
@@ -420,7 +490,43 @@ export default function ItineraryDetailScreen() {
           </View>
         ) : null}
       </PersistentScrollView>
+      {toast ? (
+        <Animated.View
+          entering={FadeInDown.duration(200)}
+          exiting={FadeOut.duration(200)}
+          pointerEvents="none"
+          style={[styles.toast, { bottom: insets.bottom + 24, backgroundColor: c.text }]}>
+          <MaterialIcons name="star" size={16} color={SAVED_GOLD} />
+          <Text style={[styles.toastLabel, { color: c.background }]}>{toast}</Text>
+        </Animated.View>
+      ) : null}
     </View>
+  );
+}
+
+/** Primary button: solid accent with a 4px darker bottom lip (pressed → lip collapses). */
+function LipButton({
+  color,
+  label,
+  icon,
+  onPress,
+}: {
+  color: string;
+  label: string;
+  icon?: keyof typeof MaterialIcons.glyphMap;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+      {({ pressed }) => (
+        <View style={[styles.lipBase, { backgroundColor: shade(color), paddingBottom: pressed ? 0 : 4, marginTop: pressed ? 4 : 0 }]}>
+          <View style={[styles.lipFace, { backgroundColor: color }]}>
+            {icon ? <MaterialIcons name={icon} size={20} color="#FFFFFF" /> : null}
+            <Text style={styles.lipLabel}>{label}</Text>
+          </View>
+        </View>
+      )}
+    </Pressable>
   );
 }
 
@@ -458,76 +564,10 @@ function DoneSlideButton({ onDone, label }: { onDone: () => void; label: string 
   );
 }
 
-function GlowStar({
-  favorite,
-  onPress,
-  label,
-  muted,
-  glassBg,
-  glassBd,
-}: {
-  favorite: boolean;
-  onPress: () => void;
-  label: string;
-  muted: string;
-  glassBg: string;
-  glassBd: string;
-}) {
-  const glow = useSharedValue(favorite ? 1 : 0.35);
-  useEffect(() => {
-    if (favorite) {
-      glow.value = withSpring(1);
-      return;
-    }
-    glow.value = withRepeat(
-      withSequence(withTiming(1, { duration: 750 }), withTiming(0.3, { duration: 750 })),
-      -1,
-      false
-    );
-  }, [favorite, glow]);
-  const ring = useAnimatedStyle(() => ({
-    shadowOpacity: 0.35 + glow.value * 0.65,
-    transform: [{ scale: 0.94 + glow.value * 0.08 }],
-  }));
-  const starOrange = '#FF8A3D';
-  return (
-    <Animated.View
-      style={[
-        ring,
-        {
-          shadowColor: starOrange,
-          shadowRadius: 14,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: 8,
-        },
-      ]}>
-      <Pressable
-        onPress={onPress}
-        style={[
-          styles.starBtn,
-          {
-            backgroundColor: favorite ? 'rgba(255,138,61,0.28)' : glassBg,
-            borderColor: favorite ? starOrange : `${starOrange}99`,
-            borderWidth: 1.5,
-          },
-        ]}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ selected: favorite }}>
-        <MaterialIcons
-          name={favorite ? 'star' : 'star-border'}
-          size={22}
-          color={favorite ? starOrange : starOrange}
-        />
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 function UpcomingRow({
   stop,
   index,
+  number,
   muted,
   text,
   accent,
@@ -539,6 +579,7 @@ function UpcomingRow({
 }: {
   stop: ItineraryStop;
   index: number;
+  number: number;
   muted: string;
   text: string;
   accent: string;
@@ -553,9 +594,10 @@ function UpcomingRow({
     <Animated.View
       entering={FadeInDown.delay(40 + index * 40).duration(240)}
       style={[styles.upcomingRow, { backgroundColor: glassBg }]}>
-      <View style={[styles.upcomingMark, { backgroundColor: `${accent}22` }]}>
-        <Text style={styles.upcomingEmoji}>{STOP_EMOJI[stop.kind]}</Text>
+      <View style={[styles.numDot, { backgroundColor: `${accent}22` }]}>
+        <Text style={[styles.numDotLabel, { color: accent }]}>{number}</Text>
       </View>
+      <Moji name={STOP_MOJI[stop.kind]} size={22} />
       <View style={styles.upcomingCopy}>
         <Text style={[styles.upcomingName, { color: text }]}>{stop.label}</Text>
         {place ? (
@@ -608,7 +650,7 @@ const styles = StyleSheet.create({
   topBar: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   backBtn: {
     alignItems: 'center',
@@ -619,15 +661,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   backLabel: { fontSize: 16, fontWeight: '700' },
-  starBtn: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 14,
-    borderWidth: 1,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
   header: { gap: 4, marginBottom: 2 },
   eyebrow: {
     fontSize: 12,
@@ -636,35 +669,80 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   pageTitle: {
-    color: '#F7F2EC',
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.6,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
-  saveHint: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
+  iconBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
   },
+  progress: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 8 },
+  progressSeg: { borderRadius: 3, flex: 1, height: 6, maxWidth: 56 },
+  progressLabel: { fontSize: 12, fontWeight: '600', marginLeft: 4 },
+  secondaryBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  secondaryLabel: { fontSize: 17, fontWeight: '600' },
+  lipBase: { borderCurve: 'continuous', borderRadius: 16 },
+  lipFace: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 52,
+    paddingHorizontal: 18,
+  },
+  lipLabel: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  numDot: {
+    alignItems: 'center',
+    borderRadius: 13,
+    height: 26,
+    justifyContent: 'center',
+    width: 26,
+  },
+  numDotLabel: { fontSize: 13, fontWeight: '800' },
+  toast: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    position: 'absolute',
+  },
+  toastLabel: { fontSize: 15, fontWeight: '600' },
   hero: {
     borderCurve: 'continuous',
     borderRadius: 24,
-    borderWidth: 1.5,
-    gap: 8,
-    padding: 18,
+    borderWidth: 1,
+    gap: 6,
+    padding: 20,
   },
   heroMark: {
     alignItems: 'center',
     borderCurve: 'continuous',
-    borderRadius: 16,
-    height: 52,
+    borderRadius: 18,
+    height: 60,
     justifyContent: 'center',
-    marginBottom: 2,
-    width: 52,
+    marginBottom: 4,
+    width: 60,
   },
-  heroEmoji: { fontSize: 26 },
-  heroName: { color: '#F7F2EC', fontSize: 24, fontWeight: '800', letterSpacing: -0.4 },
-  heroPlace: { fontSize: 14, lineHeight: 20 },
+  heroName: { fontSize: 26, fontWeight: '700', letterSpacing: -0.4 },
+  heroPlace: { fontSize: 13, lineHeight: 18 },
   heroActions: { gap: space.sm, marginTop: space.sm },
   doneBtn: {
     alignItems: 'center',
@@ -723,16 +801,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
-  upcomingMark: {
-    alignItems: 'center',
-    borderRadius: 12,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  upcomingEmoji: { fontSize: 16 },
   upcomingCopy: { flex: 1, gap: 2 },
-  upcomingName: { fontSize: 16, fontWeight: '700' },
+  upcomingName: { fontSize: 17, fontWeight: '600' },
   upcomingPlace: { fontSize: 13 },
   reorderCol: { alignItems: 'center' },
 });

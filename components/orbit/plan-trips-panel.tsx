@@ -11,6 +11,8 @@ import { PoppinsOrb } from '@/components/orbit/poppins-orb';
 import { PageEyebrow } from '@/components/orbit/page-eyebrow';
 import { RouteSteps, type RouteStepItem } from '@/components/orbit/route-steps';
 import { SmartTripsIntro } from '@/components/orbit/trips/smart-trips-intro';
+import { SavedTripsChip, SavedTripsList, useSavedTrips } from '@/components/orbit/trips/saved-trips';
+import { useTripOrbLevel } from '@/components/orbit/trips/use-trip-orb-level';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { FontFamily } from '@/constants/typography';
 import { buildPickupSummary } from '@/lib/places/pickup-summary';
@@ -300,6 +302,9 @@ export function PlanTripsPanel({
   const [mode, setMode] = useState<SuggestMode>('efficient');
   const [busy, setBusy] = useState(false);
   const [askHint, setAskHint] = useState('');
+  const orb = useTripOrbLevel();
+  const savedTrips = useSavedTrips();
+  const [savedOpen, setSavedOpen] = useState(false);
   const itineraries = household.itineraries ?? [];
   const activeTrips = itineraries.filter((t) => t.status !== 'completed');
   const preferredTrips = itineraries.filter((t) => t.favorite);
@@ -443,7 +448,7 @@ export function PlanTripsPanel({
                 style={styles.poppinsHero}>
                 <View style={styles.poppinsHeroGlow} />
                 <View style={styles.poppinsHeroRow}>
-                  <PoppinsOrb size={48} />
+                  <PoppinsOrb size={48} dailyFill={orb.dailyFill} monthGlow={orb.monthGlow} />
                   <View style={{ flex: 1, gap: 4 }}>
                     <View style={styles.poppinsLive}>
                       <View style={styles.liveDot} />
@@ -493,8 +498,17 @@ export function PlanTripsPanel({
                   accent="#2DD4BF"
                   onPress={() => router.push('/create-itinerary' as never)}
                 />
+                {savedTrips.length > 0 ? (
+                  <SavedTripsChip
+                    compact
+                    count={savedTrips.length}
+                    open={savedOpen}
+                    onPress={() => setSavedOpen((v) => !v)}
+                  />
+                ) : null}
               </View>
               </TourTarget>
+              {savedOpen && savedTrips.length > 0 ? <SavedTripsList trips={savedTrips} /> : null}
               {/* How the stops get ordered */}
               <View style={styles.modeRow}>
                 <Text style={[styles.modeHint, { color: c.textSubtle }]}>Order stops</Text>
@@ -725,7 +739,7 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 9, marginTop: 2 },
   statVal: { fontSize: 16, fontWeight: '800', lineHeight: 16 },
-  actionBar: { flexDirection: 'row', gap: 8 },
+  actionBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   modeHint: { fontSize: 12, fontWeight: '700', marginRight: 2 },
   modeRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   modeChip: {

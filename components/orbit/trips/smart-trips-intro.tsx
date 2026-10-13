@@ -7,7 +7,7 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -22,6 +22,8 @@ import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
 import type { MojiName } from '@/components/orbit/moji/art';
 import { PoppinsOrb } from '@/components/orbit/poppins-orb';
+import { SavedTripsChip, SavedTripsList, useSavedTrips } from '@/components/orbit/trips/saved-trips';
+import { useTripOrbLevel } from '@/components/orbit/trips/use-trip-orb-level';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 const POPPINS_BLUE = '#38BDF8';
@@ -73,6 +75,10 @@ function PulsePressable({
 
 export function SmartTripsIntro({ majordomoName, busy, onAsk, onCalendar, onNew }: Props) {
   const { c, glass, glassBorder } = useOrbitColors();
+  const orb = useTripOrbLevel();
+  const saved = useSavedTrips();
+  const [savedOpen, setSavedOpen] = useState(false);
+  const showSaved = savedOpen && saved.length > 0;
 
   const steps: { moji: MojiName; title: string; body: string }[] = [
     { moji: 'calendar', title: 'Pick a day', body: 'Events and errands.' },
@@ -88,7 +94,7 @@ export function SmartTripsIntro({ majordomoName, busy, onAsk, onCalendar, onNew 
         end={{ x: 1, y: 1 }}
         style={[styles.hero, { borderColor: `${POPPINS_BLUE}55` }]}>
         <View style={styles.heroTop}>
-          <PoppinsOrb size={52} />
+          <PoppinsOrb size={52} dailyFill={orb.dailyFill} monthGlow={orb.monthGlow} />
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={[styles.title, { color: c.text }]}>One drive, every errand</Text>
             <Text style={[styles.body, { color: c.textMuted }]}>
@@ -144,7 +150,7 @@ export function SmartTripsIntro({ majordomoName, busy, onAsk, onCalendar, onNew 
           accessibilityLabel="Build a trip from the calendar"
           style={[styles.altBtn, { backgroundColor: `${CALENDAR_AMBER}22`, flex: 1 }]}>
           <MaterialIcons name="event" size={16} color={CALENDAR_AMBER} />
-          <Text style={[styles.altLabel, { color: CALENDAR_AMBER }]}>From calendar</Text>
+          <Text style={[styles.altLabel, { color: CALENDAR_AMBER }]} numberOfLines={1}>From calendar</Text>
         </PulsePressable>
         <PulsePressable
           color={BUILD_TEAL}
@@ -152,9 +158,19 @@ export function SmartTripsIntro({ majordomoName, busy, onAsk, onCalendar, onNew 
           accessibilityLabel="Build my own trip"
           style={[styles.altBtn, { backgroundColor: `${BUILD_TEAL}22`, flex: 1 }]}>
           <MaterialIcons name="add" size={16} color={BUILD_TEAL} />
-          <Text style={[styles.altLabel, { color: BUILD_TEAL }]}>Build my own</Text>
+          <Text style={[styles.altLabel, { color: BUILD_TEAL }]} numberOfLines={1}>Build my own</Text>
         </PulsePressable>
+        {saved.length > 0 ? (
+          <View style={{ flex: 1 }}>
+            <SavedTripsChip
+              count={saved.length}
+              open={showSaved}
+              onPress={() => setSavedOpen((v) => !v)}
+            />
+          </View>
+        ) : null}
       </View>
+      {showSaved ? <SavedTripsList trips={saved} /> : null}
     </Animated.View>
   );
 }
