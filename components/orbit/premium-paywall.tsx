@@ -12,6 +12,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -281,6 +282,7 @@ export function PremiumPaywall({
                 badge={opt.value === 'yearly' ? savings : null}
                 selected={period === opt.value}
                 accent={accentTheme.primary}
+                accent2={halloween ? '#A58BFF' : (accentTheme.secondary ?? accentTheme.primary)}
                 dark={isDark || halloween}
                 disabled={busy}
                 onPress={() => pick(opt.value)}
@@ -372,6 +374,22 @@ export function PremiumPaywall({
   );
 }
 
+/** The savings badge: the theme's two colours, gently pulsing so it catches the eye. */
+function SaveBadge({ label, accent, accent2 }: { label: string; accent: string; accent2: string }) {
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = withRepeat(withTiming(1, { duration: 1200 }), -1, true);
+  }, [t]);
+  const pulse = useAnimatedStyle(() => ({ transform: [{ scale: 1 + 0.07 * t.value }], shadowOpacity: 0.35 + 0.35 * t.value }));
+  return (
+    <Animated.View style={[styles.planBadgeWrap, { shadowColor: accent }, pulse]}>
+      <LinearGradient colors={[accent, accent2, accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.planBadge}>
+        <Text style={styles.planBadgeText}>{label.toUpperCase()}</Text>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
 /** One plan as a card: lifts and gets a coloured edge when chosen. */
 function PlanCard({
   label,
@@ -381,10 +399,12 @@ function PlanCard({
   badge,
   selected,
   accent,
+  accent2,
   dark,
   disabled,
   onPress,
 }: {
+  accent2: string;
   label: string;
   price: string;
   per: string;
@@ -424,11 +444,7 @@ function PlanCard({
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8 }}>
           <Text style={[styles.planLabel, { color: text }]}>{label}</Text>
-          {badge ? (
-            <View style={[styles.planBadge, { backgroundColor: accent }]}>
-              <Text style={styles.planBadgeText}>{badge.toUpperCase()}</Text>
-            </View>
-          ) : null}
+          {badge ? <SaveBadge label={badge} accent={accent} accent2={accent2} /> : null}
         </View>
         <Text style={[styles.planSub, { color: muted }]}>{sub}</Text>
       </View>
@@ -458,8 +474,9 @@ const styles = StyleSheet.create({
   planLabel: { fontSize: 17, fontWeight: '600' },
   planSub: { fontSize: 13 },
   planPrice: { fontSize: 17, fontWeight: '700' },
-  planBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  planBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+  planBadgeWrap: { borderRadius: 999, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8 },
+  planBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  planBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1 },
   ctaLip: { backgroundColor: 'rgba(0,0,0,0.18)', bottom: 0, height: 4, left: 0, position: 'absolute', right: 0 },
   ctaSpider: { position: 'absolute', right: 26, top: -20 },
   secondary: { fontSize: 15, fontWeight: '700', letterSpacing: 0.4, paddingVertical: 4, textAlign: 'center' },
