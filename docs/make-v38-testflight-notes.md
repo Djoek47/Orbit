@@ -2,6 +2,8 @@
 
 **Branch tip:** `cursor/make-v38-c30d`  
 **Base:** make-v37 / TF **1.3.0 (125)**  
+**Status:** **1.3.0 (126)** finished + submitted to TestFlight.
+
 **Package:** `build-126-package` patches 0004 + 0006–0012 (0001–0005 already on tip)  
 **Design ref:** `design/paywall/paywall-previews.html` (uploaded ChoreMaxx Paywall Previews)  
 **Console zip:** deferred (not in this cut)
