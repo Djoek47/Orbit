@@ -43,6 +43,15 @@ const ENTITLEMENT_KEY = '@orbit/premium_entitlement';
 
 let cachedEntitlement: EntitlementState | null = null;
 
+/** Purchases this app started and is still waiting on; the recovery listener stays out of them. */
+let purchaseInFlight = 0;
+
+/** A transaction dated well before we asked to buy is an older unfinished one, not ours. */
+function isStaleEvent(row: Record<string, unknown>, requestedAt: number): boolean {
+  const at = typeof row.transactionDate === 'number' ? row.transactionDate : NaN;
+  return Number.isFinite(at) && at < requestedAt - 60_000;
+}
+
 function readPlatformOs(): string {
   try {
     // Soft require so Node unit tests don't load react-native's broken index.
@@ -295,7 +304,9 @@ function purchaseTransactionId(purchase: Record<string, unknown>): string {
     purchase.purchaseToken ??
     purchase.transactionIdentifierIOS;
   if (typeof id === 'string' && id.trim()) return id.trim();
-  return `txn-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  // A made-up id would defeat the once-per-transaction grant check, so refuse instead; the
+  // transaction stays unfinished and the recovery listener retries it on the next launch.
+  throw new Error('purchase_missing_transaction_id');
 }
 
 /** Finish with retry — never swallow; leave purchase resumable on failure. */
@@ -357,7 +368,12 @@ async function readStoreKitSubscription(
     return 0;
   };
   const best = subs.reduce((a, b) => (expiryOf(b) > expiryOf(a) ? b : a));
-  const expiresMs = expiryOf(best);
+  // Apple's billing grace period: the paid period is over but the subscriber keeps access
+  // until the grace date while Apple retries the card.
+  const grace = (best.renewalInfoIOS as { gracePeriodExpirationDate?: number | null } | undefined)
+    ?.gracePeriodExpirationDate;
+  const expiresMs =
+    typeof grace === 'number' && grace > Date.now() && grace > expiryOf(best) ? grace : expiryOf(best);
 
   const state = entitlementFromPurchase({
     productId: String(best.productId),
@@ -462,7 +478,8 @@ export async function isTrialEligible(productKey: IapProductKey): Promise<boolea
       await iap.initConnection();
       const listed = await iap.fetchProducts({ skus: [product.productId], type: 'subs' });
       const row = (Array.isArray(listed) ? listed[0] : null) as Record<string, unknown> | null;
-      if (!row) return true;
+      // No product, no promise: never advertise a free trial Apple hasn't confirmed.
+      if (!row) return false;
       const mode = String(row.introductoryPricePaymentModeIOS ?? '')
         .toLowerCase()
         .replace(/[^a-z]/g, '');
@@ -473,7 +490,7 @@ export async function isTrialEligible(productKey: IapProductKey): Promise<boolea
     });
   } catch (error) {
     console.warn('isTrialEligible', formatUnknownError(error, 'probe failed'));
-    return true;
+    return false;
   }
 }
 
@@ -561,6 +578,8 @@ export async function purchasePremium(
       );
     }
 
+    const requestedAt = Date.now();
+    purchaseInFlight += 1;
     const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const removeUpdated = iap.purchaseUpdatedListener((event) => {
         const row = event as unknown as Record<string, unknown>;
@@ -568,6 +587,7 @@ export async function purchasePremium(
         if (eventProductId && eventProductId !== product.productId) {
           return;
         }
+        if (isStaleEvent(row, requestedAt)) return;
         removeUpdated.remove();
         removeError.remove();
         resolve(row);
@@ -594,6 +614,8 @@ export async function purchasePremium(
           removeError.remove();
           reject(error);
         });
+    }).finally(() => {
+      purchaseInFlight -= 1;
     });
 
     const productId = String(purchase.productId ?? product.productId);
@@ -768,6 +790,8 @@ export async function purchaseTokens(
       );
     }
 
+    const requestedAt = Date.now();
+    purchaseInFlight += 1;
     const purchase = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const removeUpdated = iap.purchaseUpdatedListener((event) => {
         const row = event as unknown as Record<string, unknown>;
@@ -776,6 +800,8 @@ export async function purchaseTokens(
         if (eventProductId && eventProductId !== pack.productId) {
           return;
         }
+        // An older unfinished transaction for the same pack belongs to the recovery listener.
+        if (isStaleEvent(row, requestedAt)) return;
         removeUpdated.remove();
         removeError.remove();
         resolve(row);
@@ -801,6 +827,8 @@ export async function purchaseTokens(
           removeError.remove();
           reject(rejectPurchaseError(error));
         });
+    }).finally(() => {
+      purchaseInFlight -= 1;
     });
 
     const productId = String(purchase.productId ?? pack.productId);
@@ -902,4 +930,74 @@ export const emptyEntitlement = EMPTY_ENTITLEMENT;
 /** @internal test helper — seed mock without StoreKit */
 export function __setMockEntitlementForTests(next: Partial<EntitlementState>) {
   return setMockEntitlement(next);
+}
+
+
+/**
+ * Finishes what a killed or crashed purchase left behind. StoreKit replays unfinished
+ * transactions at launch: a paid pack is granted (once — the grant is keyed by transaction id)
+ * and then finished; a subscription is finished and the entitlement re-read.
+ * Returns a cleanup function. Call once per signed-in household on a device that can buy.
+ */
+export function startPurchaseRecovery(
+  householdId: string,
+  onRecovered?: (what: { kind: 'pack'; grant: TokenGrant } | { kind: 'subscription' }) => void
+): () => void {
+  if (!isNativeIapAvailable() || !householdId) return () => undefined;
+  let stopped = false;
+  let remove: (() => void) | null = null;
+  const handled = new Set<string>();
+
+  const handle = async (iap: typeof import('expo-iap'), row: Record<string, unknown>) => {
+    if (stopped || purchaseInFlight > 0) return;
+    const productId = String(row.productId ?? row.id ?? '');
+    let txn: string;
+    try {
+      txn = purchaseTransactionId(row);
+    } catch {
+      return;
+    }
+    if (handled.has(txn)) return;
+    handled.add(txn);
+    try {
+      const pack = tokenPackForProductId(productId);
+      if (pack) {
+        const key = (Object.keys(IAP_CONSUMABLES) as IapTokenPackKey[]).find(
+          (k) => IAP_CONSUMABLES[k].productId === productId
+        )!;
+        const { grantTokenPack } = await import('@/lib/billing/token-grants');
+        const grant = await grantTokenPack({ householdId, packKey: key, transactionId: txn, productId });
+        await finishPurchaseWithRetry(iap, row, true);
+        onRecovered?.({ kind: 'pack', grant });
+      } else if (SUBSCRIPTION_IDS.includes(productId)) {
+        await finishPurchaseWithRetry(iap, row, false);
+        onRecovered?.({ kind: 'subscription' });
+      }
+    } catch (error) {
+      handled.delete(txn); // stays unfinished; StoreKit offers it again next launch
+      console.warn('purchase recovery', formatUnknownError(error, 'recovery failed'));
+    }
+  };
+
+  void withNativeIap(async (iap) => {
+    await iap.initConnection();
+    if (stopped) return;
+    const sub = iap.purchaseUpdatedListener((event) => {
+      void handle(iap, event as unknown as Record<string, unknown>);
+    });
+    remove = () => sub.remove();
+    try {
+      const pending = await iap.getPendingTransactionsIOS();
+      for (const row of Array.isArray(pending) ? pending : []) {
+        await handle(iap, row as unknown as Record<string, unknown>);
+      }
+    } catch {
+      /* not iOS, or nothing pending */
+    }
+  }).catch(() => undefined);
+
+  return () => {
+    stopped = true;
+    remove?.();
+  };
 }

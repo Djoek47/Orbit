@@ -334,8 +334,18 @@ export default function PremiumScreen() {
         await new Promise((r) => setTimeout(r, 700));
         await leave('started');
       } else {
-        setErrorMessage('No active subscription found.');
+        // Tell a lapsed subscriber their plan ended, rather than "nothing found".
+        const { fetchSubscriptionHistory } = await import('@/lib/billing/iap');
+        const history = await fetchSubscriptionHistory().catch(() => []);
+        const last = [...history].sort((a, b) => (b.endsAt ?? '').localeCompare(a.endsAt ?? ''))[0];
+        setErrorMessage(
+          last
+            ? `Your subscription ended${last.endsAt ? ` on ${formatRenewalDate(last.endsAt)}` : ''}. Pick a plan to renew.`
+            : 'Nothing to restore on this Apple ID.'
+        );
       }
+      void access.refresh();
+      void sub.refresh();
     } catch (error) {
       const { formatUnknownError } = await import('@/lib/errors/unknown-error');
       const { friendlyErrorMessage } = await import('@/lib/errors/friendly-error');

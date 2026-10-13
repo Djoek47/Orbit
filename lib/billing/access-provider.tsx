@@ -150,6 +150,16 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     setCurrentMonthlyAllowance(view.monthlyAllowance);
   }, [ready, view.monthlyAllowance]);
 
+  // Finish purchases a crash or force-quit left unfinished (packs get their actions, once).
+  useEffect(() => {
+    if (!canPurchase || !household.id || !isNativeIapAvailable()) return;
+    let stop: (() => void) | undefined;
+    void import('@/lib/billing/iap').then(({ startPurchaseRecovery }) => {
+      stop = startPurchaseRecovery(household.id!, () => void refresh());
+    });
+    return () => stop?.();
+  }, [canPurchase, household.id, refresh]);
+
   // Tell the household. Only from an admin's phone, only when this Apple ID actually holds an
   // active subscription, and once per distinct period so a relaunch does not re-post it.
   useEffect(() => {
