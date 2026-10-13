@@ -1,6 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState, useRef } from 'react';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Moji } from '@/components/orbit/moji/moji';
@@ -42,6 +50,8 @@ import {
   type PlanItem,
 } from '@/lib/calendar/plan-items';
 import { pendingEventsForAdmin } from '@/lib/calendar/event-approval';
+import { useHolidayPrefs } from '@/lib/calendar/holiday-prefs';
+import { holidaysBetween, type Holiday } from '@/lib/calendar/holidays';
 import { planAddOptionsForActor } from '@/lib/calendar/sidekick-plan-add';
 import {
   usesFocusedCalendar,
@@ -90,6 +100,20 @@ function locationShort(location: string): string | null {
   if (!location) return null;
   const parts = location.split(',');
   return parts[0]?.trim() || location;
+}
+
+/** The holiday's Moji, with a small hello wiggle when the day is opened. */
+function HolidayBadge({ moji }: { moji: Holiday['moji'] }) {
+  const tilt = useSharedValue(0);
+  useEffect(() => {
+    tilt.value = withSequence(withTiming(-10, { duration: 140 }), withSpring(0, { damping: 4, stiffness: 180 }));
+  }, [moji, tilt]);
+  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${tilt.value}deg` }] }));
+  return (
+    <Animated.View style={style}>
+      <Moji name={moji} size={40} />
+    </Animated.View>
+  );
 }
 
 export default function PlanScreen() {
@@ -209,6 +233,13 @@ export default function PlanScreen() {
   const weekDays = useMemo(() => weekStripDays(), []);
   const selectedKey = format(selectedDate, 'yyyy-MM-dd');
   const selectedItems = itemsByDate[selectedKey] ?? [];
+  const holidayPrefs = useHolidayPrefs();
+  const holidaysByDate = useMemo<Record<string, Holiday[]>>(() => {
+    const days = [...calendarDays, ...weekDays, selectedDate];
+    const times = days.map((d) => d.getTime());
+    return holidaysBetween(new Date(Math.min(...times)), new Date(Math.max(...times)), holidayPrefs);
+  }, [calendarDays, weekDays, selectedDate, holidayPrefs]);
+  const selectedHolidays = holidaysByDate[selectedKey] ?? [];
   const selectedEvents = visibleEvents.filter(
     (event) =>
       event.startsAt?.startsWith(selectedKey) ||
@@ -397,6 +428,19 @@ export default function PlanScreen() {
                 Hidden for you only
               </Text>
             ) : null}
+            <Pressable
+              onPress={() => router.push('/holiday-settings' as never)}
+              accessibilityRole="button"
+              accessibilityLabel="Holiday settings"
+              style={({ pressed }) => [
+                styles.holidayChip,
+                { backgroundColor: glass(0.06), borderColor: glassBorder(0.1), transform: [{ scale: pressed ? 0.95 : 1 }] },
+              ]}>
+              <Moji name="pumpkin" size={14} />
+              <Text style={[styles.legendLabel, { color: c.textSubtle }]}>
+                {holidayPrefs.enabled ? 'Holidays' : 'Holidays off'}
+              </Text>
+            </Pressable>
           </View>
 
           {view === 'month' ? (
@@ -431,6 +475,7 @@ export default function PlanScreen() {
                   const inMonth = isSameMonth(day, currentMonth);
                   const today = isToday(day);
                   const dots = [...new Set(items.slice(0, 4).map((item) => planItemColor(item)))].slice(0, 3);
+                  const holiday = (holidaysByDate[ds] ?? [])[0];
                   return (
                     <Pressable key={ds} onPress={() => setSelectedDate(day)} style={styles.dayCell}>
                       <View
@@ -450,6 +495,11 @@ export default function PlanScreen() {
                           {format(day, 'd')}
                         </Text>
                       </View>
+                      {inMonth && holiday ? (
+                        <View style={styles.dayHoliday} accessibilityLabel={holiday.name}>
+                          <Moji name={holiday.moji} size={13} />
+                        </View>
+                      ) : null}
                       {inMonth && dots.length > 0 ? (
                         <View style={styles.dots}>
                           {dots.map((c, i) => (
@@ -494,6 +544,9 @@ export default function PlanScreen() {
                         {format(day, 'd')}
                       </Text>
                     </View>
+                    {(holidaysByDate[ds] ?? [])[0] ? (
+                      <Moji name={holidaysByDate[ds]![0]!.moji} size={16} />
+                    ) : null}
                     {items.length > 0 ? (
                       <View style={styles.dots}>
                         {[...new Set(items.slice(0, 3).map((item) => planItemColor(item)))].map((color, i) => (
@@ -551,7 +604,22 @@ export default function PlanScreen() {
             </Pressable>
           ) : null}
 
-          {selectedItems.length === 0 ? (
+          {selectedHolidays.map((h, i) => (
+            <Animated.View key={h.id} entering={FadeInDown.delay(i * 60).springify()}>
+              <Pressable
+                onPress={() => router.push('/holiday-settings' as never)}
+                style={[styles.holidayCard, { backgroundColor: `${accentTheme.primary}12`, borderColor: `${accentTheme.primary}2E` }]}>
+                <HolidayBadge moji={h.moji} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.typePillText, { color: accentTheme.primary }]}>HOLIDAY</Text>
+                  <Text style={[styles.eventTitle, { color: c.text }]}>{h.name}</Text>
+                  <Text style={[styles.meta, { color: c.textMuted }]}>{h.blurb}</Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+          ))}
+
+          {selectedItems.length === 0 && selectedHolidays.length === 0 ? (
             <View
               style={[
                 styles.emptyDay,
@@ -647,7 +715,8 @@ export default function PlanScreen() {
               {weekDays.slice(0, 5).map((day) => {
                 const ds = format(day, 'yyyy-MM-dd');
                 const items = itemsByDate[ds] ?? [];
-                if (items.length === 0) return null;
+                const dayHolidays = holidaysByDate[ds] ?? [];
+                if (items.length === 0 && dayHolidays.length === 0) return null;
                 return (
                   <Pressable
                     key={ds}
@@ -667,6 +736,16 @@ export default function PlanScreen() {
                       </Text>
                     </View>
                     <View style={styles.next7Pills}>
+                      {dayHolidays.slice(0, 1).map((h) => (
+                        <View
+                          key={h.id}
+                          style={[styles.next7Pill, { backgroundColor: `${accentTheme.primary}15`, borderColor: `${accentTheme.primary}22` }]}>
+                          <Moji name={h.moji} size={12} />
+                          <Text style={[styles.next7PillText, { color: accentTheme.primary }]} numberOfLines={1}>
+                            {h.name.length > 18 ? `${h.name.slice(0, 17)}…` : h.name}
+                          </Text>
+                        </View>
+                      ))}
                       {items.slice(0, 3).map((item) => {
                         const pillColor = planItemColor(item);
                         return (
@@ -808,6 +887,9 @@ const styles = StyleSheet.create({
   legend: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   legendDot: { borderRadius: 4, height: 8, width: 8 },
   legendHint: { fontSize: 11, fontWeight: '600', marginLeft: 2 },
+  holidayChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 4, marginLeft: 'auto', paddingHorizontal: 9, paddingVertical: 4 },
+  dayHoliday: { position: 'absolute', right: 0, top: -2 },
+  holidayCard: { alignItems: 'center', borderCurve: 'continuous', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 12 },
   legendItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   legendLabel: { fontSize: 12 },
   legendToggle: {

@@ -1268,8 +1268,14 @@ export default function SettingsScreen() {
                 icon="place"
                 iconColor="#38BDF8"
                 label="My Places"
-                last
                 onPress={() => router.push('/places' as never)}
+              />
+              <SettingsNavRow
+                icon="celebration"
+                iconColor="#F39A45"
+                label="Holidays on the calendar"
+                last
+                onPress={() => router.push('/holiday-settings' as never)}
               />
             </SettingsGroup>
             <SectionCard title="Maps">

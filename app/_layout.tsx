@@ -194,6 +194,10 @@ export default function RootLayout() {
                     options={{ presentation: 'modal', headerShown: false, title: 'Purchase diagnostics' }}
                   />
                   <Stack.Screen
+                    name="holiday-settings"
+                    options={{ presentation: 'modal', headerShown: false, title: 'Holidays' }}
+                  />
+                  <Stack.Screen
                     name="support"
                     options={{ presentation: 'modal', headerShown: false, title: 'Support' }}
                   />
