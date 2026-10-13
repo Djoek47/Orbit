@@ -2,7 +2,7 @@
  * Poppins → Credits.
  *
  * Two pots, kept visually separate:
- *   allowance   300 actions / month, resets on the 1st
+ *   allowance   300 tokens / month, resets on the 1st
  *   credits     bought packs that never expire — spent after the month is gone
  *
  * Buys go through `purchaseTokens` so Expo Go mock and native StoreKit share one path.
@@ -99,10 +99,10 @@ function PremiumPromo({ onStart }: { onStart: () => void }) {
       />
       <Text style={[styles.promoEyebrow, { color: TOPUP_TONE }]}>Subscription</Text>
       <Text style={[styles.promoTitle, { color: c.text }]}>
-        {TOKENS_PER_MONTH} actions every month
+        {TOKENS_PER_MONTH} tokens every month
       </Text>
       <Text style={[styles.promoBody, { color: c.textMuted }]}>
-        Poppins comes with your subscription. Subscribe and your monthly actions refill on their own, every
+        Poppins comes with your subscription. Subscribe and your monthly tokens refill on their own, every
         month.
       </Text>
       <Pressable
@@ -145,7 +145,7 @@ function CreditHistory({
           out.push({
             id: `g-${g.id}`,
             at: g.grantedAt,
-            title: `Bought ${g.tokens.toLocaleString()} actions`,
+            title: `Bought ${g.tokens.toLocaleString()} tokens`,
             detail: g.consumed > 0 ? `${g.consumed} used so far` : 'Never expire',
             delta: `+${g.tokens}`,
             positive: true,
@@ -157,7 +157,7 @@ function CreditHistory({
             id: `p-${p.id}`,
             at: p.startedAt,
             title: 'Subscription payment',
-            detail: 'Monthly actions refill on the 1st',
+            detail: 'Monthly tokens refill on the 1st',
             delta: '',
             positive: true,
           });
@@ -177,7 +177,7 @@ function CreditHistory({
           id: 'used',
           at: new Date().toISOString(),
           title: 'Used this month',
-          detail: trial ? 'Spent from bought actions' : 'Poppins actions',
+          detail: trial ? 'Spent from bought tokens' : 'Poppin AI tokens',
           delta: `−${monthUsed}`,
           positive: false,
         }
@@ -195,7 +195,7 @@ function CreditHistory({
       <View style={[styles.card, { backgroundColor: glassFill(isDark), borderColor: glassBorder(0.1) }]}>
         {all.length === 0 ? (
           <Text style={[styles.ledgerSub, { color: c.textSubtle, padding: 14 }]}>
-            Packs you buy and your monthly actions will show up here.
+            Packs you buy and your monthly tokens will show up here.
           </Text>
         ) : (
           all.map((row, index) => (
@@ -426,8 +426,8 @@ function PoppinsCreditsScreenInner() {
       confirmCreditPackPurchase({
         title: `${pack.label} · ${priceFor(pack)}`,
         message: mockBuy
-          ? `Adds ${pack.tokens} actions to your bank. Test buy — no charge.`
-          : `Adds ${pack.tokens} actions to your credit bank.`,
+          ? `Adds ${pack.tokens} tokens to your bank. Test buy — no charge.`
+          : `Adds ${pack.tokens} tokens to your credit bank.`,
         confirmLabel: mockBuy ? 'Buy (test)' : 'Buy',
         onConfirm: () => {
           void runPurchase(pack);
@@ -498,7 +498,7 @@ function PoppinsCreditsScreenInner() {
             </View>
             <Text style={[styles.congratsBody, { color: c.textSoft }]}>
               <Text style={[styles.congratsBodyStrong, { color: c.text }]}>
-                {congrats.tokens.toLocaleString()} actions
+                {congrats.tokens.toLocaleString()} tokens
               </Text>{' '}
               for {congrats.price} are in your bank. They never expire.
             </Text>
@@ -548,7 +548,7 @@ function PoppinsCreditsScreenInner() {
                   <Moji name="gem" size={18} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.groupLabel, { color: TOPUP_TONE }]}>Buy more actions</Text>
+                  <Text style={[styles.groupLabel, { color: TOPUP_TONE }]}>Buy more tokens</Text>
                   <Text style={[styles.groupSub, { color: c.textSubtle }]}>
                     Tokens stack forever · spent after the month
                   </Text>

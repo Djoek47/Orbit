@@ -69,7 +69,7 @@ export function TokenTopUpPicker({ busy = false, onSelect, onDismiss }: TokenTop
 
       <View style={styles.hero}>
         <Animated.View entering={FadeInUp.delay(40).duration(480)}>
-          <Text style={[styles.headline, { color: c.text }]}>Buy more actions</Text>
+          <Text style={[styles.headline, { color: c.text }]}>Buy more tokens</Text>
           <Text style={[styles.support, { color: c.textMuted }]}>
             Top-ups never expire. Used after this month’s allowance.
           </Text>
@@ -102,7 +102,7 @@ export function TokenTopUpPicker({ busy = false, onSelect, onDismiss }: TokenTop
                 accessibilityLabel={
                   unavailable
                     ? `${pack.label} not for sale on this build yet`
-                    : `${pack.tokens} actions for ${priceOf(pack)}`
+                    : `${pack.tokens} tokens for ${priceOf(pack)}`
                 }>
                 <View style={styles.rowText}>
                   <Text style={[styles.packLabel, { color: c.text }]}>{pack.label}</Text>

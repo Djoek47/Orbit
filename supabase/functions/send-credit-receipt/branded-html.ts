@@ -54,10 +54,10 @@ export function renderCreditReceiptEmail(input: CreditReceiptHtmlInput): {
   const name = firstName(input.name);
   const household = input.householdName.trim() || 'your household';
   const creditsUrl = input.creditsUrl?.trim() || 'https://www.choremaxx.app';
-  const subject = `Your Choremaxx receipt — ${input.tokens} Poppins actions`;
+  const subject = `Your Choremaxx receipt — ${input.tokens} Poppin AI tokens`;
 
   const rows = [
-    { label: 'Actions', value: String(input.tokens) },
+    { label: 'Tokens', value: String(input.tokens) },
     { label: 'Amount', value: input.price },
     { label: 'Order', value: input.orderId },
     ...(input.mock ? [{ label: 'Note', value: 'Test purchase — no charge' }] : []),
@@ -73,9 +73,9 @@ export function renderCreditReceiptEmail(input: CreditReceiptHtmlInput): {
     .join('');
 
   const text = [
-    `Hi ${name}, congratulations — ${input.tokens} Poppins actions were added to ${household}.`,
+    `Hi ${name}, congratulations — ${input.tokens} Poppin AI tokens were added to ${household}.`,
     '',
-    `Actions: ${input.tokens}`,
+    `Tokens: ${input.tokens}`,
     `Amount: ${input.price}`,
     `Order: ${input.orderId}`,
     input.mock ? 'Note: Test purchase — no charge.' : '',
@@ -125,7 +125,7 @@ export function renderCreditReceiptEmail(input: CreditReceiptHtmlInput): {
                   <td>
                     <h1 style="margin:8px 0 16px;font-family:${FONT_STACK};font-size:28px;line-height:34px;font-weight:700;color:${COLORS.darkText};">Congratulations — credits added</h1>
                     <p style="margin:0 0 24px;font-family:${FONT_STACK};font-size:16px;line-height:24px;color:${COLORS.body};">
-                      Hi ${escapeHtml(name)}, <strong>${input.tokens}</strong> Poppins actions are now in your credit bank for ${escapeHtml(household)}. They never expire — your monthly allowance is spent first, then these.
+                      Hi ${escapeHtml(name)}, <strong>${input.tokens}</strong> Poppin AI tokens are now in your credit bank for ${escapeHtml(household)}. They never expire — your monthly allowance is spent first, then these.
                     </p>
                     <table role="presentation" width="100%" style="margin:0 0 28px;border-collapse:collapse;">${rowsHtml}</table>
                     <table role="presentation" cellspacing="0" cellpadding="0" width="100%">

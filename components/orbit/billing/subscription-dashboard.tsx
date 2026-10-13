@@ -206,7 +206,7 @@ export function SubscriptionDashboard({
             icon="bolt"
             iconColor="#9B6BEF"
             label="Poppins credits"
-            subtitle="Your monthly actions and extra packs"
+            subtitle="Your monthly tokens and extra packs"
             onPress={() => router.push('/poppins-credits' as never)}
           />
           {showDiagnostics ? (

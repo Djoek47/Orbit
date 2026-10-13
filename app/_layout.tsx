@@ -204,7 +204,7 @@ export default function RootLayout() {
                   {/* The Poppins pages draw their own header. Without these, iOS put a grey bar on
                       top reading the raw route name ("poppins-how-it-works"). */}
                   <Stack.Screen name="poppins-how-it-works" options={{ headerShown: false, title: 'How it works' }} />
-                  <Stack.Screen name="poppins-actions" options={{ headerShown: false, title: 'Actions' }} />
+                  <Stack.Screen name="poppins-actions" options={{ headerShown: false, title: 'Tokens' }} />
                   <Stack.Screen name="poppins-credits" options={{ headerShown: false, title: 'Credits' }} />
                   <Stack.Screen name="poppins-advanced" options={{ headerShown: false, title: 'Advanced' }} />
                   <Stack.Screen

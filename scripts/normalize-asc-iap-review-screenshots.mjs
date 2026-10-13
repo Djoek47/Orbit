@@ -24,7 +24,7 @@ const DEFAULTS = [
   {
     in: '/home/ubuntu/.cursor/projects/workspace/assets/33c21b28-cbff-4c79-8b2d-d8b2fde31880.png',
     out: 'poppins-tokens-credits-200-700-2000.jpg',
-    note: 'Consumables — full Credits / Buy more actions (use for 200, 700, 2000 IAPs)',
+    note: 'Consumables — full Credits / Buy more tokens (use for 200, 700, 2000 IAPs)',
   },
   {
     in: '/home/ubuntu/.cursor/projects/workspace/assets/c1ead2ed-e43b-45ee-be36-540727e67aa7.jpg',

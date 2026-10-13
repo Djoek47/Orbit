@@ -118,7 +118,7 @@ test('Pass D: congratulations email template still celebrates purchase', async (
     mock: true,
     creditsUrl: 'https://www.choremaxx.app',
   };
-  assert.match(mod.subjectFor(props), /200 Poppins actions/);
+  assert.match(mod.subjectFor(props), /200 Poppin AI tokens/);
   assert.match(mod.textFor(props), /congratulations/i);
 });
 

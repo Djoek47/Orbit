@@ -113,9 +113,9 @@ export default function PremiumScreen() {
   const upgradeFromTrial = params.source === 'poppins' && access.view.level === 'trial';
   const copy = upgradeFromTrial
     ? {
-        kicker: 'Poppins comes with your subscription',
-        title: `${TOKENS_PER_MONTH} actions every month`,
-        body: 'Your trial covers chores, XP and rewards. Subscribe to talk to your house with Poppins — your actions refill every month.',
+        kicker: 'Included with your subscription',
+        title: 'Meet Poppin AI',
+        body: 'Talk to your house. Tokens refill every month.',
         cta: 'Subscribe',
         offersTrial: false,
       }

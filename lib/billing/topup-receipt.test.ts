@@ -73,7 +73,7 @@ assert.equal(receipt.totalUsd, 4.99);
 assert.equal(receipt.productId, IAP_CONSUMABLES.tokensMedium.productId);
 assert.equal(receipt.mock, true);
 assert.equal(receipt.transactionId, `mock-${receipt.orderId}`);
-assert.match(receiptSubject(receipt), /700 Poppins actions/);
+assert.match(receiptSubject(receipt), /700 Poppin AI tokens/);
 
 const body = receiptBody(receipt);
 assert.match(body, /The Rivera house/);
@@ -81,7 +81,7 @@ assert.match(body, /\$4\.99/);
 assert.match(body, new RegExp(receipt.orderId));
 assert.match(body, /never expire/);
 assert.match(body, /TEST — no charge/, 'it never pretends money moved');
-assert.match(receiptLine(receipt), /700 actions · \$4\.99 · CMX-/);
+assert.match(receiptLine(receipt), /700 tokens · \$4\.99 · CMX-/);
 
 // An empty household name still reads as a sentence.
 assert.match(

@@ -10,7 +10,7 @@
  *   This phone  the Apple ID's own subscription: plan, trial, expiry, renewal, billing retry.
  *   Household   what the household row says — what Sidekick phones and tablets go by.
  *   Access      the decision the app made from both: paid / trial / locked, days left.
- *   Credits     bought actions left, and this month's allowance.
+ *   Credits     bought tokens left, and this month's allowance.
  *
  * Owners and admins only. Reached from Settings → My Subscription → Purchase diagnostics.
  */
@@ -199,7 +199,7 @@ export default function BillingDiagnosticsScreen() {
               <Row k="App locked" v={access.view.appLocked ? 'Yes' : 'No'} good={!access.view.appLocked} />
               <Row k="Trial label" v={access.view.trialLabel || '—'} />
               <Row k="Monthly Poppins" v={String(access.view.monthlyAllowance)} />
-              <Row k="Bought actions left" v={String(snap.bought)} />
+              <Row k="Bought tokens left" v={String(snap.bought)} />
               <Row k="Read at" v={when(snap.at)} />
             </Card>
 

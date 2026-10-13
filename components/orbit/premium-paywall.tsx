@@ -272,7 +272,7 @@ export function PremiumPaywall({
           <Animated.View style={[styles.priceCrossfade, priceStyle]}>
             <Text style={[styles.support, { color: halloween ? '#C7B9E6' : c.textMuted }]}>
               {alreadyPremium && usage
-                ? `${usage.tokensUsedThisPeriod} of ${usage.tokensPerMonth} actions used this period`
+                ? `${usage.tokensUsedThisPeriod} of ${usage.tokensPerMonth} tokens used this period`
                 : offerLine}
             </Text>
           </Animated.View>

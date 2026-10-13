@@ -1,6 +1,6 @@
 /**
  * WO12 §D2 — coach_steps card (Coach.html).
- * Teaching never arms a hold and never costs an action.
+ * Teaching never arms a hold and never costs a token.
  */
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -121,7 +121,7 @@ export function IuiCoachCard({ payload, accent, fillAccent, onWalkThrough, onJus
           },
         ]}>
         <Text style={[styles.noteText, { color: muted }]}>
-          Teaching never costs an action. Asking how something works is free — only doing it counts.
+          Teaching never costs a token. Asking how something works is free — only doing it counts.
         </Text>
       </View>
     </View>

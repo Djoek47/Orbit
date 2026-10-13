@@ -14,7 +14,7 @@ test('credit purchase email template exports subject and text', async () => {
     mock: true,
     creditsUrl: 'https://www.choremaxx.app',
   };
-  assert.match(mod.subjectFor(props), /600 Poppins actions/);
+  assert.match(mod.subjectFor(props), /600 Poppin AI tokens/);
   const text = mod.textFor(props);
   assert.match(text, /congratulations/i);
   assert.match(text, /\$4\.99/);

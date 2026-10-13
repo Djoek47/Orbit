@@ -34,14 +34,14 @@ const MODES: {
   {
     tier: 'base',
     title: 'Base',
-    line: `Lighter — about ${TOKEN_WEIGHT_QUIET} token per action.`,
+    line: `Lighter — about ${TOKEN_WEIGHT_QUIET} token per request.`,
     detail: 'Writes its answers on screen. Best for everyday use.',
     icon: 'water-drop',
   },
   {
     tier: 'max',
     title: 'Max',
-    line: `Talks with you — about ${TOKEN_WEIGHT_SPEAK_BACK} tokens per action.`,
+    line: `Talks with you — about ${TOKEN_WEIGHT_SPEAK_BACK} tokens per request.`,
     detail: 'A real conversation out loud. Richer, and it spends the month faster.',
     icon: 'graphic-eq',
   },

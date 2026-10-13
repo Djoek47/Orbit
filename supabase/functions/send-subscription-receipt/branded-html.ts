@@ -34,7 +34,7 @@ export function renderSubscriptionReceiptEmail(input: SubscriptionReceiptHtmlInp
     ? 'Congratulations — trial started'
     : 'Your subscription is active';
   const intro = input.inTrial
-    ? `your 7-day free trial of ${input.plan} is underway. Enjoy full Poppins actions for your household.`
+    ? `your 7-day free trial of ${input.plan} is underway. Enjoy full Poppin AI tokens for your household.`
     : `thanks for subscribing to Choremaxx — ${input.plan} is active for your household.`;
 
   const rows = [

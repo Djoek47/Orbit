@@ -122,7 +122,7 @@ function render(kind: Kind, b: Body, name: string, household: string) {
         `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">${infoRowsHtml([
           { label: 'Trial ends', value: longDate(b.endsAt) },
           { label: 'Then', value: b.priceLine ?? 'Your chosen plan' },
-          { label: 'Includes', value: '300 Poppins actions a month' },
+          { label: 'Includes', value: '300 Poppin AI tokens a month' },
         ])}</table>` +
         p('If you keep it, nothing to do: Apple starts your subscription automatically and everything carries on.') +
         alertBoxHtml('info', 'To stop it, cancel at least 24 hours before it ends: iPhone Settings → your name → Subscriptions → ChoreMaxx. Your chores and history stay saved either way.'),

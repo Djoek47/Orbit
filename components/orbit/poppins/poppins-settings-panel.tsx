@@ -88,7 +88,7 @@ export function PoppinsSettingsPanel({
             </Text>
             <Text style={[styles.heroCaption, { color: tone }]}>
               {usage.paused
-                ? 'out of actions — typing still works'
+                ? 'out of tokens — typing still works'
                 : `action${left === 1 ? '' : 's'} left${resetLabel ? ` · resets ${resetLabel}` : ''}`}
             </Text>
             <Text style={[styles.heroSub, { color: c.textMuted }]}>
@@ -141,8 +141,8 @@ export function PoppinsSettingsPanel({
           <NavRow
             moji="receipt"
             tone="#FF9F1C"
-            label="Actions"
-            sub="Where this month's actions went, day by day"
+            label="Tokens"
+            sub="Where this month's tokens went, day by day"
             onPress={() => router.push('/poppins-actions' as never)}
             divider
           />

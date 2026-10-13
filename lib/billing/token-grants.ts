@@ -207,7 +207,7 @@ export type GrantTokenPackInput = {
 export async function grantTokenPack(input: GrantTokenPackInput): Promise<TokenGrant> {
   const pack =
     input.packKey === 'mock'
-      ? { pack: 'mock' as const, tokens: 50, productId: 'mock', label: '50 actions' }
+      ? { pack: 'mock' as const, tokens: 50, productId: 'mock', label: '50 tokens' }
       : IAP_CONSUMABLES[input.packKey];
 
   if (input.productId && input.packKey !== 'mock') {

@@ -3,7 +3,7 @@
  *
  * Three fixed regions, top to bottom, and nothing ever overlaps another:
  *
- *   header  — who / what the stage is doing, and actions left today
+ *   header  — who / what the stage is doing, and tokens left today
  *   body    — flex: the orb (always mounted, 196 idle / 72 live) and, when a card is live,
  *             the stage in its own scroll view. Typing splits the body with the thread
  *             instead of floating a sheet over the card.
@@ -81,7 +81,7 @@ function PoppinsScreenInner() {
   const tour = useTourControls();
   const p = usePoppinsController();
   const innerAccess = useAccess();
-  // Out of actions on a paying household: the glass top-up sheet, once per time it runs out.
+  // Out of tokens on a paying household: the glass top-up sheet, once per time it runs out.
   // Admins only — Poppins is theirs, and a pack is a purchase.
   const [topUpOpen, setTopUpOpen] = useState(false);
   // A purchase made anywhere lands here: the orb drains, then fills back up, with "+700".
@@ -163,7 +163,7 @@ function PoppinsScreenInner() {
           <TourTarget id="poppins.meter">
             <Text
               style={[styles.kicker, { color: stageFaint(isDark) }]}
-              accessibilityLabel={`${p.dailyLeft} actions left today`}>
+              accessibilityLabel={`${p.dailyLeft} tokens left today`}>
               {p.meterLabel}
             </Text>
           </TourTarget>
@@ -292,7 +292,7 @@ function PoppinsScreenInner() {
                 exiting={FadeOut.duration(400)}
                 style={[styles.refillBadge, { color: p.orb.accent ?? '#FFB347' }]}
                 accessibilityLiveRegion="polite">
-                +{refill.tokens.toLocaleString()} actions
+                +{refill.tokens.toLocaleString()} tokens
               </Animated.Text>
             ) : null}
           </View>
@@ -463,7 +463,7 @@ export default function PoppinsScreen() {
   if (isSidekickRole(currentMember?.role)) {
     return <Redirect href={'/(tabs)' as never} />;
   }
-  // On a free trial the monthly allowance is zero: Poppins runs on bought actions only. With
+  // On a free trial the monthly allowance is zero: Poppins runs on bought tokens only. With
   // none bought, show what it costs rather than a stage that will refuse every request.
   // Waits for both reads, so a household with credits never sees the lock flash.
   if (access.ready && access.view.level === 'trial' && bought !== null && bought <= 0) {

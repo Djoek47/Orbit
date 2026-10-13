@@ -15,7 +15,7 @@ import type { TokenGrantBalance } from '@/lib/billing/token-grants-math';
 const grant = (id: string, tokens: number, consumed: number, at: string): TokenGrantBalance => ({
   id,
   householdId: 'hh',
-  pack: `${tokens} actions`,
+  pack: `${tokens} tokens`,
   tokens,
   consumed,
   transactionId: `t-${id}`,
@@ -61,9 +61,9 @@ assert.equal(spendsFrom(s), 'credits', 'the allowance pays first, then credits')
   assert.equal(afterBuy.lifetimePurchased, 800);
 }
 
-assert.equal(creditPackLabel('medium', 600), '600 actions');
-assert.equal(creditPackLabel('small', 200), '200 actions');
-assert.equal(creditPackLabel('1500 actions', 1500), '1500 actions');
+assert.equal(creditPackLabel('medium', 600), '600 tokens');
+assert.equal(creditPackLabel('small', 200), '200 tokens');
+assert.equal(creditPackLabel('1500 tokens', 1500), '1500 tokens');
 
 // Newest purchase first, and each row balances.
 assert.deepEqual(s.rows.map((r) => r.id), ['c', 'b', 'a']);
@@ -115,7 +115,7 @@ assert.match(formatResetDate(new Date(2026, 8, 30)), /Oct 1/);
     join(process.cwd(), 'components/orbit/poppins/poppins-settings-panel.tsx'),
     'utf8'
   );
-  assert.match(panel, /label="Actions"/);
+  assert.match(panel, /label="Tokens"/);
   assert.match(panel, /label="Credits"/);
   assert.doesNotMatch(panel, /Actions & credits/, 'the one combined row is gone');
 }

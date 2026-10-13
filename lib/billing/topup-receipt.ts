@@ -18,7 +18,7 @@ import {
 export type TopUpPack = {
   key: IapTokenPackKey;
   productId: string;
-  /** "600 actions" */
+  /** "600 tokens" */
   label: string;
   tokens: number;
   priceUsd: number;
@@ -67,7 +67,7 @@ export function formatPrice(usd: number): string {
 /**
  * How many Speak-back acts a pack is worth.
  *
- * An "action" costs one credit quiet and 35 spoken, so "200 actions" means 200 of one kind and
+ * An "action" costs one credit quiet and 35 spoken, so "200 tokens" means 200 of one kind and
  * five of the other. Showing only the big number sells the cheapest pack hardest to the people
  * it suits least: someone who talks to Poppins pays $1.99 expecting 200 conversations.
  */
@@ -144,7 +144,7 @@ export function buildTopUpReceipt(input: {
 }
 
 export function receiptSubject(receipt: TopUpReceipt): string {
-  return `Your ChoreMaxx receipt — ${receipt.tokens} Poppins actions`;
+  return `Your ChoreMaxx receipt — ${receipt.tokens} Poppin AI tokens`;
 }
 
 /**
@@ -153,10 +153,10 @@ export function receiptSubject(receipt: TopUpReceipt): string {
  */
 export function receiptBody(receipt: TopUpReceipt): string {
   return [
-    `Thanks — ${receipt.tokens} actions added to ${receipt.householdName}.`,
+    `Thanks — ${receipt.tokens} tokens added to ${receipt.householdName}.`,
     '',
     `Order  ${receipt.orderId}`,
-    `Item   ${receipt.tokens} actions · ${formatPrice(receipt.totalUsd)}`,
+    `Item   ${receipt.tokens} tokens · ${formatPrice(receipt.totalUsd)}`,
     '',
     'Credits never expire. Month first, then these.',
     receipt.mock ? 'TEST — no charge.' : '',
@@ -167,7 +167,7 @@ export function receiptBody(receipt: TopUpReceipt): string {
 
 /** One line for the list of past top-ups. */
 export function receiptLine(receipt: TopUpReceipt): string {
-  return `${receipt.tokens} actions · ${formatPrice(receipt.totalUsd)} · ${receipt.orderId}`;
+  return `${receipt.tokens} tokens · ${formatPrice(receipt.totalUsd)} · ${receipt.orderId}`;
 }
 
 // ── Inbox ─────────────────────────────────────────────────────────────────────

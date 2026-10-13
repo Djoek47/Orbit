@@ -34,7 +34,7 @@ export default function CreditPurchaseEmail({
 }: CreditPurchaseEmailProps) {
   return (
     <EmailLayout
-      previewText={`Congratulations — ${tokens} Poppins actions added to ${householdName}.`}>
+      previewText={`Congratulations — ${tokens} Poppin AI tokens added to ${householdName}.`}>
       <Heading
         style={{
           fontFamily: emailFontStack,
@@ -51,12 +51,12 @@ export default function CreditPurchaseEmail({
           color: emailColors.body,
           margin: '0 0 24px',
         }}>
-        Hi {firstName(name)}, {tokens} Poppins actions are now in your credit bank for{' '}
+        Hi {firstName(name)}, {tokens} Poppin AI tokens are now in your credit bank for{' '}
         {householdName}. They never expire — your monthly allowance is spent first, then these.
       </Text>
       <InfoCard
         rows={[
-          { label: 'Actions', value: String(tokens) },
+          { label: 'Tokens', value: String(tokens) },
           { label: 'Amount', value: price },
           { label: 'Order', value: orderId },
           ...(mock ? [{ label: 'Note', value: 'Test purchase — no charge' }] : []),
@@ -78,7 +78,7 @@ CreditPurchaseEmail.PreviewProps = {
 } satisfies CreditPurchaseEmailProps;
 
 export const subjectFor = ({ tokens }: CreditPurchaseEmailProps) =>
-  `Your Choremaxx receipt — ${tokens} Poppins actions`;
+  `Your Choremaxx receipt — ${tokens} Poppin AI tokens`;
 
 export const textFor = ({
   name,
@@ -90,9 +90,9 @@ export const textFor = ({
   creditsUrl,
 }: CreditPurchaseEmailProps) =>
   [
-    `Hi ${firstName(name)}, congratulations — ${tokens} Poppins actions were added to ${householdName}.`,
+    `Hi ${firstName(name)}, congratulations — ${tokens} Poppin AI tokens were added to ${householdName}.`,
     '',
-    `Actions: ${tokens}`,
+    `Tokens: ${tokens}`,
     `Amount: ${price}`,
     `Order: ${orderId}`,
     mock ? 'Note: Test purchase — no charge.' : '',

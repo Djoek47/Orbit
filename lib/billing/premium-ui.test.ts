@@ -15,14 +15,14 @@ import { TOKENS_PER_DAY, TOKENS_PER_MONTH } from '@/constants/poppins-ai-rates';
 
 test('allowance copy omits redundant daily when soft cap equals monthly', () => {
   assert.equal(TOKENS_PER_DAY, TOKENS_PER_MONTH, 'current rates: daily soft cap equals monthly pool');
-  assert.equal(PREMIUM_ALLOWANCE_COPY, `${TOKENS_PER_MONTH} Poppins actions a month.`);
+  assert.equal(PREMIUM_ALLOWANCE_COPY, `${TOKENS_PER_MONTH} Poppin AI tokens a month.`);
   assert.doesNotMatch(PREMIUM_ALLOWANCE_COPY, /a day/i);
 });
 
 test('allowance copy names daily soft cap when it paces the month', () => {
   assert.equal(
     premiumAllowanceCopy(300, 30),
-    '300 Poppins actions a month · up to 30 a day.'
+    '300 Poppin AI tokens a month · up to 30 a day.'
   );
 });
 

@@ -61,7 +61,7 @@ function PoppinsActionsScreenInner() {
           accessibilityLabel="Back">
           <MaterialIcons name="chevron-left" size={28} color={c.text} />
         </Pressable>
-        <Text style={[typography.headline, { color: c.text }]}>Actions</Text>
+        <Text style={[typography.headline, { color: c.text }]}>Tokens</Text>
         <View style={{ width: 28 }} />
       </View>
 

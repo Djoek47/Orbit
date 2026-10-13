@@ -62,7 +62,7 @@ const TIER_ADVANCED_KEYS = [
   'notificationActions',
 ] as const satisfies readonly (keyof PoppinsInteractionPrefs)[];
 
-/** Base is Quiet (1 action). Max is the same Guided defaults with Speak back on.
+/** Base is Quiet (1 token). Max is the same Guided defaults with Speak back on.
  * WO15 §1.3 — preserve advanced knobs across a tier switch; only `speakBack` flips.
  */
 export function prefsForTier(
@@ -104,7 +104,7 @@ export function derivedModeLine(prefs: PoppinsInteractionPrefs): string {
   const actions = prefs.speakBack ? Math.max(1, Math.round(tokens)) : 1;
   return `Now using: ${voice} · ${control} — ${
     prefs.speakBack ? `about ${actions}` : String(actions)
-  } action${actions === 1 ? '' : 's'} each`;
+  } token${actions === 1 ? '' : 's'} each`;
 }
 
 export function modeFromSpeakBack(speakBack: boolean): PoppinsActMode {

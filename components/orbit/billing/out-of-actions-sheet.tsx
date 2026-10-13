@@ -1,12 +1,12 @@
 /**
- * Poppins is out of actions — for a household that already pays.
+ * Poppins is out of tokens — for a household that already pays.
  *
  *   ┌ blurred Poppins behind ─────────────────┐
  *   │ ┌───────── glass ─────────────────────┐ │
  *   │ │            ( empty orb )            │ │
- *   │ │      You're out of actions          │ │
+ *   │ │      You're out of tokens          │ │
  *   │ │  Your 300 come back on Nov 1, or    │ │
- *   │ │  top up now. Bought actions never   │ │
+ *   │ │  top up now. Bought tokens never   │ │
  *   │ │  expire.                            │ │
  *   │ │  [ 200 · $1.99 ] [ 700 ] [ 2000 ]   │ │
  *   │ │               Not now               │ │
@@ -149,7 +149,7 @@ export function OutOfActionsSheet({ visible, balance, onClose, onTrial }: Props)
           {done ? (
             <Animated.View entering={ZoomIn.duration(320)} style={styles.copy}>
               <Text style={[styles.title, { color: c.text }]}>
-                {done.tokens.toLocaleString()} actions added
+                {done.tokens.toLocaleString()} tokens added
               </Text>
               <Text style={[styles.body, { color: c.textMuted }]}>{done.mail}</Text>
               <Pressable
@@ -161,11 +161,11 @@ export function OutOfActionsSheet({ visible, balance, onClose, onTrial }: Props)
             </Animated.View>
           ) : (
             <Animated.View entering={FadeIn.duration(300)} style={styles.copy}>
-              <Text style={[styles.title, { color: c.text }]}>You&apos;re out of actions</Text>
+              <Text style={[styles.title, { color: c.text }]}>You&apos;re out of tokens</Text>
               <Text style={[styles.body, { color: c.textMuted }]}>
                 {onTrial
-                  ? `Your bought actions are used up. Top up to keep going, or subscribe for ${TOKENS_PER_MONTH} every month.`
-                  : `Your ${TOKENS_PER_MONTH} come back on ${formatResetDate()}. Top up now to keep going — bought actions never expire.`}
+                  ? `Your bought tokens are used up. Top up to keep going, or subscribe for ${TOKENS_PER_MONTH} every month.`
+                  : `Your ${TOKENS_PER_MONTH} come back on ${formatResetDate()}. Top up now to keep going — bought tokens never expire.`}
               </Text>
               <View style={styles.packs}>
                 {packs.map((pack) => (
@@ -174,7 +174,7 @@ export function OutOfActionsSheet({ visible, balance, onClose, onTrial }: Props)
                     disabled={buying != null}
                     onPress={() => void buy(pack.key, pack.productId, pack.priceUsd)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Buy ${pack.tokens} actions for ${priceOf(pack.productId, pack.priceUsd)}`}
+                    accessibilityLabel={`Buy ${pack.tokens} tokens for ${priceOf(pack.productId, pack.priceUsd)}`}
                     style={({ pressed }) => [
                       styles.pack,
                       {

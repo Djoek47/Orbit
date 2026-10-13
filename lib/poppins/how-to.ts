@@ -238,14 +238,16 @@ export const HOW_TO_INDEX: HowToEntry[] = [
   },
   {
     id: 'act-meter',
-    title: 'What an action is',
-    answer: 'An action is a committed write — teaching and chat do not count.',
+    title: 'What a token is',
+    answer: 'A token is spent on each committed write — teaching and chat do not count.',
     patterns: [
       'what is an action',
       'what is an act',
       'the meter',
       'act meter',
       'how many actions',
+      'what is a token',
+      'how many tokens',
     ],
     steps: [
       { text: 'Open Poppins' },

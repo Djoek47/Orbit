@@ -112,7 +112,7 @@ export function paywallCopy(
       return {
         kicker: 'ChoreMaxx',
         title: `Try it free for ${BILLING_TRIAL_DAYS} days`,
-        body: 'Chores, XP, rewards and the whole house, free for 7 days. Poppins and its monthly actions start with your first payment. Cancel any time before the trial ends and you pay nothing.',
+        body: 'Chores, XP, rewards and the whole house, free for 7 days. Poppins and its monthly tokens start with your first payment. Cancel any time before the trial ends and you pay nothing.',
         cta: 'Start free trial',
         offersTrial: true,
       };

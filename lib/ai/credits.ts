@@ -318,7 +318,7 @@ export function meterCaption(
   if (isAdmin) {
     return currentMonthlyAllowance() > 0
       ? `${summary.tokensUsedThisPeriod} of ${currentMonthlyAllowance()} this month · ${summary.tokensUsedToday} today`
-      : `${summary.tokensUsedToday} today · bought actions`;
+      : `${summary.tokensUsedToday} today · bought tokens`;
   }
   return personal > 0
     ? `${personal} of ${TOKENS_PER_DAY} today`

@@ -315,7 +315,7 @@ const ADMIN_POPPINS: TourChapter = {
       id: 'poppins.mode',
       targetId: 'poppins.mode',
       title: 'Base or Max',
-      body: 'Base listens and writes it down. Max talks back and uses more actions.',
+      body: 'Base listens and writes it down. Max talks back and uses more tokens.',
       route: '/(tabs)/poppins',
     }),
     step({
@@ -340,7 +340,7 @@ const ADMIN_POPPINS: TourChapter = {
       id: 'poppins.meter',
       targetId: 'poppins.meter',
       title: 'Your actions',
-      body: 'Each save uses an action. Base uses 1, Max uses more. Top up in Settings.',
+      body: 'Each save uses a token. Base uses 1, Max uses more. Top up in Settings.',
       route: '/(tabs)/poppins',
     }),
   ],

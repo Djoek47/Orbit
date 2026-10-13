@@ -210,7 +210,7 @@ export function CreditBreakdownView({ events, onlyMemberName, topUpBalance, isAd
             <View key={row.name} style={styles.memberRow}>
               <Text style={[typography.subheadline, { color: c.text }]}>{row.name}</Text>
               <Text style={[typography.footnote, { color: c.textMuted }]}>
-                {row.credits} action{row.credits === 1 ? '' : 's'}
+                {row.credits} token{row.credits === 1 ? '' : 's'}
               </Text>
             </View>
           ))}
@@ -337,7 +337,7 @@ function CreditChart({
               key={index}
               onPress={() => onSelect(index)}
               accessibilityRole="button"
-              accessibilityLabel={`${bucket.title}: ${bucket.credits} actions`}
+              accessibilityLabel={`${bucket.title}: ${bucket.credits} tokens`}
               style={{ width: slot, height: h }}
             />
           ))}

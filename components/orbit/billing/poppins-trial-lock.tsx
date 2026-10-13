@@ -10,11 +10,11 @@
  *   │  actions start when the trial    │
  *   │  ends on Oct 14.                 │
  *   │        [ Buy actions ]           │
- *   │   200 actions from $1.99 · never │
+ *   │   200 tokens from $1.99 · never │
  *   │          expire                  │
  *   └──────────────────────────────────┘
  *
- * On a trial this sells the subscription — that is what brings Poppins its monthly actions.
+ * On a trial this sells the subscription — that is what brings Poppins its monthly tokens.
  * Packs stay available from Settings, under Poppins credits, for anyone who goes looking.
  * Earlier note: this is a sale, not a scolding. The trial household has already said yes to ChoreMaxx; the
  * screen explains what Poppins costs and offers the one thing that unlocks it today. It does
@@ -36,7 +36,7 @@ import { useAccess } from '@/lib/billing/access-provider';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
-/** Bought actions this household holds. Re-read on focus, so coming back from a purchase unlocks. */
+/** Bought tokens this household holds. Re-read on focus, so coming back from a purchase unlocks. */
 export function useBoughtBalance(): number | null {
   const { household } = useOrbit();
   const [balance, setBalance] = useState<number | null>(null);
@@ -120,7 +120,7 @@ export function PoppinsTrialLock() {
           <Text style={[styles.title, { color: c.text }]}>Talk to your house</Text>
           <Text style={[styles.text, { color: c.textMuted }]}>
             Say it once — chores assigned, groceries added, the week planned. Poppins comes with
-            your subscription: {TOKENS_PER_MONTH} actions every month, refilled automatically.
+            your subscription: {TOKENS_PER_MONTH} tokens every month, refilled automatically.
           </Text>
         </Animated.View>
 

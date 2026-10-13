@@ -47,21 +47,21 @@ export function subscriptionPriceLine(): string {
 export const IAP_CONSUMABLES = {
   tokensSmall: {
     productId: 'app.choremaxx.household.premium.tokens.smallv',
-    label: '200 actions',
+    label: '200 tokens',
     priceUsd: 1.99,
     tokens: 200,
     pack: 'small' as const,
   },
   tokensMedium: {
     productId: 'app.choremaxx.household.premium.tokens.mediumv',
-    label: '700 actions',
+    label: '700 tokens',
     priceUsd: 4.99,
     tokens: 700,
     pack: 'medium' as const,
   },
   tokensLarge: {
     productId: 'app.choremaxx.household.premium.tokens.largev',
-    label: '2000 actions',
+    label: '2000 tokens',
     priceUsd: 9.99,
     tokens: 2000,
     pack: 'large' as const,
@@ -164,9 +164,9 @@ export function premiumAllowanceCopy(
   daily: number = TOKENS_PER_DAY
 ): string {
   if (daily >= monthly) {
-    return `${monthly} Poppins actions a month.`;
+    return `${monthly} Poppin AI tokens a month.`;
   }
-  return `${monthly} Poppins actions a month · up to ${daily} a day.`;
+  return `${monthly} Poppin AI tokens a month · up to ${daily} a day.`;
 }
 
 export const PREMIUM_ALLOWANCE_COPY = premiumAllowanceCopy();
@@ -176,8 +176,8 @@ export const ASC_IAP_SETUP_NOTES = [
   `Monthly: ${IAP_SUBSCRIPTIONS.monthly.productId} @ $6.99 with ${BILLING_TRIAL_DAYS}-day free trial`,
   `Yearly: ${IAP_SUBSCRIPTIONS.yearly.productId} @ $49.99 with ${BILLING_TRIAL_DAYS}-day free trial (lead CTA · 40% off)`,
   'Consumables (create after confirming tiers):',
-  `  ${IAP_CONSUMABLES.tokensSmall.productId} · ${IAP_CONSUMABLES.tokensSmall.tokens} @ $${IAP_CONSUMABLES.tokensSmall.priceUsd}`,
-  `  ${IAP_CONSUMABLES.tokensMedium.productId} · ${IAP_CONSUMABLES.tokensMedium.tokens} @ $${IAP_CONSUMABLES.tokensMedium.priceUsd}`,
-  `  ${IAP_CONSUMABLES.tokensLarge.productId} · ${IAP_CONSUMABLES.tokensLarge.tokens} @ $${IAP_CONSUMABLES.tokensLarge.priceUsd}`,
+  `  ${IAP_CONSUMABLES.tokensSmall.productId} · ${IAP_CONSUMABLES.tokensSmall.tokens} @ $${IAP_CONSUMABLES.tokensSmall.priceUsd} · display name "${IAP_CONSUMABLES.tokensSmall.tokens} Poppin AI tokens"`,
+  `  ${IAP_CONSUMABLES.tokensMedium.productId} · ${IAP_CONSUMABLES.tokensMedium.tokens} @ $${IAP_CONSUMABLES.tokensMedium.priceUsd} · display name "${IAP_CONSUMABLES.tokensMedium.tokens} Poppin AI tokens"`,
+  `  ${IAP_CONSUMABLES.tokensLarge.productId} · ${IAP_CONSUMABLES.tokensLarge.tokens} @ $${IAP_CONSUMABLES.tokensLarge.priceUsd} · display name "${IAP_CONSUMABLES.tokensLarge.tokens} Poppin AI tokens"`,
   'Paywall: /premium after email confirm; StoreKit via expo-iap on TestFlight',
 ] as const;

@@ -16,7 +16,7 @@ import type { TokenGrantBalance } from '@/lib/billing/token-grants-math';
 
 export type CreditLedgerRow = {
   id: string;
-  /** "600 actions" — what the pack was called when it was bought. */
+  /** "600 tokens" — what the pack was called when it was bought. */
   pack: string;
   granted: number;
   spent: number;
@@ -27,11 +27,11 @@ export type CreditLedgerRow = {
 /** Friendly ledger label for a stored pack key (`small` / `medium` / …). */
 export function creditPackLabel(pack: string, tokens: number): string {
   const key = pack.trim().toLowerCase();
-  if (key === 'small' || key === 'tokenssmall') return '200 actions';
-  if (key === 'medium' || key === 'tokensmedium') return '600 actions';
-  if (key === 'large' || key === 'tokenslarge') return '1500 actions';
+  if (key === 'small' || key === 'tokenssmall') return '200 tokens';
+  if (key === 'medium' || key === 'tokensmedium') return '600 tokens';
+  if (key === 'large' || key === 'tokenslarge') return '1500 tokens';
   if (/\d+\s*actions?/i.test(pack)) return pack;
-  if (tokens > 0) return `${tokens} actions`;
+  if (tokens > 0) return `${tokens} tokens`;
   return pack || 'Top-up';
 }
 
