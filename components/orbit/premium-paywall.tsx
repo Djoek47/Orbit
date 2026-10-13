@@ -31,6 +31,7 @@ import { motion } from '@/constants/motion-tokens';
 import { radius, space, typography } from '@/constants/orbit-theme';
 import { glassFill, useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
+import { ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { BrandTile, Burst, LivingBackground, PaywallMessage } from '@/components/orbit/billing/paywall-decor';
 import {
   BatFlyby,
@@ -250,12 +251,24 @@ export function PremiumPaywall({
             <BrandTile size={104} pop={pop} />
             {halloween ? <SeasonMonster size={52} style={styles.monster} /> : null}
           </View>
-          <Text style={[styles.headline, { color: halloween ? '#F5EEFF' : c.text }]}>
-            {copy && !alreadyPremium ? copy.title : 'ChoreMaxx'}
-          </Text>
-          {copy && !alreadyPremium ? (
-            <Text style={[styles.highlight, { color: accentTheme.primary }]}>{copy.kicker}</Text>
-          ) : null}
+          {copy && !alreadyPremium && copy.offersTrial ? (
+            <>
+              {/* Free-trial page: the app's name leads, the offer sits under it. */}
+              <View style={styles.wordmark}>
+                <ChoremaxxLogo size="xl" variant="wordmark" />
+              </View>
+              <Text style={[styles.highlight, { color: accentTheme.primary }]}>{copy.title}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.headline, { color: halloween ? '#F5EEFF' : c.text }]}>
+                {copy && !alreadyPremium ? copy.title : 'ChoreMaxx'}
+              </Text>
+              {copy && !alreadyPremium ? (
+                <Text style={[styles.highlight, { color: accentTheme.primary }]}>{copy.kicker}</Text>
+              ) : null}
+            </>
+          )}
           <Animated.View style={[styles.priceCrossfade, priceStyle]}>
             <Text style={[styles.support, { color: halloween ? '#C7B9E6' : c.textMuted }]}>
               {alreadyPremium && usage
@@ -458,6 +471,7 @@ function PlanCard({
 
 const styles = StyleSheet.create({
   heroInner: { alignItems: 'center', gap: 12 },
+  wordmark: { marginTop: 10 },
   monster: { position: 'absolute', right: -40, top: -18 },
   kitten: { bottom: 6, left: 18, position: 'absolute' },
   plans: { gap: 10 },
