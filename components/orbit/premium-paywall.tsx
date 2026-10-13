@@ -388,19 +388,34 @@ export function PremiumPaywall({
   );
 }
 
-/** The savings badge: the theme's two colours, gently pulsing so it catches the eye. */
+/**
+ * The savings badge: an outlined pill whose letters are edge-lit — a bright band of light sweeps
+ * across the text in the theme's colours. The pill itself stays still.
+ */
 function SaveBadge({ label, accent, accent2 }: { label: string; accent: string; accent2: string }) {
-  const t = useSharedValue(0);
+  const sweep = useSharedValue(0);
+  const [w, setW] = useState(0);
   useEffect(() => {
-    t.value = withRepeat(withTiming(1, { duration: 1200 }), -1, true);
-  }, [t]);
-  const pulse = useAnimatedStyle(() => ({ transform: [{ scale: 1 + 0.07 * t.value }], shadowOpacity: 0.35 + 0.35 * t.value }));
+    sweep.value = withRepeat(withTiming(1, { duration: 2600 }), -1, false);
+  }, [sweep]);
+  const BAND = 22;
+  // A narrow window slides across; inside it the same letters, lit, counter-moved to stay aligned.
+  const windowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -BAND + sweep.value * (w + BAND * 2) }] }));
+  const innerStyle = useAnimatedStyle(() => ({ transform: [{ translateX: BAND - sweep.value * (w + BAND * 2) }] }));
+  const glow = useAnimatedStyle(() => ({ opacity: 0.25 + 0.75 * Math.sin(sweep.value * Math.PI) }));
+  const text = label.toUpperCase();
   return (
-    <Animated.View style={[styles.planBadgeWrap, { shadowColor: accent }, pulse]}>
-      <LinearGradient colors={[accent, accent2, accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.planBadge}>
-        <Text style={styles.planBadgeText}>{label.toUpperCase()}</Text>
-      </LinearGradient>
-    </Animated.View>
+    <View style={[styles.planBadge, { borderColor: `${accent}66` }]} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      <Animated.Text style={[styles.planBadgeText, { color: accent, textShadowColor: accent2, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 5 }, glow]}>{text}</Animated.Text>
+      <Text style={[styles.planBadgeText, styles.badgeBase, { color: accent }]}>{text}</Text>
+      {w ? (
+        <Animated.View pointerEvents="none" style={[styles.badgeWindow, { width: BAND }, windowStyle]}>
+          <Animated.View style={[styles.badgeInner, { width: w }, innerStyle]}>
+            <Text style={[styles.planBadgeText, { color: '#FFFFFF', textShadowColor: accent2, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6 }]}>{text}</Text>
+          </Animated.View>
+        </Animated.View>
+      ) : null}
+    </View>
   );
 }
 
@@ -489,9 +504,11 @@ const styles = StyleSheet.create({
   planLabel: { fontSize: 17, fontWeight: '600' },
   planSub: { fontSize: 13 },
   planPrice: { fontSize: 17, fontWeight: '700' },
-  planBadgeWrap: { borderRadius: 999, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8 },
-  planBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
-  planBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.4, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1 },
+  planBadge: { borderRadius: 999, borderWidth: 1.5, overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 3 },
+  badgeBase: { left: 9, position: 'absolute', top: 3 },
+  badgeWindow: { bottom: 0, overflow: 'hidden', position: 'absolute', top: 0 },
+  badgeInner: { bottom: 0, paddingHorizontal: 7.5, paddingVertical: 1.5, position: 'absolute', top: 0 },
+  planBadgeText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   ctaLip: { backgroundColor: 'rgba(0,0,0,0.18)', bottom: 0, height: 4, left: 0, position: 'absolute', right: 0 },
   ctaSpider: { position: 'absolute', right: 26, top: -20 },
   secondary: { fontSize: 15, fontWeight: '700', letterSpacing: 0.4, paddingVertical: 4, textAlign: 'center' },
