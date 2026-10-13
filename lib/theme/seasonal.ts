@@ -140,3 +140,26 @@ export function useSeasonal(now?: Date): SeasonalState {
     answered: Boolean(stored?.answered),
   };
 }
+
+// ── All seasonal themes, for Settings → Your look ────────────────────────────────────────
+// Add Thanksgiving or Christmas here (with their own window and released flag) and Settings
+// lists them automatically while they're in season.
+export type SeasonalTheme = {
+  id: 'halloween';
+  name: string;
+  moji: MojiName;
+  blurb: string;
+  ends: string;
+  available: (now?: Date) => boolean;
+};
+
+export const SEASONAL_THEMES: SeasonalTheme[] = [
+  {
+    id: 'halloween',
+    name: 'Halloween',
+    moji: 'pumpkin',
+    blurb: 'Bats, cobwebs and a little monster for your color',
+    ends: 'Ends November 1',
+    available: (now) => halloweenAvailable(now),
+  },
+];

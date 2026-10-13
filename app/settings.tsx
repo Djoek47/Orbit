@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { setHalloween, useSeasonal } from '@/lib/theme/seasonal';
-import { SeasonMonster } from '@/components/orbit/seasonal/halloween-decor';
+import { SeasonalThemes } from '@/components/orbit/settings/seasonal-themes';
+import { YouProfileCard } from '@/components/orbit/settings/you-profile-card';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -157,23 +157,6 @@ type Section =
   | 'premium';
 
 /** Make AdminScreen.tsx — Settings sheet chrome. */
-/** Seasonal switch — only during the season, only in a build that has it. */
-function HalloweenToggle() {
-  const season = useSeasonal();
-  const { c } = useOrbitColors();
-  if (!season.available) return null;
-  return (
-    <View style={{ alignItems: 'center', flexDirection: 'row', gap: 12, marginTop: 14 }}>
-      <SeasonMonster size={30} />
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: c.text, fontSize: 17, fontWeight: '600' }}>Halloween theme</Text>
-        <Text style={{ color: c.textMuted, fontSize: 13 }}>On top of your color · ends November 1</Text>
-      </View>
-      <Switch value={season.halloween} onValueChange={(v) => void setHalloween(v)} accessibilityLabel="Halloween theme" />
-    </View>
-  );
-}
-
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const {
@@ -993,153 +976,30 @@ export default function SettingsScreen() {
 
         {section === 'you' ? (
           <>
-            <Animated.View entering={FadeInDown.duration(260)}>
-              <LinearGradient
-                colors={[`${accentTheme.primary}3D`, `${accentTheme.primary}0F`]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.youHero, { borderColor: `${accentTheme.primary}55` }]}>
-                <Pressable
-                  onPress={() => setPersonalizeMemberId(currentMember?.id ?? null)}
-                  disabled={!currentMember}
-                  accessibilityRole="button"
-                  accessibilityLabel="Change your picture"
-                  style={styles.youHeroFace}>
-                  <View
-                    style={[
-                      styles.youHeroRing,
-                      {
-                        borderColor: `${accentTheme.primary}88`,
-                        backgroundColor: `${accentTheme.primary}22`,
-                      },
-                    ]}>
-                    <MemberGlyph
-                      member={currentMember ?? { name: currentUser?.name ?? 'You' }}
-                      size={72}
-                    />
-                  </View>
-                  <View style={[styles.youHeroBadge, { backgroundColor: accentTheme.primary }]}>
-                    <MaterialIcons name="auto-awesome" size={14} color="#111" />
-                  </View>
-                </Pressable>
-                <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
-                  <Text style={[styles.youHeroEyebrow, { color: accentTheme.primary }]}>You</Text>
-                  <Text style={[styles.youHeroTitle, { color: c.text }]} numberOfLines={1}>
-                    {currentMember?.name ?? currentUser?.name ?? 'Your profile'}
-                  </Text>
-                  <Text style={[styles.caption, { color: c.textMuted }]}>
-                    Playground · Photos · Emoji — faces stay in Your gallery on this iPhone
-                  </Text>
-                </View>
-              </LinearGradient>
-            </Animated.View>
-
-            <SectionCard title="Your picture">
-              {avatarGallery.length ? (
-                <View style={{ marginBottom: 12 }}>
-                  <AvatarLibraryStrip
-                    entries={avatarGallery}
-                    selectedUri={
-                      isAvatarImageUri(currentMember?.avatar) ? currentMember?.avatar : null
-                    }
-                    accent={accentTheme.primary}
-                    onSelect={(uri) => {
-                      if (!currentMember) return;
-                      void updateMemberAvatar(currentMember.id, uri);
-                    }}
-                  />
-                </View>
-              ) : (
-                <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 10 }]}>
-                  Create with Image Playground and we&apos;ll keep a small gallery here after sign-out.
-                </Text>
-              )}
-              <Pressable
-                onPress={() => setPersonalizeMemberId(currentMember?.id ?? null)}
-                disabled={!currentMember}
-                accessibilityRole="button"
-                accessibilityLabel="Make or change your character"
-                style={({ pressed }) => [styles.avatarRow, { opacity: pressed ? 0.85 : 1 }]}>
-                <View
-                  style={[
-                    styles.avatarRing,
-                    {
-                      borderColor: `${accentTheme.primary}66`,
-                      backgroundColor: `${accentTheme.primary}14`,
-                    },
-                  ]}>
-                  <MemberGlyph
-                    member={currentMember ?? { name: currentUser?.name ?? 'You' }}
-                    size={54}
-                  />
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.nameText, { color: orbitPalette.text }]}>
-                    {currentMember?.avatar ? 'Change your picture' : 'Make your character'}
-                  </Text>
-                  <Text style={[styles.caption, { color: orbitPalette.textMuted }]}>
-                    Open Playground · Photos · Emoji
-                  </Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color={accentTheme.primary} />
-              </Pressable>
-            </SectionCard>
-
-            <SectionCard title="Your name">
-              <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
-                Shown on Home and in your household — not your Apple email code.
-              </Text>
-              <View style={styles.rowBetween}>
-                {editingDisplayName ? (
-                  <TextInput
-                    value={displayNameInput}
-                    onChangeText={setDisplayNameInput}
-                    style={[styles.nameInput, { color: orbitPalette.text, flex: 1 }]}
-                    autoFocus
-                    placeholder="Your name"
-                    placeholderTextColor={orbitPalette.textSubtle}
-                    onSubmitEditing={() => {
-                      const next = displayNameInput.trim();
-                      if (next.length >= 2) {
-                        void updateDisplayName(next);
-                        setEditingDisplayName(false);
-                      }
-                    }}
-                  />
-                ) : (
-                  <Text style={[styles.nameText, { color: orbitPalette.text }]}>
-                    {currentMember?.name ?? currentUser?.name ?? 'Add your name'}
-                  </Text>
-                )}
-                <Pressable
-                  style={styles.iconBtn}
-                  onPress={() => {
-                    if (editingDisplayName) {
-                      const next = displayNameInput.trim();
-                      if (next.length >= 2) {
-                        void updateDisplayName(next);
-                      }
-                      setEditingDisplayName(false);
-                    } else {
-                      setDisplayNameInput(currentMember?.name ?? currentUser?.name ?? '');
-                      setEditingDisplayName(true);
-                    }
-                  }}>
-                  <MaterialIcons
-                    name={editingDisplayName ? 'check' : 'edit'}
-                    size={14}
-                    color={editingDisplayName ? '#34D399' : '#38BDF8'}
-                  />
-                </Pressable>
-              </View>
-            </SectionCard>
+            <YouProfileCard
+              member={currentMember ?? { name: currentUser?.name ?? 'You' }}
+              roleLine={[
+                currentMember?.role === 'owner' ? 'Owner' : currentMember?.role === 'admin' ? 'Admin' : null,
+                household.householdName || null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              accent={accentTheme.primary}
+              gallery={avatarGallery}
+              selectedUri={isAvatarImageUri(currentMember?.avatar) ? (currentMember?.avatar ?? null) : null}
+              onOpenPicker={() => setPersonalizeMemberId(currentMember?.id ?? null)}
+              onSelect={(uri) => {
+                if (!currentMember) return;
+                void updateMemberAvatar(currentMember.id, uri);
+              }}
+              onRename={(name) => void updateDisplayName(name)}
+            />
 
             <SectionCard title="Your look">
               <Text style={[styles.caption, { color: orbitPalette.textMuted, marginBottom: 8 }]}>
-                Color for {currentMember?.name ?? 'you'} · each palette has Day and Night
+                Your color, Day or Night, and seasonal themes. Just for you.
               </Text>
               <PaletteWheel value={paletteId} onChange={updatePalette} label="Palette" />
-              <HalloweenToggle />
               <View style={{ marginTop: 14 }}>
                 <SegmentedControl
                   label="Day / Night"
@@ -1152,6 +1012,7 @@ export default function SettingsScreen() {
                   ]}
                 />
               </View>
+              <SeasonalThemes />
 
               {permissions.canManageHousehold ? (
                 <View style={styles.nestedGroup}>
