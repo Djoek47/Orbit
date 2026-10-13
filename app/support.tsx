@@ -136,6 +136,7 @@ export default function SupportScreen() {
         message: note.trim() || 'Support request from the Choremaxx app.',
         includeErrors: true,
         selectedErrorIds: [...selectedIds],
+        selectedErrors: entries.filter((e) => selectedIds.has(e.id)),
         memberName: currentMember?.name ?? undefined,
         householdId: household.id ?? undefined,
         diagnostics: {

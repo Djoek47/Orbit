@@ -12,7 +12,15 @@ import {
 } from '@/lib/errors/error-log';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { edgeErrorMessage } from '@/lib/supabase/edge-error';
-import type { SupportShot } from '@/lib/support/upload-support-shot';
+import { MAX_SUPPORT_SHOTS, type SupportShot } from '@/lib/support/upload-support-shot';
+
+/** Resend caps a message at 40MB (after base64); stay well under it. */
+const MAX_SHOT_BYTES = 8 * 1024 * 1024;
+const MAX_TOTAL_SHOT_BYTES = 20 * 1024 * 1024;
+
+function stripDataUri(b64: string): string {
+  return b64.replace(/^data:[^;,]+;base64,/, '').replace(/\s+/g, '');
+}
 
 export type SupportDiagnostics = {
   memberRole?: string;
@@ -27,6 +35,11 @@ export type SupportFeedbackPayload = {
   newestOnly?: boolean;
   /** Explicit error ids to attach (checkbox selection). */
   selectedErrorIds?: string[];
+  /**
+   * The selected entries themselves (as shown on screen). Preferred over ids: a reload can
+   * re-mint ids for legacy rows, which made the id filter match nothing → empty error log.
+   */
+  selectedErrors?: AppErrorEntry[];
   memberName?: string;
   householdId?: string;
   diagnostics?: SupportDiagnostics;
@@ -75,6 +88,8 @@ export async function sendSupportFeedback(
     const all = await loadErrorLog();
     if (input.newestOnly && all[0]) {
       errors = [all[0]];
+    } else if (input.selectedErrors?.length) {
+      errors = input.selectedErrors;
     } else if (input.selectedErrorIds?.length) {
       const want = new Set(input.selectedErrorIds);
       errors = all.filter((e) => want.has(e.id));
@@ -86,15 +101,29 @@ export async function sendSupportFeedback(
     errorText = errors.length ? formatErrorLogForCopy(errors.slice(0, 12)) : '';
   }
 
-  const shots = (input.screenshots ?? []).slice(0, 3);
+  const shots = (input.screenshots ?? []).slice(0, MAX_SUPPORT_SHOTS);
   const screenshotUrls = shots.map((s) => s.url).filter((u): u is string => Boolean(u));
-  const attachments = shots
-    .filter((s) => s.contentBase64 && !s.url)
-    .map((s) => ({
-      filename: s.filename,
-      content: s.contentBase64!,
-      contentType: s.contentType,
-    }));
+  // Always attach the file itself — even when it was also uploaded to Storage (previously
+  // uploaded shots were sent as signed links only, so the email had no pictures).
+  const attachments: { filename: string; content: string; contentType: string }[] = [];
+  let attachedBytes = 0;
+  for (const s of shots) {
+    const content = stripDataUri(s.contentBase64 ?? '');
+    if (!content) continue;
+    const bytes = Math.floor((content.length * 3) / 4);
+    if (bytes > MAX_SHOT_BYTES || attachedBytes + bytes > MAX_TOTAL_SHOT_BYTES) continue;
+    attachedBytes += bytes;
+    attachments.push({ filename: s.filename, content, contentType: s.contentType || 'image/jpeg' });
+  }
+  const errorDetails = errors.slice(0, 12).map((e) => ({
+    title: e.title,
+    message: e.message,
+    category: e.category,
+    source: e.source,
+    at: e.at,
+    stack: e.stack?.slice(0, 8000),
+    componentStack: e.componentStack?.slice(0, 4000),
+  }));
 
   try {
     const supabase = getSupabaseClient();
@@ -115,6 +144,7 @@ export async function sendSupportFeedback(
       body: {
         message,
         errorLog: errorText || undefined,
+        errors: errorDetails.length ? errorDetails : undefined,
         errorCount: errors.length,
         categories: summarizeCategories(errors),
         memberName: input.memberName,

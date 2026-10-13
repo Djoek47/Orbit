@@ -11,7 +11,8 @@
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRef } from 'react';
+import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -42,10 +43,19 @@ export function AccountEscapeSheet({ visible, onClose, onRestore, onSignOut, isO
   const { c, glass, glassBorder } = useOrbitColors();
   const showDiagnostics = useShowBillingDiagnostics();
 
+  // Navigate only after the RN Modal has fully dismissed (onDismiss on iOS), with a timer
+  // fallback: pushing a router modal while this sheet is still presented opened the screen
+  // under it and left a touch-blocking layer behind.
+  const pending = useRef<string | null>(null);
+  const flush = () => {
+    const href = pending.current;
+    pending.current = null;
+    if (href) router.push(href as never);
+  };
   const go = (href: string) => {
+    pending.current = href;
     onClose();
-    // Let the sheet finish closing before the push, or the new screen opens under it.
-    setTimeout(() => router.push(href as never), 220);
+    setTimeout(flush, Platform.OS === 'ios' ? 450 : 280);
   };
 
   const rows: Row[] = [
@@ -122,7 +132,7 @@ export function AccountEscapeSheet({ visible, onClose, onRestore, onSignOut, isO
   ];
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} onDismiss={flush}>
       <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close" />
       <View
         style={[

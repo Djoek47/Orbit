@@ -14,7 +14,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
@@ -50,6 +50,8 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
   const [failed, setFailed] = useState(false);
   /** Location is off, rather than "nothing around" — the two need different words. */
   const [noLocation, setNoLocation] = useState(false);
+  /** Ids added this session — hidden at once, before the store round-trip lands. */
+  const [added, setAdded] = useState<string[]>([]);
 
   const homeLat = home?.lat;
   const homeLng = home?.lng;
@@ -116,13 +118,20 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
     };
   }, [load]);
 
-  const shown = pickSuggestions(all ?? [], places.map((p) => p.name));
+  const shown = pickSuggestions(
+    all ?? [],
+    places.map((p) => p.name),
+    8,
+    [...places.map((p) => p.id), ...added]
+  );
   // Only disappear when there is genuinely nothing to say: no results and no way to retry.
   if (!busy && shown.length === 0 && !failed) return null;
 
   const save = async (suggestion: NearbySuggestion) => {
+    if (saving) return;
     setSaving(suggestion.id);
     try {
+      setAdded((prev) => (prev.includes(suggestion.id) ? prev : [...prev, suggestion.id]));
       upsertSavedPlace({
         id: suggestion.id,
         name: suggestion.name,
@@ -187,8 +196,10 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          {shown.map((suggestion, index) => (
-            <Animated.View key={suggestion.id} entering={FadeInDown.delay(index * 50).springify().damping(18)}>
+          {shown.map((suggestion) => (
+            // Plain View with a stable OSM id key: per-item entering animations got reused when a
+            // card was removed, leaving two names/distances painted in the same slot.
+            <View key={suggestion.id}>
               <Pressable
                 onPress={() => void save(suggestion)}
                 disabled={saving === suggestion.id}
@@ -201,14 +212,18 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
                   },
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={`Save ${suggestion.name}, ${suggestion.detail}`}>
+                accessibilityLabel={
+                  suggestion.detail ? `Save ${suggestion.name}, ${suggestion.detail}` : `Save ${suggestion.name}`
+                }>
                 <Moji emoji={suggestion.emoji} size={26} />
                 <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>
                   {suggestion.name}
                 </Text>
-                <Text style={[styles.detail, { color: c.textSubtle }]} numberOfLines={1}>
-                  {suggestion.detail}
-                </Text>
+                {suggestion.detail ? (
+                  <Text style={[styles.detail, { color: c.textSubtle }]} numberOfLines={1}>
+                    {suggestion.detail}
+                  </Text>
+                ) : null}
                 <View style={[styles.add, { backgroundColor: `${accent}1F` }]}>
                   {saving === suggestion.id ? (
                     <ActivityIndicator size="small" color={accent} />
@@ -220,7 +235,7 @@ export function NearbySuggestionsRow({ accent }: { accent: string }) {
                   )}
                 </View>
               </Pressable>
-            </Animated.View>
+            </View>
           ))}
         </ScrollView>
       )}

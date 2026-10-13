@@ -244,10 +244,10 @@ export default function SelectProfileScreen() {
                 ]
               );
             }}
-            style={styles.devBtn}
+            style={[styles.devBtn, { borderColor: orbitPalette.border }]}
             accessibilityRole="button"
             accessibilityLabel="DEV leave shared tablet">
-            <Text style={styles.devLabel}>DEV</Text>
+            <Text style={[styles.devLabel, { color: orbitPalette.textMuted }]}>DEV</Text>
           </Pressable>
         ) : null}
       </View>

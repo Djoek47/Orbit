@@ -42,16 +42,38 @@ export function showBillingDiagnostics(env: StoreEnvironment): boolean {
   return env === 'Sandbox' || env === 'Xcode';
 }
 
-export function useShowBillingDiagnostics(): boolean {
-  const [show, setShow] = useState(() => typeof __DEV__ !== 'undefined' && __DEV__);
+/** Settled environment answer, for synchronous first render once known. */
+let settled: StoreEnvironment | null = null;
+
+/**
+ * Tri-state: `null` while StoreKit hasn't answered yet, then true/false. Screens must treat
+ * `null` as "loading", never as "hidden" — redirecting on the first (unknown) render from inside
+ * a modal left an invisible presentation that ate every touch.
+ */
+export function useBillingDiagnosticsAccess(): boolean | null {
+  const dev = typeof __DEV__ !== 'undefined' && __DEV__;
+  const [show, setShow] = useState<boolean | null>(() =>
+    dev ? true : settled ? showBillingDiagnostics(settled) : null,
+  );
   useEffect(() => {
+    if (dev) return;
     let cancelled = false;
-    void getStoreEnvironment().then((env) => {
-      if (!cancelled) setShow(showBillingDiagnostics(env));
-    });
+    getStoreEnvironment()
+      .then((env) => {
+        settled = env;
+        if (!cancelled) setShow(showBillingDiagnostics(env));
+      })
+      .catch(() => {
+        if (!cancelled) setShow(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [dev]);
   return show;
+}
+
+/** Entry-row visibility: hidden until known (customers never glimpse it). */
+export function useShowBillingDiagnostics(): boolean {
+  return useBillingDiagnosticsAccess() === true;
 }

@@ -109,21 +109,53 @@ export function suggestionsFromElements(
       lat,
       lng,
       distanceMeters,
-      detail: `${rule.label} · ${metersLabel(distanceMeters)}`,
+      detail: suggestionDetail(rule.label, distanceMeters),
     });
   }
 
   return out.sort((a, b) => a.distanceMeters - b.distanceMeters);
 }
 
-/** Drop what's already saved, and keep a mix rather than ten supermarkets. */
+/** Names that say nothing — OSM fallbacks for unnamed shops. Never show these as a title. */
+const GENERIC_NAME_RE = /^(store|shop|clothing store|place|unnamed|—|-)$/i;
+
+export function isGenericPlaceName(name: string | null | undefined): boolean {
+  const trimmed = (name ?? '').trim();
+  return !trimmed || GENERIC_NAME_RE.test(trimmed);
+}
+
+/** Card subline: only the parts we actually know ("Grocery · 700 m", or just "700 m"). */
+export function suggestionDetail(label: string | null | undefined, meters: number | null | undefined): string {
+  const parts: string[] = [];
+  if (label && label.trim() && !isGenericPlaceName(label)) parts.push(label.trim());
+  if (typeof meters === 'number' && Number.isFinite(meters) && meters >= 0) parts.push(metersLabel(meters));
+  return parts.join(' · ');
+}
+
+/**
+ * Drop what's already saved (by id or name), drop duplicate ids (React keys must be unique,
+ * otherwise two cards render into one slot), and keep a mix rather than ten supermarkets.
+ */
 export function pickSuggestions(
   all: NearbySuggestion[],
   savedNames: string[],
-  limit = 8
+  limit = 8,
+  savedIds: string[] = []
 ): NearbySuggestion[] {
   const saved = new Set(savedNames.map((name) => name.trim().toLowerCase()));
-  const fresh = all.filter((s) => !saved.has(s.name.toLowerCase()));
+  const savedIdSet = new Set(savedIds);
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
+  const fresh: NearbySuggestion[] = [];
+  for (const s of all) {
+    const nameKey = s.name.trim().toLowerCase();
+    if (!s.id || isGenericPlaceName(s.name)) continue;
+    if (savedIdSet.has(s.id) || saved.has(nameKey)) continue;
+    if (seenIds.has(s.id) || seenNames.has(`${nameKey}|${s.kind}`)) continue;
+    seenIds.add(s.id);
+    seenNames.add(`${nameKey}|${s.kind}`);
+    fresh.push(s);
+  }
   const perKind = new Map<SavedPlaceKind, number>();
   const picked: NearbySuggestion[] = [];
 
@@ -216,22 +248,29 @@ export function suggestionsFromStores(
   origin: { lat: number; lng: number }
 ): NearbySuggestion[] {
   const out: NearbySuggestion[] = [];
+  const seen = new Set<string>();
   for (const store of stores) {
     const name = store.name?.trim();
-    if (!name || store.lat == null || store.lng == null) continue;
+    // Curated stores are demo seed data; generic "Store" names say nothing.
+    if (store.source === 'curated') continue;
+    if (!name || isGenericPlaceName(name) || store.lat == null || store.lng == null) continue;
+    if (seen.has(store.id)) continue;
+    seen.add(store.id);
     const distanceMeters =
       store.distanceMeters ?? haversineMeters(origin.lat, origin.lng, store.lat, store.lng);
-    const kind: SavedPlaceKind = store.shopKind === 'clothing' ? 'clothing' : 'shop';
+    const clothing = store.shopKind === 'clothing';
+    const kind: SavedPlaceKind = clothing ? 'clothing' : 'shop';
+    const label = clothing ? 'Clothing' : store.shopKind === 'grocery' ? 'Grocery' : 'Shop';
     out.push({
       id: store.id,
       name,
-      address: store.address?.trim() || name,
+      address: store.address?.trim() ?? '',
       kind,
-      emoji: store.shopKind === 'clothing' ? '👕' : '🛒',
+      emoji: clothing ? '👕' : '🛒',
       lat: store.lat,
       lng: store.lng,
-      distanceMeters,
-      detail: `${store.shopKind === 'clothing' ? 'Clothing' : 'Store'} · ${metersLabel(distanceMeters)}`,
+      distanceMeters: Number.isFinite(distanceMeters) ? distanceMeters : 0,
+      detail: suggestionDetail(label, distanceMeters),
     });
   }
   return out.sort((a, b) => a.distanceMeters - b.distanceMeters);

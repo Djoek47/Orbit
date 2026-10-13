@@ -959,11 +959,13 @@ function PlaceRow({
       </View>
       <View style={styles.rowCopy}>
         <Text style={[styles.rowTitle, { color: c.text }]}>{title}</Text>
-        <Text
-          style={[styles.rowSubtitle, { color: needsAddress ? '#F59E0B' : c.textMuted }]}
-          numberOfLines={2}>
-          {subtitle}
-        </Text>
+        {subtitle && subtitle.trim() && subtitle.trim() !== '—' ? (
+          <Text
+            style={[styles.rowSubtitle, { color: needsAddress ? '#F59E0B' : c.textMuted }]}
+            numberOfLines={2}>
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
       {needsAddress ? (
         <Pressable

@@ -4,9 +4,12 @@ import {
   nearbyQuery,
   type OverpassElement,
   pickSuggestions,
+  suggestionDetail,
   suggestionsFromElements,
+  suggestionsFromStores,
   type NearbySuggestion,
 } from '@/lib/places/nearby-suggestions';
+import { appendSavedPlace, stripMockSeedPlaces } from '@/lib/places/saved-places';
 
 const HOME = { lat: 45.5, lng: -73.6 };
 
@@ -73,3 +76,39 @@ for (const needle of ['supermarket', 'pharmacy', 'school', 'playground', 'fitnes
 assert.ok(query.includes('around:3000,45.5,-73.6'));
 
 console.log('nearby-suggestions: ok');
+
+// --- Add flow: stable unique ids, saved ids drop out, generic names hidden ---
+{
+  const mk = (id: string, name: string, d: number): NearbySuggestion => ({
+    id, name, address: '', kind: 'shop', emoji: '🛒', lat: 0, lng: 0, distanceMeters: d, detail: '',
+  });
+  const raw = [mk('a', 'Super Marché', 2800), mk('a', 'Super Marché', 2800), mk('b', 'Dépanneur', 2000), mk('c', 'Store', 1700)];
+  const first = pickSuggestions(raw, [], 8, []);
+  assert.deepEqual(first.map((s) => s.id), ['a', 'b']);
+  const afterAdd = pickSuggestions(raw, [], 8, ['a']);
+  assert.deepEqual(afterAdd.map((s) => s.name), ['Dépanneur']);
+}
+{
+  assert.equal(suggestionDetail(null, undefined), '');
+  assert.equal(suggestionDetail('Grocery', 700), 'Grocery · 700 m');
+  const cards = suggestionsFromStores(
+    [
+      { id: 'store-freshmart', name: 'FreshMart', address: '1200 Market Street', placeQuery: '', lat: 1, lng: 1, source: 'curated' },
+      { id: 'osm-node-9', name: 'Store', address: '', placeQuery: '', lat: 45.5, lng: -73.6, source: 'osm' },
+      { id: 'osm-node-10', name: 'IGA', address: '', placeQuery: '', lat: 45.5, lng: -73.6, distanceMeters: 1700, source: 'osm', shopKind: 'grocery' },
+    ],
+    HOME
+  );
+  assert.deepEqual(cards.map((c) => [c.name, c.detail, c.address]), [['IGA', 'Grocery · 1.7 km', '']]);
+}
+{
+  const p = (id: string, name: string) => ({ id, name, kind: 'shop' as const, address: '' });
+  const list = appendSavedPlace([p('home', 'Home'), p('x', 'IGA')], p('y', 'Metro'));
+  assert.deepEqual(list.map((x) => x.id), ['home', 'x', 'y']);
+  assert.deepEqual(appendSavedPlace(list, p('x', 'IGA 2')).map((x) => x.name), ['Home', 'IGA 2', 'Metro']);
+  assert.deepEqual(
+    stripMockSeedPlaces([p('place-shop', 'FreshMart'), p('z', 'FreshMart'), p('k', 'Metro')]).map((x) => x.id),
+    ['k']
+  );
+}
+console.log('nearby-suggestions add-flow ok');

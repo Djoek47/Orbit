@@ -17,7 +17,18 @@ type Attachment = {
   contentType?: string;
 };
 
+type ErrorDetail = {
+  title?: string;
+  message?: string;
+  category?: string;
+  source?: string;
+  at?: string;
+  stack?: string;
+  componentStack?: string;
+};
+
 type Body = {
+  errors?: ErrorDetail[];
   message?: string;
   errorLog?: string;
   errorCount?: number;
@@ -34,6 +45,50 @@ function corsHeaders(origin: string | null) {
     'Access-Control-Allow-Origin': origin ?? '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   };
+}
+
+const esc = (v: unknown) =>
+  String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+/** Resend wants raw base64 — strip any data: URI prefix and whitespace. */
+const cleanBase64 = (v: unknown) =>
+  String(v ?? '')
+    .replace(/^data:[^;,]+;base64,/, '')
+    .replace(/\s+/g, '');
+
+const MAX_ATTACHMENT_B64 = 30 * 1024 * 1024; // Resend: 40MB per email incl. encoding
+
+function errorText(e: ErrorDetail, i: number): string {
+  return [
+    `—— Error ${i + 1}: ${e.title || e.message || 'Untitled'} ——`,
+    e.title && e.message ? `Message: ${e.message}` : '',
+    `Category: ${e.category || '—'}`,
+    `Source: ${e.source || '—'}`,
+    `At: ${e.at || '—'}`,
+    e.stack ? `Stack:\n${e.stack}` : '',
+    e.componentStack ? `Component stack:\n${e.componentStack}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function errorHtml(e: ErrorDetail, i: number): string {
+  const pre = (label: string, v?: string) =>
+    v
+      ? `<div style="margin-top:8px"><b>${label}</b><pre style="white-space:pre-wrap;font-size:12px;background:#f4f5f7;padding:8px;border-radius:6px;margin:4px 0">${esc(v)}</pre></div>`
+      : '';
+  return `<div style="border:1px solid #e3e5e8;border-radius:8px;padding:12px;margin:10px 0">
+<div style="font-weight:700">${i + 1}. ${esc(e.title || e.message || 'Untitled')}</div>
+${e.title && e.message ? `<div style="margin-top:4px">${esc(e.message)}</div>` : ''}
+<table style="font-size:13px;margin-top:6px;color:#444">
+<tr><td style="padding-right:10px">Category</td><td>${esc(e.category || '—')}</td></tr>
+<tr><td style="padding-right:10px">Source</td><td>${esc(e.source || '—')}</td></tr>
+<tr><td style="padding-right:10px">At</td><td>${esc(e.at || '—')}</td></tr>
+</table>${pre('Stack', e.stack)}${pre('Component stack', e.componentStack)}</div>`;
 }
 
 function ticketRef(): string {
@@ -76,19 +131,26 @@ Deno.serve(async (req) => {
     }
 
     const ref = ticketRef();
-    const errorCount = Number(body.errorCount) || 0;
+    const errorCount = Number(body.errorCount) || (Array.isArray(body.errors) ? body.errors.length : 0);
     const screenshotUrls = Array.isArray(body.screenshotUrls)
       ? body.screenshotUrls.filter((u) => typeof u === 'string' && u.startsWith('http')).slice(0, 3)
       : [];
-    const attachments = Array.isArray(body.attachments)
-      ? body.attachments
-          .filter((a) => a?.content && a?.filename)
-          .slice(0, 3)
-          .map((a) => ({
-            filename: String(a.filename),
-            content: String(a.content),
-            content_type: a.contentType || 'image/jpeg',
-          }))
+    let attachmentBudget = MAX_ATTACHMENT_B64;
+    const attachments: { filename: string; content: string; content_type: string }[] = [];
+    for (const a of Array.isArray(body.attachments) ? body.attachments.slice(0, 3) : []) {
+      const content = cleanBase64(a?.content);
+      if (!content || content.length > attachmentBudget) {
+        if (content) console.warn('support screenshot over size budget, skipped', a?.filename);
+        continue;
+      }
+      attachmentBudget -= content.length;
+      const contentType = a?.contentType || 'image/jpeg';
+      const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+      const filename = String(a?.filename || '').replace(/[^\w.-]/g, '_') || `screenshot-${attachments.length + 1}.${ext}`;
+      attachments.push({ filename, content, content_type: contentType });
+    }
+    const errors = Array.isArray(body.errors)
+      ? body.errors.filter((e) => e && typeof e === 'object').slice(0, 12)
       : [];
     const screenshotCount = screenshotUrls.length + attachments.length;
 
@@ -119,10 +181,38 @@ Deno.serve(async (req) => {
         ? `Screenshot URLs:\n${screenshotUrls.map((u) => `- ${u}`).join('\n')}`
         : '',
       attachments.length ? `Screenshot files attached: ${attachments.length}` : '',
-      body.errorLog ? `\n—— Error log ——\n${body.errorLog}` : '',
+      errors.length
+        ? `\n—— Selected errors (${errors.length}) ——\n${errors.map(errorText).join('\n\n')}`
+        : body.errorLog
+          ? `\n—— Error log ——\n${body.errorLog}`
+          : '',
     ]
       .filter(Boolean)
       .join('\n');
+
+    const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;color:#111">
+<p style="white-space:pre-wrap;font-size:15px">${esc(message)}</p>
+<hr style="border:none;border-top:1px solid #ddd"/>
+<table style="font-size:13px;color:#444">
+<tr><td style="padding-right:10px">Ticket</td><td>${esc(ref)}</td></tr>
+<tr><td style="padding-right:10px">From</td><td>${esc(body.memberName || 'Unknown')} ${userEmail ? esc(`<${userEmail}>`) : ''}</td></tr>
+${userId ? `<tr><td style="padding-right:10px">User id</td><td>${esc(userId)}</td></tr>` : ''}
+${body.householdId ? `<tr><td style="padding-right:10px">Household</td><td>${esc(body.householdId)}</td></tr>` : ''}
+${categoryLine ? `<tr><td style="padding-right:10px">Categories</td><td>${esc(categoryLine)}</td></tr>` : ''}
+${Object.entries(body.meta ?? {})
+  .filter(([, v]) => v !== undefined && v !== null && v !== '')
+  .map(([k, v]) => `<tr><td style="padding-right:10px">${esc(k)}</td><td>${esc(v)}</td></tr>`)
+  .join('')}
+</table>
+${attachments.length ? `<p>Screenshots attached: ${attachments.length}</p>` : ''}
+${screenshotUrls.length ? `<p>Screenshot links:<br/>${screenshotUrls.map((u, i) => `<a href="${esc(u)}">Screenshot ${i + 1}</a>`).join('<br/>')}</p>` : ''}
+${
+  errors.length
+    ? `<h3 style="margin-top:18px">Selected errors (${errors.length})</h3>${errors.map(errorHtml).join('')}`
+    : body.errorLog
+      ? `<h3>Error log</h3><pre style="white-space:pre-wrap;font-size:12px">${esc(body.errorLog)}</pre>`
+      : ''
+}</div>`;
 
     const inboxRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -136,6 +226,7 @@ Deno.serve(async (req) => {
         reply_to: userEmail || undefined,
         subject,
         text,
+        html,
         attachments: attachments.length ? attachments : undefined,
       }),
     });

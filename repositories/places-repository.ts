@@ -2,6 +2,7 @@ import {
   isMissingPlacesTableError,
   mapSavedPlaceRow,
   savedPlaceToRow,
+  stripMockSeedPlaces,
 } from '@/lib/places/saved-places';
 import { loadLocalSavedPlaces, saveLocalSavedPlaces } from '@/lib/places/saved-places-store';
 import {
@@ -15,6 +16,15 @@ export const placesRepository = {
   /** `null` = never persisted; caller should keep snapshot defaults. */
   async list(householdId: string | null | undefined): Promise<SavedPlace[] | null> {
     if (!householdId) return null;
+    const raw = await placesRepository.listRaw(householdId);
+    if (raw == null || isMockMode()) return raw;
+    // Real households never carry demo seed places; clean any copies that leaked in.
+    const clean = stripMockSeedPlaces(raw);
+    if (clean.length !== raw.length) void placesRepository.saveAll(householdId, clean);
+    return clean;
+  },
+
+  async listRaw(householdId: string): Promise<SavedPlace[] | null> {
 
     if (isMockMode() || !isPersistedHouseholdId(householdId)) {
       return loadLocalSavedPlaces(householdId);

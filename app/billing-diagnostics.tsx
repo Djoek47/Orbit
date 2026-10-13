@@ -15,9 +15,9 @@
  * Owners and admins only. Reached from Settings → My Subscription → Purchase diagnostics.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Redirect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
@@ -38,7 +38,7 @@ import {
 import { openManageSubscriptions } from '@/lib/billing/manage-subscriptions';
 import { loadTokenGrants, topUpBalanceFromGrants } from '@/lib/billing/token-grants';
 import type { EntitlementState } from '@/constants/billing';
-import { useShowBillingDiagnostics } from '@/lib/billing/store-environment';
+import { useBillingDiagnosticsAccess } from '@/lib/billing/store-environment';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
@@ -60,52 +60,100 @@ export default function BillingDiagnosticsScreen() {
   const { c, glass, glassBorder } = useOrbitColors();
   const { household, currentMember } = useOrbit();
   const access = useAccess();
-  const showDiagnostics = useShowBillingDiagnostics();
+  const access_ = useBillingDiagnosticsAccess();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
+  const allowedRole = !currentMember || currentMember.role === 'owner' || currentMember.role === 'admin';
+  const allowed = access_ === true && allowedRole;
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const settle = async <T,>(p: Promise<T> | T, fallback: T): Promise<T> => {
+    try {
+      return await p;
+    } catch {
+      return fallback;
+    }
+  };
+
   const load = useCallback(async () => {
+    const emptyProbe = { native: false, found: {}, missing: [], error: 'Store probe failed' } as unknown as StoreProbe;
     const [probe, device, renewal, monthly, yearly, grants] = await Promise.all([
-      probeStoreProducts(),
-      fetchEntitlement(),
-      fetchRenewalState(),
-      isTrialEligible('monthly').catch(() => true),
-      isTrialEligible('yearly').catch(() => true),
-      loadTokenGrants(household.id).catch(() => []),
+      settle(probeStoreProducts(), emptyProbe),
+      settle(fetchEntitlement(), { active: false } as EntitlementState),
+      settle(fetchRenewalState(), { willRenew: null, billingIssue: false, graceEndsAt: null } as unknown as RenewalState),
+      settle(isTrialEligible('monthly'), true),
+      settle(isTrialEligible('yearly'), true),
+      settle(loadTokenGrants(household.id), [] as Awaited<ReturnType<typeof loadTokenGrants>>),
     ]);
-    setSnap({
-      at: new Date().toISOString(),
-      probe,
-      device,
-      renewal,
-      eligible: { monthly, yearly },
-      environment: currentStoreEnvironment(),
-      bought: topUpBalanceFromGrants(grants),
-    });
+    let environment: string | null = null;
+    let bought = 0;
+    try {
+      environment = currentStoreEnvironment();
+    } catch {}
+    try {
+      bought = topUpBalanceFromGrants(grants);
+    } catch {}
+    if (!mounted.current) return;
+    setSnap({ at: new Date().toISOString(), probe, device, renewal, eligible: { monthly, yearly }, environment, bought });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [household.id]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (allowed) void load().catch(() => {});
+  }, [allowed, load]);
+
+  // App Store installs (or non-admins) never see this screen, even through a stale link. Leave by
+  // popping this modal once we KNOW — never <Redirect> from inside a modal stack (that left an
+  // invisible presentation over Home that blocked every touch).
+  const leftRef = useRef(false);
+  useEffect(() => {
+    if (access_ === null || allowed || leftRef.current) return;
+    leftRef.current = true;
+    try {
+      if (router.canGoBack()) router.back();
+      else router.dismiss();
+    } catch {}
+  }, [access_, allowed]);
 
   const run = async (label: string, fn: () => Promise<string>) => {
     setBusy(label);
     setNote(null);
+    let message: string;
     try {
-      setNote(await fn());
+      message = await fn();
     } catch (err) {
-      setNote(`${label} failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      await access.refresh();
-      await load();
-      setBusy(null);
+      message = `${label} failed: ${err instanceof Error ? err.message : String(err)}`;
     }
+    try {
+      await access.refresh();
+    } catch {}
+    try {
+      await load();
+    } catch {}
+    if (!mounted.current) return;
+    setNote(message);
+    setBusy(null);
   };
 
-  // App Store installs never show this screen, even through a stale link.
-  if (!showDiagnostics || (currentMember && currentMember.role !== 'owner' && currentMember.role !== 'admin')) {
-    return <Redirect href={'/(tabs)' as never} />;
+  if (!allowed) {
+    return (
+      <SettingsModalChrome backLabel="Subscription" title="Purchase diagnostics">
+        <View style={styles.body}>
+          {access_ === null ? <ActivityIndicator color={c.primary} /> : null}
+          <Text style={{ color: c.textMuted }}>
+            {access_ === null ? 'Checking install type…' : 'Not available on this install.'}
+          </Text>
+        </View>
+      </SettingsModalChrome>
+    );
   }
 
   const ok = (good: boolean) => (good ? '#3BB273' : '#E5484D');
@@ -189,7 +237,7 @@ export default function BillingDiagnosticsScreen() {
               <Row k="Plan" v={p?.productId?.split('.').pop() ?? 'Never recorded'} />
               <Row k="Free trial" v={p?.expiresAt ? (p.inTrial ? 'Yes' : 'No') : '—'} />
               <Row k="Ends" v={when(p?.expiresAt)} />
-              <Row k="Will renew" v={p?.willRenew === null || p?.willRenew === undefined ? 'Unknown' : p.willRenew ? 'Yes' : 'No'} />
+              <Row k="Will renew" v={p?.willRenew == null ? 'Unknown' : p.willRenew ? 'Yes' : 'No'} />
               <Row k="Environment" v={p?.environment ?? '—'} />
               <Row k="Last reported" v={when(p?.updatedAt)} />
             </Card>

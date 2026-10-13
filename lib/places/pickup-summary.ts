@@ -1,4 +1,4 @@
-import { getPreferredStore } from '@/data/preferred-stores';
+import { PREFERRED_STORES } from '@/data/preferred-stores';
 import type { GroceryItem, SavedPlace } from '@/types/orbit';
 
 export type PickupSummaryGroup = {
@@ -50,11 +50,15 @@ export function buildPickupSummary(
       .map((g) => g.name)
   );
 
-  const preferred = preferredStoreId ? getPreferredStore(preferredStoreId) : null;
+  // Exact lookup only: getPreferredStore() falls back to the demo FreshMart for unknown ids.
+  const preferred = preferredStoreId
+    ? PREFERRED_STORES.find((store) => store.id === preferredStoreId) ?? null
+    : null;
   const preferredMatch =
-    preferred != null
+    places.find((p) => preferredStoreId != null && p.id === preferredStoreId) ??
+    (preferred != null
       ? places.find((p) => namesMatch(p.name, preferred.name) || namesMatch(p.address, preferred.address))
-      : undefined;
+      : undefined);
 
   const groceryTargets = new Set<string>();
   if (groceryNames.length > 0) {

@@ -265,7 +265,7 @@ import {
   persistCustomHouseRulesRows,
   persistMockHouseholdSnapshot,
 } from '@/repositories/household-repository';
-import { mergeHydratedPlaces } from '@/lib/places/saved-places';
+import { appendSavedPlace, mergeHydratedPlaces, stripMockSeedPlaces } from '@/lib/places/saved-places';
 import {
   authRepository,
   calendarRepository,
@@ -5717,11 +5717,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     let householdId: string | null = null;
     setHousehold((current) => {
       householdId = current.id;
-      const places = current.savedPlaces ?? [];
-      const exists = places.some((item) => item.id === place.id);
-      nextPlaces = exists
-        ? places.map((item) => (item.id === place.id ? place : item))
-        : [...places, place];
+      nextPlaces = appendSavedPlace(current.savedPlaces ?? [], place);
       return { ...current, savedPlaces: nextPlaces };
     });
     void persistSavedPlaces(householdId ?? householdRef.current.id, nextPlaces);
@@ -8242,7 +8238,9 @@ async function hydrateHousehold(baseHousehold: HouseholdSnapshot): Promise<House
     rewards,
     tasks,
     itineraries: itineraries.length > 0 ? itineraries : baseHousehold.itineraries ?? [],
-    savedPlaces: mergeHydratedPlaces(storedPlaces, baseHousehold.savedPlaces),
+    savedPlaces: isMockMode()
+      ? mergeHydratedPlaces(storedPlaces, baseHousehold.savedPlaces)
+      : stripMockSeedPlaces(mergeHydratedPlaces(storedPlaces, baseHousehold.savedPlaces)),
     taskTemplates: baseHousehold.taskTemplates ?? [],
     notificationPrefs: baseHousehold.notificationPrefs ?? DEFAULT_POPPINS_NOTIFICATION_PREFS,
     preferredStoreId: baseHousehold.preferredStoreId ?? 'store-freshmart',

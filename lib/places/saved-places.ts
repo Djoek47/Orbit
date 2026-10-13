@@ -92,3 +92,32 @@ export function isMissingPlacesTableError(error: { code?: string; message?: stri
       message.includes('could not find'))
   );
 }
+
+/** Demo seed places (data/mock-household.ts, data/preferred-stores.ts). Never real data. */
+const MOCK_PLACE_IDS = new Set([
+  'place-school',
+  'place-practice',
+  'place-shop',
+  'place-family',
+  'store-freshmart',
+  'store-quickstop',
+  'store-wholesale',
+]);
+const MOCK_PLACE_NAMES = new Set(['freshmart', 'quickstop', 'orbit wholesale']);
+
+export function isMockSeedPlace(place: Pick<SavedPlace, 'id' | 'name' | 'address'>): boolean {
+  if (MOCK_PLACE_IDS.has(place.id)) return true;
+  return MOCK_PLACE_NAMES.has((place.name ?? '').trim().toLowerCase());
+}
+
+/** Real households: strip any demo seed copies that leaked into storage. */
+export function stripMockSeedPlaces(places: SavedPlace[]): SavedPlace[] {
+  return places.filter((place) => !isMockSeedPlace(place));
+}
+
+/** Add a place at the end (or replace in position when the id already exists). */
+export function appendSavedPlace(places: SavedPlace[], place: SavedPlace): SavedPlace[] {
+  return places.some((item) => item.id === place.id)
+    ? places.map((item) => (item.id === place.id ? place : item))
+    : [...places, place];
+}

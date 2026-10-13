@@ -59,7 +59,7 @@ export default function SubscriptionStartedEmail({
         }}>
         Hi {firstName(name)},{' '}
         {inTrial
-          ? `your 7-day free trial of ${plan} is underway. Enjoy full Poppin AI tokens for your household.`
+          ? `your 7-day free trial of ${plan} is underway. Chores, XP and rewards are all yours. Poppin AI joins with your first payment.`
           : `thanks for subscribing to Choremaxx — ${plan} is active for your household.`}
       </Text>
       <InfoCard

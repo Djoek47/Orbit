@@ -169,7 +169,7 @@ function TripCard({
             <MaterialIcons name="route" size={18} color={color} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.tripTitle, { color: '#F7F2EC' }]}>{trip.title}</Text>
+            <Text style={[styles.tripTitle, { color: c.text }]}>{trip.title}</Text>
             <Text style={[styles.tripDayLabel, { color }]}>{formatDayLabel(trip.date)}</Text>
           </View>
           {trip.favorite ? (
