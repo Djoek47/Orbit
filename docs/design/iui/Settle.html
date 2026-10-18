@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IUI — done, and the way back</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap">
+<style>
+body{margin:0;font-family:"Bricolage Grotesque",-apple-system,system-ui,sans-serif;background:#030810}
+a{color:#34D399}a:hover{color:#5BE0B4}
+</style>
+</helmet>
+<div style="width: 402px; height: 874px; box-sizing: border-box; background: #070D1C; color: #EEF2FF; display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <div style="position: absolute; left: 50%; top: 150px; width: 640px; height: 640px; margin-left: -320px; border-radius: 999px; background: rgba(52,211,153,0.07);"></div>
+  <div style="position: absolute; left: 50%; top: 250px; width: 380px; height: 380px; margin-left: -190px; border-radius: 999px; background: rgba(52,211,153,0.06);"></div>
+
+  <div style="height: 96px; box-sizing: border-box; padding: 54px 22px 0; display: flex; align-items: center; justify-content: space-between; position: relative;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="width: 7px; height: 7px; border-radius: 999px; background: #34D399;"></span>
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 1.3px; color: #9DB4D2;">DONE · 4 THINGS</span>
+    </div>
+    <span style="font-size: 11px; font-weight: 600; letter-spacing: 1.3px; color: #6E88AA;">84 LEFT</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 0 22px; position: relative;">
+
+    <div style="width: 108px; height: 108px; border-radius: 999px; background: rgba(52,211,153,0.14); border: 1px solid rgba(52,211,153,0.28); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 60px rgba(52,211,153,0.18);">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"></path></svg>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <span style="font-size: 32px; font-weight: 600; line-height: 38px; letter-spacing: -0.5px; color: #34D399;">All set</span>
+      <span style="font-size: 15px; line-height: 21px; color: #C8D8F0; text-align: center; max-width: 280px;">Milk, eggs and bread are on the list. The dishes are Mia's, tomorrow.</span>
+    </div>
+
+    <div style="width: 100%; box-sizing: border-box; padding: 6px; border-radius: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); display: flex; flex-direction: column; gap: 2px;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px;">
+        <span style="width: 20px; height: 20px; border-radius: 999px; background: rgba(52,211,153,0.16); display: flex; align-items: center; justify-content: center;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="3.2" stroke-linecap="round"><path d="M4 12.5 9.5 18 20 6.5"></path></svg>
+        </span>
+        <span style="flex-grow: 1; font-size: 14px; color: #C8D8F0;">Groceries · 3 items</span>
+        <button type="button" style="font-family: inherit; font-size: 12px; color: #9DB4D2; background: transparent; border: none; cursor: pointer; min-height: 44px; padding: 0 4px;">Undo</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px;">
+        <span style="width: 20px; height: 20px; border-radius: 999px; background: rgba(52,211,153,0.16); display: flex; align-items: center; justify-content: center;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="3.2" stroke-linecap="round"><path d="M4 12.5 9.5 18 20 6.5"></path></svg>
+        </span>
+        <span style="flex-grow: 1; font-size: 14px; color: #C8D8F0;">Dishes → Mia · tomorrow</span>
+        <button type="button" style="font-family: inherit; font-size: 12px; color: #9DB4D2; background: transparent; border: none; cursor: pointer; min-height: 44px; padding: 0 4px;">Undo</button>
+      </div>
+    </div>
+
+    <button type="button" style="font-family: inherit; display: flex; align-items: center; gap: 12px; padding: 11px 12px 11px 20px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); cursor: pointer; min-height: 46px;">
+      <span style="font-size: 14px; font-weight: 600; color: #EEF2FF;">Undo all four</span>
+      <span style="width: 28px; height: 28px; border-radius: 999px; border: 2px solid rgba(255,255,255,0.14); border-top-color: #34D399; border-right-color: #34D399; display: inline-block;"></span>
+    </button>
+
+    <span style="font-size: 12px; line-height: 17px; color: #6E88AA; text-align: center; max-width: 260px;">Five seconds, then the stage clears and Poppins goes quiet.</span>
+  </div>
+
+  <div style="padding: 0 22px 30px; display: flex; align-items: center; justify-content: center; gap: 20px; position: relative;">
+    <button type="button" aria-label="Type instead" style="width: 54px; height: 54px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#9DB4D2" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"></rect><path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8"></path></svg>
+    </button>
+    <button type="button" aria-label="Speak" style="width: 82px; height: 82px; border-radius: 999px; background: #2F9E74; border: 3px solid rgba(118,196,174,0.28); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 30px rgba(47,158,116,0.35);">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"></path></svg>
+    </button>
+    <div style="width: 54px;"></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":402,"height":874}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

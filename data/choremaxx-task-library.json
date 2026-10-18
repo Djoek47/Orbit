@@ -1,0 +1,2655 @@
+{
+  "version": "3.0.0",
+  "generatedFor": "ChoreMaxx v2",
+  "xpValues": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    30
+  ],
+  "frequencies": [
+    "daily",
+    "weekdays",
+    "2x_weekly",
+    "weekly",
+    "biweekly",
+    "monthly",
+    "quarterly",
+    "seasonal",
+    "as_needed"
+  ],
+  "domains": [
+    {
+      "id": "kitchen_dining",
+      "name": "Kitchen & Dining",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "do_the_dishes",
+          "name": "Do the Dishes",
+          "domainId": "kitchen_dining",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "load_the_dishwasher",
+              "name": "Load the dishwasher",
+              "domainId": "kitchen_dining",
+              "groupId": "do_the_dishes",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "dishes",
+                "dishwasher",
+                "load"
+              ]
+            },
+            {
+              "id": "unload_the_dishwasher",
+              "name": "Unload the dishwasher",
+              "domainId": "kitchen_dining",
+              "groupId": "do_the_dishes",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "dishes",
+                "dishwasher",
+                "empty dishwasher",
+                "unload"
+              ]
+            },
+            {
+              "id": "wash_dishes_by_hand",
+              "name": "Wash dishes by hand",
+              "domainId": "kitchen_dining",
+              "groupId": "do_the_dishes",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "dishes",
+                "hand",
+                "wash",
+                "washing up"
+              ]
+            },
+            {
+              "id": "dry_and_put_away_dishes",
+              "name": "Dry and put away dishes",
+              "domainId": "kitchen_dining",
+              "groupId": "do_the_dishes",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "away",
+                "dishes",
+                "dry",
+                "put"
+              ]
+            },
+            {
+              "id": "empty_and_scrub_the_kitchen_sink",
+              "name": "Empty and scrub the kitchen sink",
+              "domainId": "kitchen_dining",
+              "groupId": "do_the_dishes",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "empty",
+                "kitchen",
+                "scrub",
+                "sink"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "clean_the_kitchen",
+          "name": "Clean the Kitchen",
+          "domainId": "kitchen_dining",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "wipe_down_kitchen_counters",
+              "name": "Wipe down kitchen counters",
+              "domainId": "kitchen_dining",
+              "groupId": "clean_the_kitchen",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "counters",
+                "countertops",
+                "down",
+                "kitchen",
+                "wipe"
+              ]
+            },
+            {
+              "id": "clean_the_stovetop",
+              "name": "Clean the stovetop",
+              "domainId": "kitchen_dining",
+              "groupId": "clean_the_kitchen",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "clean",
+                "cooktop",
+                "range",
+                "stove",
+                "stovetop"
+              ]
+            },
+            {
+              "id": "clean_the_microwave",
+              "name": "Clean the microwave",
+              "domainId": "kitchen_dining",
+              "groupId": "clean_the_kitchen",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "clean",
+                "microwave"
+              ]
+            },
+            {
+              "id": "clean_out_the_fridge",
+              "name": "Clean out the fridge",
+              "domainId": "kitchen_dining",
+              "groupId": "clean_the_kitchen",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "clean",
+                "fridge",
+                "refrigerator"
+              ]
+            },
+            {
+              "id": "wipe_down_cabinet_fronts",
+              "name": "Wipe down cabinet fronts",
+              "domainId": "kitchen_dining",
+              "groupId": "clean_the_kitchen",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "cabinet",
+                "down",
+                "fronts",
+                "wipe"
+              ]
+            },
+            {
+              "id": "sweep_the_kitchen_floor",
+              "name": "Sweep the kitchen floor",
+              "domainId": "kitchen_dining",
+              "groupId": "clean_the_kitchen",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "broom",
+                "floor",
+                "kitchen",
+                "kitchen floor",
+                "sweep"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "table_duty",
+          "name": "Table Duty",
+          "domainId": "kitchen_dining",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "set_the_table",
+              "name": "Set the table",
+              "domainId": "kitchen_dining",
+              "groupId": "table_duty",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "set",
+                "table"
+              ]
+            },
+            {
+              "id": "clear_the_table_after_dinner",
+              "name": "Clear the table after dinner",
+              "domainId": "kitchen_dining",
+              "groupId": "table_duty",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "clear",
+                "dinner",
+                "table"
+              ]
+            },
+            {
+              "id": "wipe_down_the_dining_table",
+              "name": "Wipe down the dining table",
+              "domainId": "kitchen_dining",
+              "groupId": "table_duty",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "dining",
+                "down",
+                "table",
+                "wipe"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Kitchen"
+    },
+    {
+      "id": "trash_recycling",
+      "name": "Trash & Recycling",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "take_out_the_trash",
+          "name": "Take Out the Trash",
+          "domainId": "trash_recycling",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "take_out_the_garbage",
+              "name": "Take out the garbage",
+              "domainId": "trash_recycling",
+              "groupId": "take_out_the_trash",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "bins",
+                "garbage",
+                "rubbish",
+                "take",
+                "trash"
+              ]
+            },
+            {
+              "id": "take_out_the_recycling",
+              "name": "Take out the recycling",
+              "domainId": "trash_recycling",
+              "groupId": "take_out_the_trash",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bins",
+                "blue bin",
+                "recycle",
+                "recycling",
+                "take"
+              ]
+            },
+            {
+              "id": "take_out_the_compost_food_scraps",
+              "name": "Take out the compost / food scraps",
+              "domainId": "trash_recycling",
+              "groupId": "take_out_the_trash",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "compost",
+                "food",
+                "green bin",
+                "organics",
+                "scraps",
+                "take"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "empty_the_bins",
+          "name": "Empty the Bins",
+          "domainId": "trash_recycling",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "empty_the_bathroom_trash",
+              "name": "Empty the bathroom trash",
+              "domainId": "trash_recycling",
+              "groupId": "empty_the_bins",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bathroom",
+                "empty",
+                "trash"
+              ]
+            },
+            {
+              "id": "empty_the_bedroom_trash",
+              "name": "Empty the bedroom trash",
+              "domainId": "trash_recycling",
+              "groupId": "empty_the_bins",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bedroom",
+                "empty",
+                "trash"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "curb_duty",
+          "name": "Curb Duty",
+          "domainId": "trash_recycling",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "take_the_bins_to_the_curb",
+              "name": "Take the bins to the curb",
+              "domainId": "trash_recycling",
+              "groupId": "curb_duty",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bins",
+                "curb",
+                "take"
+              ]
+            },
+            {
+              "id": "bring_the_bins_back_in",
+              "name": "Bring the bins back in",
+              "domainId": "trash_recycling",
+              "groupId": "curb_duty",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "back",
+                "bins",
+                "bring"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Trash"
+    },
+    {
+      "id": "bathroom",
+      "name": "Bathroom",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "clean_the_bathroom",
+          "name": "Clean the Bathroom",
+          "domainId": "bathroom",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "clean_the_toilet",
+              "name": "Clean the toilet",
+              "domainId": "bathroom",
+              "groupId": "clean_the_bathroom",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bathroom",
+                "clean",
+                "loo",
+                "toilet"
+              ]
+            },
+            {
+              "id": "scrub_the_shower_bathtub",
+              "name": "Scrub the shower / bathtub",
+              "domainId": "bathroom",
+              "groupId": "clean_the_bathroom",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bath",
+                "bathtub",
+                "scrub",
+                "shower",
+                "tub"
+              ]
+            },
+            {
+              "id": "wipe_the_bathroom_sink_and_counter",
+              "name": "Wipe the bathroom sink & counter",
+              "domainId": "bathroom",
+              "groupId": "clean_the_bathroom",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "bathroom",
+                "counter",
+                "sink",
+                "wipe"
+              ]
+            },
+            {
+              "id": "clean_the_bathroom_mirror",
+              "name": "Clean the bathroom mirror",
+              "domainId": "bathroom",
+              "groupId": "clean_the_bathroom",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bathroom",
+                "clean",
+                "mirror"
+              ]
+            },
+            {
+              "id": "sweep_and_mop_the_bathroom_floor",
+              "name": "Sweep & mop the bathroom floor",
+              "domainId": "bathroom",
+              "groupId": "clean_the_bathroom",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bathroom",
+                "floor",
+                "mop",
+                "sweep"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "bathroom_reset",
+          "name": "Bathroom Reset",
+          "domainId": "bathroom",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "restock_the_toilet_paper",
+              "name": "Restock the toilet paper",
+              "domainId": "bathroom",
+              "groupId": "bathroom_reset",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "as_needed",
+              "searchTerms": [
+                "paper",
+                "restock",
+                "toilet"
+              ]
+            },
+            {
+              "id": "hang_up_wet_towels",
+              "name": "Hang up wet towels",
+              "domainId": "bathroom",
+              "groupId": "bathroom_reset",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "hang",
+                "towels",
+                "wet"
+              ]
+            },
+            {
+              "id": "put_out_fresh_towels",
+              "name": "Put out fresh towels",
+              "domainId": "bathroom",
+              "groupId": "bathroom_reset",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "fresh",
+                "put",
+                "towels"
+              ]
+            },
+            {
+              "id": "organize_bathroom_drawers_and_cabinet",
+              "name": "Organize bathroom drawers & cabinet",
+              "domainId": "bathroom",
+              "groupId": "bathroom_reset",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "bathroom",
+                "cabinet",
+                "drawers",
+                "organize"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Bathroom"
+    },
+    {
+      "id": "laundry",
+      "name": "Laundry",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "do_the_laundry",
+          "name": "Do the Laundry",
+          "domainId": "laundry",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "sort_laundry_by_color",
+              "name": "Sort laundry by color",
+              "domainId": "laundry",
+              "groupId": "do_the_laundry",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "color",
+                "laundry",
+                "sort"
+              ]
+            },
+            {
+              "id": "start_a_load_of_laundry",
+              "name": "Start a load of laundry",
+              "domainId": "laundry",
+              "groupId": "do_the_laundry",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "laundry",
+                "load",
+                "start"
+              ]
+            },
+            {
+              "id": "move_laundry_to_the_dryer",
+              "name": "Move laundry to the dryer",
+              "domainId": "laundry",
+              "groupId": "do_the_laundry",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "dryer",
+                "laundry",
+                "move"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "fold_and_put_away",
+          "name": "Fold & Put Away",
+          "domainId": "laundry",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "fold_the_laundry",
+              "name": "Fold the laundry",
+              "domainId": "laundry",
+              "groupId": "fold_and_put_away",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "fold",
+                "laundry"
+              ]
+            },
+            {
+              "id": "put_away_folded_laundry",
+              "name": "Put away folded laundry",
+              "domainId": "laundry",
+              "groupId": "fold_and_put_away",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "away",
+                "folded",
+                "laundry",
+                "put"
+              ]
+            },
+            {
+              "id": "match_and_put_away_socks",
+              "name": "Match and put away socks",
+              "domainId": "laundry",
+              "groupId": "fold_and_put_away",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "away",
+                "match",
+                "put",
+                "socks"
+              ]
+            },
+            {
+              "id": "hang_clothes_in_the_closet",
+              "name": "Hang clothes in the closet",
+              "domainId": "laundry",
+              "groupId": "fold_and_put_away",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "closet",
+                "clothes",
+                "hang"
+              ]
+            },
+            {
+              "id": "iron_or_steam_clothes",
+              "name": "Iron or steam clothes",
+              "domainId": "laundry",
+              "groupId": "fold_and_put_away",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "as_needed",
+              "searchTerms": [
+                "clothes",
+                "iron",
+                "or",
+                "steam"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "bedding",
+          "name": "Bedding",
+          "domainId": "laundry",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "strip_the_bed",
+              "name": "Strip the bed",
+              "domainId": "laundry",
+              "groupId": "bedding",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bed",
+                "strip"
+              ]
+            },
+            {
+              "id": "change_the_bed_sheets",
+              "name": "Change the bed sheets",
+              "domainId": "laundry",
+              "groupId": "bedding",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bed",
+                "bedding",
+                "change",
+                "linens",
+                "sheets"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Laundry"
+    },
+    {
+      "id": "bedroom",
+      "name": "Bedroom",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "tidy_your_room",
+          "name": "Tidy Your Room",
+          "domainId": "bedroom",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "make_the_bed",
+              "name": "Make the bed",
+              "domainId": "bedroom",
+              "groupId": "tidy_your_room",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "bed",
+                "make"
+              ]
+            },
+            {
+              "id": "tidy_your_room",
+              "name": "Tidy your room",
+              "domainId": "bedroom",
+              "groupId": "tidy_your_room",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "clean bedroom",
+                "clean room",
+                "room",
+                "tidy",
+                "tidy bedroom"
+              ]
+            },
+            {
+              "id": "pick_up_toys",
+              "name": "Pick up toys",
+              "domainId": "bedroom",
+              "groupId": "tidy_your_room",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "pick",
+                "toys"
+              ]
+            },
+            {
+              "id": "clear_off_the_desk_nightstand",
+              "name": "Clear off the desk / nightstand",
+              "domainId": "bedroom",
+              "groupId": "tidy_your_room",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "clear",
+                "desk",
+                "nightstand",
+                "off"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "deep_clean_your_room",
+          "name": "Deep Clean Your Room",
+          "domainId": "bedroom",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "organize_the_closet",
+              "name": "Organize the closet",
+              "domainId": "bedroom",
+              "groupId": "deep_clean_your_room",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "closet",
+                "organize"
+              ]
+            },
+            {
+              "id": "dust_bedroom_surfaces",
+              "name": "Dust bedroom surfaces",
+              "domainId": "bedroom",
+              "groupId": "deep_clean_your_room",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bedroom",
+                "dust",
+                "surfaces"
+              ]
+            },
+            {
+              "id": "vacuum_the_bedroom",
+              "name": "Vacuum the bedroom",
+              "domainId": "bedroom",
+              "groupId": "deep_clean_your_room",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bedroom",
+                "hoover",
+                "vacuum"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Bedroom"
+    },
+    {
+      "id": "living_shared",
+      "name": "Living Room & Shared Spaces",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "tidy_the_living_room",
+          "name": "Tidy the Living Room",
+          "domainId": "living_shared",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "tidy_the_living_room",
+              "name": "Tidy the living room",
+              "domainId": "living_shared",
+              "groupId": "tidy_the_living_room",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "living",
+                "room",
+                "tidy"
+              ]
+            },
+            {
+              "id": "fluff_and_straighten_the_cushions",
+              "name": "Fluff and straighten the cushions",
+              "domainId": "living_shared",
+              "groupId": "tidy_the_living_room",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "cushions",
+                "fluff",
+                "straighten"
+              ]
+            },
+            {
+              "id": "fold_the_blankets",
+              "name": "Fold the blankets",
+              "domainId": "living_shared",
+              "groupId": "tidy_the_living_room",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "blankets",
+                "fold"
+              ]
+            },
+            {
+              "id": "clear_off_the_coffee_table",
+              "name": "Clear off the coffee table",
+              "domainId": "living_shared",
+              "groupId": "tidy_the_living_room",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "clear",
+                "coffee",
+                "off",
+                "table"
+              ]
+            },
+            {
+              "id": "clean_up_after_movie_or_game_night",
+              "name": "Clean up after movie or game night",
+              "domainId": "living_shared",
+              "groupId": "tidy_the_living_room",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "as_needed",
+              "searchTerms": [
+                "clean",
+                "game",
+                "movie",
+                "night",
+                "or"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "dust_and_wipe_down",
+          "name": "Dust & Wipe Down",
+          "domainId": "living_shared",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "dust_shelves_and_furniture",
+              "name": "Dust shelves and furniture",
+              "domainId": "living_shared",
+              "groupId": "dust_and_wipe_down",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "dust",
+                "furniture",
+                "shelves"
+              ]
+            },
+            {
+              "id": "wipe_down_the_tv_and_electronics",
+              "name": "Wipe down the TV and electronics",
+              "domainId": "living_shared",
+              "groupId": "dust_and_wipe_down",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "down",
+                "electronics",
+                "tv",
+                "wipe"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "put_things_away",
+          "name": "Put Things Away",
+          "domainId": "living_shared",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "put_away_remotes_chargers_and_cables",
+              "name": "Put away remotes, chargers & cables",
+              "domainId": "living_shared",
+              "groupId": "put_things_away",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "away",
+                "cables",
+                "chargers",
+                "put",
+                "remotes"
+              ]
+            },
+            {
+              "id": "organize_the_bookshelf",
+              "name": "Organize the bookshelf",
+              "domainId": "living_shared",
+              "groupId": "put_things_away",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "bookshelf",
+                "organize"
+              ]
+            },
+            {
+              "id": "put_away_shoes_and_coats",
+              "name": "Put away shoes and coats",
+              "domainId": "living_shared",
+              "groupId": "put_things_away",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "away",
+                "coats",
+                "put",
+                "shoes"
+              ]
+            },
+            {
+              "id": "tidy_the_entryway_mudroom",
+              "name": "Tidy the entryway / mudroom",
+              "domainId": "living_shared",
+              "groupId": "put_things_away",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "entryway",
+                "mudroom",
+                "tidy"
+              ]
+            },
+            {
+              "id": "tidy_your_shared_space",
+              "name": "Tidy your shared space",
+              "domainId": "living_shared",
+              "groupId": "put_things_away",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "shared",
+                "space",
+                "tidy"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Shared Spaces"
+    },
+    {
+      "id": "floors_deep_cleaning",
+      "name": "Floors & Deep Cleaning",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "floors",
+          "name": "Floors",
+          "domainId": "floors_deep_cleaning",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "vacuum_the_main_floor",
+              "name": "Vacuum the main floor",
+              "domainId": "floors_deep_cleaning",
+              "groupId": "floors",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "floor",
+                "hoover",
+                "main",
+                "vacuum"
+              ]
+            },
+            {
+              "id": "sweep_the_floors",
+              "name": "Sweep the floors",
+              "domainId": "floors_deep_cleaning",
+              "groupId": "floors",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "floors",
+                "sweep"
+              ]
+            },
+            {
+              "id": "mop_the_floors",
+              "name": "Mop the floors",
+              "domainId": "floors_deep_cleaning",
+              "groupId": "floors",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "floors",
+                "mop",
+                "mopping"
+              ]
+            },
+            {
+              "id": "vacuum_the_stairs",
+              "name": "Vacuum the stairs",
+              "domainId": "floors_deep_cleaning",
+              "groupId": "floors",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "stairs",
+                "vacuum"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "deep_clean",
+          "name": "Deep Clean",
+          "domainId": "floors_deep_cleaning",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "clean_the_windows",
+              "name": "Clean the windows",
+              "domainId": "floors_deep_cleaning",
+              "groupId": "deep_clean",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "clean",
+                "windows"
+              ]
+            },
+            {
+              "id": "wipe_light_switches_and_door_handles",
+              "name": "Wipe light switches & door handles",
+              "domainId": "floors_deep_cleaning",
+              "groupId": "deep_clean",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "door",
+                "handles",
+                "light",
+                "switches",
+                "wipe"
+              ]
+            },
+            {
+              "id": "wipe_the_baseboards",
+              "name": "Wipe the baseboards",
+              "domainId": "floors_deep_cleaning",
+              "groupId": "deep_clean",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "baseboards",
+                "wipe"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Floors"
+    },
+    {
+      "id": "pets",
+      "name": "Pets",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "daily_pet_care",
+          "name": "Daily Pet Care",
+          "domainId": "pets",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "feed_the_pet",
+              "name": "Feed the pet",
+              "domainId": "pets",
+              "groupId": "daily_pet_care",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "feed",
+                "pet"
+              ]
+            },
+            {
+              "id": "refill_the_pet_s_water_bowl",
+              "name": "Refill the pet's water bowl",
+              "domainId": "pets",
+              "groupId": "daily_pet_care",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "bowl",
+                "pet",
+                "refill",
+                "s",
+                "water"
+              ]
+            },
+            {
+              "id": "walk_the_dog",
+              "name": "Walk the dog",
+              "domainId": "pets",
+              "groupId": "daily_pet_care",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "dog",
+                "walk"
+              ]
+            },
+            {
+              "id": "wash_the_pet_s_bowls",
+              "name": "Wash the pet's bowls",
+              "domainId": "pets",
+              "groupId": "daily_pet_care",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bowls",
+                "pet",
+                "s",
+                "wash"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "litter_and_cleanup",
+          "name": "Litter & Cleanup",
+          "domainId": "pets",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "scoop_the_litter_box",
+              "name": "Scoop the litter box",
+              "domainId": "pets",
+              "groupId": "litter_and_cleanup",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "box",
+                "cat",
+                "kitty litter",
+                "litter",
+                "scoop"
+              ]
+            },
+            {
+              "id": "change_the_litter",
+              "name": "Change the litter",
+              "domainId": "pets",
+              "groupId": "litter_and_cleanup",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "change",
+                "litter"
+              ]
+            },
+            {
+              "id": "clean_the_cage_tank_coop",
+              "name": "Clean the cage / tank / coop",
+              "domainId": "pets",
+              "groupId": "litter_and_cleanup",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "cage",
+                "clean",
+                "coop",
+                "tank"
+              ]
+            },
+            {
+              "id": "pick_up_after_the_dog_in_the_yard",
+              "name": "Pick up after the dog in the yard",
+              "domainId": "pets",
+              "groupId": "litter_and_cleanup",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "dog",
+                "dog waste",
+                "pick",
+                "poop",
+                "yard"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "pet_grooming",
+          "name": "Pet Grooming",
+          "domainId": "pets",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "brush_the_pet",
+              "name": "Brush the pet",
+              "domainId": "pets",
+              "groupId": "pet_grooming",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "brush",
+                "pet"
+              ]
+            },
+            {
+              "id": "bathe_the_pet",
+              "name": "Bathe the pet",
+              "domainId": "pets",
+              "groupId": "pet_grooming",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "bathe",
+                "pet"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Pets"
+    },
+    {
+      "id": "car",
+      "name": "Car",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "clean_the_car",
+          "name": "Clean the Car",
+          "domainId": "car",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "wash_the_car",
+              "name": "Wash the car",
+              "domainId": "car",
+              "groupId": "clean_the_car",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "car",
+                "wash"
+              ]
+            },
+            {
+              "id": "vacuum_the_car_interior",
+              "name": "Vacuum the car interior",
+              "domainId": "car",
+              "groupId": "clean_the_car",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "car",
+                "interior",
+                "vacuum"
+              ]
+            },
+            {
+              "id": "clear_the_trash_out_of_the_car",
+              "name": "Clear the trash out of the car",
+              "domainId": "car",
+              "groupId": "clean_the_car",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "car",
+                "clear",
+                "trash"
+              ]
+            },
+            {
+              "id": "wipe_the_dashboard_and_windows",
+              "name": "Wipe the dashboard & windows",
+              "domainId": "car",
+              "groupId": "clean_the_car",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "dashboard",
+                "windows",
+                "wipe"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "car_upkeep",
+          "name": "Car Upkeep",
+          "domainId": "car",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "fill_up_the_gas_tank",
+              "name": "Fill up the gas tank",
+              "domainId": "car",
+              "groupId": "car_upkeep",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "fill",
+                "gas",
+                "tank"
+              ]
+            },
+            {
+              "id": "check_the_tire_pressure",
+              "name": "Check the tire pressure",
+              "domainId": "car",
+              "groupId": "car_upkeep",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "check",
+                "pressure",
+                "tire"
+              ]
+            },
+            {
+              "id": "book_the_oil_change_service",
+              "name": "Book the oil change / service",
+              "domainId": "car",
+              "groupId": "car_upkeep",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "book",
+                "change",
+                "oil",
+                "service"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Car"
+    },
+    {
+      "id": "yard_outdoors",
+      "name": "Yard & Outdoors",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "lawn_and_garden",
+          "name": "Lawn & Garden",
+          "domainId": "yard_outdoors",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "mow_the_lawn",
+              "name": "Mow the lawn",
+              "domainId": "yard_outdoors",
+              "groupId": "lawn_and_garden",
+              "tracking": "xp",
+              "xp": 30,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "grass",
+                "lawn",
+                "mow",
+                "mowing"
+              ]
+            },
+            {
+              "id": "water_the_outdoor_plants",
+              "name": "Water the outdoor plants",
+              "domainId": "yard_outdoors",
+              "groupId": "lawn_and_garden",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "outdoor",
+                "plants",
+                "water"
+              ]
+            },
+            {
+              "id": "pull_the_weeds",
+              "name": "Pull the weeds",
+              "domainId": "yard_outdoors",
+              "groupId": "lawn_and_garden",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "biweekly",
+              "searchTerms": [
+                "pull",
+                "weeds"
+              ]
+            },
+            {
+              "id": "fill_the_bird_feeder",
+              "name": "Fill the bird feeder",
+              "domainId": "yard_outdoors",
+              "groupId": "lawn_and_garden",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "bird",
+                "feeder",
+                "fill"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "seasonal_outdoor",
+          "name": "Seasonal Outdoor",
+          "domainId": "yard_outdoors",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "rake_the_leaves",
+              "name": "Rake the leaves",
+              "domainId": "yard_outdoors",
+              "groupId": "seasonal_outdoor",
+              "tracking": "xp",
+              "xp": 30,
+              "defaultFrequency": "seasonal",
+              "searchTerms": [
+                "fall",
+                "leaves",
+                "rake",
+                "raking"
+              ]
+            },
+            {
+              "id": "shovel_the_snow",
+              "name": "Shovel the snow",
+              "domainId": "yard_outdoors",
+              "groupId": "seasonal_outdoor",
+              "tracking": "xp",
+              "xp": 30,
+              "defaultFrequency": "seasonal",
+              "searchTerms": [
+                "driveway",
+                "shovel",
+                "shovelling",
+                "snow",
+                "winter"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "outdoor_tidy",
+          "name": "Outdoor Tidy",
+          "domainId": "yard_outdoors",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "sweep_the_porch_driveway",
+              "name": "Sweep the porch / driveway",
+              "domainId": "yard_outdoors",
+              "groupId": "outdoor_tidy",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "driveway",
+                "porch",
+                "sweep"
+              ]
+            },
+            {
+              "id": "tidy_the_patio_balcony",
+              "name": "Tidy the patio / balcony",
+              "domainId": "yard_outdoors",
+              "groupId": "outdoor_tidy",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "balcony",
+                "patio",
+                "tidy"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mail_and_deliveries",
+          "name": "Mail & Deliveries",
+          "domainId": "yard_outdoors",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "bring_in_the_mail",
+              "name": "Bring in the mail",
+              "domainId": "yard_outdoors",
+              "groupId": "mail_and_deliveries",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "bring",
+                "mail"
+              ]
+            },
+            {
+              "id": "bring_in_the_packages",
+              "name": "Bring in the packages",
+              "domainId": "yard_outdoors",
+              "groupId": "mail_and_deliveries",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "as_needed",
+              "searchTerms": [
+                "bring",
+                "packages"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Outdoors"
+    },
+    {
+      "id": "personal_hygiene",
+      "name": "Personal Hygiene",
+      "tab": "chores",
+      "tracking": "streak",
+      "groups": [
+        {
+          "id": "teeth_and_mouth",
+          "name": "Teeth & Mouth",
+          "domainId": "personal_hygiene",
+          "bundleBonusXp": 0,
+          "tasks": [
+            {
+              "id": "brush_your_teeth_morning",
+              "name": "Brush your teeth (morning)",
+              "domainId": "personal_hygiene",
+              "groupId": "teeth_and_mouth",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "brush",
+                "morning",
+                "teeth",
+                "toothbrush"
+              ]
+            },
+            {
+              "id": "brush_your_teeth_bedtime",
+              "name": "Brush your teeth (bedtime)",
+              "domainId": "personal_hygiene",
+              "groupId": "teeth_and_mouth",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "bedtime",
+                "brush",
+                "teeth",
+                "toothbrush"
+              ]
+            },
+            {
+              "id": "floss_your_teeth",
+              "name": "Floss your teeth",
+              "domainId": "personal_hygiene",
+              "groupId": "teeth_and_mouth",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "floss",
+                "teeth"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "bath_and_body",
+          "name": "Bath & Body",
+          "domainId": "personal_hygiene",
+          "bundleBonusXp": 0,
+          "tasks": [
+            {
+              "id": "take_a_shower_or_bath",
+              "name": "Take a shower or bath",
+              "domainId": "personal_hygiene",
+              "groupId": "bath_and_body",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "bath",
+                "or",
+                "shower",
+                "take"
+              ]
+            },
+            {
+              "id": "wash_your_face",
+              "name": "Wash your face",
+              "domainId": "personal_hygiene",
+              "groupId": "bath_and_body",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "face",
+                "wash"
+              ]
+            },
+            {
+              "id": "wash_your_hair",
+              "name": "Wash your hair",
+              "domainId": "personal_hygiene",
+              "groupId": "bath_and_body",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "hair",
+                "wash"
+              ]
+            },
+            {
+              "id": "put_on_deodorant",
+              "name": "Put on deodorant",
+              "domainId": "personal_hygiene",
+              "groupId": "bath_and_body",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "deodorant",
+                "on",
+                "put"
+              ]
+            },
+            {
+              "id": "shower_after_sports_practice",
+              "name": "Shower after sports practice",
+              "domainId": "personal_hygiene",
+              "groupId": "bath_and_body",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "practice",
+                "shower",
+                "sports"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "grooming",
+          "name": "Grooming",
+          "domainId": "personal_hygiene",
+          "bundleBonusXp": 0,
+          "tasks": [
+            {
+              "id": "brush_or_comb_your_hair",
+              "name": "Brush or comb your hair",
+              "domainId": "personal_hygiene",
+              "groupId": "grooming",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "brush",
+                "comb",
+                "hair",
+                "or"
+              ]
+            },
+            {
+              "id": "clip_your_fingernails",
+              "name": "Clip your fingernails",
+              "domainId": "personal_hygiene",
+              "groupId": "grooming",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "clip",
+                "fingernails"
+              ]
+            },
+            {
+              "id": "clip_your_toenails",
+              "name": "Clip your toenails",
+              "domainId": "personal_hygiene",
+              "groupId": "grooming",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "clip",
+                "toenails"
+              ]
+            },
+            {
+              "id": "trim_or_shave",
+              "name": "Trim or shave",
+              "domainId": "personal_hygiene",
+              "groupId": "grooming",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "or",
+                "shave",
+                "trim"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "getting_dressed",
+          "name": "Getting Dressed",
+          "domainId": "personal_hygiene",
+          "bundleBonusXp": 0,
+          "tasks": [
+            {
+              "id": "get_dressed_for_the_day",
+              "name": "Get dressed for the day",
+              "domainId": "personal_hygiene",
+              "groupId": "getting_dressed",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "day",
+                "dressed",
+                "get"
+              ]
+            },
+            {
+              "id": "put_on_clean_underwear_and_socks",
+              "name": "Put on clean underwear & socks",
+              "domainId": "personal_hygiene",
+              "groupId": "getting_dressed",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "clean",
+                "on",
+                "put",
+                "socks",
+                "underwear"
+              ]
+            },
+            {
+              "id": "put_dirty_clothes_in_the_hamper",
+              "name": "Put dirty clothes in the hamper",
+              "domainId": "personal_hygiene",
+              "groupId": "getting_dressed",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "clothes",
+                "dirty",
+                "hamper",
+                "put"
+              ]
+            },
+            {
+              "id": "lay_out_clothes_for_tomorrow",
+              "name": "Lay out clothes for tomorrow",
+              "domainId": "personal_hygiene",
+              "groupId": "getting_dressed",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "clothes",
+                "lay",
+                "tomorrow"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "hands_and_everyday_hygiene",
+          "name": "Hands & Everyday Hygiene",
+          "domainId": "personal_hygiene",
+          "bundleBonusXp": 0,
+          "tasks": [
+            {
+              "id": "wash_your_hands_before_eating",
+              "name": "Wash your hands before eating",
+              "domainId": "personal_hygiene",
+              "groupId": "hands_and_everyday_hygiene",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "before",
+                "eating",
+                "hands",
+                "wash"
+              ]
+            },
+            {
+              "id": "wash_your_hands_after_the_bathroom",
+              "name": "Wash your hands after the bathroom",
+              "domainId": "personal_hygiene",
+              "groupId": "hands_and_everyday_hygiene",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "bathroom",
+                "hands",
+                "wash"
+              ]
+            },
+            {
+              "id": "take_vitamins_medication",
+              "name": "Take vitamins / medication",
+              "domainId": "personal_hygiene",
+              "groupId": "hands_and_everyday_hygiene",
+              "tracking": "streak",
+              "xp": 0,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "medication",
+                "take",
+                "vitamins"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Hygiene"
+    },
+    {
+      "id": "daily_routine",
+      "name": "Daily Routine",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "morning_routine",
+          "name": "Morning Routine",
+          "domainId": "daily_routine",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "wake_up_on_time",
+              "name": "Wake up on time",
+              "domainId": "daily_routine",
+              "groupId": "morning_routine",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekdays",
+              "searchTerms": [
+                "on",
+                "time",
+                "wake"
+              ]
+            },
+            {
+              "id": "make_your_own_breakfast",
+              "name": "Make your own breakfast",
+              "domainId": "daily_routine",
+              "groupId": "morning_routine",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "breakfast",
+                "make"
+              ]
+            },
+            {
+              "id": "fill_your_water_bottle",
+              "name": "Fill your water bottle",
+              "domainId": "daily_routine",
+              "groupId": "morning_routine",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekdays",
+              "searchTerms": [
+                "bottle",
+                "fill",
+                "water"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "evening_wind_down",
+          "name": "Evening Wind-Down",
+          "domainId": "daily_routine",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "screens_off_by_bedtime",
+              "name": "Screens off by bedtime",
+              "domainId": "daily_routine",
+              "groupId": "evening_wind_down",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "bedtime",
+                "off",
+                "screens"
+              ]
+            },
+            {
+              "id": "put_devices_away_for_the_night",
+              "name": "Put devices away for the night",
+              "domainId": "daily_routine",
+              "groupId": "evening_wind_down",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "away",
+                "devices",
+                "night",
+                "put"
+              ]
+            },
+            {
+              "id": "charge_your_devices",
+              "name": "Charge your devices",
+              "domainId": "daily_routine",
+              "groupId": "evening_wind_down",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "charge",
+                "devices"
+              ]
+            },
+            {
+              "id": "be_in_bed_by_bedtime",
+              "name": "Be in bed by bedtime",
+              "domainId": "daily_routine",
+              "groupId": "evening_wind_down",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "be",
+                "bed",
+                "bedtime"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Routine"
+    },
+    {
+      "id": "homework_education",
+      "name": "Homework & Education",
+      "tab": "homework",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "homework",
+          "name": "Homework",
+          "domainId": "homework_education",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "do_your_homework",
+              "name": "Do your homework",
+              "domainId": "homework_education",
+              "groupId": "homework",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "weekdays",
+              "searchTerms": [
+                "do",
+                "homework",
+                "school work"
+              ]
+            },
+            {
+              "id": "work_on_a_school_project",
+              "name": "Work on a school project",
+              "domainId": "homework_education",
+              "groupId": "homework",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "as_needed",
+              "searchTerms": [
+                "on",
+                "project",
+                "school",
+                "work"
+              ]
+            },
+            {
+              "id": "study_for_a_test",
+              "name": "Study for a test",
+              "domainId": "homework_education",
+              "groupId": "homework",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "study",
+                "test"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "practice_and_reading",
+          "name": "Practice & Reading",
+          "domainId": "homework_education",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "read_for_20_minutes",
+              "name": "Read for 20 minutes",
+              "domainId": "homework_education",
+              "groupId": "practice_and_reading",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "20",
+                "book",
+                "minutes",
+                "read",
+                "reading"
+              ]
+            },
+            {
+              "id": "practice_math_facts",
+              "name": "Practice math facts",
+              "domainId": "homework_education",
+              "groupId": "practice_and_reading",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekdays",
+              "searchTerms": [
+                "facts",
+                "math",
+                "practice"
+              ]
+            },
+            {
+              "id": "practice_spelling_words",
+              "name": "Practice spelling words",
+              "domainId": "homework_education",
+              "groupId": "practice_and_reading",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekdays",
+              "searchTerms": [
+                "practice",
+                "spelling",
+                "words"
+              ]
+            },
+            {
+              "id": "practice_your_instrument",
+              "name": "Practice your instrument",
+              "domainId": "homework_education",
+              "groupId": "practice_and_reading",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "daily",
+              "searchTerms": [
+                "instrument",
+                "practice"
+              ]
+            },
+            {
+              "id": "go_to_sports_or_activity_practice",
+              "name": "Go to sports or activity practice",
+              "domainId": "homework_education",
+              "groupId": "practice_and_reading",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "activity",
+                "go",
+                "or",
+                "practice",
+                "sports"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "school_admin",
+          "name": "School Admin",
+          "domainId": "homework_education",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "pack_your_school_bag",
+              "name": "Pack your school bag",
+              "domainId": "homework_education",
+              "groupId": "school_admin",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekdays",
+              "searchTerms": [
+                "bag",
+                "pack",
+                "school"
+              ]
+            },
+            {
+              "id": "get_school_forms_signed",
+              "name": "Get school forms signed",
+              "domainId": "homework_education",
+              "groupId": "school_admin",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "as_needed",
+              "searchTerms": [
+                "forms",
+                "get",
+                "school",
+                "signed"
+              ]
+            },
+            {
+              "id": "check_the_school_portal_grades",
+              "name": "Check the school portal / grades",
+              "domainId": "homework_education",
+              "groupId": "school_admin",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "check",
+                "grades",
+                "portal",
+                "school"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Homework"
+    },
+    {
+      "id": "meals_groceries",
+      "name": "Meals, Groceries & Errands",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "cook_and_prep",
+          "name": "Cook & Prep",
+          "domainId": "meals_groceries",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "help_cook_dinner",
+              "name": "Help cook dinner",
+              "domainId": "meals_groceries",
+              "groupId": "cook_and_prep",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "cook",
+                "cooking",
+                "dinner",
+                "help",
+                "supper"
+              ]
+            },
+            {
+              "id": "prep_the_vegetables",
+              "name": "Prep the vegetables",
+              "domainId": "meals_groceries",
+              "groupId": "cook_and_prep",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "2x_weekly",
+              "searchTerms": [
+                "prep",
+                "vegetables"
+              ]
+            },
+            {
+              "id": "pack_school_lunches",
+              "name": "Pack school lunches",
+              "domainId": "meals_groceries",
+              "groupId": "cook_and_prep",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekdays",
+              "searchTerms": [
+                "lunches",
+                "pack",
+                "school"
+              ]
+            },
+            {
+              "id": "plan_meals_for_the_week",
+              "name": "Plan meals for the week",
+              "domainId": "meals_groceries",
+              "groupId": "cook_and_prep",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "meals",
+                "plan",
+                "week"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "groceries",
+          "name": "Groceries",
+          "domainId": "meals_groceries",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "add_items_to_the_grocery_list",
+              "name": "Add items to the grocery list",
+              "domainId": "meals_groceries",
+              "groupId": "groceries",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "add",
+                "grocery",
+                "items",
+                "list"
+              ]
+            },
+            {
+              "id": "go_grocery_shopping",
+              "name": "Go grocery shopping",
+              "domainId": "meals_groceries",
+              "groupId": "groceries",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "go",
+                "groceries",
+                "grocery",
+                "shopping",
+                "supermarket"
+              ]
+            },
+            {
+              "id": "put_away_the_groceries",
+              "name": "Put away the groceries",
+              "domainId": "meals_groceries",
+              "groupId": "groceries",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "away",
+                "groceries",
+                "put"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "errands",
+          "name": "Errands",
+          "domainId": "meals_groceries",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "return_the_library_books",
+              "name": "Return the library books",
+              "domainId": "meals_groceries",
+              "groupId": "errands",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "biweekly",
+              "searchTerms": [
+                "books",
+                "library",
+                "return"
+              ]
+            },
+            {
+              "id": "drop_off_donations",
+              "name": "Drop off donations",
+              "domainId": "meals_groceries",
+              "groupId": "errands",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "donations",
+                "drop",
+                "off"
+              ]
+            },
+            {
+              "id": "pick_up_a_package_or_prescription",
+              "name": "Pick up a package or prescription",
+              "domainId": "meals_groceries",
+              "groupId": "errands",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "as_needed",
+              "searchTerms": [
+                "or",
+                "package",
+                "pick",
+                "prescription"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Groceries"
+    },
+    {
+      "id": "home_maintenance",
+      "name": "Home Maintenance & Organization",
+      "tab": "chores",
+      "tracking": "xp",
+      "groups": [
+        {
+          "id": "restock_and_supplies",
+          "name": "Restock & Supplies",
+          "domainId": "home_maintenance",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "restock_household_supplies",
+              "name": "Restock household supplies",
+              "domainId": "home_maintenance",
+              "groupId": "restock_and_supplies",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "monthly",
+              "searchTerms": [
+                "household",
+                "restock",
+                "supplies"
+              ]
+            },
+            {
+              "id": "restock_paper_towels_and_napkins",
+              "name": "Restock paper towels & napkins",
+              "domainId": "home_maintenance",
+              "groupId": "restock_and_supplies",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "napkins",
+                "paper",
+                "restock",
+                "towels"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "home_upkeep",
+          "name": "Home Upkeep",
+          "domainId": "home_maintenance",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "water_the_indoor_plants",
+              "name": "Water the indoor plants",
+              "domainId": "home_maintenance",
+              "groupId": "home_upkeep",
+              "tracking": "xp",
+              "xp": 5,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "indoor",
+                "plants",
+                "water"
+              ]
+            },
+            {
+              "id": "replace_burnt_out_light_bulbs",
+              "name": "Replace burnt-out light bulbs",
+              "domainId": "home_maintenance",
+              "groupId": "home_upkeep",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "as_needed",
+              "searchTerms": [
+                "bulbs",
+                "burnt",
+                "light",
+                "replace"
+              ]
+            },
+            {
+              "id": "change_the_furnace_a_c_filter",
+              "name": "Change the furnace / A/C filter",
+              "domainId": "home_maintenance",
+              "groupId": "home_upkeep",
+              "tracking": "xp",
+              "xp": 15,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "c",
+                "change",
+                "filter",
+                "furnace"
+              ]
+            },
+            {
+              "id": "test_the_smoke_detector_batteries",
+              "name": "Test the smoke detector batteries",
+              "domainId": "home_maintenance",
+              "groupId": "home_upkeep",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "batteries",
+                "detector",
+                "smoke",
+                "test"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "declutter_and_organize",
+          "name": "Declutter & Organize",
+          "domainId": "home_maintenance",
+          "bundleBonusXp": 10,
+          "tasks": [
+            {
+              "id": "organize_the_pantry",
+              "name": "Organize the pantry",
+              "domainId": "home_maintenance",
+              "groupId": "declutter_and_organize",
+              "tracking": "xp",
+              "xp": 20,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "organize",
+                "pantry"
+              ]
+            },
+            {
+              "id": "clean_out_the_garage",
+              "name": "Clean out the garage",
+              "domainId": "home_maintenance",
+              "groupId": "declutter_and_organize",
+              "tracking": "xp",
+              "xp": 30,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "clean",
+                "garage"
+              ]
+            },
+            {
+              "id": "declutter_a_closet_or_storage_bin",
+              "name": "Declutter a closet or storage bin",
+              "domainId": "home_maintenance",
+              "groupId": "declutter_and_organize",
+              "tracking": "xp",
+              "xp": 25,
+              "defaultFrequency": "quarterly",
+              "searchTerms": [
+                "bin",
+                "closet",
+                "declutter",
+                "or",
+                "storage"
+              ]
+            },
+            {
+              "id": "break_down_the_cardboard_boxes",
+              "name": "Break down the cardboard boxes",
+              "domainId": "home_maintenance",
+              "groupId": "declutter_and_organize",
+              "tracking": "xp",
+              "xp": 10,
+              "defaultFrequency": "weekly",
+              "searchTerms": [
+                "boxes",
+                "break",
+                "cardboard",
+                "down"
+              ]
+            }
+          ]
+        }
+      ],
+      "shortName": "Maintenance"
+    }
+  ]
+}

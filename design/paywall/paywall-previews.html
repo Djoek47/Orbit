@@ -1,0 +1,320 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>ChoreMaxx Paywall Previews</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap">
+<style>
+/* Layout: control bar, then a wrapping row of tappable phone frames. Inside each phone, sizes
+   follow the app's type scale (largeTitle 34, title1 28, headline 17, body 17, footnote 13,
+   caption1 12) scaled to the frame with --u (1 app point). */
+:root{
+  --bg:#F3EEE9; --fg:#2A1F1A; --muted:#7A6A60; --line:#E2D8CF; --chip:#FFFFFF; --accent:#D85A30;
+  --display:"Bricolage Grotesque",ui-rounded,system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17120F;--fg:#F4ECE6;--muted:#A8968A;--line:#33281F;--chip:#231B16;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17120F;--fg:#F4ECE6;--muted:#A8968A;--line:#33281F;--chip:#231B16;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);padding-inline:16px;padding-block:20px 40px}
+h1{font-size:26px;font-weight:700;margin:0 0 4px;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 18px;max-width:64ch;line-height:1.45}
+.bar{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center;margin-bottom:22px}
+.seg{display:inline-flex;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{font:inherit;font-weight:600;font-size:14px;border:0;background:none;color:var(--muted);padding:8px 14px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+button:focus-visible,.plan:focus-visible,.pack:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.lbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;justify-content:center}
+figure{margin:0;display:flex;flex-direction:column;gap:10px;align-items:center}
+figcaption{font-weight:700;font-size:15px;text-align:center}
+figcaption small{display:block;font-weight:500;color:var(--muted);font-size:12.5px;margin-top:2px}
+.msg{width:100%;box-sizing:border-box;display:flex;gap:8px;align-items:flex-start;text-align:left;border-radius:14px;padding:9px 10px;font-size:calc(var(--u)*13);line-height:1.35;margin-top:8px;border:1px solid}
+.msg b{font-size:calc(var(--u)*15)}
+.msg .mi{font-size:18px;line-height:1}
+.msg.err{background:#FDECEC;border-color:#E5484D59;color:#9B2C2C}
+.msg.info{background:#F4F1EE;border-color:#7F77DD4D;color:#4A3F38}
+.hw .msg.err{background:#F8717124;color:#FFD4D4}
+.hw .msg.info{background:#ffffff14;color:#E9E2FA}
+.shake{animation:shake .5s 1s 2}
+@keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.notes{max-width:72ch;margin:30px auto 0;color:var(--muted);line-height:1.5;font-size:14px;display:grid;gap:8px}
+.notes b{color:var(--fg)}
+
+/* ── Phone ─────────────────────────────────────────── */
+.phone{--p:#D85A30;--p2:#FAC775;--u:.72px;width:282px;max-width:100%;aspect-ratio:9/19.5;border-radius:40px;padding:9px;background:#111;box-shadow:0 18px 40px #0003;box-sizing:border-box}
+.scr{position:relative;height:100%;border-radius:31px;overflow:hidden;display:flex;flex-direction:column;align-items:center;text-align:center;padding:calc(var(--u)*24) calc(var(--u)*24) calc(var(--u)*22);box-sizing:border-box;background:#FFFBF7;color:#2A1F1A;isolation:isolate}
+.scr>*{position:relative;z-index:2}
+.x{position:absolute!important;top:calc(var(--u)*22);left:calc(var(--u)*20);width:calc(var(--u)*36);height:calc(var(--u)*36);border-radius:50%;background:#0000000d;display:grid;place-items:center;font-size:calc(var(--u)*16);color:#6b5a50}
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--u)*14);width:100%}
+/* type scale */
+.t{font-size:calc(var(--u)*30);font-weight:700;line-height:1.17;letter-spacing:-.4px;margin:0;text-wrap:balance}
+.wm{font-weight:800;letter-spacing:-.6px;color:var(--p2c,#C4922A)}
+.hw .wm{color:#FFD27A}
+.wm b{font-weight:800;color:var(--p)}
+.t em{font-style:normal;color:var(--p)}
+.d{font-size:calc(var(--u)*17);font-weight:400;color:#7a6a60;margin:0;line-height:1.3}
+.fine{font-size:max(10.5px,calc(var(--u)*12));color:#9b8b80;margin:calc(var(--u)*8) 0 0;line-height:1.35}
+.foot{width:100%;display:flex;flex-direction:column;align-items:center}
+
+/* living background (classic) */
+.blob{position:absolute!important;z-index:0!important;border-radius:50%;filter:blur(28px);opacity:.38;animation:drift 14s ease-in-out infinite alternate}
+.blob.a{width:180px;height:180px;background:var(--p);top:-50px;left:-60px}
+.blob.b{width:160px;height:160px;background:var(--p2);bottom:60px;right:-70px;animation-duration:17s;animation-delay:-5s}
+.blob.c{width:110px;height:110px;background:var(--p);bottom:-40px;left:20px;opacity:.18;animation-duration:20s}
+@keyframes drift{to{transform:translate(40px,60px) scale(1.25)}}
+
+/* logo */
+.markwrap{position:relative;animation:breathe 4.5s ease-in-out infinite}
+.mark{width:calc(var(--u)*112);height:calc(var(--u)*112);display:block;filter:drop-shadow(0 8px 18px color-mix(in srgb,var(--p) 40%,transparent))}
+@keyframes breathe{50%{transform:translateY(-5px) scale(1.03)}}
+.markwrap.pop{animation:pop .7s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{30%{transform:scale(.86) rotate(-6deg)}65%{transform:scale(1.14) rotate(4deg)}}
+.spark{transform-origin:31px 37px;animation:twinkle 2.4s ease-in-out infinite}
+@keyframes twinkle{50%{transform:scale(.55) rotate(45deg);opacity:.6}}
+
+/* buttons */
+.cta{position:relative;overflow:hidden;width:100%;border:0;border-radius:calc(var(--u)*18);padding:calc(var(--u)*17) 0;font:inherit;font-weight:700;font-size:calc(var(--u)*17);letter-spacing:.3px;color:#fff;background:var(--p);box-shadow:0 5px 0 color-mix(in srgb,var(--p) 68%,#000);cursor:pointer;transition:transform .12s, box-shadow .12s}
+.cta:active,.cta.down{transform:translateY(4px) scale(.98);box-shadow:0 1px 0 color-mix(in srgb,var(--p) 68%,#000)}
+.cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,#ffffff55,transparent);transform:skewX(-20deg);animation:shine 3.6s ease-in-out infinite}
+@keyframes shine{0%,60%{left:-60%}100%{left:130%}}
+.cta .lab{position:relative;z-index:1;display:inline-block;transition:transform .25s}
+.cta.done{background:#3BB273;box-shadow:0 5px 0 #23804f}
+.ripple{position:absolute;border-radius:50%;background:#ffffff66;transform:scale(0);animation:rip .6s ease-out forwards;pointer-events:none}
+@keyframes rip{to{transform:scale(4);opacity:0}}
+.ghost{background:none;border:0;font:inherit;font-weight:600;font-size:calc(var(--u)*15);color:var(--p);padding:calc(var(--u)*14) 0 calc(var(--u)*2);cursor:pointer}
+
+.plans{width:100%;display:flex;flex-direction:column;gap:calc(var(--u)*10);margin:calc(var(--u)*6) 0 calc(var(--u)*14)}
+.plan{display:flex;align-items:center;justify-content:space-between;border:2px solid #eadfd6;border-radius:calc(var(--u)*18);padding:calc(var(--u)*14) calc(var(--u)*16);text-align:left;background:#fff;cursor:pointer;transition:transform .35s cubic-bezier(.3,1.5,.5,1),border-color .2s,box-shadow .2s}
+.plan.on{border-color:var(--p);transform:translateY(-3px) scale(1.02);box-shadow:0 4px 0 color-mix(in srgb,var(--p) 35%,transparent)}
+.plan b{font-size:calc(var(--u)*17);font-weight:600}.plan span{font-size:max(11px,calc(var(--u)*13));color:#8a7a70}
+.badge{font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 1px #0005;background:linear-gradient(90deg,var(--p),var(--p2),var(--p));background-size:200% 100%;border-radius:999px;padding:3px 9px;margin-left:5px;vertical-align:1px;letter-spacing:.4px;white-space:nowrap;box-shadow:0 0 0 2px color-mix(in srgb,var(--p) 25%,transparent),0 2px 10px color-mix(in srgb,var(--p) 55%,transparent);animation:badgeflow 3s linear infinite,badgepulse 2.4s ease-in-out infinite;display:inline-block}
+@keyframes badgeflow{to{background-position:200% 0}}
+@keyframes badgepulse{50%{transform:scale(1.08)}}
+.price{font-weight:700;font-size:calc(var(--u)*17);text-align:right}
+.packs{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(var(--u)*9);width:100%;margin:calc(var(--u)*6) 0 calc(var(--u)*14)}
+.pack{border:2px solid #eadfd6;border-radius:calc(var(--u)*18);padding:calc(var(--u)*14) 2px;background:#fff;display:flex;flex-direction:column;gap:1px;cursor:pointer;transition:transform .35s cubic-bezier(.3,1.5,.5,1),border-color .2s}
+.pack.on{border-color:var(--p);transform:translateY(-4px) scale(1.04)}
+.pack b{font-size:calc(var(--u)*24);font-weight:800}.pack span{font-size:calc(var(--u)*12);color:#8a7a70}.pack i{font-style:normal;font-weight:700;font-size:calc(var(--u)*15);margin-top:3px}
+.warn{font-size:calc(var(--u)*13);font-weight:600;color:#B5541E;background:#FCE9DC;border-radius:999px;padding:4px 11px}
+
+/* burst particles */
+.fx{position:absolute!important;z-index:5!important;pointer-events:none;font-size:calc(var(--u)*18);animation:fly 1.1s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes fly{0%{transform:translate(0,0) scale(.4) rotate(0);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(1) rotate(var(--r));opacity:0}}
+.plus{position:absolute!important;z-index:6!important;font-weight:800;font-size:calc(var(--u)*30);color:var(--p);animation:rise 1.3s ease-out forwards;pointer-events:none}
+@keyframes rise{from{transform:translateY(0);opacity:1}to{transform:translateY(-90px);opacity:0}}
+.toast{position:absolute!important;z-index:7!important;left:12px;right:12px;bottom:12px;background:#2A1F1A;color:#fff;border-radius:16px;padding:10px 12px;font-size:calc(var(--u)*13);text-align:left;animation:toast 3s ease forwards}
+@keyframes toast{0%{transform:translateY(30px);opacity:0}12%,85%{transform:none;opacity:1}100%{opacity:0}}
+
+/* ── Halloween ─────────────────────────────────────── */
+.hw .scr{background:radial-gradient(120% 70% at 50% 0%,#3B2470 0%,#1C1238 55%,#120B24 100%);color:#F5EEFF}
+.hw .x{background:#ffffff1a;color:#e9defc}
+.hw .d{color:#c7b9e6}.hw .fine{color:#9d8fbf}
+.hw .plan,.hw .pack{background:#ffffff0d;border-color:#ffffff22;color:#F5EEFF}
+.hw .plan span,.hw .pack span{color:#c7b9e6}
+.hw .plan .badge{background:linear-gradient(90deg,#FF9A2E,#A58BFF,#7CFF6B,#FF9A2E);background-size:300% 100%}
+.hw .ghost{color:var(--p2)}
+.hw .warn{background:#ff8a3d26;color:#FFB27A}
+.hw .toast{background:#F5EEFF;color:#1C1238}
+.moon{position:absolute!important;z-index:1!important;top:calc(var(--u)*30);right:calc(var(--u)*26);width:40px;height:40px;border-radius:50%;background:#FFE7A8;box-shadow:0 0 34px #ffe7a877;animation:glow 5s ease-in-out infinite}
+.moon::after{content:"";position:absolute;inset:0;border-radius:50%;background:#2e1c58;transform:translate(9px,-5px)}
+@keyframes glow{50%{box-shadow:0 0 54px #ffe7a8aa}}
+.web{position:absolute!important;z-index:1!important;width:90px;height:90px;opacity:.35;pointer-events:none;top:0;left:0}
+.stars{position:absolute!important;z-index:0!important;inset:0;pointer-events:none}
+.stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;animation:tw 2.8s ease-in-out infinite}
+@keyframes tw{50%{opacity:.15}}
+.fog{position:absolute!important;z-index:1!important;left:-40%;right:-40%;height:120px;bottom:-20px;background:radial-gradient(50% 50% at 30% 60%,#b9a6ff22,transparent 70%),radial-gradient(40% 50% at 70% 50%,#ffffff14,transparent 70%);animation:fog 16s linear infinite alternate;pointer-events:none}
+@keyframes fog{to{transform:translateX(80px)}}
+.flyer{position:absolute!important;z-index:1!important;width:26px;animation:across 11s linear infinite;pointer-events:none}
+.flyer path{animation:flap .35s ease-in-out infinite alternate;transform-origin:20px 6px}
+@keyframes across{from{transform:translateX(-60px)}to{transform:translateX(340px)}}
+@keyframes flap{to{transform:scaleY(.35)}}
+.spider{position:absolute!important;right:calc(var(--u)*24);top:-26px;display:flex;flex-direction:column;align-items:center;animation:bob 3s ease-in-out infinite;z-index:3!important;pointer-events:none}
+.spider i{width:1px;height:20px;background:#ffffffaa}
+@keyframes bob{50%{transform:translateY(6px)}}
+.cta.done .spider{animation:zip .5s ease-in forwards}
+@keyframes zip{to{transform:translateY(-60px)}}
+.monster{width:calc(var(--u)*70);height:calc(var(--u)*70);position:absolute!important;animation:float 3.4s ease-in-out infinite;z-index:3!important}
+@keyframes float{50%{transform:translateY(-6px) rotate(-4deg)}}
+.monster.pop{animation:jump .8s cubic-bezier(.3,1.6,.5,1)}
+@keyframes jump{40%{transform:translateY(-26px) rotate(10deg) scale(1.15)}}
+.kitten{position:absolute!important;z-index:4!important;left:calc(var(--u)*6);bottom:calc(var(--u)*170);width:58px;pointer-events:none}
+.kitten .tail{transform-origin:46px 50px;animation:tail 1.6s ease-in-out infinite}
+.kitten .milk,.season .milk{animation:drip 2.4s ease-in infinite}
+@keyframes drip{0%,40%{transform:translateY(0);opacity:1}90%{transform:translateY(4px);opacity:0}100%{opacity:0}}
+.kitten .lid{transform-origin:center;animation:blink 4.5s infinite}
+@keyframes tail{50%{transform:rotate(-24deg)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(0)}95%{transform:scaleY(1)}}
+
+/* activity card */
+.feed{width:100%;display:flex;flex-direction:column;gap:10px;margin-top:calc(var(--u)*56);text-align:left}
+.feedh{font-size:calc(var(--u)*28);font-weight:700;margin:0 0 4px}
+.card{border-radius:18px;padding:12px;background:#fff;border:1px solid #eee3da;display:flex;gap:10px;align-items:center}
+.card small{display:block;color:#8a7a70;font-size:calc(var(--u)*13)}
+.card b{font-size:calc(var(--u)*16);font-weight:600}
+.season{position:relative;overflow:hidden;border-radius:22px;padding:14px;background:linear-gradient(135deg,#2e1c58,#4a2a7a);color:#F5EEFF;display:flex;flex-direction:column;gap:8px;animation:wobble 5s ease-in-out infinite}
+@keyframes wobble{0%,90%,100%{transform:none}93%{transform:rotate(-1.2deg)}96%{transform:rotate(1.2deg)}}
+.season b{font-size:calc(var(--u)*20);font-weight:700}
+.season small{color:#d6cbef;font-size:calc(var(--u)*13);line-height:1.3}
+.season .row{display:flex;gap:8px}
+.pill{border:0;border-radius:999px;padding:8px 14px;font:inherit;font-weight:700;font-size:calc(var(--u)*14);background:var(--p);color:#fff;cursor:pointer}
+.pill.alt{background:#ffffff1f}
+.season svg.kit{position:absolute;right:-4px;bottom:-6px;width:74px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<h1>Trial and payment pages, lighter</h1>
+<p class="sub">Tap the buttons, plans and packs inside the phones: each one reacts. Switch Classic (ships now) and Halloween (the update after approval), and each color to see its monster.</p>
+
+<div class="bar">
+  <div><span class="lbl">Version</span><span class="seg" id="mode"><button id="m-classic" aria-pressed="true" data-v="classic">Classic</button><button id="m-hw" aria-pressed="false" data-v="hw">Halloween</button></span></div>
+  <div><span class="lbl">Color</span><span class="seg" id="pal"></span></div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="notes">
+  <p><b>Logo:</b> our house mark stays. On Halloween it only gets a small twist: a witch hat on the roof, the sparkle becomes a tiny bat, and the face gets two eyes. The monster sits next to it, not instead of it.</p>
+  <p><b>Type:</b> sizes follow the app's scale: title 28 to 30, body 17, buttons 17 semibold, footnotes 13, fine print 12.</p>
+  <p><b>Required by Apple, kept on purpose:</b> price and period next to the button, "auto-renews, cancel anytime", Restore, Terms and Privacy.</p>
+</div>
+
+<script>
+const PAL={
+  sky:{name:'Sky',p:'#378ADD',p2:'#FAC775',hwp:'#5BA8F0',mon:'ghost'},
+  citrus:{name:'Citrus',p:'#EF9F27',p2:'#FFD27A',hwp:'#FF9A2E',mon:'pumpkin'},
+  coral:{name:'Coral',p:'#D85A30',p2:'#FAC775',hwp:'#FF6A3D',mon:'devil'},
+  berry:{name:'Berry',p:'#7F77DD',p2:'#F4C0D1',hwp:'#A58BFF',mon:'bat'}
+};
+let mode='classic',pal='coral';
+
+const mark=(p,hw)=>`<div class="markwrap"><svg class="mark" viewBox="0 0 100 100" aria-label="ChoreMaxx">
+ <rect width="100" height="100" rx="24" fill="${p}"/>
+ ${hw
+   ?`<g class="spark"><path d="M31 33 c-4-4-9-3-11 0 c3 0 4 2 4 4 c2-2 5-2 7 0 c2-2 5-2 7 0 c0-2 1-4 4-4 c-2-3-7-4-11 0z" fill="#1d1236"/></g>`
+   :`<path class="spark" d="M31 29 l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#FAC775"/>`}
+ <path d="M26 49 L50 28 L74 49" fill="none" stroke="#FFF5EE" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+ ${hw?`<path d="M44 26 L54 5 Q56 3 57 7 L59 25 Z" fill="#1d1236"/><path d="M36 27 Q50 21 66 26 Q50 31 36 27Z" fill="#1d1236"/><rect x="45" y="21.5" width="13" height="3" rx="1.5" fill="#FF9A2E"/>`:''}
+ <path d="M30 53 Q41 46 50 53 Q60 60 70 53 Q66 72 50 76 Q34 72 30 53Z" fill="${hw?'#FFE2C9':'#FEDCC8'}"/>
+ ${hw?`<circle cx="44" cy="62" r="2.4" fill="#1d1236"/><circle cx="56" cy="62" r="2.4" fill="#1d1236"/><path d="M46 68 q4 3 8 0" stroke="#1d1236" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M74 49 L74 70" stroke="#ffffffaa" stroke-width=".6"/><circle cx="74" cy="71" r="2" fill="#1d1236"/>`:''}
+</svg></div>`;
+
+const MON={
+ ghost:c=>`<svg class="monster" viewBox="0 0 120 120"><path d="M30 104 V54 a30 30 0 0 1 60 0 V104 l-10-8 -10 8 -10-8 -10 8 -10-8z" fill="#F4F1FF"/><ellipse cx="49" cy="58" rx="5" ry="7" fill="#1d1236"/><ellipse cx="71" cy="58" rx="5" ry="7" fill="#1d1236"/><ellipse cx="60" cy="74" rx="6" ry="5" fill="#1d1236"/><circle cx="42" cy="68" r="4" fill="${c}" opacity=".5"/><circle cx="78" cy="68" r="4" fill="${c}" opacity=".5"/></svg>`,
+ pumpkin:c=>`<svg class="monster" viewBox="0 0 120 120"><path d="M58 24 q2-12 12-14" stroke="#4E8B3A" stroke-width="6" fill="none" stroke-linecap="round"/><ellipse cx="60" cy="68" rx="44" ry="38" fill="${c}"/><ellipse cx="60" cy="68" rx="18" ry="38" fill="#00000014"/><path d="M40 58 l8-10 8 10z M64 58 l8-10 8 10z" fill="#3a1d05"/><path d="M38 78 q22 18 44 0 l-6 2 -5-5 -5 5 -6-5 -6 5 -5-5 -5 5z" fill="#3a1d05"/></svg>`,
+ devil:c=>`<svg class="monster" viewBox="0 0 120 120"><path d="M34 40 L28 14 L50 32z M86 40 L92 14 L70 32z" fill="#7A1E12"/><circle cx="60" cy="66" r="38" fill="${c}"/><ellipse cx="47" cy="62" rx="6" ry="8" fill="#fff"/><ellipse cx="73" cy="62" rx="6" ry="8" fill="#fff"/><circle cx="48" cy="64" r="3.5" fill="#2a0d07"/><circle cx="74" cy="64" r="3.5" fill="#2a0d07"/><path d="M46 82 q14 12 28 0" stroke="#2a0d07" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M53 85 l3 5 3-4z" fill="#fff"/></svg>`,
+ bat:c=>`<svg class="monster" viewBox="0 0 120 120"><path d="M60 50 C40 30 18 34 6 52 c10-2 16 2 18 10 c6-6 14-4 18 4 c4-8 10-12 18-16z M60 50 C80 30 102 34 114 52 c-10-2-16 2-18 10 c-6-6-14-4-18 4 c-4-8-10-12-18-16z" fill="${c}"/><circle cx="60" cy="64" r="22" fill="${c}"/><path d="M44 46 l4-12 8 9z M76 46 l-4-12 -8 9z" fill="${c}"/><circle cx="52" cy="62" r="5" fill="#fff"/><circle cx="68" cy="62" r="5" fill="#fff"/><circle cx="53" cy="63" r="2.6" fill="#1d1236"/><circle cx="69" cy="63" r="2.6" fill="#1d1236"/><path d="M55 74 l3 4 2-3 2 3 3-4" stroke="#fff" stroke-width="2" fill="none"/></svg>`
+};
+const kitten=(cls='kitten')=>`<svg class="${cls}" viewBox="0 0 70 60" aria-hidden="true">
+ <path class="tail" d="M46 50 q18-4 16-22 q-1-6-5-5" stroke="#15101f" stroke-width="5" fill="none" stroke-linecap="round"/>
+ <ellipse cx="34" cy="48" rx="15" ry="11" fill="#15101f"/>
+ <path d="M18 22 L20 8 L28 17 Z M44 22 L42 8 L34 17 Z" fill="#15101f"/><path d="M21 18 l1-6 4 4z M41 18 l-1-6 -4 4z" fill="#ff8fb4" opacity=".6"/>
+ <circle cx="31" cy="28" r="14" fill="#15101f"/>
+ <path d="M16.5 26 Q19 21 25 22.5 Q31 24.5 37 22.5 Q43 21 45.5 26 Q45 32 39 32.5 Q34 32.5 31 29.5 Q28 32.5 23 32.5 Q17 32 16.5 26Z" fill="#7B3FE4"/>
+ <path d="M16.5 26 L13 24 L15.5 27.5 Z M45.5 26 L49 24 L46.5 27.5 Z" fill="#7B3FE4"/>
+ <ellipse cx="25" cy="28" rx="4.4" ry="5" fill="#FFD84D"/><ellipse cx="37" cy="28" rx="4.4" ry="5" fill="#FFD84D"/>
+ <ellipse cx="25.6" cy="28.5" rx="1.5" ry="3.6" fill="#15101f"/><ellipse cx="37.6" cy="28.5" rx="1.5" ry="3.6" fill="#15101f"/>
+ <rect class="lid" x="20" y="22" width="22" height="12" fill="#15101f"/>
+ <path d="M29.5 34 l1.5 1.4 1.5-1.4" stroke="#ff8fb4" stroke-width="1.3" fill="none"/>
+ <path d="M27.4 35.6 l1.1 3.2 1.1-3.2z M32.4 35.6 l1.1 3.2 1.1-3.2z" fill="#fff"/>
+ <path class="milk" d="M33.5 38.8 q-0.9 1.6 0 2.4 q0.9-0.8 0-2.4z" fill="#fff"/>
+ <path d="M14 30 h-7 M14 33 l-6 2 M48 30 h7 M48 33 l6 2" stroke="#ffffff55" stroke-width=".8"/>
+</svg>`;
+const web=`<svg class="web" viewBox="0 0 80 80" fill="none" stroke="#fff" stroke-width=".8"><path d="M0 0 L80 80 M0 0 L80 30 M0 0 L30 80 M0 0 L80 0 M0 0 L0 80"/><path d="M20 0 Q14 14 0 20 M40 0 Q28 28 0 40 M60 0 Q42 42 0 60"/></svg>`;
+const spider=`<span class="spider" aria-hidden="true"><i></i><svg width="18" height="16" viewBox="0 0 18 16"><g stroke="#1a1030" stroke-width="1.4"><path d="M3 4 L7 7 M1 9 L7 9 M3 14 L7 11 M15 4 L11 7 M17 9 L11 9 M15 14 L11 11"/></g><circle cx="9" cy="9" r="4.2" fill="#1a1030"/><circle cx="7.6" cy="8.4" r="1" fill="#fff"/><circle cx="10.4" cy="8.4" r="1" fill="#fff"/></svg></span>`;
+const flyer=(y,d,s=1)=>`<svg class="flyer" style="top:${y}%;animation-delay:${d}s;width:${24*s}px" viewBox="0 0 40 18"><path d="M20 6 C14 0 6 0 0 6 c5 0 7 3 8 6 c2-3 6-3 8 0 c1-2 2-4 4-6z M20 6 C26 0 34 0 40 6 c-5 0-7 3-8 6 c-2-3-6-3-8 0 c-1-2-2-4-4-6z" fill="#0d0820"/></svg>`;
+const stars=()=>`<div class="stars">${Array.from({length:18},(_,i)=>`<i style="left:${(i*53)%100}%;top:${(i*37)%60}%;animation-delay:${(i%7)*.4}s"></i>`).join('')}</div>`;
+
+function screens(){
+  const P=PAL[pal],hw=mode==='hw',p=hw?P.hwp:P.p;
+  const bg=hw?`${stars()}<div class="fog"></div><div class="moon"></div>${web}${flyer(18,-2)}${flyer(34,-7,.7)}`
+             :`<div class="blob a"></div><div class="blob b"></div><div class="blob c"></div>`;
+  const mon=(pos)=>hw?MON[P.mon](p).replace('class="monster"',`class="monster" style="${pos}"`):'';
+  const sp=hw?spider:'';
+  const legal=`<p class="fine">Auto-renews. Cancel anytime in Apple settings.<br>Terms · Privacy · Restore</p>`;
+  return [
+   ['Free trial','First screen, before any payment',
+    `${bg}<div class="x">✕</div><div class="hero">${mark(p,hw)}
+     <h2 class="t"><span class="wm">Chore<b>maxx</b></span><br><em>Free for 7 days</em></h2>
+     <p class="d">Then $6.99/month.</p></div>${mon('left:10px;top:20%')}${hw?kitten():''}
+     <div class="foot"><button class="cta" data-act="trial">${sp}<span class="lab">TRY IT FOR $0.00</span></button><button class="ghost">No thanks</button>${legal}</div>`],
+   ['Pick a plan','Paying now, after or without the trial',
+    `${bg}<div class="x">✕</div><div class="hero" style="justify-content:flex-end;padding-bottom:6px">${mark(p,hw)}
+     <h2 class="t">Keep your home <em>on track</em></h2></div>${mon('left:4px;top:30%')}
+     <div class="plans"><div class="plan on" tabindex="0" data-plan="Yearly · $49.99"><div><b>Yearly</b><span class="badge">SAVE 40%</span><br><span>$4.17 a month</span></div><div class="price">$49.99<br><span>per year</span></div></div>
+     <div class="plan" tabindex="0" data-plan="Monthly · $6.99"><div><b>Monthly</b><br><span>Flexible</span></div><div class="price">$6.99<br><span>per month</span></div></div></div>
+     <div class="foot"><button class="cta" data-act="plan">${sp}<span class="lab">CONTINUE</span></button>${legal}</div>`],
+   ['Trial ended or payment issue','Shown when access stops',
+    `${bg}<div class="x">✕</div><div class="hero">${mark(p,hw)}
+     <span class="warn">Payment didn’t go through</span>
+     <h2 class="t">Let’s get you <em>back in</em></h2>
+     <p class="d">Apple keeps trying for 3 days. Update your payment to keep everything.</p></div>${mon('right:4px;top:22%')}
+     <div class="foot"><button class="cta" data-act="fix">${sp}<span class="lab">FIX IN APPLE</span></button><button class="ghost">See plans</button><p class="fine">Restore · Account · Sign out</p></div>`],
+   ['Poppins actions','Out of actions: 200, 700, 2000',
+    `${bg}<div class="x">✕</div><div class="hero">${mark(p,hw)}
+     <h2 class="t">Out of <em>Poppins</em> actions</h2><p class="d">Top up once. They never expire.</p></div>${mon('right:8px;top:22%')}
+     <div class="packs"><div class="pack" tabindex="0" data-n="200" data-pr="$1.99"><b>200</b><span>actions</span><i>$1.99</i></div><div class="pack on" tabindex="0" data-n="700" data-pr="$4.99"><b>700</b><span>actions</span><i>$4.99</i></div><div class="pack" tabindex="0" data-n="2000" data-pr="$9.99"><b>2000</b><span>actions</span><i>$9.99</i></div></div>
+     <div class="foot"><button class="cta" data-act="pack">${sp}<span class="lab">BUY 700 ACTIONS</span></button><p class="fine">One-time purchase. Restore · Terms</p></div>`],
+   ['When a payment fails','Plain words on a soft card that gives a little shake',
+    `${bg}<div class="x">✕</div><div class="hero" style="justify-content:flex-end;padding-bottom:6px">${mark(p,hw)}
+     <h2 class="t">Keep your home <em>on track</em></h2></div>
+     <div class="msg err shake"><span class="mi">🩹</span><div><b>That didn’t go through</b><br>Apple couldn’t take the payment. Check your card in Settings › your name › Payment &amp; Shipping. You weren’t charged.</div></div>
+     <div class="msg info"><span class="mi">⏳</span><div><b>Waiting for approval</b><br>Someone in your Family Sharing group needs to approve it.</div></div>
+     <div class="foot" style="margin-top:10px"><button class="cta" data-act="plan">${sp}<span class="lab">TRY AGAIN</span></button><p class="fine">Restore · Terms · Privacy</p></div>`],
+   ...(hw?[['Halloween is here','Activity card and Get Started button that turns the theme on',
+    `${stars()}<div class="feed"><p class="feedh" style="color:#2A1F1A">Activity</p>
+      <div class="season">${kitten('kit')}<b>🎃 Halloween is here</b><small>Try the spooky theme: bats, cobwebs and a little ${P.mon==='pumpkin'?'pumpkin':P.mon==='ghost'?'ghost':P.mon==='devil'?'devil':'bat'} for your ${P.name} color. It leaves on its own on Nov 1.</small><div class="row"><button class="pill" data-act="season">Turn it on</button><button class="pill alt">Not now</button></div></div>
+      <div class="card"><span style="font-size:22px">✅</span><div><b>Maya finished “Feed the cat”</b><small>2 min ago · +20 XP</small></div></div>
+      <div class="card"><span style="font-size:22px">🗓️</span><div><b>Thanksgiving (Canada)</b><small>Yesterday · holiday</small></div></div>
+      <div class="card"><span style="font-size:22px">🎃</span><div><b>Halloween in 18 days</b><small>Sat, Oct 31 · holiday</small></div></div>
+     </div>`]]:[])
+  ];
+}
+
+function render(){
+  const P=PAL[pal],hw=mode==='hw';
+  document.documentElement.style.setProperty('--accent',P.p);
+  document.getElementById('grid').innerHTML=screens().map(([t,s,h],i)=>`<figure><div class="phone ${hw&&i<5?'hw':''}" style="--p:${hw?P.hwp:P.p};--p2:${P.p2}"><div class="scr" ${i===5?'style="background:#FFFBF7"':''}>${h}</div></div><figcaption>${t}<small>${s}</small></figcaption></figure>`).join('');
+  document.querySelectorAll('#mode button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===mode));
+  document.querySelectorAll('#pal button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===pal));
+}
+
+const EMO={classic:['✨','⭐','🧡','✨','🎉'],hw:['🦇','🍬','🕸️','🎃','👻','🍭']};
+function burst(scr,x,y,n=14){
+  const set=EMO[mode];
+  for(let i=0;i<n;i++){const s=document.createElement('span');s.className='fx';s.textContent=set[i%set.length];
+    const a=Math.random()*Math.PI*2,r=60+Math.random()*80;
+    s.style.left=x+'px';s.style.top=y+'px';s.style.setProperty('--dx',Math.cos(a)*r+'px');s.style.setProperty('--dy',(Math.sin(a)*r-60)+'px');s.style.setProperty('--r',(Math.random()*360-180)+'deg');
+    scr.appendChild(s);setTimeout(()=>s.remove(),1200);}
+}
+function toast(scr,msg){scr.querySelector('.toast')?.remove();const t=document.createElement('div');t.className='toast';t.textContent=msg;scr.appendChild(t);setTimeout(()=>t.remove(),3000)}
+function poke(scr){
+  const m=scr.querySelector('.markwrap');if(m){m.classList.remove('pop');void m.offsetWidth;m.classList.add('pop');setTimeout(()=>m.classList.remove('pop'),750)}
+  const mo=scr.querySelector('.monster');if(mo){mo.classList.remove('pop');void mo.offsetWidth;mo.classList.add('pop')}
+}
+
+document.getElementById('grid').addEventListener('click',e=>{
+  const scr=e.target.closest('.scr');if(!scr)return;
+  const plan=e.target.closest('.plan'),pack=e.target.closest('.pack'),cta=e.target.closest('.cta,.pill');
+  if(plan){scr.querySelectorAll('.plan').forEach(x=>x.classList.toggle('on',x===plan));poke(scr);scr.querySelector('.cta .lab').textContent='CONTINUE · '+plan.dataset.plan.split('·')[1].trim();return}
+  if(pack){scr.querySelectorAll('.pack').forEach(x=>x.classList.toggle('on',x===pack));scr.querySelector('.cta .lab').textContent=`BUY ${pack.dataset.n} ACTIONS`;poke(scr);return}
+  if(!cta||cta.classList.contains('alt'))return;
+  const sr=scr.getBoundingClientRect(),br=cta.getBoundingClientRect();
+  const rp=document.createElement('span');rp.className='ripple';const sz=br.width;rp.style.width=rp.style.height=sz+'px';
+  rp.style.left=(e.clientX-br.left-sz/2)+'px';rp.style.top=(e.clientY-br.top-sz/2)+'px';cta.appendChild(rp);setTimeout(()=>rp.remove(),600);
+  if(cta.classList.contains('pill')){burst(scr,br.left-sr.left+br.width/2,br.top-sr.top,16);mode='hw';setTimeout(render,900);return}
+  const lab=cta.querySelector('.lab'),old=lab.textContent;
+  setTimeout(()=>{cta.classList.add('done');lab.textContent='✓ DONE';
+    burst(scr,br.left-sr.left+br.width/2,br.top-sr.top,16);poke(scr);
+    const act=cta.dataset.act;
+    if(act==='pack'){const n=scr.querySelector('.pack.on').dataset.n;const pl=document.createElement('span');pl.className='plus';pl.textContent='+'+n;pl.style.left='50%';pl.style.top='38%';pl.style.transform='translateX(-50%)';scr.appendChild(pl);setTimeout(()=>pl.remove(),1300);toast(scr,`+${n} actions added. A confirmation email is on its way.`)}
+    else if(act==='trial')toast(scr,'Your free trial has started. A confirmation email is on its way.');
+    else if(act==='plan')toast(scr,'You’re subscribed. A confirmation email is on its way.');
+    else toast(scr,'Opening your Apple subscriptions…');
+  },180);
+  setTimeout(()=>{cta.classList.remove('done');lab.textContent=old},2600);
+});
+document.getElementById('grid').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('.plan,.pack')){e.preventDefault();e.target.click()}});
+document.getElementById('pal').innerHTML=Object.entries(PAL).map(([k,v])=>`<button id="p-${k}" data-v="${k}" aria-pressed="false">${v.name}</button>`).join('');
+document.getElementById('mode').onclick=e=>{if(e.target.dataset.v){mode=e.target.dataset.v;render()}};
+document.getElementById('pal').onclick=e=>{if(e.target.dataset.v){pal=e.target.dataset.v;render()}};
+render();
+</script>
+
+</body></html>
