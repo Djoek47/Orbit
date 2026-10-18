@@ -47,11 +47,7 @@
             ]
           }
         ]
-      },
-      "associatedDomains": [
-        "applinks:choremaxx.app",
-        "applinks:www.choremaxx.app"
-      ]
+      }
     },
     "android": {
       "package": "app.choremaxx.household",

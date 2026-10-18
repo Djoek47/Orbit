@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v39-c30d`  
 **Base:** make-v38 / TF **1.3.0 (126)**  
-**Status:** **1.3.0 (127)** build queued + ASC auto-submit scheduled.
+**Status:** **127** burned (Associated Domains vs App Store profile) → **128** cutting.
 
 **Design ref:** Poppins voice edit / understand / listen / chat-follow-card (patches 0001–0004 on v38 tip)  
 **Console zip:** still deferred (routing SQL on tip; zip not in this cut)
@@ -20,6 +20,9 @@
 ### Credits / errors
 - Purchase failures use an in-page soft `PaywallMessage` (tap → Support) + `recordAppError` — never nested orbitAlert / native Alert under Settings
 - Soft card renders **outside** the congratulations block so failed buys are visible
+
+### iOS ship fix
+- Dropped `ios.associatedDomains` again so non-interactive EAS can archive (App Store profile still lacks Associated Domains). Auth / invites keep `choremaxx://`; Universal Links need an interactive profile refresh later (same as Aug unblock).
 
 ### Also folded since 126
 - Notifications: “Smart delivery” → **Bundle new tasks** with plain explanation
@@ -53,9 +56,10 @@
 
 | | |
 |--|--|
-| Version | **1.3.0 (127)** |
+| Version | **1.3.0 (128)** (127 burned — Associated Domains profile mismatch) |
 | Branch | `cursor/make-v39-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/127 |
-| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/90c99cc9-b31b-4a68-bb73-a168b70796bb |
-| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/7a1e777d-f7d9-4908-a83b-ea7e9dfe9990 |
+| Build 127 | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/90c99cc9-b31b-4a68-bb73-a168b70796bb — **ERRORED** |
+| Build 128 | (fill after EAS) |
+| Submit | (fill after ASC) |
 | Prior (126) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/75c6c07a-304f-43d7-89c9-533244c83439 |
