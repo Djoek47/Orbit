@@ -18,6 +18,7 @@ import {
 import { howToUiAction, isTeachingQuestion, matchHowTo } from '@/lib/poppins/how-to';
 import { parseCompoundHouseholdIntent } from '@/lib/poppins/clause-segment';
 import { rewriteAiuicActions, type HouseholdIntentOpts } from '@/lib/poppins/ui-intent';
+import { prepareUtterance } from '@/lib/poppins/understand';
 
 export { rewriteAiuicActions } from '@/lib/poppins/ui-intent';
 
@@ -78,8 +79,14 @@ export function hearAndDrive(
   } & HouseholdIntentOpts
 ) {
   if (opts?.userOriginated === false) return false;
+  // Understand before acting: greetings and request wrappers off ("Hey Poppins, can you…",
+  // "Bonjour Poppins, est-ce que tu peux…"), common French read as English.
+  const prepared = prepareUtterance(text);
+  // French the reader doesn't know: never guess a card from half a sentence. The model
+  // (which understands it) gets the original words.
+  if (prepared.language === 'fr' && prepared.residue.length) return false;
   // Strip leading STT disfluency / echo residue before parsing.
-  const cleaned = text
+  const cleaned = prepared.text
     .replace(/^(oh+|uh+|um+|ah+|hmm+|il will|i l will)\s+/i, '')
     .replace(/^(oh[, ]+)?i['’]?ll\s+/i, '')
     .trim();
@@ -134,6 +141,7 @@ export function hearAndDrive(
 
   const steer = poppinsUiOrchestrator.applySpeech(cleaned, memberNames, { selfName: opts?.selfName });
   if (!steer) {
+
     // WO16 §2.3 — act grammar before how-to so Pass A capabilities are not shadowed.
     const inferred = parseCompoundHouseholdIntent(cleaned, {
       memberNames,

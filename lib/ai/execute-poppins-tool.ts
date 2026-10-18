@@ -4,6 +4,7 @@
  */
 
 import { scanDealsForHousehold } from '@/data/mock-deals';
+import { describeToolForPerson, eventChangeAction, taskChangeAction } from '@/lib/ai/tool-task-match';
 import {
   isRiskyPoppinsTool,
   POPPINS_NAV_ROUTES,
@@ -90,8 +91,25 @@ export function executePoppinsTool(
       : null;
   const calendarEvents = visibleEventsForMember(events, viewingMember);
 
+  // Changes to an existing task or event show their own card (Delete / Keep it, or the move,
+  // reassign or rename with a hold). They never become a raw confirmation.
+  if (name === 'delete_task' || name === 'update_task') {
+    const action = taskChangeAction(name, args, tasks as unknown as Array<Record<string, unknown>>);
+    return {
+      ui_actions: [action],
+      note: action.taskId
+        ? `On screen: ${String(action.change)} “${String(action.title)}”. The person confirms there.`
+        : 'Several tasks or none matched — the person picks on screen.',
+    };
+  }
+  if (name === 'delete_event' || name === 'delete_calendar_event') {
+    const action = eventChangeAction(args, events as unknown as Array<Record<string, unknown>>);
+    if (!action) return { error: 'event_not_found' };
+    return { ui_actions: [action], note: `On screen: remove “${String(action.title)}”. The person confirms there.` };
+  }
+
   if (options.forceRiskyConfirmation && isRiskyPoppinsTool(name)) {
-    const summary = `${name.replace(/_/g, ' ')}: ${JSON.stringify(args).slice(0, 120)}`;
+    const summary = describeToolForPerson(name, args);
     return pendingConfirm(name, args, summary);
   }
 
@@ -627,7 +645,7 @@ export function executePoppinsTool(
           ? `$${amountRaw}`
           : String(amountRaw ?? '').trim() || 'Allowance';
       if (!memberName) {
-        return pendingConfirm(name, args, 'grant allowance requires a member');
+        return pendingConfirm(name, args, describeToolForPerson(name, args));
       }
       return {
         ui_actions: [
@@ -650,7 +668,7 @@ export function executePoppinsTool(
     case 'recess_everyone':
     case 'run_smart_home_scene':
     case 'update_reward_model': {
-      return pendingConfirm(name, args, `${name.replace(/_/g, ' ')} requires confirmation`);
+      return pendingConfirm(name, args, describeToolForPerson(name, args));
     }
     case 'ui_confirm_pending': {
       return {
@@ -735,8 +753,8 @@ export function toolResultToMonitorAction(
     return {
       id: `tool-pending-${now}`,
       kind: 'monitor',
-      label: `Needs confirmation · ${name}`,
-      detail: JSON.stringify(args).slice(0, 160),
+      label: describeToolForPerson(name, args),
+      detail: 'Waiting for a yes on screen',
       createdAt: now,
     };
   }
@@ -744,8 +762,8 @@ export function toolResultToMonitorAction(
   return {
     id: `tool-${name}-${now}`,
     kind: 'monitor',
-    label: name.replace(/_/g, ' '),
-    detail: JSON.stringify(args).slice(0, 160),
+    label: name.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()),
+    detail: String(args.title ?? args.name ?? args.memberName ?? ''),
     createdAt: now,
   };
 }

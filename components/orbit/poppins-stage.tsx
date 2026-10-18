@@ -53,6 +53,7 @@ import {
   type IuiDriveState,
 } from '@/lib/poppins/ui-orchestrator';
 import type { IuiBeat, IuiFace, IuiGroupItem } from '@/lib/poppins/ui-scenes';
+import { IuiTaskChange } from '@/components/orbit/poppins-stage/iui-task-change';
 import { choreDomains, homeworkDomain } from '@/lib/tasks/task-library';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
@@ -83,6 +84,8 @@ export function PoppinsStage({
     clearGroceryList,
     completeTask,
     updateTask,
+    cancelTask,
+    deleteEvent,
     claimReward,
     advanceItineraryStop,
     upsertSavedPlace,
@@ -140,6 +143,8 @@ export function PoppinsStage({
     clearGroceryList,
     completeTask,
     updateTask,
+    cancelTask,
+    deleteEvent,
     claimReward,
     advanceItineraryStop,
     upsertSavedPlace,
@@ -161,6 +166,8 @@ export function PoppinsStage({
       clearGroceryList,
       completeTask,
       updateTask,
+      cancelTask,
+      deleteEvent,
       claimReward,
       advanceItineraryStop,
       upsertSavedPlace,
@@ -540,6 +547,43 @@ export function PoppinsStage({
       );
       break;
 
+    case 'task_change':
+      card = (
+        <IuiTaskChange
+          payload={payload}
+          accent={text()}
+          fillAccent={ink()}
+          hold={beat.commit === 'hold' && payload.composeReady !== false}
+          {...holdState}
+          onPick={(row) => {
+            Keyboard.dismiss();
+            const [who, day] = (row.detail ?? '').split(' · ');
+            poppinsUiOrchestrator.chooseFromTap(
+              {
+                taskId: row.id,
+                title: row.title,
+                assignee: who || undefined,
+                dueLabel: day || undefined,
+                changeFrom:
+                  payload.change === 'move'
+                    ? day || undefined
+                    : payload.change === 'reassign'
+                      ? who || undefined
+                      : payload.change === 'rename'
+                        ? row.title
+                        : undefined,
+                choices: undefined,
+                notFound: false,
+                composeReady: true,
+              },
+              row.title,
+              'choice'
+            );
+          }}
+        />
+      );
+      break;
+
     case 'result_mark':
       card = resultMark;
       break;
@@ -821,7 +865,7 @@ function CommitAffordance({
     );
   }
 
-  if (beat.commit === 'confirm') {
+  if (beat.commit === 'confirm' && beat.payload.composeReady !== false) {
     return (
       <View style={styles.confirmRow}>
         <Pressable
@@ -830,9 +874,9 @@ function CommitAffordance({
             poppinsUiOrchestrator.veto();
           }}
           accessibilityRole="button"
-          accessibilityLabel="No"
+          accessibilityLabel={beat.payload.confirmNo ?? 'No'}
           style={[styles.quietBtn, { borderColor: glassBorder(0.12) }]}>
-          <Text style={{ color: c.text }}>No</Text>
+          <Text style={{ color: c.text }}>{beat.payload.confirmNo ?? 'No'}</Text>
         </Pressable>
         <Pressable
           onPress={() => {
@@ -840,9 +884,16 @@ function CommitAffordance({
             void poppinsUiOrchestrator.confirm({ fromTap: true });
           }}
           accessibilityRole="button"
-          accessibilityLabel="Yes"
-          style={[styles.quietBtn, { borderColor: `${accentBorder}66` }]}>
-          <Text style={{ color: c.text }}>Yes</Text>
+          accessibilityLabel={beat.payload.confirmYes ?? 'Yes'}
+          style={[
+            styles.quietBtn,
+            beat.payload.change === 'delete'
+              ? { borderColor: '#E0465E', backgroundColor: '#E0465E22' }
+              : { borderColor: `${accentBorder}66` },
+          ]}>
+          <Text style={{ color: beat.payload.change === 'delete' ? '#FF8A9C' : c.text, fontWeight: '700' }}>
+            {beat.payload.confirmYes ?? 'Yes'}
+          </Text>
         </Pressable>
       </View>
     );

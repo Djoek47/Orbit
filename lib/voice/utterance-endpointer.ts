@@ -30,9 +30,21 @@ export type EndpointerFeed = {
 };
 
 const GLUE = new Set([
+  // joining words
   'and', 'then', 'for', 'to', 'at', 'on', 'with', 'the', 'a', 'an', 'my', 'our', 'of', 'in',
-  'from', 'until', 'by', 'or', 'but', 'also', 'plus', 'et', 'puis', 'pour', 'à', 'avec', 'de',
-  'le', 'la', 'les', 'un', 'une',
+  'from', 'until', 'by', 'or', 'but', 'also', 'plus', 'into', 'onto', 'about', 'like', 'as',
+  'than', 'that', 'which', 'who', 'if', 'when', 'because', 'so', 'before', 'after', 'every',
+  'each', 'next', 'this', 'these', 'those', 'his', 'her', 'their', 'its', 'your', 'some',
+  // a verb still waiting for its object ("…should be", "…name is", "…remind Mia to")
+  'be', 'is', 'are', 'was', 'were', 'should', 'would', 'could', 'will', 'can', 'need', 'needs',
+  'want', 'wants', 'have', 'has', 'get', 'gets', 'got', 'gonna', 'going', 'called', 'named',
+  'add', 'put', 'assign', 'remind', 'make', 'schedule', 'call', 'rename', 'move', 'give',
+  'buy', 'set', 'change', 'delete', 'remove',
+  // fillers people say while thinking
+  'um', 'uh', 'er', 'erm', 'hmm', 'like',
+  // French
+  'et', 'puis', 'pour', 'à', 'avec', 'de', 'le', 'la', 'les', 'un', 'une', 'du', 'des', 'au',
+  'aux', 'sur', 'chez', 'que', 'est',
 ]);
 
 function words(text: string): string[] {
@@ -46,12 +58,30 @@ function words(text: string): string[] {
 export function endsOnGlue(text: string): boolean {
   const w = words(text);
   const last = w[w.length - 1]?.toLowerCase().replace(/[^\p{L}']/gu, '');
-  return Boolean(last && GLUE.has(last));
+  if (!last) return false;
+  if (GLUE.has(last)) return true;
+  // "…the appointment's" / "…name's" — a contraction still waiting for the rest.
+  if (/'s$/.test(last) && w.length > 1) return true;
+  return false;
+}
+
+/**
+ * The words so far can't be a whole request yet: they end on glue, or they are only an
+ * opener ("hey Poppins", "can you", "so"). Poppins keeps listening instead of acting on half
+ * a sentence.
+ */
+export function looksUnfinished(text: string): boolean {
+  if (endsOnGlue(text)) return true;
+  const t = text.toLowerCase().replace(/[^\p{L}\p{N}'\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (!t) return false;
+  return /^(?:(?:hey|hi|ok(?:ay)?|so|um+|uh+|and|also|please|bonjour|salut)\s*)*(?:poppins|nova)?\s*(?:can you|could you|would you|i want to|i need to|i'd like to|est-ce que tu peux|peux-tu)?$/.test(t);
 }
 
 export function createEndpointer(opts: EndpointerOptions = {}) {
-  const silenceMs = opts.silenceMs ?? 1100;
-  const hangMs = opts.hangMs ?? 2200;
+  // People pause to think mid-request. 1.1 s cut "for next week… the appointment's name should
+  // be… buy a car" into three requests; a finished thought still goes in under 1.5 s.
+  const silenceMs = opts.silenceMs ?? 1400;
+  const hangMs = opts.hangMs ?? 2800;
   let committed = 0; // words already emitted from the current native session
   let current: string[] = [];
   let lastChangeAt = 0;
@@ -73,6 +103,9 @@ export function createEndpointer(opts: EndpointerOptions = {}) {
       if (committed > current.length) committed = current.length;
       if (changed) lastChangeAt = now;
       if (isFinal) {
+        // The recognizer calls a pause "final" even mid-thought. Only a finished-looking
+        // sentence ends here; otherwise the tick waits the longer hang for the rest.
+        if (looksUnfinished(pending())) return { live: pending() };
         const utterance = emit();
         return { live: '', utterance };
       }
@@ -83,7 +116,7 @@ export function createEndpointer(opts: EndpointerOptions = {}) {
     tick(now: number): EndpointerFeed {
       const live = pending();
       if (!live.trim()) return { live: '' };
-      const wait = endsOnGlue(live) ? hangMs : silenceMs;
+      const wait = looksUnfinished(live) ? hangMs : silenceMs;
       if (now - lastChangeAt < wait) return { live };
       return { live: '', utterance: emit() };
     },

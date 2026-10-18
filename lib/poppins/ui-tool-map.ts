@@ -48,6 +48,92 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
+const CHANGE_KINDS = new Set(['delete', 'move', 'reassign', 'rename']);
+
+/**
+ * An existing task, changed: one card that says what happens in plain words ("Wash the
+ * dishes · Jack · Today", then "Today → Friday"). Delete asks Yes / No; the rest hold like
+ * any other act. When the sentence fit several tasks the card lists them to tap; when it fit
+ * none it says so and shows what's open. Never shows tool names or JSON.
+ */
+function taskChangeBeats(action: Record<string, unknown>, type: string): IuiBeat[] {
+  const patch = asRecord(action.patch);
+  const rawChange = String(action.change ?? '');
+  const change = (
+    CHANGE_KINDS.has(rawChange)
+      ? rawChange
+      : type === 'delete_task'
+        ? 'delete'
+        : patch.due
+          ? 'move'
+          : patch.assignee
+            ? 'reassign'
+            : patch.title
+              ? 'rename'
+              : 'rename'
+  ) as 'delete' | 'move' | 'reassign' | 'rename';
+  const title = String(action.title ?? '').trim();
+  const assignee = action.assignee ? String(action.assignee) : undefined;
+  const dueLabel = action.dueLabel ? String(action.dueLabel) : action.due ? String(action.due) : undefined;
+  const choices = Array.isArray(action.choices)
+    ? action.choices.map((row, i) => {
+        const r = asRecord(row);
+        return {
+          id: String(r.id ?? i),
+          title: String(r.title ?? '').trim(),
+          detail: r.detail ? String(r.detail) : undefined,
+        };
+      })
+    : undefined;
+  const taskId = action.taskId ? String(action.taskId) : '';
+  const changeTo =
+    change === 'move'
+      ? String(patch.due ?? '')
+      : change === 'reassign'
+        ? String(patch.assignee ?? '')
+        : change === 'rename'
+          ? String(patch.title ?? '')
+          : undefined;
+  const changeFrom =
+    change === 'move' ? dueLabel : change === 'reassign' ? assignee : change === 'rename' ? title : undefined;
+  const write: IuiWriteKind = change === 'delete' ? 'delete_task' : 'update_task';
+  const ready = Boolean(taskId);
+  const mark =
+    change === 'delete'
+      ? 'Deleted'
+      : change === 'move'
+        ? `Moved to ${changeTo}`
+        : change === 'reassign'
+          ? `Now ${changeTo}'s`
+          : `Renamed`;
+  return [
+    beat(
+      'task_change',
+      {
+        title: title || undefined,
+        taskId: taskId || undefined,
+        assignee,
+        dueLabel,
+        change,
+        changeFrom,
+        changeTo,
+        choices: ready ? undefined : choices,
+        notFound: action.notFound === true,
+        changeQuery: action.query ? String(action.query) : undefined,
+        composeReady: ready,
+        // Waiting for a tap on one of the choices — the tap clears this and arms the act.
+        narrow: !ready && Boolean(choices?.length),
+        confirmYes: change === 'delete' ? 'Delete' : undefined,
+        confirmNo: change === 'delete' ? 'Keep it' : undefined,
+        sourceUtterance: action.sourceUtterance ? String(action.sourceUtterance) : undefined,
+      },
+      change === 'delete' ? 'confirm' : 'hold',
+      write
+    ),
+    beat('result_mark', { markKind: 'done', title: title ? `${title} · ${mark}` : mark }, 'none'),
+  ];
+}
+
 function isGroceryMetaDraft(
   action: Record<string, unknown>,
   prefill: Record<string, unknown>,
@@ -716,21 +802,29 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
       continue;
     }
 
-    if (type === 'update_task') {
+    if (type === 'change_task' || type === 'update_task' || type === 'delete_task') {
+      playlist.push(...taskChangeBeats(action, type));
+      continue;
+    }
+
+    if (type === 'change_event') {
+      const title = String(action.title ?? '').trim();
       playlist.push(
         beat(
-          'task_compose',
+          'task_change',
           {
-            title: String(asRecord(action.patch).title ?? 'Update task'),
-            assignee: asRecord(action.patch).assignee
-              ? String(asRecord(action.patch).assignee)
-              : undefined,
-            taskId: String(action.taskId ?? ''),
-            confirmSummary: 'Update this task?',
+            title: title || 'This event',
+            eventId: String(action.eventId ?? ''),
+            dueLabel: action.dueLabel ? String(action.dueLabel) : undefined,
+            change: 'delete',
+            confirmYes: 'Remove',
+            confirmNo: 'Keep it',
+            thinkingLine: 'Remove from the calendar?',
           },
           'confirm',
-          'update_task'
-        )
+          'delete_event'
+        ),
+        beat('result_mark', { markKind: 'done', title: title ? `${title} removed` : 'Removed' }, 'none')
       );
       continue;
     }
@@ -779,7 +873,8 @@ export function mapUiActionsToPlaylist(actions: Array<Record<string, unknown>>):
         beat(
           'list_peek',
           {
-            peek: rows.slice(0, 3).map((row, i) => {
+            title: typeof action.title === 'string' && action.title.trim() ? action.title.trim() : undefined,
+            peek: rows.slice(0, type === 'list_tasks' ? 8 : 3).map((row, i) => {
               const r = asRecord(row);
               return {
                 id: String(r.id ?? i),

@@ -48,6 +48,9 @@ export type IuiCommitWrites = {
   /** Open the photo step for a task that needs proof to finish. */
   openProof?: (taskId: string) => void;
   updateTask: (task: HouseholdTask) => Promise<unknown>;
+  /** Soft delete (status Cancelled) — reversible, so Undo can restore the task exactly. */
+  cancelTask?: (taskId: string, scope?: import('@/types/orbit').CancelTaskScope) => Promise<void>;
+  deleteEvent?: (eventId: string) => Promise<void>;
   claimReward: (rewardId: string) => Promise<unknown>;
   advanceItineraryStop: (itineraryId: string, stopId: string) => Promise<unknown>;
   upsertSavedPlace?: (place: import('@/types/orbit').SavedPlace) => void;
@@ -572,15 +575,69 @@ export async function commitIuiBeat(
 
   if (write === 'update_task' && p.taskId) {
     const task = household.tasks.find((item) => item.id === p.taskId);
-    if (task) {
-      await updateTask({
-        ...task,
-        title: p.title || task.title,
-        assignee: p.assignee || task.assignee,
-      });
-      wrote = true;
-      reverse = { write, entityId: task.id, taskSnapshot: { ...task } };
+    if (!task) throw new CommitRefusedError('That task is gone — it may have been finished or removed.');
+    const next: HouseholdTask = { ...task };
+    if (p.change === 'rename' && p.changeTo?.trim()) next.title = p.changeTo.trim();
+    if (p.change === 'reassign' && p.changeTo?.trim()) {
+      const wanted = p.changeTo.trim().toLowerCase();
+      const member = household.members.find((m) => m.name.toLowerCase() === wanted);
+      if (!member) throw new CommitRefusedError(`${p.changeTo} isn't in this household.`);
+      next.assignee = member.name;
+      next.assignees = undefined;
+      next.shares = undefined;
     }
+    if (p.change === 'move' && p.changeTo?.trim()) {
+      const occurrenceDate = occurrenceDateForDueLabel(p.changeTo.trim());
+      const [y, m, d] = occurrenceDate.split('-').map(Number);
+      const day = new Date(y!, (m ?? 1) - 1, d ?? 1);
+      const dueAt = dueAtForFrequency('none', day, householdDueTimeLocal(household, day))?.toISOString();
+      next.occurrenceDate = occurrenceDate;
+      next.due = dueLabelForDate(occurrenceDate);
+      if (dueAt) next.dueAt = dueAt;
+      if (task.status === 'Overdue' || task.status === 'Expired' || task.status === 'Missed') {
+        next.status = 'Pending' as HouseholdTask['status'];
+      }
+    }
+    if (!p.change) {
+      // A model update without a named change: title / assignee as given.
+      next.title = p.title || task.title;
+      next.assignee = p.assignee || task.assignee;
+    }
+    await updateTask(next);
+    wrote = true;
+    reverse = { write, entityId: task.id, taskSnapshot: { ...task } };
+    eventNote =
+      p.change === 'move'
+        ? `Moved to ${next.due}`
+        : p.change === 'reassign'
+          ? `Now ${next.assignee}'s`
+          : p.change === 'rename'
+            ? `Renamed ${next.title}`
+            : undefined;
+  }
+
+  if (write === 'delete_task' && p.taskId) {
+    const task = household.tasks.find((item) => item.id === p.taskId);
+    if (!task) throw new CommitRefusedError('That task is already gone.');
+    if (writes.cancelTask) {
+      // Only this occurrence: a repeating chore keeps its other days.
+      await writes.cancelTask(task.id, 'this');
+    } else {
+      await updateTask({ ...task, status: 'Cancelled' as HouseholdTask['status'] });
+    }
+    wrote = true;
+    reverse = { write, entityId: task.id, taskSnapshot: { ...task } };
+    eventNote = task.repeat && task.repeat !== 'None' ? `Removed ${task.due || 'this one'} · the rest stay` : 'Deleted';
+  }
+
+  if (write === 'delete_event' && p.eventId) {
+    const event = household.events.find((item) => item.id === p.eventId);
+    if (!event) throw new CommitRefusedError('That event is already gone.');
+    if (!writes.deleteEvent) throw new CommitRefusedError("Events can't be removed from here yet.");
+    await writes.deleteEvent(event.id);
+    wrote = true;
+    reverse = { write, entityId: event.id, eventSnapshot: { ...event } };
+    eventNote = 'Removed from the calendar';
   }
 
   if (write === 'claim_reward' && p.rewardName) {

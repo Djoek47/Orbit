@@ -12,6 +12,9 @@ import {
   type HouseholdIntentOpts,
 } from '@/lib/poppins/ui-intent';
 import { isTripUtterance } from '@/lib/poppins/trip-parse';
+import { intentEvents } from '@/lib/poppins/ui-intent';
+import { prepareUtterance } from '@/lib/poppins/understand';
+import { parseTaskEditIntent, parseTaskListIntent, type EditableTask } from '@/lib/poppins/task-edit-intent';
 
 const INHERIT_SLOTS = ['assignee', 'due', 'category', 'repeat'] as const;
 type InheritSlot = (typeof INHERIT_SLOTS)[number];
@@ -274,8 +277,22 @@ export function parseCompoundHouseholdIntent(
   utterance: string,
   opts?: HouseholdIntentOpts
 ): Array<Record<string, unknown>> {
-  const text = utterance.trim();
+  const prepared = prepareUtterance(utterance);
+  // French the reader doesn't know: no local guess — the model reads it.
+  if (prepared.language === 'fr' && prepared.residue.length) return [];
+  const text = prepared.text.trim();
   if (!text) return [];
+
+  // A change to something that exists ("delete the dishes", "move the trash to Friday", "what
+  // does Mia have tomorrow") — never a new task named after the sentence.
+  const editCtx = {
+    memberNames: opts?.memberNames ?? [],
+    selfName: opts?.selfName,
+    tasks: (opts?.existingTasks ?? []) as unknown as EditableTask[],
+    events: intentEvents(),
+  };
+  const edit = parseTaskEditIntent(text, editCtx) ?? parseTaskListIntent(text, editCtx);
+  if (edit) return [edit];
 
   // A run of places is one trip, however many stops — never an event plus a grocery item.
   if (isTripUtterance(text, intentPlaceNames())) {

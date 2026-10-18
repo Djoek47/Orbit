@@ -11,7 +11,7 @@
  * `onUtterance`. The native recognizer ends itself now and then (iOS caps a request at
  * about a minute, and some errors end it) — the listener restarts it transparently.
  */
-import { createEndpointer, type Endpointer } from '@/lib/voice/utterance-endpointer';
+import { createEndpointer, looksUnfinished, type Endpointer } from '@/lib/voice/utterance-endpointer';
 
 export type BaseListenFailure =
   | 'permission'
@@ -170,6 +170,12 @@ export class BaseListener {
   private lastSentenceAt = 0;
   private restarting = false;
   private restarts = 0;
+  /**
+   * Words from before a recognizer restart that weren't a whole request yet ("remind Mia
+   * to…"). They join the next words instead of going in on their own.
+   */
+  private carry = '';
+  private carryAt = 0;
   active = false;
 
   constructor(private now: () => number = () => Date.now()) {
@@ -215,7 +221,8 @@ export class BaseListener {
   /** Close the session. Anything half-said is still handed over. */
   stop(why: 'stopped' | 'idle' | 'silent_start' = 'stopped') {
     if (!this.active) return;
-    const tail = this.endpointer.flush();
+    const tail = [this.carry, this.endpointer.flush() ?? ''].join(' ').trim();
+    this.carry = '';
     this.teardown();
     if (tail) this.handlers?.onUtterance(tail);
     this.handlers?.onLive('');
@@ -300,9 +307,19 @@ export class BaseListener {
 
     on<null>('end', () => {
       if (!this.active || this.restarting) return;
-      // The recognizer ended on its own. Hand over what was said, then keep listening.
+      // The recognizer ended on its own. Hand over what was said, then keep listening —
+      // unless it was half a sentence, which waits for the rest.
       const tail = this.endpointer.flush();
-      if (tail) this.deliver(tail);
+      if (tail) {
+        const joined = `${this.carry} ${tail}`.trim();
+        if (looksUnfinished(joined)) {
+          this.carry = joined;
+          this.carryAt = this.now();
+          this.handlers?.onLive(joined);
+        } else {
+          this.deliver(tail);
+        }
+      }
       this.endpointer.reset();
       this.restarts += 1;
       if (this.restarts > 40) {
@@ -327,7 +344,9 @@ export class BaseListener {
 
   private deliver(text: string) {
     this.lastSentenceAt = this.now();
-    this.handlers?.onUtterance(text);
+    const whole = `${this.carry} ${text}`.trim();
+    this.carry = '';
+    this.handlers?.onUtterance(whole);
   }
 
   private tick() {
@@ -337,6 +356,16 @@ export class BaseListener {
     if (out.utterance) {
       this.handlers?.onLive('');
       this.deliver(out.utterance);
+      return;
+    }
+    if (out.live) this.handlers?.onLive(`${this.carry} ${out.live}`.trim());
+    // Half a sentence and then nothing more: hand it over as it is after a long pause.
+    if (this.carry && !out.live && now - this.carryAt > 4000) {
+      const text = this.carry;
+      this.carry = '';
+      this.handlers?.onLive('');
+      this.lastSentenceAt = now;
+      this.handlers?.onUtterance(text);
       return;
     }
     const keepOpen = this.opts.keepOpen?.() ?? false;

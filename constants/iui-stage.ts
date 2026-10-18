@@ -124,6 +124,7 @@ function domainKeyFor(scene: IuiScene | string, write?: IuiWriteKind | string): 
     scene === 'itinerary_stage' ||
     scene === 'place_save' ||
     write === 'create_event' ||
+    write === 'delete_event' ||
     write === 'create_itinerary_stop' ||
     write === 'advance_itinerary' ||
     write === 'upsert_place'

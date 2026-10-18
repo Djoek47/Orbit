@@ -17,6 +17,9 @@ const LOCAL_WRITE_KINDS = new Set<IuiWriteKind>([
   'create_itinerary_stop',
   'advance_itinerary',
   'claim_reward',
+  'update_task',
+  'delete_task',
+  'delete_event',
 ]);
 
 /**
@@ -36,6 +39,7 @@ export function isLocalWriteBeat(beat: IuiBeat | null | undefined): boolean {
   if (beat.scene === 'allowance_act') return true;
   if (beat.scene === 'itinerary_stage') return true;
   if (beat.scene === 'confirm' && write !== 'none') return true;
+  if (beat.scene === 'task_change') return true;
   return false;
 }
 
@@ -80,6 +84,20 @@ export function confirmationForLocalWrite(beat: IuiBeat): string {
   if (write === 'clear_grocery') {
     return 'Cleared the grocery list.';
   }
+  if (beat.scene === 'task_change') {
+    const title = beat.payload.title?.trim() || 'that';
+    const to = beat.payload.changeTo?.trim();
+    switch (beat.payload.change) {
+      case 'delete':
+        return beat.payload.eventId ? `Removed ${title} from the calendar.` : `Deleted ${title}.`;
+      case 'move':
+        return to ? `Moved ${title} to ${to}.` : `Moved ${title}.`;
+      case 'reassign':
+        return to ? `${title} is now ${to}'s.` : `Reassigned ${title}.`;
+      case 'rename':
+        return to ? `Renamed it ${to}.` : `Renamed ${title}.`;
+    }
+  }
   if (write === 'create_itinerary_stop') {
     const title = beat.payload.itineraryTitle?.trim() || beat.payload.title?.trim() || 'the trip';
     return `Added a stop to ${title}.`;
@@ -122,4 +140,32 @@ export function confirmationForLocalWrite(beat: IuiBeat): string {
   if (who) return `Assigned ${title} to ${who}.`;
   if (due) return `Staged ${title} for ${due}.`;
   return `Staged ${title}.`;
+}
+
+
+/**
+ * What the thread says while the card is still up. The act saves on its own a moment later
+ * (or with a tap), so the line describes what is about to happen — never "Added…" before it
+ * was saved (that read "Added Bread to Groceries." next to a NOT SAVED card).
+ */
+export function pendingLineForLocalWrite(beat: IuiBeat): string {
+  const done = confirmationForLocalWrite(beat);
+  if (beat.scene === 'task_change' && beat.payload.change === 'delete') {
+    return `${beat.payload.eventId ? 'Remove' : 'Delete'} ${beat.payload.title ?? 'that'}? Tap ${beat.payload.confirmYes ?? 'Yes'} on the card.`;
+  }
+  const map: Array<[RegExp, string]> = [
+    [/^Added /, 'Adding '],
+    [/^Assigned /, 'Assigning '],
+    [/^Staged /, 'Setting up '],
+    [/^Scheduled /, 'Scheduling '],
+    [/^Marked (.+) done\.$/, 'Marking $1 done.'],
+    [/^Saved /, 'Saving '],
+    [/^Granted /, 'Granting '],
+    [/^Claimed /, 'Claiming '],
+    [/^Cleared /, 'Clearing '],
+    [/^Moved /, 'Moving '],
+    [/^Renamed /, 'Renaming '],
+  ];
+  for (const [re, to] of map) if (re.test(done)) return done.replace(re, to).replace(/\.$/, '…');
+  return done;
 }

@@ -20,6 +20,7 @@ export const IUI_SCENES = [
   'navigate_coach',
   'coach_steps',
   'task_done',
+  'task_change',
   'result_mark',
 ] as const;
 
@@ -224,6 +225,28 @@ export type IuiPayload = {
   progressLabel?: string;
   /** WO12 §C — slots filled by speech, ordered by character offset. */
   slotOrder?: Array<'title' | 'assignee' | 'due' | 'category' | 'date' | 'time'>;
+  /**
+   * task_change — what is changing on an existing task (or event, for delete).
+   * The card reads: the task, who · when, then "Today → Friday" / "Jack → Mia" / "Deleted".
+   */
+  change?: 'delete' | 'move' | 'reassign' | 'rename';
+  /** task_change — the value before ("Today", "Jack", the old title). */
+  changeFrom?: string;
+  /** task_change — the value after. */
+  changeTo?: string;
+  /** task_change — the task's day as shown on the card ("Today", "Fri, Oct 23"). */
+  dueLabel?: string;
+  /** task_change — several tasks fit what was said; tap one. */
+  choices?: IuiPeekRow[];
+  /** task_change — nothing open matched; `choices` lists what is open. */
+  notFound?: boolean;
+  /** task_change — what was said about the task ("the dishes"), for the not-found line. */
+  changeQuery?: string;
+  /** task_change on an event (delete only). */
+  eventId?: string;
+  /** confirm row labels for this card ("Keep it" / "Delete"). */
+  confirmYes?: string;
+  confirmNo?: string;
   /** First empty slot — the one in focus. */
   focusSlot?: 'title' | 'assignee' | 'due' | 'category' | 'date' | 'time' | null;
 };
@@ -237,6 +260,8 @@ export type IuiWriteKind =
   | 'clear_grocery'
   | 'complete_task'
   | 'update_task'
+  | 'delete_task'
+  | 'delete_event'
   | 'claim_reward'
   | 'upsert_place'
   | 'grant_allowance'
@@ -252,6 +277,7 @@ export const HOLD_SCENES: readonly IuiScene[] = [
   'grocery_add',
   'place_save',
   'task_done',
+  'task_change',
 ];
 
 export type IuiBeat = {

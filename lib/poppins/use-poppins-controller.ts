@@ -70,7 +70,8 @@ import {
 } from '@/lib/poppins/session-act-mode';
 import { commitSpeakOpen, hydrateHouseMemory, prepareSpeakOpen } from '@/lib/poppins/speak-open';
 import { stageHeaderLabel } from '@/lib/poppins/stage-header';
-import { setIntentPlaces } from '@/lib/poppins/ui-intent';
+import { setIntentEvents, setIntentPlaces } from '@/lib/poppins/ui-intent';
+import { findCommittableLocalWriteBeat, pendingLineForLocalWrite } from '@/lib/poppins/local-act-confirm';
 import { getAdHocTourHooks } from '@/lib/tour/ad-hoc-tour';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
@@ -171,6 +172,7 @@ export function usePoppinsController() {
     orbitPalette,
     deleteTask,
     deleteEvent,
+    createEvent,
     updateTask,
     removeGroceryItem,
     removeSavedPlace,
@@ -254,6 +256,18 @@ export function usePoppinsController() {
     );
   }, [household.savedPlaces]);
 
+  // "Cancel the dentist" finds the event on the calendar.
+  useEffect(() => {
+    setIntentEvents(
+      (household.events ?? []).map((event) => ({
+        id: event.id,
+        title: event.title,
+        date: (event as { date?: string }).date,
+        time: (event as { time?: string }).time,
+      }))
+    );
+  }, [household.events]);
+
   /**
    * The tier the household is actually on — null until prefs first load. The defaults this
    * hook starts with are not a tier choice, so their arrival is never a "switch".
@@ -300,6 +314,7 @@ export function usePoppinsController() {
         await reverseIuiCommit(reverse, {
           deleteTask,
           deleteEvent,
+          createEvent,
           removeGroceryItem,
           updateTask,
           removeSavedPlace,
@@ -315,6 +330,7 @@ export function usePoppinsController() {
   }, [
     deleteTask,
     deleteEvent,
+    createEvent,
     updateTask,
     removeGroceryItem,
     removeSavedPlace,
@@ -1096,6 +1112,10 @@ export function usePoppinsController() {
       const staged = () => poppinsUiOrchestrator.getState().live;
       // Always put a real reply in the thread — empty shells drew as hollow purple ovals.
       const replyForThread = (() => {
+        // While the card is still up, say what's about to happen, not that it happened.
+        const iui = poppinsUiOrchestrator.getState();
+        const pendingBeat = iui.live ? findCommittableLocalWriteBeat(iui.playlist, iui.index) : null;
+        if (pendingBeat) return pendingLineForLocalWrite(pendingBeat);
         const confirm = (resolved.localConfirm ?? '').trim();
         if (confirm) return confirm;
         const answer = (resolved.answer ?? resolved.modelAnswer ?? '').trim();

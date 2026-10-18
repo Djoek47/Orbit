@@ -5,6 +5,7 @@
  */
 
 import { formatLocalDate } from '@/lib/streaks/local-date';
+import { prepareUtterance, sanitizeActs } from '@/lib/poppins/understand';
 import { isHomeworkUtterance, parseHomeworkUtterance } from '@/lib/poppins/homework-parse';
 import { isEventUtterance, parseEventUtterance } from '@/lib/poppins/event-parse';
 import { parseTripUtterance, type TripPlace } from '@/lib/poppins/trip-parse';
@@ -139,6 +140,14 @@ export function setIntentPlaceNames(names: string[]) {
 export function setIntentPlaces(places: TripPlace[]) {
   sessionPlaces = places.filter((place) => place.name?.trim());
   sessionPlaceNames = sessionPlaces.map((place) => place.name);
+}
+let sessionEvents: import('@/lib/poppins/task-edit-intent').EditableEvent[] = [];
+/** The household's upcoming events — "cancel the dentist" finds the one on the calendar. */
+export function setIntentEvents(events: import('@/lib/poppins/task-edit-intent').EditableEvent[]) {
+  sessionEvents = events.filter((event) => event.title?.trim());
+}
+export function intentEvents() {
+  return sessionEvents;
 }
 export function intentPlaceNames(): string[] {
   return sessionPlaceNames;
@@ -659,7 +668,26 @@ export function rewriteAiuicActions(
   utterance = '',
   opts?: HouseholdIntentOpts
 ): Array<Record<string, unknown>> {
-  const parsed = parseHouseholdIntent(utterance, opts);
+  // Read the sentence the way the grammar does. French the reader doesn't know is the model's
+  // to understand: never re-derive titles from those words (that wrote "Bonjour Poppins
+  // est-ce que tu peux…" over the model's "Dentist").
+  const prepared = prepareUtterance(utterance);
+  const readable = prepared.language === 'fr' && prepared.residue.length ? '' : prepared.text;
+  const gate = (list: Array<Record<string, unknown>>) =>
+    sanitizeActs(list, {
+      utterance: readable,
+      memberNames: opts?.memberNames,
+      selfName: opts?.selfName,
+    });
+  return gate(rewriteAiuicActionsRaw(actions, readable, opts));
+}
+
+function rewriteAiuicActionsRaw(
+  actions: Array<Record<string, unknown>>,
+  utterance: string,
+  opts?: HouseholdIntentOpts
+): Array<Record<string, unknown>> {
+  const parsed = utterance ? parseHouseholdIntent(utterance, opts) : [];
   const editor = wantsFullEditor(utterance);
 
   if (!actions.length) return parsed;

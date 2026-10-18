@@ -654,7 +654,8 @@ export function toChoreDisplayTitle(extracted: string): string {
     .replace(/\s+/g, ' ')
     .trim();
   if (!cleaned) return extracted.trim();
-  const titled = cleaned.replace(/\b[a-z]/gi, (char) => char.toUpperCase());
+  // Unicode-aware: a plain \b treats "â" as a word break, which wrote "TâChe".
+  const titled = cleaned.replace(/(^|[^\p{L}\p{N}'’])(\p{L})/gu, (_m, lead: string, char: string) => lead + char.toLocaleUpperCase());
   return titled
     .replace(/\b(To|For|And|Of|On|In|At|The|A|An)\b/g, (word) => word.toLowerCase())
     .replace(/^[a-z]/, (char) => char.toUpperCase());
@@ -1249,10 +1250,41 @@ export function splitGroceryObjectNames(raw: string): string[] {
     .filter(Boolean)
     .map((part) => part.replace(/^(some|the|a|an|my)\s+/i, '').trim())
     .filter(Boolean);
-  if (parts.length <= 1) return text ? [text] : [];
+  // "milk eggs and bread": spoken lists often drop the commas. A run of words that are each a
+  // product of their own ("milk eggs") is several items — unless the catalog knows the run as
+  // one product ("peanut butter", "chocolate milk").
+  const expanded = parts.flatMap(splitRunOfProducts);
+  if (expanded.length <= 1) return text ? [expanded[0] ?? text] : [];
   // Guard: "peanut and jelly" style compounds stay one item when both sides are tiny
   // and neither side is a known catalog product — still prefer split when WO11 lists.
-  return parts;
+  return expanded;
+}
+
+/** Words that usually describe the next one ("chocolate milk", "almond butter"). */
+const PRODUCT_MODIFIERS = new Set([
+  'chocolate', 'almond', 'oat', 'soy', 'coconut', 'peanut', 'whole', 'skim', 'low', 'fat',
+  'orange', 'apple', 'grape', 'cranberry', 'lemon', 'lime', 'cream', 'cottage', 'sour', 'ice',
+  'iced', 'hot', 'sweet', 'green', 'red', 'black', 'white', 'brown', 'ground', 'baby', 'frozen',
+  'fresh', 'sparkling', 'diet', 'garlic', 'tomato', 'chicken', 'beef', 'pork', 'veggie',
+  'vegetable', 'string', 'cheddar', 'goat', 'greek', 'plain', 'vanilla', 'strawberry', 'maple',
+  'olive', 'canola', 'sesame', 'rice', 'wheat', 'gluten', 'dish', 'laundry', 'paper', 'toilet',
+]);
+
+function splitRunOfProducts(part: string): string[] {
+  const words = part.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 5) return [part];
+  if (words.slice(0, -1).some((w) => PRODUCT_MODIFIERS.has(w.toLowerCase()))) return [part];
+  const whole = matchGroceryCatalog(part);
+  const wholeName = whole?.name.toLowerCase() ?? '';
+  // The catalog knows the run as one product that uses all of its words.
+  if (whole?.confident && words.every((w) => wholeName.includes(w.toLowerCase().replace(/s$/, '')))) {
+    return [part];
+  }
+  const each = words.map((w) => matchGroceryCatalog(w));
+  const allProducts = each.every(
+    (hit, i) => hit?.confident && hit.name.toLowerCase().replace(/s$/, '') === words[i]!.toLowerCase().replace(/s$/, '')
+  );
+  return allProducts ? words : [part];
 }
 
 export function parseReleaseDate(text: string, now = new Date()): string | undefined {
@@ -1357,7 +1389,16 @@ export function groceryAddActionsFromUtterance(
         continue;
       }
     }
-    const displayName = titleCaseGroceryName(catalog?.name ?? part);
+    // "chocolate milk" is not "Milk": when the only extra words describe the product, the
+    // name as said wins over the closest catalog product.
+    const extra = catalog
+      ? part
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((w) => !catalog.name.toLowerCase().split(/\s+/).some((c) => c.replace(/s$/, '') === w.replace(/s$/, '')))
+      : [];
+    const describedProduct = extra.length > 0 && extra.every((w) => PRODUCT_MODIFIERS.has(w));
+    const displayName = titleCaseGroceryName(describedProduct ? part : catalog?.name ?? part);
     actions.push({
       type: 'add_grocery',
       name: displayName,

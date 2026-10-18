@@ -22,6 +22,8 @@ export type IuiCommitReverse = {
   /** Payload item id / label at commit time — never re-derive by index (audit IUI P1). */
   itemId?: string;
   label?: string;
+  /** Event as it was before delete_event — Undo puts it back. */
+  eventSnapshot?: import('@/types/orbit').HouseholdEvent;
   /** Snapshot of grocery rows before clear_grocery. */
   grocerySnapshot?: Array<{
     name: string;
@@ -36,6 +38,7 @@ export type IuiReverseWrites = {
   deleteEvent?: (eventId: string) => Promise<void>;
   removeGroceryItem?: (itemId: string) => Promise<void>;
   updateTask?: (task: HouseholdTask) => Promise<unknown>;
+  createEvent?: (input: import('@/types/orbit').CreateEventInput) => Promise<unknown>;
   /** Restore clear_grocery from snapshot. */
   addMissingGrocery?: (input: {
     name: string;
@@ -85,6 +88,17 @@ export async function reverseIuiCommit(
         for (const item of reverse.grocerySnapshot) {
           await writes.addMissingGrocery?.(item);
         }
+      }
+      return;
+    case 'delete_task':
+      // Soft delete: putting the snapshot back restores it, status and all.
+      if (reverse.taskSnapshot) await writes.updateTask?.(reverse.taskSnapshot);
+      return;
+    case 'delete_event':
+      if (reverse.eventSnapshot && writes.createEvent) {
+        const { id: _id, ...rest } = reverse.eventSnapshot;
+        void _id;
+        await writes.createEvent(rest as import('@/types/orbit').CreateEventInput);
       }
       return;
     case 'complete_task':

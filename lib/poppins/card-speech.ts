@@ -26,7 +26,7 @@ export type CardSpeechCtx = {
 };
 
 const RENAME =
-  /^(?:(?:no|actually|wait)[,\s]+)?(?:call it|call that|name it|rename (?:it|that|this)(?: to)?|change (?:the )?(?:name|title) to|make the (?:name|title)|the (?:name|title) is|it's called|title it|appelle[- ]le|renomme[- ]le(?: en)?)\s+(.+?)[.!?]*$/i;
+  /^(?:(?:no|actually|wait|and|so|oh)[,\s]+)?(?:call it|call that|call the (?:task|chore|event|appointment|item)|name it|rename (?:it|that|this)(?: to)?|change (?:the )?(?:name|title) to|make the (?:name|title)|(?:the|its|it's|that's|(?:the )?(?:task|event|appointment|chore)'s) (?:name|title) (?:is|should be|will be|=)|(?:the )?(?:name|title)(?:'s| is| should be| will be)|(?:i want )?(?:the )?(?:name|title) to be|it's called|it should be called|title it|appelle[- ]le|renomme[- ]le(?: en)?|le nom (?:c'est|est))\s+(.+?)[.!?]*$/i;
 
 function capitalise(text: string) {
   const t = text.trim().replace(/^["“']|["”']$/g, '');
