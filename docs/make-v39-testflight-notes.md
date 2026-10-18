@@ -2,7 +2,10 @@
 
 **Branch tip:** `cursor/make-v39-c30d`  
 **Base:** make-v38 / TF **1.3.0 (126)**  
-**Status:** **127** burned (Associated Domains vs App Store profile) → **128** cutting.
+**Status:** **1.3.0 (128)** finished (+ ASC submit). **127** burned (Associated Domains).
+
+### Queued for next TestFlight (not in 128)
+- Subscribe / paywall **Account** button: sit in the top bar flow (not absolute under the status bar); 44pt tall — tappable below clock/signal/battery
 
 **Design ref:** Poppins voice edit / understand / listen / chat-follow-card (patches 0001–0004 on v38 tip)  
 **Console zip:** still deferred (routing SQL on tip; zip not in this cut)
@@ -60,6 +63,6 @@
 | Branch | `cursor/make-v39-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/127 |
 | Build 127 | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/90c99cc9-b31b-4a68-bb73-a168b70796bb — **ERRORED** |
-| Build 128 | (fill after EAS) |
-| Submit | (fill after ASC) |
+| Build 128 | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/c6897bbd-d436-4697-87e6-e506760e54ab — **finished** |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/14dd395d-e749-4382-8cbb-34f0cb30cac1 — **finished** |
 | Prior (126) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/75c6c07a-304f-43d7-89c9-533244c83439 |

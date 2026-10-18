@@ -14,7 +14,7 @@ Update this file every time we cut or burn a build.
 |-------|------:|-------|
 | **EAS iOS slots remaining** | **39** | Started 45 → … + **127** burned + **128** cutting |
 | **Next App Store buildNumber** | **129** | Remote autoIncrement |
-| **Latest shipped / in-flight** | **128** | make-v39 — retried after Associated Domains drop |
+| **Latest shipped / in-flight** | **128** | make-v39 — finished (Associated Domains drop); Account-button fix queued for next cut |
 
 ### How to update after a cut
 
@@ -31,7 +31,7 @@ If Expo says quota exhausted, set remaining to **0** and stop cutting until topp
 
 | When (UTC) | buildNumber | Branch | EAS build | Result | Slots after |
 |------------|------------:|--------|-----------|--------|------------:|
-| 2026-10-18 | **128** | `cursor/make-v39-c30d` | (fill after EAS) | cutting (associatedDomains dropped) | **39** |
+| 2026-10-18 | **128** | `cursor/make-v39-c30d` | [c6897bbd…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/c6897bbd-d436-4697-87e6-e506760e54ab) | finished + ASC submit [14dd395d…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/14dd395d-e749-4382-8cbb-34f0cb30cac1) | **39** |
 | 2026-10-18 | **127** | `cursor/make-v39-c30d` | [90c99cc9…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/90c99cc9-b31b-4a68-bb73-a168b70796bb) | **ERRORED** — Associated Domains vs App Store profile | **40** |
 | 2026-10-13 | **126** | `cursor/make-v38-c30d` | [75c6c07a…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/75c6c07a-304f-43d7-89c9-533244c83439) | finished + ASC submit [7e2e4408…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/7e2e4408-1778-4c7b-a07a-a067a2c77f03) | **41** |
 | 2026-10-08 | **125** | `cursor/make-v37-c30d` | [23e0cb50…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/23e0cb50-dbf5-4c1e-8b35-b5ce48550a11) | finished + ASC submit [8cf4bae7…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/8cf4bae7-76c5-4b1d-80b8-7bd4a8d50400) | **42** |

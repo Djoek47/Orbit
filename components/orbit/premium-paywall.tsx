@@ -668,11 +668,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: 14,
-    position: 'absolute',
-    right: space.lg,
-    zIndex: 2,
+    // In the top bar's flow (not absolute): an absolute chip ignored the bar's
+    // safe-area padding and sat under the clock, signal and battery, untappable.
+    marginLeft: 'auto',
   },
   accountChipText: { fontSize: 15, fontWeight: '700' },
   kicker: {
