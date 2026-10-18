@@ -66,6 +66,9 @@ export function PoppinsThreadPanel({
   const historyCap = stageLive ? HISTORY_WHEN_STAGE : HISTORY_WHEN_IDLE;
   const recent = visible.slice(Math.max(0, visible.length - historyCap));
   const liveText = (p.caption.text ?? '').trim();
+  // Your own words are already in the thread — the live caption must not repeat them as a
+  // "YOU" bubble on Poppins' side. While you're still talking it shows on your side, faded.
+  const lastMine = [...conversation].reverse().find((m) => m.role === 'user')?.content?.trim();
 
   useEffect(() => {
     if (!stageLive) return;
@@ -169,16 +172,20 @@ export function PoppinsThreadPanel({
               </View>
             );
           })}
-          {liveText ? (
+          {liveText && !(p.caption.speaker === 'you' && lastMine === liveText) ? (
             <View
               style={[
                 styles.bubble,
-                styles.bubbleTheirs,
-                { backgroundColor: `${majordomo.accent}18`, borderColor: `${majordomo.accent}44` },
+                p.caption.speaker === 'you' ? styles.bubbleMine : styles.bubbleTheirs,
+                p.caption.speaker === 'you'
+                  ? { backgroundColor: glass(0.06), borderColor: glassBorder(0.1), opacity: 0.75 }
+                  : { backgroundColor: `${majordomo.accent}18`, borderColor: `${majordomo.accent}44` },
               ]}>
-              <Text style={[styles.bubbleKicker, { color: majordomo.accent }]}>
-                {p.caption.label}
-              </Text>
+              {p.caption.speaker === 'you' ? null : (
+                <Text style={[styles.bubbleKicker, { color: majordomo.accent }]}>
+                  {p.caption.speaker === 'thinking' ? 'Thinking' : p.caption.label}
+                </Text>
+              )}
               <Text style={[styles.bubbleText, { color: c.text }]}>{liveText}</Text>
             </View>
           ) : null}

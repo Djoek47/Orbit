@@ -98,6 +98,7 @@ import {
   vocabularyFor,
   type BaseListenFailure,
 } from '@/lib/voice/base-listener';
+import { friendlyMicError } from '@/lib/voice/mic-capture';
 import { persistVoiceFailure } from '@/lib/voice/quiet-failures';
 import { micUiForPrefs, quietCaptureAvailable, speakTransportForPrefs } from '@/lib/voice/speak-transport';
 import {
@@ -470,11 +471,15 @@ export function usePoppinsController() {
     ? 'success'
     : mapVisual(voiceState) !== 'idle'
       ? mapVisual(voiceState)
-      : listening
-        ? 'listening'
-        : asking || connecting
-          ? 'thinking'
-          : 'idle';
+      : asking
+        ? // A sentence is being understood (the server round trip): say so, even while the
+          // mic stays open — "Listening" here read as if nothing had been heard.
+          'thinking'
+        : listening
+          ? 'listening'
+          : connecting
+            ? 'thinking'
+            : 'idle';
 
   const STATE_CONFIG: Record<PoppinsVisualState, { label: string; color: string }> = {
     idle: {
@@ -1445,7 +1450,7 @@ export function usePoppinsController() {
       quietRef.current = null;
       setWaveLevelDb(null);
       setVoiceState('idle');
-      setError(err instanceof Error ? err.message : 'Could not start listening.');
+      setError(friendlyMicError(err));
     }
   };
 
@@ -1671,9 +1676,12 @@ export function usePoppinsController() {
     quietListening ||
     baseOn ||
     isBaseTier;
+  const understanding = asking && Boolean(lastUtteranceRef.current) && !drive.live && !(baseOn && baseLive);
   const liveSpeaker: 'you' | 'poppins' | 'done' | 'thinking' | null = toolFlash
     ? 'done'
-    : showWrittenCaption && liveCaption
+    : understanding
+      ? 'thinking'
+      : showWrittenCaption && liveCaption
       ? liveCaption.speaker
       : interactionPrefs.showThinking && (visualState === 'thinking' || connecting)
         ? 'thinking'
@@ -1691,6 +1699,8 @@ export function usePoppinsController() {
     ? toolFlash
     : baseOn && baseLive
       ? baseLive
+      : understanding
+        ? `Understanding “${captionWindow(lastUtteranceRef.current)}”`
       : connecting
       ? 'Tuning in to the house…'
       : liveCaption?.text
