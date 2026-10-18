@@ -21,8 +21,8 @@ import {
   quietHoursPickerValues,
 } from '@/lib/notifications/quiet-hours';
 import {
-  SMART_DELIVERY_CHIPS,
   SMART_DELIVERY_HERO,
+  SMART_DELIVERY_PREVIEW,
   channelGroups,
   quietHoursCopy,
   type NotifPrefKey,
@@ -108,8 +108,8 @@ export function NotificationPrefsPanel({
       },
       {
         moji: 'sparkles' as MojiName,
-        value: smartOn ? 'Smart' : 'Manual',
-        label: 'delivery',
+        value: smartOn ? SMART_DELIVERY_HERO.factOn : SMART_DELIVERY_HERO.factOff,
+        label: SMART_DELIVERY_HERO.factLabel,
         color: SMART_TONE,
       },
       {
@@ -188,48 +188,58 @@ export function NotificationPrefsPanel({
             <Switch
               value={smartOn}
               onValueChange={(value) => {
-                // Smart is a mode: turning it on keeps Tasks + Quiet ready so digests work.
+                // Bundling only applies to task notifications, so make sure those are on.
+                // Quiet hours is its own setting (card below) and is left as it is.
                 if (value) {
-                  onUpdate({
-                    smartDelivery: true,
-                    tasks: true,
-                    quietHoursEnabled: true,
-                  });
+                  onUpdate({ smartDelivery: true, tasks: true });
                   return;
                 }
                 onUpdate({ smartDelivery: false });
               }}
               trackColor={{ false: glassBorder(0.14), true: SMART_TONE }}
               thumbColor="#fff"
-              accessibilityLabel="Smart delivery"
+              accessibilityLabel="Bundle new tasks"
+              accessibilityHint="One notification when several tasks are added at once"
             />
           </View>
           <Text style={[styles.smartBody, { color: c.textSoft }]}>
             {smartOn ? SMART_DELIVERY_HERO.bodyOn : SMART_DELIVERY_HERO.bodyOff}
           </Text>
-          <View style={styles.chipRow}>
-            {SMART_DELIVERY_CHIPS.map((chip) => (
-              <View
-                key={chip.label}
+          {/* Preview: the notifications you get with this setting as it is now */}
+          <View
+            accessible
+            accessibilityLabel={
+              smartOn
+                ? `${SMART_DELIVERY_HERO.previewLabelOn}: one notification, ${SMART_DELIVERY_PREVIEW.bundled.body}`
+                : `${SMART_DELIVERY_HERO.previewLabelOff}: three separate notifications`
+            }
+            style={[styles.preview, { backgroundColor: isDark ? '#00000033' : '#FFFFFF66', borderColor: glassBorder(0.1) }]}>
+            <Text style={[styles.previewLabel, { color: c.textSubtle }]}>
+              {smartOn ? SMART_DELIVERY_HERO.previewLabelOn : SMART_DELIVERY_HERO.previewLabelOff}
+            </Text>
+            {(smartOn ? [SMART_DELIVERY_PREVIEW.bundled] : SMART_DELIVERY_PREVIEW.separate).map((b, i) => (
+              <Animated.View
+                key={`${smartOn ? 'on' : 'off'}-${i}`}
+                entering={FadeInDown.delay(i * 60).duration(220)}
                 style={[
-                  styles.chip,
-                  {
-                    backgroundColor: smartOn ? `${chip.color}28` : glassFill(isDark),
-                    borderColor: smartOn ? `${chip.color}66` : glassBorder(0.1),
-                    opacity: smartOn ? 1 : 0.55,
-                  },
+                  styles.banner,
+                  { backgroundColor: isDark ? '#FFFFFF14' : '#FFFFFFD9', borderColor: smartOn ? `${SMART_TONE}66` : glassBorder(0.1) },
                 ]}>
-                <Moji name={chip.moji} size={14} />
-                <Text style={[styles.chipText, { color: smartOn ? chip.color : c.textMuted }]}>
-                  {chip.label}
-                </Text>
-              </View>
+                <View style={[styles.bannerIcon, { backgroundColor: smartOn ? SMART_TONE : `${SMART_TONE}55` }]}>
+                  <Moji name={smartOn ? 'sparkles' : 'check'} size={14} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={styles.bannerTop}>
+                    <Text style={[styles.bannerTitle, { color: c.text }]} numberOfLines={1}>{b.title}</Text>
+                    <Text style={[styles.bannerTime, { color: c.textSubtle }]}>now</Text>
+                  </View>
+                  <Text style={[styles.bannerBody, { color: c.textSoft }]} numberOfLines={2}>{b.body}</Text>
+                </View>
+              </Animated.View>
             ))}
           </View>
           <Text style={[styles.smartFoot, { color: c.textSubtle }]}>
-            {smartOn
-              ? `${majordomoName} keeps details in Activity — not a wall of banners.`
-              : 'Turn on for a calmer day. Individual channels below still apply.'}
+            {smartOn ? SMART_DELIVERY_HERO.footOn : SMART_DELIVERY_HERO.footOff}
           </Text>
         </LinearGradient>
       </Animated.View>
@@ -356,7 +366,7 @@ export function NotificationPrefsPanel({
 
       <Text style={[styles.sectionLabel, { color: c.textMuted }]}>
         Channels · {channelOn} on
-        {smartOn ? ' · Smart shapes how tasks arrive' : ''}
+        {smartOn ? ' · new tasks bundled' : ''}
       </Text>
 
       {channelGroups().map((group, gi) => (
@@ -512,18 +522,14 @@ const styles = StyleSheet.create({
   smartEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
   smartTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
   smartBody: { fontSize: 13.5, fontWeight: '600', lineHeight: 19 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
-    alignItems: 'center',
-    borderCurve: 'continuous',
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  chipText: { fontSize: 11, fontWeight: '800' },
+  preview: { borderCurve: 'continuous', borderRadius: 16, borderWidth: 1, gap: 6, padding: 10 },
+  previewLabel: { fontSize: 11.5, fontWeight: '700' },
+  banner: { alignItems: 'center', borderCurve: 'continuous', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 9, paddingHorizontal: 10, paddingVertical: 8 },
+  bannerIcon: { alignItems: 'center', borderRadius: 7, height: 24, justifyContent: 'center', width: 24 },
+  bannerTop: { alignItems: 'baseline', flexDirection: 'row', gap: 6 },
+  bannerTitle: { flex: 1, fontSize: 12.5, fontWeight: '800' },
+  bannerTime: { fontSize: 11 },
+  bannerBody: { fontSize: 12.5, lineHeight: 16 },
   smartFoot: { fontSize: 11.5, fontWeight: '600', lineHeight: 15 },
   quietCard: {
     borderCurve: 'continuous',

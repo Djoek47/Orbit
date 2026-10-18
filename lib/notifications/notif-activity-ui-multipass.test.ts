@@ -32,7 +32,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
   assert.match(panel, /Open household inbox/);
   const ui = read('lib/notifications/smart-delivery-ui.ts');
   assert.match(ui, /Recommended/);
-  assert.match(ui, /Task digests/);
+  assert.match(ui, /one notification instead of one for each/);
   assert.match(ui, /quietHoursBodyCopy|Evenings stay calm/);
   assert.doesNotMatch(ui, /deadlines still fire/);
   assert.doesNotMatch(ui, /still use this channel/);
@@ -98,11 +98,11 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
   assert.match(digest, /Open Activity/);
 }
 
-// Pass F — enabling Smart keeps Tasks + Quiet ready
+// Pass F — enabling bundling turns task notifications on; quiet hours is left to its own card
 {
   const panel = read('components/orbit/settings/notification-prefs-panel.tsx');
-  assert.match(panel, /tasks:\s*true/);
-  assert.match(panel, /quietHoursEnabled:\s*true/);
+  assert.match(panel, /smartDelivery: true, tasks: true/);
+  assert.doesNotMatch(panel, /smartDelivery: true,[^}]*quietHoursEnabled: true/);
 }
 
 console.log('notif-activity-ui-multipass: ok');

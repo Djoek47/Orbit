@@ -35,8 +35,9 @@ assert.match(settings, /NotificationPrefsPanel/, 'Settings uses premium prefs pa
 assert.match(settings, /smartDelivery|NotificationPrefsPanel/, 'Settings exposes Smart delivery');
 
 const panel = read('components/orbit/settings/notification-prefs-panel.tsx');
-assert.match(panel, /Smart delivery/, 'Smart hero on prefs panel');
-assert.match(panel, /SMART_DELIVERY_CHIPS/, 'Smart mode chips explain the difference');
+assert.match(panel, /SMART_DELIVERY_HERO/, 'Bundle new tasks hero on prefs panel');
+assert.match(panel, /SMART_DELIVERY_PREVIEW/, 'a banner preview shows what bundling does');
+assert.doesNotMatch(panel, /quietHoursEnabled: true,\n\s*\}\);/, 'turning bundling on leaves quiet hours alone');
 assert.doesNotMatch(panel, /deadlines still fire/, 'no code-like quiet hours copy');
 assert.match(panel, /quietHoursStart/, 'quiet window start is adjustable');
 assert.match(panel, /quietHoursEnd/, 'quiet window end is adjustable');
@@ -44,6 +45,8 @@ assert.match(panel, /quietHoursEnd/, 'quiet window end is adjustable');
 const ui = read('lib/notifications/smart-delivery-ui.ts');
 assert.match(ui, /channelGroups/, 'channels condensed into groups');
 assert.match(ui, /SMART_DELIVERY_HERO/);
+assert.match(ui, /Bundle new tasks/);
+assert.doesNotMatch(ui, /Urgent still push|Task digests|calm digest/, 'no jargon in the bundling card');
 
 const inbox = read('components/orbit/notification-inbox.tsx');
 assert.match(inbox, /PersonActivityShowcase/, 'Activity shows per-person showcase');
