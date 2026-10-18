@@ -14,7 +14,7 @@ Update this file every time we cut or burn a build.
 |-------|------:|-------|
 | **EAS iOS slots remaining** | **40** | Started 45 → … + **127** (in flight) |
 | **Next App Store buildNumber** | **128** | Remote autoIncrement |
-| **Latest shipped / in-flight** | **127** | make-v39 — cutting |
+| **Latest shipped / in-flight** | **127** | make-v39 — build queued + ASC submit scheduled |
 
 ### How to update after a cut
 
@@ -31,7 +31,7 @@ If Expo says quota exhausted, set remaining to **0** and stop cutting until topp
 
 | When (UTC) | buildNumber | Branch | EAS build | Result | Slots after |
 |------------|------------:|--------|-----------|--------|------------:|
-| 2026-10-18 | **127** | `cursor/make-v39-c30d` | (fill after EAS) | cutting | **40** |
+| 2026-10-18 | **127** | `cursor/make-v39-c30d` | [90c99cc9…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/90c99cc9-b31b-4a68-bb73-a168b70796bb) | queued + ASC submit [7a1e777d…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/7a1e777d-f7d9-4908-a83b-ea7e9dfe9990) | **40** |
 | 2026-10-13 | **126** | `cursor/make-v38-c30d` | [75c6c07a…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/75c6c07a-304f-43d7-89c9-533244c83439) | finished + ASC submit [7e2e4408…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/7e2e4408-1778-4c7b-a07a-a067a2c77f03) | **41** |
 | 2026-10-08 | **125** | `cursor/make-v37-c30d` | [23e0cb50…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/23e0cb50-dbf5-4c1e-8b35-b5ce48550a11) | finished + ASC submit [8cf4bae7…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/8cf4bae7-76c5-4b1d-80b8-7bd4a8d50400) | **42** |
 | 2026-10-08 | **124** | `cursor/make-v37-c30d` | [73613804…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/73613804-113e-46fa-9b12-d2169ec56058) | in progress → ASC submit [d585bf03…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/d585bf03-20f7-429c-b79a-6c4bf1222562) | **43** |
