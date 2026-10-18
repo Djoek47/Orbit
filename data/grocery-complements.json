@@ -1,0 +1,167 @@
+{
+  "version": "1.0.0",
+  "pairs": [
+    {
+      "when": [
+        "pasta",
+        "spaghetti",
+        "penne",
+        "fusilli",
+        "macaroni"
+      ],
+      "suggest": [
+        "pasta sauce",
+        "parmesan",
+        "garlic"
+      ]
+    },
+    {
+      "when": [
+        "cereal",
+        "shreddies",
+        "vector",
+        "oats",
+        "granola"
+      ],
+      "suggest": [
+        "milk",
+        "2% milk",
+        "banana"
+      ]
+    },
+    {
+      "when": [
+        "taco",
+        "tacos"
+      ],
+      "suggest": [
+        "tortillas",
+        "salsa",
+        "ground beef",
+        "cheese"
+      ]
+    },
+    {
+      "when": [
+        "burger",
+        "hamburger",
+        "ground beef"
+      ],
+      "suggest": [
+        "hamburger buns",
+        "ketchup",
+        "lettuce",
+        "tomato"
+      ]
+    },
+    {
+      "when": [
+        "coffee",
+        "tim hortons coffee"
+      ],
+      "suggest": [
+        "coffee mate",
+        "milk",
+        "sugar"
+      ]
+    },
+    {
+      "when": [
+        "poutine",
+        "fries"
+      ],
+      "suggest": [
+        "cheese curds",
+        "poutine gravy"
+      ]
+    },
+    {
+      "when": [
+        "pancake",
+        "waffle"
+      ],
+      "suggest": [
+        "maple syrup",
+        "butter",
+        "eggs"
+      ]
+    },
+    {
+      "when": [
+        "pb",
+        "peanut butter"
+      ],
+      "suggest": [
+        "bread",
+        "jam"
+      ]
+    },
+    {
+      "when": [
+        "chips",
+        "all-dressed",
+        "ketchup chips"
+      ],
+      "suggest": [
+        "salsa",
+        "dip"
+      ]
+    },
+    {
+      "when": [
+        "soup"
+      ],
+      "suggest": [
+        "crackers",
+        "bread"
+      ]
+    },
+    {
+      "when": [
+        "pizza"
+      ],
+      "suggest": [
+        "garlic bread",
+        "cola"
+      ]
+    },
+    {
+      "when": [
+        "eggs"
+      ],
+      "suggest": [
+        "bacon",
+        "bread",
+        "butter"
+      ]
+    },
+    {
+      "when": [
+        "tea"
+      ],
+      "suggest": [
+        "honey",
+        "lemon"
+      ]
+    },
+    {
+      "when": [
+        "rice"
+      ],
+      "suggest": [
+        "soy sauce",
+        "frozen vegetables"
+      ]
+    },
+    {
+      "when": [
+        "hot dogs"
+      ],
+      "suggest": [
+        "hot dog buns",
+        "mustard",
+        "ketchup"
+      ]
+    }
+  ]
+}

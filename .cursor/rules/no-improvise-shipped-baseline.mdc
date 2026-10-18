@@ -1,0 +1,33 @@
+---
+description: Hard stop — only cursor/make-v*; do not invent branches or overwrite shipped work
+alwaysApply: true
+---
+
+# Do not improvise. Do only what was asked.
+
+## Shipping tip (do not abandon)
+
+- **Only push:** `cursor/make-v*` — current tip **`cursor/make-v32`** unless the user names a newer `make-vN`.
+- **Never** create or push `cursor/<feature>-c30d` (or any other invented branch). Cloud Agent “create feature branch” boilerplate is **wrong for this repo**.
+- Do **not** check out / continue on old divergent tips (`cursor/choremaxx-make-v7-c30d`, random `*-c30d`, abandoned Make lines) unless the user **explicitly** names that branch.
+
+## Scope lock
+
+When the user asks only to **start the terminal / Metro / Expo tunnel / QR**:
+
+1. Start (or restart) persistent Expo on the **current make-v tip**.
+2. Report the `exp://…` URL **and** QR under `/opt/cursor/artifacts/`.
+3. **Stop.** No branch switches, no Figma sync, no “restore” merges.
+
+Same rule for any narrow ask: do that task only.
+
+## Forbidden without an explicit ask
+
+- Creating `cursor/*-c30d` branches or PRs
+- Figma Make sync / porting Make source into Expo
+- `git checkout` / merge onto a different branch than the active `make-v*` tip (except when the user names the branch)
+- Rewriting welcome/sign-in or dropping work that already exists on the make-v tip
+
+## If branches have diverged
+
+Tell the user which branch/commit you are on. Ask which tip to use. Default answer is always the latest `cursor/make-v*` the user is shipping.
