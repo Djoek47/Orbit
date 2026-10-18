@@ -169,6 +169,17 @@ export function errorFingerprint(entry: { source?: string; title?: string; messa
   return text;
 }
 
+async function appVersion(): Promise<string | null> {
+  try {
+    const { default: Constants } = await import('expo-constants');
+    const v = Constants.expoConfig?.version;
+    const b = Constants.nativeBuildVersion ?? Constants.expoConfig?.ios?.buildNumber;
+    return v ? (b ? `${v} (${b})` : v) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function reportToConsole(entry: AppErrorEntry): Promise<void> {
   try {
     const { getSupabaseClient } = await import('@/lib/supabase/client');
@@ -182,6 +193,7 @@ async function reportToConsole(entry: AppErrorEntry): Promise<void> {
       title: (entry.title ?? entry.message).slice(0, 200),
       message: entry.message.slice(0, 500),
       fingerprint: errorFingerprint(entry),
+      app_version: await appVersion(),
     } as never);
   } catch {
     /* never throw from error reporting */

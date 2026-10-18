@@ -316,6 +316,31 @@ ${
           meta: { ...meta, screenshotUrls, attachmentPaths, categories: body.categories ?? {} },
         });
         if (ticketError) console.warn('support ticket not filed', ticketError.message);
+        // The errors they attached also go to the console's Errors section (Credits for billing /
+        // Poppins), linked to this ticket, so they group with the same errors from other people.
+        if (errors.length) {
+          const fingerprint = (e: ErrorDetail) =>
+            `${e.source ?? ''}|${e.title ?? e.message ?? ''}`
+              .toLowerCase()
+              .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/g, '#')
+              .replace(/\d+/g, '#')
+              .slice(0, 160);
+          const { error: reportError } = await admin.from('app_error_reports').insert(
+            errors.map((e) => ({
+              at: e.at && !Number.isNaN(Date.parse(e.at)) ? e.at : new Date().toISOString(),
+              source: e.source || 'app',
+              category: e.category || null,
+              title: String(e.title || e.message || 'Untitled').slice(0, 200),
+              message: e.message ? String(e.message).slice(0, 500) : null,
+              app_version: typeof meta.appVersion === 'string' ? meta.appVersion : null,
+              household_id: body.householdId ?? null,
+              user_id: userId || null,
+              ticket_ref: ref,
+              fingerprint: fingerprint(e),
+            }))
+          );
+          if (reportError) console.warn('attached errors not filed', reportError.message);
+        }
       }
     } catch (fileError) {
       console.warn('support ticket not filed', fileError);
