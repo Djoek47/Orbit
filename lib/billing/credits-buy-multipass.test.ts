@@ -51,18 +51,24 @@ test('Pass B2: one calm success card — receipt email status lives inside it, n
   assert.match(credits, /seq === purchaseSeq\.current\) setBuying\(null\)/);
 });
 
-test('Pass C: errors use native feedback Alert (no orbitAlert under Settings)', () => {
+test('Pass C: errors use soft PaywallMessage card (no orbitAlert / native Alert under Settings)', () => {
   const credits = read('app/poppins-credits.tsx');
-  assert.match(credits, /showNativeAppError/);
-  assert.match(credits, /That didn't go through/);
+  assert.match(credits, /showBuyError/);
+  assert.match(credits, /PaywallMessage/);
+  assert.match(credits, /Tap to tell us/);
+  assert.match(credits, /recordAppError/);
+  assert.match(credits, /That didn[\u2019']t go through/);
   assert.match(credits, /isUserCancelledPurchase/);
-  assert.doesNotMatch(credits, /orbitAlert\([\s\S]*didn't go through/);
+  assert.doesNotMatch(credits, /showNativeAppError/);
+  assert.doesNotMatch(credits, /orbitAlert\s*\(/);
   assert.doesNotMatch(credits, /from ['"]@\/components\/orbit\/orbit-alert['"]/);
-  const native = read('lib/errors/show-native-app-error.ts');
-  assert.match(native, /recordAppError/);
-  assert.match(native, /Send feedback/);
-  assert.match(native, /Alert\.alert/);
-  assert.match(native, /\/support\?errorId=/);
+  // Soft card must render outside the congrats block so failed buys are visible.
+  const buyErrorIdx = credits.indexOf('{buyError ?');
+  const congratsIdx = credits.indexOf('{congrats ?');
+  const adminIdx = credits.indexOf('{isAdmin ?');
+  assert.ok(buyErrorIdx > congratsIdx && buyErrorIdx < adminIdx, 'buyError sits between congrats and packs');
+  assert.doesNotMatch(credits.slice(congratsIdx, buyErrorIdx), /PaywallMessage/, 'not nested under congrats');
+  assert.match(credits.slice(buyErrorIdx, adminIdx), /PaywallMessage/);
 });
 
 test('Pass C2: purchase errors never stringify to [object Object]', () => {

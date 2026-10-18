@@ -27,14 +27,24 @@ test('showAppError helper records then opens Support', () => {
   assert.match(src, /record:\s*false/);
 });
 
-test('showNativeAppError covers Settings/Credits stack without RN Modal', () => {
+test('showNativeAppError stays available for Settings modals without RN Modal', () => {
   const src = read('lib/errors/show-native-app-error.ts');
   assert.match(src, /recordAppError/);
   assert.match(src, /Send feedback/);
   assert.match(src, /Alert\.alert/);
   assert.match(src, /friendlyErrorMessage/);
   assert.match(src, /formatUnknownError/);
-  assert.match(read('app/poppins-credits.tsx'), /showNativeAppError/);
+});
+
+test('Credits purchase errors use soft PaywallMessage + Support tap (no nested alert)', () => {
+  const credits = read('app/poppins-credits.tsx');
+  assert.match(credits, /showBuyError/);
+  assert.match(credits, /PaywallMessage/);
+  assert.match(credits, /recordAppError/);
+  assert.match(credits, /Tap to tell us/);
+  assert.match(credits, /\/support/);
+  assert.doesNotMatch(credits, /showNativeAppError/);
+  assert.doesNotMatch(credits, /orbitAlert\s*\(/);
 });
 
 test('formatUnknownError never returns [object Object]', async () => {

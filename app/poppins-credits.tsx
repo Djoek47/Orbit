@@ -397,7 +397,7 @@ function PoppinsCreditsScreenInner() {
           setReceiptMail({ kind: 'failed' });
         }
       } catch (error) {
-        // Native Alert + feedback loop — never orbitAlert under Settings (touch freeze).
+        // Soft card + recordAppError — never orbitAlert / native Alert under Settings (touch freeze).
         if (!isUserCancelledPurchase(error)) {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           await showBuyError(error);
@@ -502,11 +502,6 @@ function PoppinsCreditsScreenInner() {
               </Text>{' '}
               for {congrats.price} are in your bank. They never expire.
             </Text>
-            {buyError ? (
-              <Pressable onPress={() => router.push('/support' as never)} accessibilityHint="Opens Support">
-                <PaywallMessage tone="error" message={`${buyError} Tap to tell us.`} dark={isDark} />
-              </Pressable>
-            ) : null}
             <ReceiptMailRow mail={receiptMail} />
             <View style={styles.congratsActions}>
               <Pressable
@@ -538,6 +533,16 @@ function PoppinsCreditsScreenInner() {
               </Pressable>
             </View>
           </Animated.View>
+        ) : null}
+
+        {buyError ? (
+          <Pressable
+            onPress={() => router.push('/support' as never)}
+            accessibilityRole="button"
+            accessibilityHint="Opens Support"
+            accessibilityLabel={`${buyError} Tap to tell us`}>
+            <PaywallMessage tone="error" message={`${buyError} Tap to tell us.`} dark={isDark} />
+          </Pressable>
         ) : null}
 
         {isAdmin ? (

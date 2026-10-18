@@ -23,15 +23,19 @@ without hunting through logs.
    both record + offer feedback. Legal / network open failures use the same path
    (`openChoremaxxUrl`).
 
-   Under Settings / Credits (Expo `presentation: 'modal'`), use **native** feedback
+   Under Settings (Expo `presentation: 'modal'`), use **native** feedback
    so we never nest an RN Modal:
 
    ```ts
-   await showNativeAppError("That didn't go through", error, {
-     source: 'poppins-credits',
+   await showNativeAppError("That didn’t go through", error, {
+     source: 'settings',
      category: 'billing',
    });
    ```
+
+   **Credits** is the exception: purchase failures render an in-page soft
+   `PaywallMessage` (tap → Support) and still call `recordAppError` — no alert
+   at all under the Settings stack.
 
 ## Rules
 
@@ -39,12 +43,14 @@ without hunting through logs.
 - Never show `[object Object]` — always `formatUnknownError` before display.
 - Confirmations / success alerts use `{ record: false }` so they don’t open the loop.
 - Settings and other Expo modals must navigate only in the deferred `onPress`
-  after `orbitAlert` dismisses (already built in), or use `showNativeAppError`.
+  after `orbitAlert` dismisses (already built in), use `showNativeAppError`, or
+  (Credits) an in-page soft card that deep-links Support.
 - Cap the log (`MAX_ENTRIES`) so Support stays scannable.
 
 ## Follow-ups
 
-- Prefer `showAppError` / `showNativeAppError` / bare `orbitAlert` for new failures.
+- Prefer `showAppError` / `showNativeAppError` / bare `orbitAlert` for new failures;
+  Credits buy errors stay on the soft-card path.
 - Remaining intentional natives without feedback: Settings **confirm** menus only
   (`confirmCreditPackPurchase`, `confirmLeaveDevice`) — not error paths.
 - Optional: deep-link from crash recovery into the same Support compose.
