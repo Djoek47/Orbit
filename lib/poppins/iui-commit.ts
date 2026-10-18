@@ -30,6 +30,14 @@ import type {
   GroceryItem,
 } from '@/types/orbit';
 
+/** "Daily" / "Weekdays" / "Weekly" said out loud → the library's frequency. */
+function spokenFrequency(repeat: unknown): import('@/lib/tasks/task-library').Frequency | undefined {
+  if (repeat === 'Daily') return 'daily';
+  if (repeat === 'Weekdays') return 'weekdays';
+  if (repeat === 'Weekly') return 'weekly';
+  return undefined;
+}
+
 export type IuiCommitWrites = {
   household: HouseholdSnapshot;
   currentMember?: HouseholdMember | null;
@@ -374,7 +382,8 @@ export async function commitIuiBeat(
             ...buildLibraryAssignInput(
               library,
               assignee,
-              library.defaultFrequency,
+              // What the person said ("every day") wins over the catalog's usual rhythm.
+              spokenFrequency(p.repeat) ?? library.defaultFrequency,
               occurrence,
               householdDueTimeLocal(household, occurrence)
             ),
@@ -420,7 +429,7 @@ export async function commitIuiBeat(
             due: dueLabel,
             dueAt,
             xp: 10,
-            repeat: p.repeat === 'Daily' ? 'Daily' : 'None',
+            repeat: p.repeat === 'Daily' || p.repeat === 'Weekly' || p.repeat === 'Weekdays' ? p.repeat : 'None',
             difficulty: 'medium',
             weight: 1,
             occurrenceDate,

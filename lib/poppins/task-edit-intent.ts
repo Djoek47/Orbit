@@ -101,6 +101,17 @@ function related(a: string, b: string): boolean {
   });
 }
 
+/** Same word, a typo of it, or a synonym from a narrow group (not the "pet" family). */
+function strictlySame(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length > 3 && b.length > 3 && levenshtein(a, b) <= 1) return true;
+  return SYNONYMS.some((group) => {
+    if (group.includes('pet')) return false;
+    const g = group.map(stem);
+    return g.includes(a) && g.includes(b);
+  });
+}
+
 export function isOpen(task: EditableTask): boolean {
   const s = String(task.status ?? '').toLowerCase();
   return s !== 'completed' && s !== 'cancelled' && s !== 'done';
@@ -406,4 +417,41 @@ export function parseTaskListIntent(text: string, ctx: EditContext): Record<stri
 export function dayKeyFor(label: string, now = new Date()): string {
   if (WEEKDAYS.includes(label.toLowerCase())) return occurrenceDateForDueLabel(label, now);
   return occurrenceDateForDueLabel(label, now);
+}
+
+/**
+ * The same chore, for the same person, on the same day, is already open: "dishes for Mia
+ * today" when Mia has "Wash the dishes" today. Saying it again shouldn't make a second one —
+ * the card shows the one that's there. A different person or a different day is a new task.
+ */
+export function existingDuplicate(
+  title: string,
+  assignee: string | undefined,
+  due: string | undefined,
+  ctx: EditContext
+): Record<string, unknown> | null {
+  if (!title.trim() || !assignee?.trim()) return null;
+  const now = ctx.now ?? new Date();
+  const dayKey = occurrenceDateForDueLabel(due?.trim() || 'Today', now);
+  const who = assignee.trim().toLowerCase();
+  const said = contentWords(title);
+  const match = findTasks(title, ctx, { assignee, day: due || 'Today' }).find(
+    ({ task, score }) =>
+      score >= 1 &&
+      // Strict: every word said is in the title as itself (or a true synonym — trash/garbage),
+      // never through a broad family ("cat" is not "dog" just because both are pets).
+      said.every((w) => contentWords(task.title).some((h) => strictlySame(w, h))) &&
+      task.assignee?.toLowerCase() === who &&
+      resolveOccurrenceDate(task as never, now) === dayKey
+  );
+  if (!match) return null;
+  const r = row(match.task, now);
+  const whose = ctx.selfName && who === ctx.selfName.toLowerCase() ? 'your' : `${assignee.trim()}'s`;
+  return {
+    type: 'list_tasks',
+    rows: [{ id: r.id, title: r.title, assignee: r.detail }],
+    title: `Already on ${whose} list`,
+    thinkingLine: `Already on ${whose} list`,
+    duplicateOf: match.task.id,
+  };
 }

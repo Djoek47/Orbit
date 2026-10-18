@@ -13,8 +13,8 @@ import {
 } from '@/lib/poppins/ui-intent';
 import { isTripUtterance } from '@/lib/poppins/trip-parse';
 import { intentEvents } from '@/lib/poppins/ui-intent';
-import { prepareUtterance } from '@/lib/poppins/understand';
-import { parseTaskEditIntent, parseTaskListIntent, type EditableTask } from '@/lib/poppins/task-edit-intent';
+import { cleanActTitle, isFragment, prepareUtterance } from '@/lib/poppins/understand';
+import { existingDuplicate, findTasks, parseTaskEditIntent, parseTaskListIntent, pickTarget, type EditableTask } from '@/lib/poppins/task-edit-intent';
 
 const INHERIT_SLOTS = ['assignee', 'due', 'category', 'repeat'] as const;
 type InheritSlot = (typeof INHERIT_SLOTS)[number];
@@ -282,6 +282,8 @@ export function parseCompoundHouseholdIntent(
   if (prepared.language === 'fr' && prepared.residue.length) return [];
   const text = prepared.text.trim();
   if (!text) return [];
+  // Half a sentence ("appointment's name should be", "for next week") — never a card on its own.
+  if (isFragment(text)) return [];
 
   // A change to something that exists ("delete the dishes", "move the trash to Friday", "what
   // does Mia have tomorrow") — never a new task named after the sentence.
@@ -324,6 +326,28 @@ export function parseCompoundHouseholdIntent(
       parsed = inheritSlotsAcrossActions(parsed);
     }
   }
+
+  // Already there: the same chore for the same person on the same day — show it, don't copy it.
+  parsed = parsed.map((action) => {
+    if (!/^(?:create_task|create_task_draft|assign_task)$/.test(String(action.type))) return action;
+    const dup = existingDuplicate(
+      cleanActTitle(String(action.title ?? ''), { memberNames: editCtx.memberNames, selfName: editCtx.selfName }) ||
+        String(action.taskQuery ?? ''),
+      typeof action.assignee === 'string' ? action.assignee : undefined,
+      typeof action.due === 'string' ? action.due : undefined,
+      editCtx
+    );
+    return dup ? { ...dup, sourceUtterance: action.sourceUtterance } : action;
+  });
+
+  // "mark the dishes done" — pin the exact open task, not a substring guess at save time.
+  parsed = parsed.map((action) => {
+    if (String(action.type) !== 'complete_task' || action.taskId) return action;
+    const phrase = String(action.title ?? '').trim();
+    if (!phrase) return action;
+    const { task } = pickTarget(findTasks(phrase, editCtx));
+    return task ? { ...action, taskId: task.id, title: task.title } : action;
+  });
 
   if (parsed.length <= 8) return parsed;
 

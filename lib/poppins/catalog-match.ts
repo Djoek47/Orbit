@@ -405,7 +405,8 @@ function groceryAddIntentUncached(
   }
 
   // Rule 4: existing shopping-intent path (clothing / drops)
-  if (addCue && itemName && isShoppingIntent(stripped)) return true;
+  // "buy …" / "shopping list" still read as a list add; which aisle is decided per item.
+  if (addCue && itemName && (isShoppingIntent(stripped, itemName) || /\b(buy|shopping list)\b/.test(lower))) return true;
   return false;
 }
 
@@ -1163,14 +1164,20 @@ export function completeTitleFromUtterance(text: string): string | undefined {
   return lib.task?.name ?? lib.taskQuery ?? lib.domainLabel;
 }
 
-export function isShoppingIntent(text: string): boolean {
+/**
+ * Is this a clothing / shopping-lane item (sneakers, a hoodie), not the grocery aisle?
+ * Decided by the item itself. "buy" and "shopping list" are just how people ask for anything —
+ * reading them as clothing put toilet paper, apples and "a car" in the Clothing aisle.
+ */
+export function isShoppingIntent(text: string, itemName?: string): boolean {
   const lower = text.toLowerCase();
-  if (/\b(shopping list|want to (buy|get)|pick up|sneakers?|hoodie|jordan|nike|clothes|clothing)\b/.test(lower)) {
+  if (/\b(sneakers?|hoodie|jordans?|nikes?|clothes|clothing|outfit|jacket|shoes|t-?shirt|jeans|dress)\b/.test(lower)) {
     return true;
   }
-  if (/\bbuy\b/.test(lower) && !/\bbuy (milk|eggs|bread|grocer)/.test(lower)) return true;
-  const classified = classifyGroceryItem(extractItemName(text) || text);
-  return isClothingCategory(classified.categoryId);
+  const item = itemName?.trim() || extractItemName(text) || '';
+  if (!item) return false;
+  const classified = classifyGroceryItem(item);
+  return classified.confidence !== 'fallback' && isClothingCategory(classified.categoryId);
 }
 
 function cleanExtractedItemName(raw: string | undefined): string | undefined {
@@ -1363,16 +1370,16 @@ export function groceryAddActionsFromUtterance(
   const parts = splitGroceryObjectNames(itemName);
   if (!parts.length) return null;
 
-  const shopping = isShoppingIntent(text);
   const releaseDate = parseReleaseDate(text);
   const actions: Array<Record<string, unknown>> = [];
 
   for (const part of parts) {
+    const shopping = isShoppingIntent(text, part);
     if (opts?.excludeNames?.length && matchGroceryCatalog(part, opts) === null) {
       const memberItem = opts.excludeNames.some(
         (name) => name.trim().toLowerCase() === part.trim().toLowerCase()
       );
-      if (memberItem && !isShoppingIntent(text) && !/\b(list|grocer)/i.test(text)) continue;
+      if (memberItem && !shopping && !/\b(list|grocer)/i.test(text)) continue;
     }
     const catalog = matchGroceryCatalog(part, opts);
     if (!catalog) {

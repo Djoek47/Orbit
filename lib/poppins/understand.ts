@@ -232,6 +232,8 @@ export function frenchToEnglish(text: string): string {
   sub('chez le|chez la|chez les|chez', 'at the');
   for (const [pattern, en] of FR_EVENT_NOUNS) sub(pattern, en);
 
+  // "assign to Noah to tidy the room" (from "assigne à Noah de ranger…") → "assign tidy the room to Noah"
+  s = s.replace(/\bassign\s+(?:à|a)\s+(\p{Lu}[\p{L}'-]+)\s+(?:de\s+|d')(.+)$/iu, 'assign $2 to $1');
   // People.
   sub('pour moi|à moi|a moi', 'for me');
   sub('pour nous', 'for us');
@@ -242,6 +244,7 @@ export function frenchToEnglish(text: string): string {
   sub('et', 'and');
   sub('aussi', 'also');
   sub('avec', 'with');
+  sub('à|au|aux', 'to');
   sub('pour', 'for');
   sub('dans', 'in');
   sub("le|la|les|l'|un|une|des|du|de|d'", ' ');
@@ -367,6 +370,56 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * "Call The Plumber" → "Call the plumber". Free-form titles read like a sentence; people's
+ * names and short all-caps words (TV, PTA) keep their capitals.
+ */
+export function sentenceCase(text: string, keep: string[] = []): string {
+  const keepSet = new Set(keep.map((k) => k.toLowerCase()));
+  const parts = text.trim().split(/(\s+)/);
+  let first = true;
+  return parts
+    .map((part) => {
+      if (!part.trim()) return part;
+      const bare = part.replace(/[^\p{L}'-]/gu, '');
+      let out: string;
+      if (first) out = part.charAt(0).toLocaleUpperCase() + part.slice(1);
+      else if (keepSet.has(bare.toLowerCase()) || keepSet.has(bare.replace(/'s$/i, '').toLowerCase())) out = part;
+      else if (/^\p{Lu}{2,4}$/u.test(bare)) out = part;
+      else out = part.toLocaleLowerCase();
+      first = false;
+      return out;
+    })
+    .join('');
+}
+
+/**
+ * Half a sentence: the person paused mid-thought or is talking about a card's name.
+ * Acting on it makes nonsense ("appointment's name should be" → an event of that name).
+ */
+export function isFragment(text: string): boolean {
+  const s = text.replace(/[’`]/g, "'").replace(/[.,!?]+$/g, '').trim().toLowerCase();
+  if (!s) return true;
+  if (/\b(?:should\s+be|will\s+be|is|are|was|to\s+be|called|named|the\s+name|name|title|like|um+|uh+)$/.test(s)) return true;
+  if (/^(?:the|its|it's|his|her|their|my)?\s*(?:name|title)\b/.test(s)) return true;
+  if (/^(?:and|or|but|so|then|also|plus|for|with|at|on|by)\b/.test(s) && s.split(/\s+/).length <= 4) return true;
+  return false;
+}
+
+const BUY_VERB = /\b(?:buy|purchase|order|get|grab|pick\s+up|pickup)\b/i;
+
+/** "I need to pick up the dry cleaning tomorrow" → "Pick up the dry cleaning". */
+function errandTitle(utterance: string, fallbackItem: string, ctx: TitleContext): string {
+  const m = utterance.match(/\b(buy|purchase|order|get|grab|pick\s+up|pickup)\s+(.+)$/i);
+  if (m) {
+    const verb = m[1]!.toLowerCase().replace('pickup', 'pick up');
+    const object = cleanActTitle(m[2]!, ctx);
+    const article = m[2]!.trim().match(/^(a|an|the|some)\s/i)?.[1]?.toLowerCase();
+    if (object) return sentenceCase(`${verb} ${article && !object.toLowerCase().startsWith(article + ' ') ? `${article} ` : ''}${object}`, ctx.memberNames ?? []);
+  }
+  return buyTitle(fallbackItem);
+}
+
 export type TitleContext = {
   memberNames?: string[];
   selfName?: string;
@@ -407,6 +460,8 @@ export function cleanActTitle(raw: string | undefined | null, ctx: TitleContext 
     s = s.replace(new RegExp(String.raw`^(?:${names.join('|')})(?:'s)?\s+`, 'i'), '');
     s = s.replace(new RegExp(String.raw`\s+(?:${names.join('|')})$`, 'i'), '');
   }
+  // "… on Emma's list", "… to my list"
+  s = s.replace(new RegExp(String.raw`\s+(?:on|to|onto|in)\s+(?:${who}'s|my|our|his|her|their)\s+(?:list|tasks?|chores?)\b`, 'gi'), ' ');
   s = s.replace(WHEN_WORDS, ' ');
   // Leftover glue at either end.
   s = s
@@ -416,7 +471,8 @@ export function cleanActTitle(raw: string | undefined | null, ctx: TitleContext 
     .replace(/\s+/g, ' ')
     .trim();
   s = s.replace(/\s+(?:task|chore|to-?do|reminder)s?$/i, '').trim();
-  s = s.replace(/^(?:(?:a|an|the|some|my|our|one)\s+)+/i, (m) => (s.split(' ').length > m.trim().split(' ').length ? m : '')).trim();
+  // "the laundry" → "laundry"; a lone article stays so the empty check below catches it.
+  s = s.replace(/^(?:(?:a|an|the|some|my|our|one)\s+)+/i, (m) => (s.split(' ').length > m.trim().split(' ').length ? '' : m)).trim();
   if (!s || META_ONLY.test(s) || BARE_VERB.test(s) || /^(?:a|an|the|some|my|our|one)$/i.test(s)) return '';
   if (names.some((n) => new RegExp(`^${n}$`, 'i').test(s))) return '';
   if (/^(?:me|myself|us|you|today|tomorrow|tonight)$/i.test(s)) return '';
@@ -473,7 +529,8 @@ export function isListItem(name: string, utterance: string): boolean {
 /** "Car" → "Buy a car", "Tickets" → "Buy tickets". */
 function buyTitle(name: string): string {
   const item = name.trim().toLocaleLowerCase();
-  if (/^(?:a|an|the|some)\s/.test(item) || /s$/.test(item)) return capitalizeFirst(`buy ${item}`);
+  const head = item.split(/\s+/)[0] ?? '';
+  if (/^(?:a|an|the|some|new)\s/.test(item) || /s$/.test(head)) return capitalizeFirst(`buy ${item}`);
   return capitalizeFirst(`buy ${/^[aeiou]/.test(item) ? 'an' : 'a'} ${item}`);
 }
 
@@ -538,6 +595,41 @@ export function sanitizeActs(
         // "TâChe" — a broken title-case from a non-Unicode \b.
         next.title = unicodeTitleCase(next.title.toLocaleLowerCase());
       }
+      // "give Noah the laundry", "assign Mia the dishes" — the person right after the verb.
+      // A day is never a person ("give Noah the laundry for Saturday" read Saturday as who).
+      if (typeof next.assignee === 'string' && new RegExp(`^(?:${WEEKDAYS}|today|tomorrow|tonight)$`, 'i').test(next.assignee)) {
+        delete next.assignee;
+      }
+      if (!next.assignee && ctx.memberNames?.length) {
+        const names = ctx.memberNames.map(escapeRegExp).join('|');
+        const m = utterance.match(new RegExp(String.raw`\b(?:give|assign|hand|let|have|get)\s+(${names})\b`, 'i'));
+        if (m) {
+          next.assignee = ctx.memberNames.find((n) => n.toLowerCase() === m[1]!.toLowerCase());
+          // …and that name was not part of the chore ("Noah the laundry" → "Laundry").
+          if (typeof next.title === 'string' && !libraryTitle) {
+            const t = cleanActTitle(next.title, ctx);
+            next.title = t ? capitalizeFirst(t) : next.title;
+          }
+        }
+      }
+      // "I need to …", "I have to …", "I should …" — the speaker's own task.
+      if (!next.assignee && ctx.selfName && /^(?:i\s+(?:need|have|got|want|should|must|gotta)\b|i'(?:ve|ll)\b)/i.test(utterance)) {
+        next.assignee = ctx.selfName;
+      }
+      // Free-form titles read like a sentence: "Call the plumber", not "Call The Plumber".
+      if (typeof next.title === 'string' && next.title.split(' ').length > 1) {
+        next.title = sentenceCase(next.title, [...(ctx.memberNames ?? []), ...(ctx.selfName ? [ctx.selfName] : [])]);
+      }
+      // One word that isn't a chore anyone knows ("fixes") — not enough to make a task.
+      if (
+        !next.libraryTaskId &&
+        !next.assignee &&
+        !next.due &&
+        next.namedByPerson !== true &&
+        utterance.trim().split(/\s+/).length === 1
+      ) {
+        continue;
+      }
       // "me" means the speaker — said as the assignee, or as "…to me" / "…for me".
       if (typeof next.assignee === 'string' && /^(?:me|myself|moi)$/i.test(next.assignee) && ctx.selfName) {
         next.assignee = ctx.selfName;
@@ -548,6 +640,12 @@ export function sanitizeActs(
         /\b(?:(?:to|for)\s+me|assign\s+me|remind\s+me|my\s+(?:task|chore)s?)\b/i.test(utterance)
       ) {
         next.assignee = ctx.selfName;
+      }
+      // "every day", "on weekdays", "every week" — a repeating chore, starting today.
+      if (!next.repeat) {
+        if (/\b(?:every\s*day|each\s+day|daily|every\s+night|every\s+morning)\b/i.test(utterance)) next.repeat = 'Daily';
+        else if (/\b(?:weekdays|every\s+weekday|monday\s+to\s+friday)\b/i.test(utterance)) next.repeat = 'Weekdays';
+        else if (/\b(?:every\s+week|weekly|once\s+a\s+week)\b/i.test(utterance)) next.repeat = 'Weekly';
       }
       // A day said in the sentence that no reader picked up ("…tonight").
       if (!next.due) {
@@ -588,15 +686,37 @@ export function sanitizeActs(
 
     if (type === 'add_grocery') {
       const name = String(action.name ?? '').trim();
-      if (name && !isListItem(name, utterance)) {
-        // "buy a car" — an errand, not something for the grocery aisle.
+      const asking = Array.isArray(action.chips) && action.chips.length > 0;
+      const errand = (item: string) => {
+        if (!BUY_VERB.test(utterance)) return false; // "add a reward" is not shopping — let it go
         out.push({
           type: 'create_task_draft',
-          title: buyTitle(name),
+          title: errandTitle(utterance, item, ctx),
           namedByPerson: true,
+          ...(spokenDay(utterance) ? { due: spokenDay(utterance) } : {}),
+          ...(ctx.selfName && /^(?:i\b|i')/i.test(utterance) ? { assignee: ctx.selfName } : {}),
           sourceUtterance: action.sourceUtterance ?? utterance,
         });
+        return true;
+      };
+      if (name && !isListItem(name, utterance)) {
+        // "buy a car", "pick up the dry cleaning" — an errand, not the grocery aisle.
+        errand(name);
         continue;
+      }
+      if (!name && asking) {
+        // "buy a new phone" — the list offered Honey / Penne by sound. Not a grocery at all.
+        const object = utterance.match(/\b(?:buy|purchase|order|get|grab|pick\s+up)\s+(.+)$/i)?.[1];
+        const item = object ? cleanActTitle(object, ctx) : '';
+        if (item && NOT_GROCERIES.test(item) && errand(object!)) continue;
+      }
+      if (!name && !asking) {
+        // Nothing to put on the list ("buy a new phone" lost its item) — an errand if it was one.
+        const object = utterance.match(/\b(?:buy|purchase|order|get|grab|pick\s+up)\s+(.+)$/i)?.[1];
+        if (object && !isListItem(cleanActTitle(object, ctx), utterance)) {
+          errand(object);
+          continue;
+        }
       }
       out.push(action);
       continue;

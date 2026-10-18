@@ -635,7 +635,7 @@ function enrichGrocery(
       },
     ];
   }
-  const shopping = isShoppingIntent(utterance) || action.lane === 'clothing';
+  const shopping = isShoppingIntent(utterance, name) || action.lane === 'clothing';
   const releaseDate =
     (action.releaseDate ? String(action.releaseDate) : undefined) || parseReleaseDate(utterance);
   const storeHint = preferredStore(getActiveHouseMemory());
