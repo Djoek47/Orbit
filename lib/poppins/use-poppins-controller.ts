@@ -71,7 +71,13 @@ import {
 import { commitSpeakOpen, hydrateHouseMemory, prepareSpeakOpen } from '@/lib/poppins/speak-open';
 import { stageHeaderLabel } from '@/lib/poppins/stage-header';
 import { setIntentEvents, setIntentPlaces } from '@/lib/poppins/ui-intent';
-import { findCommittableLocalWriteBeat, pendingLineForLocalWrite } from '@/lib/poppins/local-act-confirm';
+import {
+  confirmationForLocalWrite,
+  findCommittableLocalWriteBeat,
+  pendingLineForLocalWrite,
+} from '@/lib/poppins/local-act-confirm';
+import { subscribeCommitOutcome } from '@/lib/poppins/iui-commit';
+import type { IuiBeat } from '@/lib/poppins/ui-scenes';
 import { getAdHocTourHooks } from '@/lib/tour/ad-hoc-tour';
 import { poppinsUiOrchestrator, usePoppinsUiDrive } from '@/lib/poppins/ui-orchestrator';
 import { HOLD_MS_DEFAULT, HOLD_MS_KID } from '@/lib/poppins/ui-scenes';
@@ -161,6 +167,7 @@ export function usePoppinsController() {
   const { c, isDark } = useOrbitColors();
   const {
     appendPoppinsTurn,
+    amendLastPoppinsReply,
     askPoppins,
     household,
     currentMember,
@@ -1073,6 +1080,32 @@ export function usePoppinsController() {
    * grammar as Max; the model is asked only when the grammar found nothing to put on stage,
    * and nothing is ever spoken back.
    */
+  // The thread said "Adding Bread…" for this card. When it saves (or doesn't), the line says so —
+  // it must never read "Added" over a card that shows "Not saved".
+  const pendingThreadBeatRef = useRef<IuiBeat | null>(null);
+  const amendLastPoppinsReplyRef = useRef(amendLastPoppinsReply);
+  amendLastPoppinsReplyRef.current = amendLastPoppinsReply;
+  useEffect(
+    () =>
+      subscribeCommitOutcome((outcome) => {
+        const beat = pendingThreadBeatRef.current;
+        if (!beat || beat.id !== outcome.beatId) return;
+        pendingThreadBeatRef.current = null;
+        const amend = amendLastPoppinsReplyRef.current;
+        if (outcome.ok) {
+          amend(outcome.note?.trim() || confirmationForLocalWrite(beat));
+        } else {
+          const what = beat.payload.groceryName || beat.payload.title;
+          amend(
+            outcome.ask?.trim() ||
+              (what ? `Couldn't save “${what}” — tap Try again on the card.` : "Couldn't save that — tap Try again on the card.")
+          );
+        }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const runBaseTurn = async (text: string, source: TurnInputSource) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -1120,7 +1153,10 @@ export function usePoppinsController() {
         // While the card is still up, say what's about to happen, not that it happened.
         const iui = poppinsUiOrchestrator.getState();
         const pendingBeat = iui.live ? findCommittableLocalWriteBeat(iui.playlist, iui.index) : null;
-        if (pendingBeat) return pendingLineForLocalWrite(pendingBeat);
+        if (pendingBeat) {
+          pendingThreadBeatRef.current = pendingBeat;
+          return pendingLineForLocalWrite(pendingBeat);
+        }
         const confirm = (resolved.localConfirm ?? '').trim();
         if (confirm) return confirm;
         const answer = (resolved.answer ?? resolved.modelAnswer ?? '').trim();

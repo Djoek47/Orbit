@@ -44,7 +44,7 @@ import { stageAccent, stageDomainLabel, stageFill } from '@/constants/iui-stage'
 import { isAvatarImageUri, memberDisplayEmoji } from '@/lib/game-levels';
 import { householdHasChildren } from '@/lib/household/has-children';
 import { HOW_TO_INDEX } from '@/lib/poppins/how-to';
-import { commitIuiBeat } from '@/lib/poppins/iui-commit';
+import { commitIuiBeat, emitCommitOutcome } from '@/lib/poppins/iui-commit';
 import { assignableMembers, resultMarkTitle, stageSceneKey } from '@/lib/poppins/stage-scene';
 import { getSessionDirectMode, getSessionUndoMs } from '@/lib/poppins/session-act-mode';
 import {
@@ -199,12 +199,27 @@ export function PoppinsStage({
       }
     });
     poppinsUiOrchestrator.setCommitHandler(async (beat: IuiBeat) => {
-      const result = await commitIuiBeat(beat, {
-        ...writesRef.current,
-        onGroupItemStatus: (itemId, status) => {
-          poppinsUiOrchestrator.patchGroupItemStatus(itemId, status);
-        },
-      });
+      let result: Awaited<ReturnType<typeof commitIuiBeat>>;
+      try {
+        result = await commitIuiBeat(beat, {
+          ...writesRef.current,
+          onGroupItemStatus: (itemId, status) => {
+            poppinsUiOrchestrator.patchGroupItemStatus(itemId, status);
+          },
+        });
+      } catch (error) {
+        emitCommitOutcome({
+          beatId: beat.id,
+          ok: false,
+          ask: error instanceof Error && error.name === 'CommitRefusedError' ? error.message : undefined,
+        });
+        throw error;
+      }
+      emitCommitOutcome(
+        result.ok
+          ? { beatId: beat.id, ok: true, note: result.note }
+          : { beatId: beat.id, ok: false, ask: result.ask }
+      );
       return result.ok
         ? { reverse: result.reverse, note: result.note }
         : { ask: result.ask, reverse: undefined };

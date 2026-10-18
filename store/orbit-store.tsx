@@ -430,6 +430,8 @@ type OrbitContextValue = {
   ) => Promise<void>;
   recordActEvent: (event: import('@/lib/ai/act-events').ActEvent) => Promise<void>;
   appendPoppinsTurn: (question: string, answer: string) => void;
+  /** Replace Poppins' last reply in the thread ("Adding Bread…" → "Added Bread." or why it failed). */
+  amendLastPoppinsReply: (answer: string) => void;
   /** Shared-tablet face switch — awaits profile-code bind before UI commits. */
   switchPersona: (memberId: string) => Promise<void>;
   approveMember: (memberId: string) => Promise<void>;
@@ -6225,6 +6227,23 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     );
   };
 
+  const amendLastPoppinsReply = (answer: string) => {
+    const a = answer.trim();
+    if (!a) return;
+    setPoppinsConversation((current) => {
+      for (let i = current.length - 1; i >= 0; i -= 1) {
+        if (current[i]!.role === 'user') break;
+        if (current[i]!.role === 'assistant') {
+          if (current[i]!.content === a) return current;
+          const next = [...current];
+          next[i] = { ...next[i]!, content: a };
+          return next;
+        }
+      }
+      return [...current, { role: 'assistant' as const, content: a }];
+    });
+  };
+
   const switchPersona = async (memberId: string) => {
     const member = household.members.find((m) => m.id === memberId);
     if (!member) {
@@ -7912,6 +7931,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       recordPoppinsUsage,
       recordActEvent,
       appendPoppinsTurn,
+      amendLastPoppinsReply,
       switchPersona,
       switchingPersona,
       approveMember,

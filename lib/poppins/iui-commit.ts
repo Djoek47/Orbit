@@ -38,6 +38,19 @@ function spokenFrequency(repeat: unknown): import('@/lib/tasks/task-library').Fr
   return undefined;
 }
 
+/** Every HOLD / tap commit's result, for whoever narrates it (the typing thread). */
+export type CommitOutcome = { beatId: string; ok: boolean; note?: string; ask?: string };
+const outcomeListeners = new Set<(outcome: CommitOutcome) => void>();
+export function subscribeCommitOutcome(listener: (outcome: CommitOutcome) => void): () => void {
+  outcomeListeners.add(listener);
+  return () => {
+    outcomeListeners.delete(listener);
+  };
+}
+export function emitCommitOutcome(outcome: CommitOutcome): void {
+  for (const listener of outcomeListeners) listener(outcome);
+}
+
 export type IuiCommitWrites = {
   household: HouseholdSnapshot;
   currentMember?: HouseholdMember | null;
