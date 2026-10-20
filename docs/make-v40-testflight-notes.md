@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v40-c30d`  
 **Base:** make-v39 / TF **1.3.0 (128)**  
-**Status:** Matrix green — cutting **1.3.0 (129)**.
+**Status:** **1.3.0 (129)** build queued + ASC auto-submit scheduled.
 
 ---
 
