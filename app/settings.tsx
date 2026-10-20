@@ -287,7 +287,7 @@ export default function SettingsScreen() {
   ]);
   const [entitlement, setEntitlement] = useState<EntitlementState | null>(null);
   const premiumAccess = useAccess();
-  const subscriptionInfo = useSubscription(household.premium);
+  const subscriptionInfo = useSubscription(household.premium, currentUser?.trialUsedAt);
   const [billingBusy, setBillingBusy] = useState(false);
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameInput, setDisplayNameInput] = useState(

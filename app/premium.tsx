@@ -63,7 +63,7 @@ export default function PremiumScreen() {
   const insets = useSafeAreaInsets();
   const { household, orbitPalette, accentTheme, currentMember, currentUser, signOut } = useOrbit();
   const access = useAccess();
-  const sub = useSubscription(household.premium);
+  const sub = useSubscription(household.premium, currentUser?.trialUsedAt);
   const [accountOpen, setAccountOpen] = useState(false);
   const [eligible, setEligible] = useState<Partial<Record<'monthly' | 'yearly', boolean>>>({});
   const [storePrices, setStorePrices] = useState<Record<string, StorePrice>>({});

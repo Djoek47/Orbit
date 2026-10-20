@@ -15,6 +15,7 @@ export function mapProfileToUser(row: {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
+  trial_used_at?: string | null;
 }): OrbitUser {
   const name = row.display_name?.trim() || '';
   return {
@@ -24,6 +25,7 @@ export function mapProfileToUser(row: {
     avatar: name.charAt(0).toUpperCase() || row.email.charAt(0).toUpperCase() || 'O',
     // Apple private-relay local-parts must not count as a finished name.
     profileComplete: isProfileNameComplete(name, row.email),
+    trialUsedAt: row.trial_used_at ?? null,
   };
 }
 

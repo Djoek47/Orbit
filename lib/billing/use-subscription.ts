@@ -44,7 +44,11 @@ const NO_RENEWAL: RenewalState = {
   graceEndsAt: null,
 };
 
-export function useSubscription(householdPremium: HouseholdPremium | null | undefined): SubscriptionInfo {
+export function useSubscription(
+  householdPremium: HouseholdPremium | null | undefined,
+  /** profiles.trial_used_at for the signed-in person. */
+  userTrialUsedAt?: string | null
+): SubscriptionInfo {
   const [ready, setReady] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [renewal, setRenewal] = useState<RenewalState>(NO_RENEWAL);
@@ -67,7 +71,10 @@ export function useSubscription(householdPremium: HouseholdPremium | null | unde
     void refresh();
   }, [refresh]);
 
-  const past = useMemo(() => billingPast({ history, householdPremium }), [history, householdPremium]);
+  const past = useMemo(
+    () => billingPast({ history, householdPremium, userTrialUsedAt }),
+    [history, householdPremium, userTrialUsedAt]
+  );
   // Both plans share one subscription group, so one trial covers both: eligible for either
   // means eligible. Unknown counts as eligible — Apple's purchase sheet is the final word.
   const appleTrialEligible =

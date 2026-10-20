@@ -51,6 +51,7 @@ async function loadProfileUser(
       email: data.email || emailFallback,
       display_name: data.display_name,
       avatar_url: data.avatar_url,
+      trial_used_at: (data as { trial_used_at?: string | null }).trial_used_at ?? null,
     });
   }
 

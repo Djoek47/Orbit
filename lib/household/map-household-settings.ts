@@ -24,6 +24,7 @@ export type HouseholdSettingsRow = {
   premium_environment?: string | null;
   premium_updated_at?: string | null;
   premium_will_renew?: boolean | null;
+  trial_used_at?: string | null;
 };
 
 /**
@@ -45,6 +46,7 @@ export function mapHouseholdPremiumFromRow(
     environment: env === 'Sandbox' || env === 'Production' || env === 'Xcode' ? env : null,
     updatedAt: row.premium_updated_at ?? null,
     willRenew: typeof row.premium_will_renew === 'boolean' ? row.premium_will_renew : null,
+    trialUsedAt: row.trial_used_at ?? null,
   };
 }
 

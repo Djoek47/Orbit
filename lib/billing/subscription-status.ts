@@ -9,9 +9,10 @@
  *   subscribe     no trial on offer and nothing on record (the Apple ID used
  *                 its trial in another household, or the offer is not set up) → Subscribe
  *
- * The free-trial button appears only in the first. Apple decides eligibility, but Apple is
- * asked from the phone in hand; the household's own record ("this house already had its
- * trial") is the second check, so a trial is never promised twice to the same house.
+ * The free-trial button appears only in the first, and only if nothing anywhere says a trial
+ * was used: not the household (households.trial_used_at, permanent), not the person
+ * (profiles.trial_used_at, permanent), not this phone's Apple ID (its ledger, or Apple's own
+ * eligibility check). A trial is offered once, ever.
  *
  * And once a household is covered, the same route shows the dashboard instead: what plan,
  * how many days remain, whether it renews, and the way to Apple's cancel screen.
@@ -29,6 +30,11 @@ export type BillingPast = {
   usedTrial: boolean;
   /** A paid period has been seen. */
   everPaid: boolean;
+  /**
+   * The person (or this phone's Apple ID) has had a free trial somewhere. Not "trial ended"
+   * for this house — but no trial is offered again either. A trial is offered once, ever.
+   */
+  accountUsedTrial: boolean;
   /** When the last period ended, if one did. ISO. */
   lastEndedAt: string | null;
 };
@@ -56,11 +62,18 @@ const DAY_MS = 86_400_000;
 export function billingPast(input: {
   history: HistoryEntry[];
   householdPremium?: HouseholdPremium | null;
+  /** profiles.trial_used_at — this person started a trial in some household. Permanent. */
+  userTrialUsedAt?: string | null;
 }): BillingPast {
   const { householdPremium } = input;
   const recorded = Boolean(householdPremium?.expiresAt);
-  const usedTrial = recorded && Boolean(householdPremium?.inTrial);
+  // households.trial_used_at is permanent; the Premium snapshot is only the current period
+  // and is empty when a sync never landed or the subscription moved away.
+  const usedTrial =
+    Boolean(householdPremium?.trialUsedAt) || (recorded && Boolean(householdPremium?.inTrial));
   const everPaid = recorded && !householdPremium?.inTrial;
+  const accountUsedTrial =
+    Boolean(input.userTrialUsedAt) || input.history.some((entry) => entry.kind === 'trial');
   const ends = [householdPremium?.expiresAt ?? null]
     .filter((v): v is string => Boolean(v))
     .map((v) => new Date(v).getTime())
@@ -68,6 +81,7 @@ export function billingPast(input: {
   return {
     usedTrial,
     everPaid,
+    accountUsedTrial,
     lastEndedAt: ends.length ? new Date(Math.max(...ends)).toISOString() : null,
   };
 }
@@ -82,6 +96,9 @@ export function paywallMode(input: {
   const { past } = input;
   if (past.everPaid) return input.billingIssue ? 'payment-issue' : 'renew';
   if (past.usedTrial) return 'trial-ended';
+  // This person or this Apple ID already had a trial (another house, or a record Apple's
+  // eligibility probe missed): never a second one, whatever the probe says.
+  if (past.accountUsedTrial) return 'subscribe';
   if (input.appleTrialEligible === false) return 'subscribe';
   return 'trial';
 }

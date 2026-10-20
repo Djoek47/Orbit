@@ -168,6 +168,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (error || !updated) return json({ error: error?.message ?? 'update_failed' }, 500);
+
+    // A trial is offered once, ever: stamp the permanent marks the first time one is seen
+    // (household and the person). Never cleared — see 20261020100000_trial_used_forever.sql.
+    if (inTrial) {
+      const now = new Date().toISOString();
+      await admin.from('households').update({ trial_used_at: now }).eq('id', householdId).is('trial_used_at', null);
+      await admin.from('profiles').update({ trial_used_at: now }).eq('id', user.id).is('trial_used_at', null);
+    }
     return json({ ok: true, premium: updated });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error) }, 500);

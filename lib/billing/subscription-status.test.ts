@@ -33,10 +33,21 @@ assert.equal(paywallMode({ appleTrialEligible: true, past: fresh }), 'trial');
 assert.equal(paywallMode({ appleTrialEligible: undefined, past: fresh }), 'trial', 'unknown = eligible');
 assert.equal(paywallMode({ appleTrialEligible: false, past: fresh }), 'subscribe');
 
-// The trial button disappears once the house has had its trial — even if Apple still says yes.
-// This phone's history is the Apple ID's, not the house's: a new house is not "trial ended".
+// This phone's Apple ID had a trial: a new house is not "trial ended", but no second trial —
+// even if Apple's probe (or its failure) says yes.
 const afterTrial = billingPast({ history: [trial] });
-assert.equal(paywallMode({ appleTrialEligible: true, past: afterTrial }), 'trial');
+assert.equal(paywallMode({ appleTrialEligible: true, past: afterTrial }), 'subscribe');
+assert.equal(paywallMode({ appleTrialEligible: undefined, past: afterTrial }), 'subscribe');
+// The person had a trial in some household (profiles.trial_used_at): never another.
+const personTrial = billingPast({ history: [], householdPremium: null, userTrialUsedAt: iso(-30 * day) });
+assert.equal(paywallMode({ appleTrialEligible: true, past: personTrial }), 'subscribe');
+// The household's permanent mark survives a wiped Premium snapshot (sync lost, or moved away).
+const wiped = billingPast({
+  history: [],
+  householdPremium: { productId: null, inTrial: false, expiresAt: null, environment: null, updatedAt: null, willRenew: null, trialUsedAt: iso(-20 * day) },
+});
+assert.equal(paywallMode({ appleTrialEligible: true, past: wiped }), 'trial-ended');
+assert.equal(paywallMode({ appleTrialEligible: undefined, past: wiped }), 'trial-ended');
 // Apple says this Apple ID already used it: no trial, but not "ended" either.
 assert.equal(paywallMode({ appleTrialEligible: false, past: afterTrial }), 'subscribe');
 // The household row remembers it too (another admin's phone had the trial).

@@ -11,6 +11,8 @@ export type OrbitUser = {
   name: string;
   avatar: string;
   profileComplete: boolean;
+  /** profiles.trial_used_at — this person started a free trial somewhere. Permanent. */
+  trialUsedAt?: string | null;
 };
 
 export type AuthSession = {
@@ -746,6 +748,8 @@ export type HouseholdPremium = {
   updatedAt: string | null;
   /** Apple's auto-renew status when last reported. False means the admin cancelled. */
   willRenew: boolean | null;
+  /** households.trial_used_at — first trial seen for this house. Permanent; never cleared. */
+  trialUsedAt?: string | null;
 };
 
 export type HouseholdSnapshot = {
