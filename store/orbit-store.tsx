@@ -121,6 +121,7 @@ import { canRequestReward } from '@/lib/rewards/can-request-reward';
 import { canProposeReward, type RewardProposal } from '@/lib/rewards/reward-proposals';
 import { groceryAddAllowedForSidekick, isSidekickRole, poppinsAiAllowedForSidekick } from '@/lib/sidekick/permissions';
 import { assigneeMemberIdsForTask } from '@/lib/sidekick/task-assigned-notify';
+import { renameAssigneeInTasks } from '@/lib/tasks/rename-assignee';
 import {
   assigneeMemberForTask,
   notifyTaskAssigned,
@@ -1966,9 +1967,22 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     const user = await authRepository.createProfile(currentUser, input);
     setCurrentUser(user);
     setHousehold((current) => {
+      const ownerRowNames = current.members
+        .filter(
+          (member) =>
+            member.role === 'owner' ||
+            member.name === previousName ||
+            member.name === current.greetingName
+        )
+        .map((member) => member.name);
       const next: HouseholdSnapshot = {
         ...current,
         greetingName: user.name,
+        // Tasks follow the renamed row, or they'd be assigned to nobody.
+        tasks: ownerRowNames.reduce(
+          (tasks, oldName) => renameAssigneeInTasks(tasks, oldName, user.name),
+          current.tasks
+        ),
         members: current.members.map((member) => {
           const isOwnerRow =
             member.role === 'owner' ||
@@ -2008,12 +2022,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       household.id
     );
     setHousehold((current) => {
+      const previousName = current.members.find((member) => member.id === memberId)?.name ?? '';
       const next = {
         ...current,
         greetingName:
           currentMember?.id === memberId || updated?.role === 'owner'
             ? trimmed
             : current.greetingName,
+        // Their tasks follow them (the database trigger does the same server-side).
+        tasks: renameAssigneeInTasks(current.tasks, previousName, trimmed),
         members: current.members.map((member) =>
           member.id === memberId
             ? { ...member, name: trimmed, ...(updated ?? {}) }
@@ -2151,6 +2168,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (renamed) {
         nextHousehold = {
           ...nextHousehold,
+          tasks: renameAssigneeInTasks(nextHousehold.tasks, selfMember.name, user.name),
           members: nextHousehold.members.map((member) =>
             member.id === selfMember.id ? renamed : member
           ),

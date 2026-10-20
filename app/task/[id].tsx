@@ -253,6 +253,27 @@ export default function TaskDetailScreen() {
       );
 
   const canAdjust = Boolean(canEdit && task.status !== 'Cancelled');
+  // Assigned to a name nobody in the household has (e.g. the person was renamed before
+  // tasks followed renames). Nobody can finish it, so offer the fix right here.
+  const orphaned =
+    !split &&
+    Boolean(task.assignee?.trim()) &&
+    !household.members.some(
+      (member) =>
+        member.status === 'active' &&
+        member.name.trim().toLowerCase() === task.assignee.trim().toLowerCase()
+    );
+  const takeOrphan = async () => {
+    if (!currentMember) return;
+    setBusy(true);
+    try {
+      await reassignTask(task.id, currentMember.name);
+    } catch (error) {
+      orbitAlert('Couldn’t take it', error instanceof Error ? error.message : 'Try again in a moment.');
+    } finally {
+      setBusy(false);
+    }
+  };
   const isOpenWork = stateView.open;
 
   const handleAttachProof = async (forAssignee?: string) => {
@@ -1320,6 +1341,18 @@ export default function TaskDetailScreen() {
                 label="Send reminder"
                 onPress={handleSendReminder}
               />
+            ) : null}
+            {orphaned && canAdjust && isOpenWork ? (
+              <View style={[styles.waitCard, { borderColor: `${c.warning}55`, backgroundColor: `${c.warning}12` }]}>
+                <MaterialIcons name="person-off" size={18} color={c.warning} />
+                <Text style={[styles.waitText, { color: c.textSoft }]}>
+                  Assigned to “{task.assignee}”, who isn’t in this household under that name, so nobody can finish it.
+                  Take it, or pick someone under Who.
+                </Text>
+              </View>
+            ) : null}
+            {orphaned && canAdjust && isOpenWork && currentMember ? (
+              <DetailAction disabled={busy} label="Take it" onPress={() => void takeOrphan()} />
             ) : null}
             {canAdjust && isOpenWork ? (
               <DetailAction
