@@ -1,0 +1,42 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      auto_submit:
+        description: 'Submit to App Store Connect after build'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  testflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run testflight:preflight
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build iOS (TestFlight profile)
+        run: |
+          FLAGS="--platform ios --profile testflight --non-interactive"
+          if [ "${{ inputs.auto_submit }}" = "true" ]; then
+            FLAGS="$FLAGS --auto-submit"
+          fi
+          eas build $FLAGS

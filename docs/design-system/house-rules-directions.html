@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChoreMaxx · House Rules — full build</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --espresso:#1B1410;--card:#2E241C;--cream:#F2E7D4;--cream-dim:#BCA98F;
+  --olive:#8E9C5C;--ember:#E4572E;--navy:#16233A;--navy-card:#1E2E4A;--amber:#E9B44C;
+  --kid-paper:#FFF7EC;--kid-ink:#2B2019;--kid-grape:#6C5CE7;--kid-mango:#FF9F1C;
+  --kid-mint:#17B9A0;--kid-punch:#FF5A5F;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Bricolage Grotesque',system-ui,sans-serif;background:#14100D;color:var(--cream);-webkit-font-smoothing:antialiased;padding-bottom:64px}
+.wrap{max-width:520px;margin:0 auto;padding:0 16px}
+.pagehead{padding:28px 0 16px}
+.pagehead h1{font-size:22px;margin:0 0 6px;font-weight:700;font-variation-settings:'wdth' 80;letter-spacing:-.01em}
+.pagehead h1 span{color:var(--ember)}
+.pagehead p{margin:0;font-size:13.5px;line-height:1.55;color:var(--cream-dim)}
+.controls{position:sticky;top:0;z-index:20;background:#14100D;padding:12px 0 14px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tab{appearance:none;border:1px solid #3A2E24;background:transparent;color:var(--cream-dim);font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:10px 4px;border-radius:10px;cursor:pointer;line-height:1.25}
+.tab b{display:block;font-size:13px;letter-spacing:0;text-transform:none;font-weight:700;margin-top:3px;color:inherit}
+.tab[aria-selected="true"]{background:var(--cream);color:#14100D;border-color:var(--cream)}
+.tab:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+.modeswitch{display:flex;gap:4px;background:#221A14;border-radius:999px;padding:4px;margin:10px auto 0;width:230px}
+.modeswitch button{flex:1;appearance:none;border:0;background:transparent;color:var(--cream-dim);font-family:inherit;font-size:13px;font-weight:600;padding:8px 0;border-radius:999px;cursor:pointer}
+.modeswitch button[aria-pressed="true"]{background:var(--ember);color:#fff}
+.modeswitch button:focus-visible{outline:2px solid var(--cream);outline-offset:2px}
+.note{padding:4px 2px 16px}
+.note .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ember);font-weight:700}
+.note h2{margin:6px 0 6px;font-size:19px;font-weight:700;font-variation-settings:'wdth' 82}
+.note p{margin:0;font-size:13.5px;line-height:1.55;color:var(--cream-dim)}
+.phone{width:100%;max-width:390px;margin:0 auto 8px;aspect-ratio:390/800;border-radius:42px;padding:9px;background:#000;box-shadow:0 24px 60px rgba(0,0,0,.55),0 0 0 1px #35291f}
+.screen{width:100%;height:100%;border-radius:34px;overflow-y:auto;overflow-x:hidden;position:relative;scrollbar-width:thin}
+.screen::-webkit-scrollbar{width:5px}
+.screen::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:99px}
+.statusbar{display:flex;justify-content:space-between;padding:14px 26px 2px;font-size:13px;font-weight:600;opacity:.8}
+.concept{display:none}
+.concept.active{display:block}
+body[data-mode="adult"] .kid{display:none}
+body[data-mode="kid"] .adult{display:none}
+
+/* ---- C1 Chapters ---- */
+.c1a{background:var(--espresso);color:var(--cream)}
+.c1a .nav{display:flex;align-items:center;justify-content:space-between;padding:10px 22px 4px;font-size:14px;color:var(--olive)}
+.c1a .title{padding:8px 22px 4px}
+.c1a .title h3{margin:0;font-size:30px;font-weight:700;font-variation-settings:'wdth' 78;letter-spacing:-.02em}
+.c1a .title p{margin:5px 0 0;font-size:12.5px;color:var(--cream-dim)}
+.c1a .body{padding:18px 22px 44px;display:flex;flex-direction:column;gap:14px}
+.chapter{display:flex;background:var(--card);border-radius:16px;overflow:hidden;border:1px solid #3B2E23}
+.chapter .spine{width:38px;flex:0 0 38px;background:#372A20;display:flex;align-items:center;justify-content:center}
+.chapter .spine span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:var(--olive)}
+.chapter.ember .spine span{color:var(--ember)}
+.chapter .inner{padding:16px 16px 18px;flex:1;min-width:0}
+.chapter .count{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7C6A57;font-weight:600}
+.clause{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid #3A2D22}
+.clause:last-child{border-bottom:0;padding-bottom:0}
+.clause .n{font-size:11px;font-weight:700;color:var(--ember);padding-top:3px;min-width:26px;font-variant-numeric:tabular-nums}
+.clause p{margin:0;font-size:14px;line-height:1.45;color:#EADCC6}
+.clause p b{color:#fff;font-weight:700}
+.ledger{margin-top:10px;border-top:1px dashed #4A3A2C;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:11px;padding:5px 9px;border-radius:7px;background:#3A2D22;color:#D3C0A5;font-variant-numeric:tabular-nums}
+.pill b{color:var(--olive)}
+.c1a .foot{padding:0 22px 44px;font-size:11.5px;line-height:1.6;color:#7C6A57}
+
+.c1k{background:var(--kid-paper);color:var(--kid-ink)}
+.c1k .nav{display:flex;justify-content:space-between;padding:10px 20px 2px;font-size:14px;color:var(--kid-grape);font-weight:600}
+.c1k .title{padding:6px 20px 2px}
+.c1k .title h3{margin:0;font-size:32px;font-weight:800;font-variation-settings:'wdth' 76;letter-spacing:-.025em}
+.c1k .title p{margin:5px 0 0;font-size:13px;color:#7A6A5C;font-weight:500}
+.c1k .body{padding:16px 20px 44px;display:flex;flex-direction:column;gap:14px}
+.kidchap{background:#fff;border-radius:20px;padding:0 0 14px;overflow:hidden;box-shadow:0 3px 0 rgba(43,32,25,.10)}
+.kidchap .tab2{padding:11px 18px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff}
+.kidchap.grape .tab2{background:var(--kid-grape)}
+.kidchap.mango .tab2{background:var(--kid-mango)}
+.kidchap.mint .tab2{background:var(--kid-mint)}
+.kidchap.punch .tab2{background:var(--kid-punch)}
+.kidchap.ink .tab2{background:#4A3F5C}
+.kidrule{padding:13px 18px 0}
+.kidrule h4{margin:0 0 3px;font-size:16.5px;font-weight:800;letter-spacing:-.015em}
+.kidrule p{margin:0;font-size:13.5px;line-height:1.45;color:#6E5F52}
+.kidchap .divider{height:1px;background:#F0E7DA;margin:13px 18px 0}
+.numtag{display:inline-block;background:#FFF0DC;color:#B5651D;font-weight:800;font-size:12.5px;padding:2px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
+
+/* ---- C2 At a glance ---- */
+.c2a{background:var(--navy);color:#E7EDF6}
+.c2a .nav{display:flex;justify-content:space-between;padding:10px 20px 4px;font-size:14px;color:var(--amber)}
+.c2a .title{padding:8px 20px 0}
+.c2a .title h3{margin:0;font-size:29px;font-weight:700;font-variation-settings:'wdth' 80;letter-spacing:-.02em}
+.c2a .seg{display:flex;gap:4px;background:#101A2B;border-radius:12px;padding:4px;margin:14px 20px 0}
+.c2a .seg div{flex:1;text-align:center;font-size:13px;font-weight:600;padding:8px 0;border-radius:9px;color:#7E8DA6}
+.c2a .seg div.on{background:var(--navy-card);color:#fff}
+.c2a .body{padding:16px 20px 44px;display:flex;flex-direction:column;gap:12px}
+.grouphead{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);font-weight:700;padding:12px 2px 0}
+.dcard{background:var(--navy-card);border-radius:16px;padding:15px 16px 17px}
+.dcard .lab{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:#8DA0BC;font-weight:700}
+.dcard h4{margin:7px 0 4px;font-size:16px;font-weight:700}
+.dcard p{margin:0;font-size:13px;line-height:1.45;color:#A9B8CE}
+.dcard p+p{margin-top:8px}
+.dcard.quiet{background:transparent;border:1px solid #2A3A57;padding:14px 16px}
+.ramp{display:flex;align-items:flex-end;gap:6px;height:64px;margin:14px 0 8px}
+.ramp i{flex:1;background:linear-gradient(180deg,var(--amber),#B07E22);border-radius:5px 5px 3px 3px;position:relative;font-style:normal}
+.ramp i span{position:absolute;top:-17px;left:0;right:0;text-align:center;font-size:11px;color:#C9D6E8;font-variant-numeric:tabular-nums}
+.timeline{margin:15px 0 6px;position:relative;height:52px}
+.timeline .rail{position:absolute;top:14px;left:0;right:0;height:5px;border-radius:99px;background:linear-gradient(90deg,var(--kid-mint) 0 52%,var(--amber) 52% 88%,#8A3A2C 88% 100%)}
+.timeline .mk{position:absolute;top:0;transform:translateX(-50%);text-align:center;width:76px}
+.timeline .mk b{display:block;width:11px;height:11px;border-radius:99px;background:#fff;margin:11px auto 5px;border:3px solid var(--navy-card)}
+.timeline .mk span{font-size:10.5px;color:#A9B8CE;font-variant-numeric:tabular-nums;line-height:1.25;display:block}
+.lctable{width:100%;border-collapse:collapse;margin-top:12px;font-variant-numeric:tabular-nums}
+.lctable td{padding:7px 0;font-size:13.5px;border-bottom:1px solid #2A3A57}
+.lctable tr:last-child td{border-bottom:0}
+.lctable td:first-child{color:#8DA0BC}
+.lctable td:last-child{text-align:right;color:var(--amber);font-weight:700}
+.dots{display:flex;gap:7px;margin-top:13px}
+.dots i{width:13px;height:13px;border-radius:99px;border:2px solid #4E6389;font-style:normal}
+.dots i.miss{background:#8A3A2C;border-color:#8A3A2C}
+.rescue{display:flex;gap:8px;margin-top:13px}
+.rescue div{flex:1;background:#101A2B;border-radius:11px;padding:10px 8px;text-align:center}
+.rescue div u{display:block;text-decoration:none;font-size:17px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums}
+.rescue div span{font-size:10.5px;color:#8DA0BC;line-height:1.3;display:block;margin-top:3px}
+.rescue div.gone u{color:#D9634A}
+.podium{display:flex;align-items:flex-end;gap:8px;height:70px;margin:14px 0 4px}
+.podium i{flex:1;border-radius:7px 7px 3px 3px;font-style:normal;position:relative}
+.podium i span{position:absolute;top:-17px;left:0;right:0;text-align:center;font-size:11px;color:#C9D6E8;font-weight:700}
+.podium i:nth-child(1){height:70%;background:#B9C2CF}
+.podium i:nth-child(2){height:100%;background:var(--amber)}
+.podium i:nth-child(3){height:52%;background:#A9713F}
+.models{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.models b{font-size:12.5px;font-weight:600;background:#101A2B;padding:9px 12px;border-radius:9px;color:#C9D6E8}
+.models b.on{background:var(--amber);color:#16233A;font-weight:700}
+
+.c2k{background:#0E1A2E;color:#EAF2FF}
+.c2k .nav{display:flex;justify-content:space-between;padding:10px 20px 4px;font-size:14px;color:var(--kid-mango);font-weight:600}
+.c2k .title{padding:8px 20px 0}
+.c2k .title h3{margin:0;font-size:31px;font-weight:800;font-variation-settings:'wdth' 76;letter-spacing:-.025em}
+.c2k .title p{margin:5px 0 0;font-size:13px;color:#8FA4C4}
+.c2k .body{padding:16px 20px 44px;display:flex;flex-direction:column;gap:12px}
+.kcard{background:#182842;border-radius:20px;padding:16px 17px 18px;border:2px solid #22385A}
+.kcard h4{margin:0 0 6px;font-size:18px;font-weight:800;letter-spacing:-.02em}
+.kcard p{margin:0;font-size:13.5px;line-height:1.45;color:#9DB2D2}
+.kcard p+p{margin-top:8px}
+.stairs{display:flex;align-items:flex-end;gap:5px;height:78px;margin:12px 0 6px}
+.stairs i{flex:1;border-radius:7px;font-style:normal;position:relative;background:var(--kid-mint)}
+.stairs i:nth-child(2){background:#3EC49F}.stairs i:nth-child(3){background:#8CC63F}
+.stairs i:nth-child(4){background:var(--kid-mango)}.stairs i:nth-child(5){background:#FF7A2F}
+.stairs i:nth-child(6){background:var(--kid-punch)}
+.stairs i span{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:11.5px;font-weight:800;color:#EAF2FF}
+.swap{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.swap b{font-size:12.5px;font-weight:700;background:#22385A;padding:6px 10px;border-radius:9px;color:#CFE0F7;font-variant-numeric:tabular-nums}
+.swap b em{font-style:normal;color:var(--kid-mango)}
+.bell{display:flex;align-items:center;gap:10px;margin-top:13px;background:#101E36;border-radius:13px;padding:11px 13px}
+.bell u{text-decoration:none;font-size:22px;font-weight:800;color:var(--kid-mango);font-variant-numeric:tabular-nums}
+.bell span{font-size:12.5px;color:#9DB2D2;line-height:1.35}
+.kdots{display:flex;gap:8px;margin-top:12px;align-items:center}
+.kdots i{width:22px;height:22px;border-radius:8px;background:#22385A;font-style:normal}
+.kdots i.miss{background:var(--kid-punch)}
+.kpodium{display:flex;align-items:flex-end;gap:9px;height:84px;margin:14px 0 4px}
+.kpodium i{flex:1;border-radius:10px 10px 4px 4px;font-style:normal;position:relative;display:flex;align-items:flex-start;justify-content:center;padding-top:7px;font-size:15px;font-weight:800;color:#0E1A2E}
+.kpodium i:nth-child(1){height:68%;background:#B9C2CF}
+.kpodium i:nth-child(2){height:100%;background:var(--kid-mango)}
+.kpodium i:nth-child(3){height:50%;background:#C4834B}
+
+/* ---- C3 Track ---- */
+.c3a{background:#1F1A12;color:#EDE3CF}
+.c3a .nav{display:flex;justify-content:space-between;padding:10px 20px 4px;font-size:14px;color:var(--olive)}
+.c3a .title{padding:8px 22px 0}
+.c3a .title h3{margin:0;font-size:29px;font-weight:700;font-variation-settings:'wdth' 78;letter-spacing:-.02em}
+.c3a .title p{margin:6px 0 0;font-size:12.5px;color:#9C8D74;line-height:1.5}
+.track{padding:22px 22px 20px}
+.trackhead{padding:6px 22px 0;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ember);font-weight:700}
+.stop{display:grid;grid-template-columns:62px 1fr;gap:14px;position:relative;padding-bottom:24px}
+.stop:last-child{padding-bottom:6px}
+.stop .time{font-size:12.5px;font-weight:700;color:#C9B58F;text-align:right;padding-top:1px;font-variant-numeric:tabular-nums;line-height:1.3}
+.stop .time em{display:block;font-style:normal;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#7E7057;font-weight:600;margin-top:3px}
+.stop .col{position:relative;padding-left:22px}
+.stop .col::before{content:"";position:absolute;left:0;top:5px;width:11px;height:11px;border-radius:99px;background:var(--olive);box-shadow:0 0 0 4px #2A2318}
+.stop .col::after{content:"";position:absolute;left:5px;top:16px;bottom:-24px;width:1px;background:#3E3527}
+.stop:last-child .col::after{display:none}
+.stop.hot .col::before{background:var(--ember)}
+.stop.dead .col::before{background:#6B4034}
+.stop.gold .col::before{background:var(--amber)}
+.stop h4{margin:0 0 4px;font-size:15.5px;font-weight:700}
+.stop p{margin:0;font-size:13px;line-height:1.5;color:#A99878}
+.stop p+p{margin-top:7px}
+.stop .mini{margin-top:9px;display:flex;flex-wrap:wrap;gap:5px}
+.stop .mini b{font-size:11px;font-weight:600;background:#2C2519;border:1px solid #3E3527;padding:4px 8px;border-radius:6px;color:#C9B58F;font-variant-numeric:tabular-nums}
+
+.c3k{background:#123A2E;color:#EAFBF2}
+.c3k .nav{display:flex;justify-content:space-between;padding:10px 20px 4px;font-size:14px;color:#7FE3B8;font-weight:600}
+.c3k .title{padding:8px 22px 0}
+.c3k .title h3{margin:0;font-size:31px;font-weight:800;font-variation-settings:'wdth' 76;letter-spacing:-.025em}
+.c3k .title p{margin:6px 0 0;font-size:13px;color:#8FCBB2}
+.ktrack{padding:20px 20px 16px}
+.ktrackhead{padding:8px 22px 0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7FE3B8;font-weight:800}
+.kstop{display:flex;gap:14px;position:relative;padding-bottom:20px}
+.kstop .node{flex:0 0 46px;height:46px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#123A2E;background:#7FE3B8;position:relative;z-index:2}
+.kstop.warn .node{background:var(--kid-mango)}
+.kstop.stop2 .node{background:var(--kid-punch);color:#fff}
+.kstop.gold .node{background:#F5D77A}
+.kstop::after{content:"";position:absolute;left:23px;top:46px;bottom:0;width:4px;background:#1B5044;border-radius:99px}
+.kstop:last-child::after{display:none}
+.kstop .kbox{background:#17493A;border-radius:16px;padding:12px 14px 13px;flex:1;min-width:0}
+.kstop h4{margin:0 0 3px;font-size:16px;font-weight:800;letter-spacing:-.015em}
+.kstop p{margin:0;font-size:13px;line-height:1.45;color:#9ED5BE}
+.kstop p+p{margin-top:7px}
+.kstop .when{display:inline-block;margin-bottom:6px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7FE3B8}
+.kstop.warn .when{color:var(--kid-mango)}
+.kstop.stop2 .when{color:#FF9AA0}
+.kstop.gold .when{color:#F5D77A}
+
+/* ---- C4 Ask Poppins ---- */
+.c4a{background:#221B15;color:#F0E6D4}
+.c4a .nav{display:flex;justify-content:space-between;padding:10px 20px 4px;font-size:14px;color:var(--olive)}
+.c4a .title{padding:10px 24px 0}
+.c4a .title h3{margin:0;font-size:28px;font-weight:700;font-variation-settings:'wdth' 78;letter-spacing:-.02em}
+.c4a .search{margin:14px 24px 0;background:#2E251C;border:1px solid #3E3225;border-radius:12px;padding:11px 14px;font-size:13.5px;color:#8D7C66}
+.c4a .grouplab{padding:22px 24px 6px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ember);font-weight:700}
+.qa{padding:14px 24px;border-top:1px solid #372C21}
+.qa h4{margin:0 0 6px;font-size:15px;font-weight:700;line-height:1.35}
+.qa p{margin:0;font-size:13.5px;line-height:1.55;color:#A9977C}
+.qa p+p{margin-top:8px}
+.qa p b{color:#F0E6D4;font-weight:700}
+.c4a .sig{padding:26px 24px 44px;font-size:12px;color:#7C6C57;line-height:1.6;border-top:1px solid #372C21;margin-top:8px}
+
+.c4k{background:#F6F1FF;color:#241C36}
+.c4k .nav{display:flex;justify-content:space-between;padding:10px 20px 4px;font-size:14px;color:var(--kid-grape);font-weight:600}
+.c4k .title{padding:8px 22px 2px}
+.c4k .title h3{margin:0;font-size:30px;font-weight:800;font-variation-settings:'wdth' 76;letter-spacing:-.025em}
+.c4k .title p{margin:5px 0 0;font-size:13px;color:#6E6288}
+.chat{padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px}
+.ask{align-self:flex-end;max-width:78%;background:var(--kid-grape);color:#fff;border-radius:18px 18px 5px 18px;padding:10px 14px;font-size:13.5px;font-weight:600;line-height:1.4}
+.ans{align-self:flex-start;max-width:88%;background:#fff;border-radius:18px 18px 18px 5px;padding:12px 15px 13px;box-shadow:0 2px 0 rgba(36,28,54,.07)}
+.ans .who{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--kid-grape);margin-bottom:5px}
+.ans p{margin:0;font-size:13.5px;line-height:1.5;color:#3C3352}
+.ans p+p{margin-top:7px}
+.ans p b{color:#241C36;font-weight:800}
+.ans .facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.ans .facts b{font-size:12px;font-weight:800;background:#F0EBFF;color:var(--kid-grape);padding:5px 9px;border-radius:8px;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:7px;padding:4px 20px 44px}
+.chips b{font-size:12.5px;font-weight:700;border:1.5px solid #D9CFF5;color:#5A4E85;padding:7px 11px;border-radius:99px;background:#fff}
+
+@media (prefers-reduced-motion: no-preference){
+  .concept.active{animation:fade .28s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+</style>
+</head>
+<body data-mode="adult">
+<div class="wrap">
+
+  <div class="pagehead">
+    <h1>chore<span>maxx</span> · House Rules, complete</h1>
+    <p>All four directions, now carrying the full rule set — 29 rules across 7 chapters, including everything that wasn't on the original screen. Flip between Adult and Kid on any direction.</p>
+  </div>
+
+  <div class="controls">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-c="1">01<b>Chapters</b></button>
+      <button class="tab" role="tab" aria-selected="false" data-c="2">02<b>At a glance</b></button>
+      <button class="tab" role="tab" aria-selected="false" data-c="3">03<b>The Track</b></button>
+      <button class="tab" role="tab" aria-selected="false" data-c="4">04<b>Ask Poppins</b></button>
+    </div>
+    <div class="modeswitch">
+      <button data-m="adult" aria-pressed="true">Adult</button>
+      <button data-m="kid" aria-pressed="false">Kid</button>
+    </div>
+  </div>
+
+  <!-- ================= 01 CHAPTERS ================= -->
+  <section class="concept active" data-concept="1">
+    <div class="note">
+      <div class="eyebrow">Direction 01</div>
+      <h2>Chapters</h2>
+      <p>Seven chapters, 29 numbered clauses. Scales the best of the four — a new rule is just a new clause, and the spine keeps long chapters legible while scrolling.</p>
+    </div>
+    <div class="phone">
+      <div class="screen c1a adult">
+        <div class="statusbar"><span>8:52</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><span>‹ Settings</span><span>Edit</span></div>
+        <div class="title"><h3>House Rules</h3><p>7 chapters · 29 rules · last edited 2 Aug</p></div>
+        <div class="body">
+
+          <div class="chapter ember">
+            <div class="spine"><span>Earning</span></div>
+            <div class="inner">
+              <div class="count">Chapter 1 · 5 rules</div>
+              <div class="clause"><div class="n">1.1</div><p>Every task carries an XP value from <b>5 to 30</b>, set by difficulty. Finish before the deadline and the full value is awarded.</p></div>
+              <div class="clause"><div class="n">1.2</div><p>Finish every task in a domain group on time for a <b>+10 XP</b> bundle bonus. If any task in it ran late, the bonus is +7.</p></div>
+              <div class="clause"><div class="n">1.3</div><p>XP lands the moment a kid taps <b>Complete</b> — not on approval. You're notified and can verify afterward.</p></div>
+              <div class="clause"><div class="n">1.4</div><p>Personal Hygiene tasks are tracked as <b>streaks, not points</b>. 19 of the 150 library tasks score zero XP by design.</p></div>
+              <div class="clause"><div class="n">1.5</div><p>Only admins can assign tasks, approve completions, request proof, and approve allowance.</p></div>
+            </div>
+          </div>
+
+          <div class="chapter">
+            <div class="spine"><span>Deadlines</span></div>
+            <div class="inner">
+              <div class="count">Chapter 2 · 5 rules</div>
+              <div class="clause"><div class="n">2.1</div><p>Daily tasks close at <b>7:00 PM</b> household time. Weekly tasks close Sunday 7:00 PM, monthly on the last Sunday at 7:00 PM.</p></div>
+              <div class="clause"><div class="n">2.2</div><p>Poppins sends task notifications, including a final nudge <b>30 minutes</b> before anything is due.</p></div>
+              <div class="clause"><div class="n">2.3</div><p><b>Late Credit</b> is applied the instant Complete is tapped, and never recomputed. A late task still keeps the streak and carries a late indicator.</p>
+                <div class="ledger">
+                  <span class="pill">5 → <b>3</b></span><span class="pill">10 → <b>7</b></span><span class="pill">15 → <b>12</b></span>
+                  <span class="pill">20 → <b>16</b></span><span class="pill">25 → <b>20</b></span><span class="pill">30 → <b>25</b></span>
+                </div>
+              </div>
+              <div class="clause"><div class="n">2.4</div><p>At <b>11:59 PM</b> anything unfinished becomes <b>Expired</b> and can no longer be completed.</p></div>
+              <div class="clause"><div class="n">2.5</div><p>An expired weekly or monthly task costs its XP but <b>never breaks a streak</b>.</p></div>
+            </div>
+          </div>
+
+          <div class="chapter">
+            <div class="spine"><span>Streaks</span></div>
+            <div class="inner">
+              <div class="count">Chapter 3 · 4 rules</div>
+              <div class="clause"><div class="n">3.1</div><p>Only <b>daily and weekday</b> tasks feed the streak.</p></div>
+              <div class="clause"><div class="n">3.2</div><p>A streak ends after <b>3 misses in a row</b>, or 3 misses inside any rolling 7 days.</p></div>
+              <div class="clause"><div class="n">3.3</div><p><b>Streak Rescue</b> costs 10% of that week's XP after one missed day and 20% after two consecutive. A third consecutive miss loses the streak permanently. Decline and the XP stays, the streak goes.</p></div>
+              <div class="clause"><div class="n">3.4</div><p><b>Recess</b> switches tasks off and freezes streaks at their current value — leave on 12 days, return on 12 days.</p></div>
+            </div>
+          </div>
+
+          <div class="chapter ember">
+            <div class="spine"><span>Crowns</span></div>
+            <div class="inner">
+              <div class="count">Chapter 4 · 6 rules</div>
+              <div class="clause"><div class="n">4.1</div><p><b>The Week's Crown</b> goes to the highest XP each week. <b>Monthly Sovereign</b> is settled on the last Sunday.</p></div>
+              <div class="clause"><div class="n">4.2</div><p>First place is gold, second silver, third bronze.</p></div>
+              <div class="clause"><div class="n">4.3</div><p>Ties produce <b>duplicate ranks</b> — two firsts, then two seconds.</p></div>
+              <div class="clause"><div class="n">4.4</div><p>The winner's sheet shows tasks completed, on-time count and late tasks. Every member's sheet is viewable.</p></div>
+              <div class="clause"><div class="n">4.5</div><p><b>Champion's Record</b> keeps every crown won, by member.</p></div>
+              <div class="clause"><div class="n">4.6</div><p>Trophies unlock on lifetime XP. The top tier, <b>Most Glorious</b>, sits at 100,000 XP.</p></div>
+            </div>
+          </div>
+
+          <div class="chapter ember">
+            <div class="spine"><span>Rewards</span></div>
+            <div class="inner">
+              <div class="count">Chapter 5 · 5 rules</div>
+              <div class="clause"><div class="n">5.1</div><p>The household runs one of five models: XP only, Allowance, XP + Rewards, XP + Allowance, or the full system.</p></div>
+              <div class="clause"><div class="n">5.2</div><p>Rewards are tied to finishing that day's assigned tasks and homework. Each reward carries its own frequency.</p></div>
+              <div class="clause"><div class="n">5.3</div><p>A reward is either <b>instant</b> or <b>requires approval</b>, set per reward.</p></div>
+              <div class="clause"><div class="n">5.4</div><p>Allowance is <b>recorded in ChoreMaxx, not transferred</b> — no money moves through the app. Approvals follow the household schedule, and <b>Approve now</b> always works.</p></div>
+              <div class="clause"><div class="n">5.5</div><p><b>Mint Reward</b> creates one of your own, on any reward page.</p></div>
+            </div>
+          </div>
+
+          <div class="chapter">
+            <div class="spine"><span>Proof</span></div>
+            <div class="inner">
+              <div class="count">Chapter 6 · 2 rules</div>
+              <div class="clause"><div class="n">6.1</div><p>On chores, admins can <b>request proof</b> on a completed task. It's optional and per task — it verifies the work, it doesn't gate the reward.</p></div>
+              <div class="clause"><div class="n">6.2</div><p>Homework keeps its own tab, and photo proof is <b>required</b>. It's configured per child, on by default, and an admin confirms it.</p></div>
+            </div>
+          </div>
+
+          <div class="chapter">
+            <div class="spine"><span>Household</span></div>
+            <div class="inner">
+              <div class="count">Chapter 7 · 2 rules</div>
+              <div class="clause"><div class="n">7.1</div><p>Two roles: <b>Admin</b> and <b>Helper</b>. Only admins hold the permissions in 1.5.</p></div>
+              <div class="clause"><div class="n">7.2</div><p>Admins can change any rule here. The kid version rewrites itself to match, in their words.</p></div>
+            </div>
+          </div>
+
+        </div>
+        <div class="foot">Deadlines run on household-local time. Changes take effect the next day, so nothing already in progress changes value mid-task.</div>
+      </div>
+
+      <div class="screen c1k kid">
+        <div class="statusbar"><span>8:52</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><span>‹ Back</span><span>Ask Poppins</span></div>
+        <div class="title"><h3>How it works</h3><p>Everything, in order. Nothing hidden.</p></div>
+        <div class="body">
+
+          <div class="kidchap grape">
+            <div class="tab2">Points</div>
+            <div class="kidrule"><h4>Every job is worth points</h4><p>Small jobs are worth <span class="numtag">5</span> and the biggest ones are worth <span class="numtag">30</span>. Finish on time, get all of them.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Finish a whole set, get a bonus</h4><p>All the jobs in one group, done on time — that's <span class="numtag">+10</span> extra. If one was late, it's <span class="numtag">+7</span>.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Points show up right away</h4><p>Tap Complete and they're yours. You don't have to wait for anyone.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Hygiene jobs are different</h4><p>Brushing your teeth and showering don't give points. They build a streak instead.</p></div>
+          </div>
+
+          <div class="kidchap mango">
+            <div class="tab2">The bell</div>
+            <div class="kidrule"><h4>The bell rings at 7:00 PM</h4><p>Weekly jobs are due Sunday. Monthly ones on the last Sunday.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Poppins warns you first</h4><p>You get a nudge 30 minutes before anything is due.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Late still counts</h4><p>You just get a bit less. A <span class="numtag">10</span> becomes a <span class="numtag">7</span>. Your streak is safe.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>At 11:59 PM the day closes</h4><p>Anything left is gone. Tomorrow is a fresh list.</p></div>
+          </div>
+
+          <div class="kidchap mint">
+            <div class="tab2">Your streak</div>
+            <div class="kidrule"><h4>Daily jobs keep it alive</h4><p>Weekly and monthly jobs can't break it, ever.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Three misses ends it</h4><p>Three days in a row, or three days in one week.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>You can buy a day back</h4><p>One missed day costs <span class="numtag">10%</span> of the week's points. Two costs <span class="numtag">20%</span>. After three, the streak is gone for good.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Recess pauses everything</h4><p>On holiday your streak waits for you. Leave on 12 days, come back on 12 days.</p></div>
+          </div>
+
+          <div class="kidchap punch">
+            <div class="tab2">Crowns</div>
+            <div class="kidrule"><h4>The Week's Crown</h4><p>Most points in the week wins it. Gold, then silver, then bronze.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Monthly Sovereign</h4><p>The big one, decided on the last Sunday of the month.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>A tie means you both win</h4><p>Same points, same place. Nobody gets bumped down.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Your Champion's Record</h4><p>Every crown you've ever won is kept there. So are everyone else's.</p></div>
+          </div>
+
+          <div class="kidchap ink">
+            <div class="tab2">Prizes &amp; proof</div>
+            <div class="kidrule"><h4>Prizes come from finishing the day</h4><p>Your tasks and your homework. Your family chooses what the prize is.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Allowance is counted here</h4><p>ChoreMaxx keeps the score. The actual money comes from your family.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>Homework needs a photo</h4><p>Snap it when you're done so a parent can check it off.</p></div>
+            <div class="divider"></div>
+            <div class="kidrule"><h4>A parent might ask for a photo</h4><p>Only on chores you've already finished. It's a check, not a test.</p></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 02 AT A GLANCE ================= -->
+  <section class="concept" data-concept="2">
+    <div class="note">
+      <div class="eyebrow">Direction 02</div>
+      <h2>At a glance</h2>
+      <p>Numbers become pictures; the rules without numbers get quiet outlined cards so they don't compete. Group headers were added to keep 29 cards navigable.</p>
+    </div>
+    <div class="phone">
+      <div class="screen c2a adult">
+        <div class="statusbar"><span>8:52</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><span>‹ Settings</span><span>Edit</span></div>
+        <div class="title"><h3>House Rules</h3></div>
+        <div class="seg"><div class="on">Adult</div><div>Kid</div></div>
+        <div class="body">
+
+          <div class="grouphead">Earning</div>
+          <div class="dcard">
+            <div class="lab">XP scale</div>
+            <h4>Value follows difficulty</h4>
+            <div class="ramp"><i style="height:26%"><span>5</span></i><i style="height:40%"><span>10</span></i><i style="height:54%"><span>15</span></i><i style="height:68%"><span>20</span></i><i style="height:84%"><span>25</span></i><i style="height:100%"><span>30</span></i></div>
+            <p>On-time completion awards the full value. A finished domain group adds +10, or +7 if anything in it ran late.</p>
+          </div>
+          <div class="dcard quiet">
+            <div class="lab">Timing</div>
+            <h4>XP lands on Complete</h4>
+            <p>Not on approval. You're notified the moment it happens and can verify afterward. Personal Hygiene tasks build streaks and score nothing — 19 of the 150 library tasks are zero-XP by design.</p>
+          </div>
+          <div class="dcard quiet">
+            <div class="lab">Permissions</div>
+            <h4>Admins only</h4>
+            <p>Assigning tasks, approving completions, requesting proof and approving allowance are admin actions. Helpers do the work and see their own record.</p>
+          </div>
+
+          <div class="grouphead">Deadlines</div>
+          <div class="dcard">
+            <div class="lab">The evening</div>
+            <h4>How a day plays out</h4>
+            <div class="timeline">
+              <div class="rail"></div>
+              <div class="mk" style="left:8%"><b></b><span>Full XP<br>until 7:00 PM</span></div>
+              <div class="mk" style="left:52%"><b></b><span>Late Credit<br>7:00 PM</span></div>
+              <div class="mk" style="left:92%"><b></b><span>Expired<br>11:59 PM</span></div>
+            </div>
+            <p>Poppins nudges 30 minutes before due. Weekly tasks close Sunday 7:00 PM, monthly on the last Sunday.</p>
+          </div>
+          <div class="dcard">
+            <div class="lab">Late Credit</div>
+            <h4>What a late task pays</h4>
+            <table class="lctable">
+              <tr><td>5 XP task</td><td>3</td></tr><tr><td>10 XP task</td><td>7</td></tr><tr><td>15 XP task</td><td>12</td></tr>
+              <tr><td>20 XP task</td><td>16</td></tr><tr><td>25 XP task</td><td>20</td></tr><tr><td>30 XP task</td><td>25</td></tr>
+            </table>
+            <p style="margin-top:12px">Locked in the instant Complete is tapped, never recomputed. Late keeps the streak and carries a late indicator.</p>
+          </div>
+          <div class="dcard quiet">
+            <div class="lab">Expiry</div>
+            <h4>Weekly and monthly are safer</h4>
+            <p>An expired weekly or monthly task costs its XP but never breaks a streak.</p>
+          </div>
+
+          <div class="grouphead">Streaks</div>
+          <div class="dcard">
+            <div class="lab">Breaking point</div>
+            <h4>Three misses and it's over</h4>
+            <div class="dots"><i class="miss"></i><i class="miss"></i><i></i><i></i><i></i><i></i><i></i></div>
+            <p style="margin-top:11px">Three in a row, or three inside any rolling 7 days. Only daily and weekday tasks count.</p>
+          </div>
+          <div class="dcard">
+            <div class="lab">Streak Rescue</div>
+            <h4>What a save costs</h4>
+            <div class="rescue">
+              <div><u>10%</u><span>after one<br>missed day</span></div>
+              <div><u>20%</u><span>after two<br>in a row</span></div>
+              <div class="gone"><u>Lost</u><span>after three<br>in a row</span></div>
+            </div>
+            <p style="margin-top:12px">Charged against that week's XP. Decline and the XP stays, the streak goes.</p>
+          </div>
+          <div class="dcard quiet">
+            <div class="lab">Recess</div>
+            <h4>Pause without losing ground</h4>
+            <p>Tasks switch off and streaks freeze at their current value. Leave on 12 days, return on 12 days.</p>
+          </div>
+
+          <div class="grouphead">Crowns</div>
+          <div class="dcard">
+            <div class="lab">Weekly &amp; monthly</div>
+            <h4>The Week's Crown</h4>
+            <div class="podium"><i><span>2nd</span></i><i><span>1st</span></i><i><span>3rd</span></i></div>
+            <p>Highest XP takes gold. Monthly Sovereign settles on the last Sunday. Ties produce duplicate ranks — two firsts, then two seconds.</p>
+          </div>
+          <div class="dcard quiet">
+            <div class="lab">Records</div>
+            <h4>Everyone's sheet is open</h4>
+            <p>The winner's sheet shows tasks completed, on-time count and late tasks, and every member's is viewable. Champion's Record keeps every crown won. Trophies unlock on lifetime XP, topping out at Most Glorious — 100,000 XP.</p>
+          </div>
+
+          <div class="grouphead">Rewards &amp; allowance</div>
+          <div class="dcard">
+            <div class="lab">This household runs</div>
+            <h4>XP + Allowance</h4>
+            <div class="models">
+              <b>XP only</b><b>Allowance</b><b>XP + Rewards</b><b class="on">XP + Allowance</b><b>Full system</b>
+            </div>
+            <p style="margin-top:12px">Rewards are tied to finishing that day's tasks and homework. Each carries its own frequency, and is instant or requires approval.</p>
+          </div>
+          <div class="dcard quiet">
+            <div class="lab">Allowance</div>
+            <h4>Recorded, not transferred</h4>
+            <p>ChoreMaxx keeps the tally — no money moves through the app. Approvals follow the household schedule, and Approve now always works. Mint Reward creates one of your own on any reward page.</p>
+          </div>
+
+          <div class="grouphead">Proof &amp; household</div>
+          <div class="dcard quiet">
+            <div class="lab">Proof</div>
+            <h4>Verify without gating</h4>
+            <p>On chores, request proof on any completed task — optional, per task. Homework proof is required, configured per child, on by default, and confirmed by an admin.</p>
+          </div>
+          <div class="dcard quiet">
+            <div class="lab">Household</div>
+            <h4>Admins and Helpers</h4>
+            <p>Admins can change every rule on this screen. The kid version rewrites itself to match.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="screen c2k kid">
+        <div class="statusbar"><span>8:52</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><span>‹ Back</span><span>Ask Poppins</span></div>
+        <div class="title"><h3>The rules</h3><p>Everything you need, in pictures.</p></div>
+        <div class="body">
+          <div class="kcard">
+            <h4>Harder job, more points</h4>
+            <div class="stairs"><i style="height:24%"><span>5</span></i><i style="height:38%"><span>10</span></i><i style="height:53%"><span>15</span></i><i style="height:68%"><span>20</span></i><i style="height:84%"><span>25</span></i><i style="height:100%"><span>30</span></i></div>
+            <p>Finish before the bell and you get the whole thing. Finish a full group and you get 10 more.</p>
+          </div>
+
+          <div class="kcard">
+            <h4>Two times to remember</h4>
+            <div class="bell"><u>7:00</u><span>The bell. Poppins nudges<br>you 30 minutes before.</span></div>
+            <div class="bell" style="margin-top:8px"><u>11:59</u><span>Day closes. Anything<br>left is gone.</span></div>
+          </div>
+
+          <div class="kcard">
+            <h4>Late still counts</h4>
+            <p>You keep most of the points, and your streak is safe:</p>
+            <div class="swap"><b>5 → <em>3</em></b><b>10 → <em>7</em></b><b>15 → <em>12</em></b><b>20 → <em>16</em></b><b>25 → <em>20</em></b><b>30 → <em>25</em></b></div>
+          </div>
+
+          <div class="kcard">
+            <h4>Your streak has 3 lives</h4>
+            <div class="kdots"><i class="miss"></i><i class="miss"></i><i></i></div>
+            <p style="margin-top:11px">Three days in a row, or three in one week, and it ends. Only daily jobs count.</p>
+            <p>Buy a day back for 10% of the week's points. Two days costs 20%.</p>
+          </div>
+
+          <div class="kcard">
+            <h4>Recess pauses everything</h4>
+            <p>Going away? Your streak waits. Leave on 12 days, come back on 12 days.</p>
+          </div>
+
+          <div class="kcard">
+            <h4>Win the week</h4>
+            <div class="kpodium"><i>2</i><i>1</i><i>3</i></div>
+            <p style="margin-top:8px">Most points wins the Week's Crown. The last Sunday of the month decides the Monthly Sovereign. Tie? You both win.</p>
+          </div>
+
+          <div class="kcard">
+            <h4>Prizes and photos</h4>
+            <p>Finish your tasks and homework to earn the day's prize. Homework always needs a photo, and a parent might ask for one on a chore you've finished.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 03 THE TRACK ================= -->
+  <section class="concept" data-concept="3">
+    <div class="note">
+      <div class="eyebrow">Direction 03</div>
+      <h2>The Track</h2>
+      <p>The day runs top to bottom, then a second block picks up the rules that aren't tied to a clock — weekly, monthly, and household. That split is what makes the full set fit here.</p>
+    </div>
+    <div class="phone">
+      <div class="screen c3a adult">
+        <div class="statusbar"><span>8:52</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><span>‹ Settings</span><span>Edit</span></div>
+        <div class="title"><h3>House Rules</h3><p>How one day runs, from assigned to counted.</p></div>
+        <div class="track">
+          <div class="stop">
+            <div class="time">Morning<em>Assigned</em></div>
+            <div class="col">
+              <h4>The list lands</h4>
+              <p>Only admins assign. Each task carries 5 to 30 XP by difficulty. Personal Hygiene tasks are streak-tracked and score nothing.</p>
+            </div>
+          </div>
+          <div class="stop">
+            <div class="time">6:30 PM<em>Nudge</em></div>
+            <div class="col">
+              <h4>Poppins reminds</h4>
+              <p>A final notification goes out 30 minutes before anything is due.</p>
+            </div>
+          </div>
+          <div class="stop hot">
+            <div class="time">7:00 PM<em>Deadline</em></div>
+            <div class="col">
+              <h4>Full value ends here</h4>
+              <p>Complete before this and the whole XP value is awarded, plus +10 if the full domain group is done. XP lands on Complete, not on approval — you're notified and can verify after.</p>
+            </div>
+          </div>
+          <div class="stop hot">
+            <div class="time">7:01 PM<em>Late Credit</em></div>
+            <div class="col">
+              <h4>Reduced, not lost</h4>
+              <p>Applied the instant Complete is tapped and never recomputed. The streak survives and the task carries a late indicator. A finished group still pays +7.</p>
+              <div class="mini"><b>5→3</b><b>10→7</b><b>15→12</b><b>20→16</b><b>25→20</b><b>30→25</b></div>
+            </div>
+          </div>
+          <div class="stop dead">
+            <div class="time">11:59 PM<em>Expired</em></div>
+            <div class="col">
+              <h4>The day closes</h4>
+              <p>Unfinished daily tasks become Expired and can't be completed. Nothing carries into tomorrow.</p>
+            </div>
+          </div>
+          <div class="stop">
+            <div class="time">Midnight<em>Counted</em></div>
+            <div class="col">
+              <h4>Streaks settle</h4>
+              <p>Daily and weekday tasks decide the streak. Three misses in a row, or three in any rolling 7 days, ends it.</p>
+              <p>Streak Rescue costs 10% of the week's XP after one miss and 20% after two consecutive. A third loses it permanently. Decline and the XP stays, the streak goes.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="trackhead">Beyond the day</div>
+        <div class="track" style="padding-top:16px">
+          <div class="stop">
+            <div class="time">Sunday<em>Weekly</em></div>
+            <div class="col">
+              <h4>Weekly tasks close</h4>
+              <p>Due Sunday 7:00 PM. An expired weekly task costs its XP but never breaks a streak.</p>
+            </div>
+          </div>
+          <div class="stop gold">
+            <div class="time">Sunday<em>Crown</em></div>
+            <div class="col">
+              <h4>The Week's Crown</h4>
+              <p>Highest XP takes gold, then silver and bronze. Ties produce duplicate ranks. The winner's sheet shows tasks completed, on-time count and late tasks — every member's sheet is viewable.</p>
+            </div>
+          </div>
+          <div class="stop gold">
+            <div class="time">Last Sun.<em>Monthly</em></div>
+            <div class="col">
+              <h4>Monthly Sovereign</h4>
+              <p>Monthly tasks close at 7:00 PM the same day. Champion's Record keeps every crown won. Trophies unlock on lifetime XP, topping out at Most Glorious — 100,000 XP.</p>
+            </div>
+          </div>
+          <div class="stop">
+            <div class="time">Any time<em>Rewards</em></div>
+            <div class="col">
+              <h4>Prizes and allowance</h4>
+              <p>The household runs one of five models, from XP only to the full system. Rewards are tied to finishing the day's tasks and homework, each with its own frequency, instant or requiring approval.</p>
+              <p>Allowance is recorded in ChoreMaxx, not transferred — no money moves through the app. Approve now always works.</p>
+            </div>
+          </div>
+          <div class="stop">
+            <div class="time">Any time<em>Proof</em></div>
+            <div class="col">
+              <h4>Checking the work</h4>
+              <p>Request proof on any completed chore — optional, per task. Homework proof is required, set per child, on by default, and confirmed by an admin.</p>
+            </div>
+          </div>
+          <div class="stop">
+            <div class="time">Any time<em>Recess</em></div>
+            <div class="col">
+              <h4>Pause the whole house</h4>
+              <p>Recess switches tasks off and freezes streaks at their current value. Leave on 12 days, return on 12 days. Admins can change any rule here, and the kid version rewrites itself to match.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen c3k kid">
+        <div class="statusbar"><span>8:52</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><span>‹ Back</span><span>Ask Poppins</span></div>
+        <div class="title"><h3>Your day</h3><p>Follow the path from top to bottom.</p></div>
+        <div class="ktrack">
+          <div class="kstop"><div class="node">1</div><div class="kbox"><span class="when">Morning</span><h4>Your list shows up</h4><p>Easy jobs are worth 5 points. The big ones are worth 30. Hygiene jobs build your streak instead.</p></div></div>
+          <div class="kstop"><div class="node">2</div><div class="kbox"><span class="when">6:30 PM</span><h4>Poppins nudges you</h4><p>Half an hour of warning before the bell.</p></div></div>
+          <div class="kstop"><div class="node">3</div><div class="kbox"><span class="when">7:00 PM · the bell</span><h4>Beat it and get everything</h4><p>All your points, plus 10 extra if you finished a whole group. Points land the second you tap Complete.</p></div></div>
+          <div class="kstop warn"><div class="node">4</div><div class="kbox"><span class="when">After the bell</span><h4>Late still counts</h4><p>A 10 becomes a 7. A 30 becomes a 25. Your streak is still safe.</p></div></div>
+          <div class="kstop stop2"><div class="node">5</div><div class="kbox"><span class="when">11:59 PM</span><h4>The day closes</h4><p>Anything left is gone for good. Tomorrow starts fresh.</p></div></div>
+          <div class="kstop"><div class="node">6</div><div class="kbox"><span class="when">Midnight</span><h4>Your streak grows</h4><p>Daily jobs keep it alive. Miss three days in a row — or three in one week — and it ends. You can buy a day back for 10% of the week's points.</p></div></div>
+        </div>
+
+        <div class="ktrackhead">The bigger stuff</div>
+        <div class="ktrack" style="padding-top:14px">
+          <div class="kstop gold"><div class="node">7</div><div class="kbox"><span class="when">Sunday</span><h4>The Week's Crown</h4><p>Most points wins. Gold, silver, bronze — and if you tie, you both win.</p></div></div>
+          <div class="kstop gold"><div class="node">8</div><div class="kbox"><span class="when">Last Sunday</span><h4>Monthly Sovereign</h4><p>The big one. Every crown you win is saved in your Champion's Record.</p></div></div>
+          <div class="kstop"><div class="node">9</div><div class="kbox"><span class="when">Any time</span><h4>Prizes</h4><p>Finish the day's tasks and homework to earn them. Allowance gets counted here — the actual money comes from your family.</p></div></div>
+          <div class="kstop"><div class="node">10</div><div class="kbox"><span class="when">Any time</span><h4>Photos</h4><p>Homework always needs one. A parent might ask for one on a chore you've already finished.</p></div></div>
+          <div class="kstop"><div class="node">11</div><div class="kbox"><span class="when">Holidays</span><h4>Recess</h4><p>Everything pauses and your streak waits for you. Leave on 12 days, come back on 12 days.</p></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 04 ASK POPPINS ================= -->
+  <section class="concept" data-concept="4">
+    <div class="note">
+      <div class="eyebrow">Direction 04</div>
+      <h2>Ask Poppins</h2>
+      <p>29 rules become 24 questions, grouped and searchable. This is the direction that benefits most from the full set — more rules just means better search results.</p>
+    </div>
+    <div class="phone">
+      <div class="screen c4a adult">
+        <div class="statusbar"><span>8:52</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><span>‹ Settings</span><span>Edit</span></div>
+        <div class="title"><h3>House Rules</h3></div>
+        <div class="search">Search the rules</div>
+
+        <div class="grouplab">Earning</div>
+        <div class="qa"><h4>How much is a task worth?</h4><p>Between <b>5 and 30 XP</b>, set by difficulty when you assign it. On-time completion pays the full value.</p></div>
+        <div class="qa"><h4>What's the bundle bonus?</h4><p><b>+10 XP</b> for finishing every task in a domain group on time. If one of them ran late, it's +7.</p></div>
+        <div class="qa"><h4>When does XP actually land?</h4><p>The moment your kid taps <b>Complete</b> — not when you approve. You're notified and can verify afterward.</p></div>
+        <div class="qa"><h4>Why did a task score zero?</h4><p>Personal Hygiene tasks are tracked as <b>streaks, not points</b>. 19 of the 150 library tasks are zero-XP by design.</p></div>
+        <div class="qa"><h4>Who can assign and approve?</h4><p>Admins only — assigning, approving completions, requesting proof and approving allowance. Helpers do the work and see their own record.</p></div>
+
+        <div class="grouplab">Deadlines</div>
+        <div class="qa"><h4>When is everything due?</h4><p>Daily tasks at <b>7:00 PM</b> household time. Weekly close Sunday 7:00 PM, monthly on the last Sunday at 7:00 PM.</p></div>
+        <div class="qa"><h4>Does anyone get warned?</h4><p>Poppins sends a final nudge <b>30 minutes</b> before anything is due, alongside the usual task notifications.</p></div>
+        <div class="qa"><h4>They finished at 8 PM — what did they lose?</h4><p>Late Credit applies: <b>5→3, 10→7, 15→12, 20→16, 25→20, 30→25</b>. It's calculated the instant Complete is tapped and never recomputed.</p><p>The streak survives, and the task carries a late indicator.</p></div>
+        <div class="qa"><h4>Can they still do yesterday's task?</h4><p>No. At <b>11:59 PM</b> anything unfinished becomes <b>Expired</b>.</p></div>
+        <div class="qa"><h4>Does a missed weekly task break the streak?</h4><p>No. It costs the XP, but only daily and weekday tasks can break a streak.</p></div>
+
+        <div class="grouplab">Streaks</div>
+        <div class="qa"><h4>What breaks a streak?</h4><p><b>Three misses in a row</b>, or three inside any rolling 7 days.</p></div>
+        <div class="qa"><h4>What does Streak Rescue cost?</h4><p><b>10%</b> of that week's XP after one missed day, <b>20%</b> after two consecutive. A third consecutive miss loses it permanently. Decline and the XP stays but the streak ends.</p></div>
+        <div class="qa"><h4>What happens when we travel?</h4><p>Turn on <b>Recess</b>. Tasks stop and streaks freeze where they are — leave on 12 days, come back on 12 days.</p></div>
+
+        <div class="grouplab">Crowns</div>
+        <div class="qa"><h4>How is the weekly winner decided?</h4><p>Highest XP takes <b>The Week's Crown</b> — gold, then silver and bronze. <b>Monthly Sovereign</b> settles on the last Sunday.</p></div>
+        <div class="qa"><h4>What if two kids tie?</h4><p>Ties produce <b>duplicate ranks</b> — two firsts, then two seconds. Nobody gets bumped down.</p></div>
+        <div class="qa"><h4>What's on the winner's sheet?</h4><p>Tasks completed, on-time count and late tasks. Every member's sheet is viewable, not just the winner's.</p></div>
+        <div class="qa"><h4>Where do past wins live?</h4><p>In <b>Champion's Record</b>, by member. Trophies unlock on lifetime XP and top out at <b>Most Glorious</b>, 100,000 XP.</p></div>
+
+        <div class="grouplab">Rewards &amp; allowance</div>
+        <div class="qa"><h4>What can we reward with?</h4><p>Five models: XP only, Allowance, XP + Rewards, XP + Allowance, or the full system. Rewards are tied to finishing that day's tasks and homework, each with its own frequency.</p></div>
+        <div class="qa"><h4>Does a reward need my approval?</h4><p>Your choice, per reward — <b>instant</b> or <b>requires approval</b>. <b>Mint Reward</b> creates one of your own on any reward page.</p></div>
+        <div class="qa"><h4>Does ChoreMaxx send the money?</h4><p>No. Allowance is <b>recorded here, not transferred</b> — nothing moves through the app. Approvals follow your schedule, and <b>Approve now</b> always works.</p></div>
+
+        <div class="grouplab">Proof &amp; household</div>
+        <div class="qa"><h4>Can I check they actually did it?</h4><p>Yes. Request proof on any completed chore — optional, per task. It verifies the work, it doesn't gate the reward.</p></div>
+        <div class="qa"><h4>How does homework proof work?</h4><p>A photo is <b>required</b>, configured per child and on by default. An admin confirms it. Homework keeps its own tab beside Tasks.</p></div>
+        <div class="qa"><h4>What can a Helper do?</h4><p>Complete their own tasks, see their record and their crowns. Everything in the admin list stays with admins.</p></div>
+        <div class="qa"><h4>Can I change these rules?</h4><p>Any of them. The kid version rewrites itself to match, in their words.</p></div>
+
+        <div class="sig">Deadlines run on household-local time. Rule changes take effect the next day, so nothing already in progress changes value mid-task.</div>
+      </div>
+
+      <div class="screen c4k kid">
+        <div class="statusbar"><span>8:52</span><span>􀙇 􀛨</span></div>
+        <div class="nav"><span>‹ Back</span><span>Rules</span></div>
+        <div class="title"><h3>Ask Poppins</h3><p>Tap a question. Or just ask your own.</p></div>
+        <div class="chat">
+          <div class="ask">How many points do I get?</div>
+          <div class="ans"><div class="who">Poppins</div><p>Depends on the job. Quick ones are worth <b>5</b>. The really big ones are worth <b>30</b>. Finish before the bell and you get every single one.</p><div class="facts"><b>Easy 5</b><b>Medium 15</b><b>Big 30</b></div></div>
+
+          <div class="ask">Why did brushing my teeth give me nothing?</div>
+          <div class="ans"><div class="who">Poppins</div><p>Hygiene jobs don't pay points on purpose. They build your <b>streak</b> instead — and the streak is the hard one to get.</p></div>
+
+          <div class="ask">What if I'm late?</div>
+          <div class="ans"><div class="who">Poppins</div><p>You still get points, just a few less. A <b>10</b> turns into a <b>7</b>. Your streak stays safe, so it's always worth finishing.</p><div class="facts"><b>10 → 7</b><b>20 → 16</b><b>30 → 25</b></div></div>
+
+          <div class="ask">How late is too late?</div>
+          <div class="ans"><div class="who">Poppins</div><p>The day closes at <b>11:59 PM</b>. After that the job is gone and you can't finish it. But tomorrow you get a brand new list.</p></div>
+
+          <div class="ask">How do I keep my streak?</div>
+          <div class="ans"><div class="who">Poppins</div><p>Do your daily jobs. Weekly and monthly ones can't hurt it. Miss <b>three days</b> in a row — or three in one week — and it ends.</p><p>You can buy one day back for 10% of the week's points, or two for 20%. After three, it's gone for good.</p></div>
+
+          <div class="ask">We're going on holiday!</div>
+          <div class="ans"><div class="who">Poppins</div><p>Then your family turns on <b>Recess</b>. Everything pauses and your streak waits for you. Leave on 12 days, come back on 12 days.</p></div>
+
+          <div class="ask">How do I win a crown?</div>
+          <div class="ans"><div class="who">Poppins</div><p>Most points in the week wins <b>The Week's Crown</b>. The last Sunday of the month decides the <b>Monthly Sovereign</b>. If you tie with someone, you both win — nobody gets bumped down.</p></div>
+
+          <div class="ask">Where do my old wins go?</div>
+          <div class="ans"><div class="who">Poppins</div><p>Your <b>Champion's Record</b>. It keeps every crown you've ever won, and you can look at everyone else's too.</p></div>
+
+          <div class="ask">When do I get my allowance?</div>
+          <div class="ans"><div class="who">Poppins</div><p>I keep the count here, and your family hands over the real thing. Prizes come from finishing the day's tasks and homework.</p></div>
+
+          <div class="ask">Why do I need a photo?</div>
+          <div class="ans"><div class="who">Poppins</div><p>Homework always needs one so a parent can check it off. On chores, they might ask after you've finished. It's a check, not a test.</p></div>
+        </div>
+        <div class="chips"><b>What's a bundle bonus?</b><b>What's a trophy?</b><b>Who assigns my jobs?</b><b>Can rules change?</b></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const sections = document.querySelectorAll('.concept');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-selected', String(x === t)));
+    sections.forEach(s => s.classList.toggle('active', s.dataset.concept === t.dataset.c));
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }));
+  const modes = document.querySelectorAll('.modeswitch button');
+  modes.forEach(m => m.addEventListener('click', () => {
+    modes.forEach(x => x.setAttribute('aria-pressed', String(x === m)));
+    document.body.dataset.mode = m.dataset.m;
+  }));
+</script>
+</body>
+</html>
