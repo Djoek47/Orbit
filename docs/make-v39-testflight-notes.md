@@ -4,8 +4,8 @@
 **Base:** make-v38 / TF **1.3.0 (126)**  
 **Status:** **1.3.0 (128)** finished (+ ASC submit). **127** burned (Associated Domains).
 
-### Queued for next TestFlight (not in 128)
-- Subscribe / paywall **Account** button: sit in the top bar flow (not absolute under the status bar); 44pt tall — tappable below clock/signal/battery
+### Queued after 128 → shipped in make-v40 / TF 129
+- Subscribe / paywall **Account** button (top-bar flow) + savings badge polish, task rename follow, trial-once-ever
 
 **Design ref:** Poppins voice edit / understand / listen / chat-follow-card (patches 0001–0004 on v38 tip)  
 **Console zip:** still deferred (routing SQL on tip; zip not in this cut)
