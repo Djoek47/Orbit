@@ -14,7 +14,7 @@ Update this file every time we cut or burn a build.
 |-------|------:|-------|
 | **EAS iOS slots remaining** | **38** | Started 45 → … + **129** (make-v40 cutting) |
 | **Next App Store buildNumber** | **130** | Remote autoIncrement |
-| **Latest shipped / in-flight** | **129** | make-v40 — cutting |
+| **Latest shipped / in-flight** | **129** | make-v40 — finished |
 
 ### How to update after a cut
 
@@ -31,7 +31,7 @@ If Expo says quota exhausted, set remaining to **0** and stop cutting until topp
 
 | When (UTC) | buildNumber | Branch | EAS build | Result | Slots after |
 |------------|------------:|--------|-----------|--------|------------:|
-| 2026-10-20 | **129** | `cursor/make-v40-c30d` | [928156c2…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/928156c2-83a1-452a-ba98-688f005e374c) | queued + ASC submit [066831c0…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/066831c0-57e9-4f63-9ed1-a2d5001a6719) | **38** |
+| 2026-10-20 | **129** | `cursor/make-v40-c30d` | [928156c2…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/928156c2-83a1-452a-ba98-688f005e374c) | finished + ASC submit [066831c0…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/066831c0-57e9-4f63-9ed1-a2d5001a6719) | **38** |
 | 2026-10-18 | **128** | `cursor/make-v39-c30d` | [c6897bbd…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/c6897bbd-d436-4697-87e6-e506760e54ab) | finished + ASC submit [14dd395d…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/14dd395d-e749-4382-8cbb-34f0cb30cac1) | **39** |
 | 2026-10-18 | **127** | `cursor/make-v39-c30d` | [90c99cc9…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/90c99cc9-b31b-4a68-bb73-a168b70796bb) | **ERRORED** — Associated Domains vs App Store profile | **40** |
 | 2026-10-13 | **126** | `cursor/make-v38-c30d` | [75c6c07a…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/75c6c07a-304f-43d7-89c9-533244c83439) | finished + ASC submit [7e2e4408…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/7e2e4408-1778-4c7b-a07a-a067a2c77f03) | **41** |

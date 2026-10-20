@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v40-c30d`  
 **Base:** make-v39 / TF **1.3.0 (128)**  
-**Status:** **1.3.0 (129)** build queued + ASC auto-submit scheduled.
+**Status:** **1.3.0 (129)** finished + ASC submit scheduled/finished.
 
 ---
 
@@ -37,7 +37,7 @@
 | `sync-entitlement` redeploy | v2 ACTIVE |
 | `tsc --noEmit` | OK |
 | `lib/billing/*.test.ts` + rename-assignee | PASS (47) |
-| testflight:preflight | (run at cut) |
+| testflight:preflight | PASS (HaveIBeenPwned warn unchanged) |
 
 ---
 
@@ -47,7 +47,7 @@
 |--|--|
 | Version | **1.3.0 (129)** |
 | Branch | `cursor/make-v40-c30d` |
-| PR | (fill after open) |
-| Build | (fill after EAS) |
-| Submit | (fill after ASC) |
+| PR | https://github.com/Djoek47/Orbit/pull/128 |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/928156c2-83a1-452a-ba98-688f005e374c |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/066831c0-57e9-4f63-9ed1-a2d5001a6719 |
 | Prior (128) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/c6897bbd-d436-4697-87e6-e506760e54ab |
