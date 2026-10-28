@@ -366,6 +366,8 @@ function PoppinsCreditsScreenInner() {
           transactionId: grant.transactionId,
           tokens: grant.tokens,
           mock: mockBuy,
+          // What Apple charged, in the buyer's own currency.
+          priceLabel: priceFor(pack),
         };
         fileReceipt(receipt);
         setReceipts(receiptInbox());
@@ -415,6 +417,9 @@ function PoppinsCreditsScreenInner() {
       household.householdName,
       household.id,
       mockBuy,
+      // Without this the purchase kept the empty price list from first render and printed the
+      // built-in USD price ($9.99) on a CA$12.99 purchase.
+      priceFor,
       readBalance,
     ]
   );
@@ -932,7 +937,7 @@ function PackCard({
           <Moji name="gem" size={20} />
         </View>
         <Text style={[styles.packTokens, { color: c.text }]}>{pack.tokens}</Text>
-        <Text style={[styles.packUnit, { color: c.textMuted }]}>actions</Text>
+        <Text style={[styles.packUnit, { color: c.textMuted }]}>tokens</Text>
         <Text style={[styles.packPrice, { color: tone }]}>
           {busy ? 'Adding…' : unavailable ? 'Soon' : priceLabel}
         </Text>

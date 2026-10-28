@@ -187,7 +187,7 @@ export function OutOfActionsSheet({ visible, balance, onClose, onTrial }: Props)
                       <Text style={[styles.best, { color: accentTheme.primary }]}>BEST VALUE</Text>
                     ) : null}
                     <Text style={[styles.packTokens, { color: c.text }]}>{pack.tokens.toLocaleString()}</Text>
-                    <Text style={[styles.packLabel, { color: c.textMuted }]}>actions</Text>
+                    <Text style={[styles.packLabel, { color: c.textMuted }]}>tokens</Text>
                     {buying === pack.key ? (
                       <ActivityIndicator color={accentTheme.primary} style={{ marginTop: 6 }} />
                     ) : (

@@ -33,6 +33,7 @@ export async function buyCreditPack(input: {
     transactionId: grant.transactionId,
     tokens: grant.tokens,
     mock,
+    priceLabel: input.priceLabel,
   };
   fileReceipt(receipt);
   const mailed = sendCreditReceiptEmail({

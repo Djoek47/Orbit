@@ -267,10 +267,9 @@ export default function PremiumScreen() {
       setEntitlement(next);
       const catalog = IAP_SUBSCRIPTIONS[product];
       const plan = `ChoreMaxx ${catalog.label}`;
-      const price =
-        catalog.period === 'year'
-          ? `${formatPrice(catalog.priceUsd)}/year`
-          : `${formatPrice(catalog.priceUsd)}/month`;
+      // Apple's own price in the buyer's currency (CA$9.99 in Canada), not the built-in USD one.
+      const charged = storePrices[catalog.productId]?.display ?? formatPrice(catalog.priceUsd);
+      const price = catalog.period === 'year' ? `${charged}/year` : `${charged}/month`;
       void sendSubscriptionReceiptEmail({
         to: currentUser?.email || undefined,
         name: currentMember?.name ?? currentUser?.name ?? undefined,

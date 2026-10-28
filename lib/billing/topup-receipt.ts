@@ -103,6 +103,8 @@ export type TopUpReceipt = {
   purchasedAt: string;
   /** True on every receipt this build can produce. */
   mock: boolean;
+  /** Apple's price as charged, in the buyer's currency ("12,99 $"). Preferred over totalUsd. */
+  priceLabel?: string;
 };
 
 /**
@@ -156,7 +158,7 @@ export function receiptBody(receipt: TopUpReceipt): string {
     `Thanks — ${receipt.tokens} tokens added to ${receipt.householdName}.`,
     '',
     `Order  ${receipt.orderId}`,
-    `Item   ${receipt.tokens} tokens · ${formatPrice(receipt.totalUsd)}`,
+    `Item   ${receipt.tokens} tokens · ${receipt.priceLabel ?? formatPrice(receipt.totalUsd)}`,
     '',
     'Credits never expire. Month first, then these.',
     receipt.mock ? 'TEST — no charge.' : '',
@@ -167,7 +169,7 @@ export function receiptBody(receipt: TopUpReceipt): string {
 
 /** One line for the list of past top-ups. */
 export function receiptLine(receipt: TopUpReceipt): string {
-  return `${receipt.tokens} tokens · ${formatPrice(receipt.totalUsd)} · ${receipt.orderId}`;
+  return `${receipt.tokens} tokens · ${receipt.priceLabel ?? formatPrice(receipt.totalUsd)} · ${receipt.orderId}`;
 }
 
 // ── Inbox ─────────────────────────────────────────────────────────────────────

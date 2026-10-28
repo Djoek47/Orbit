@@ -289,6 +289,12 @@ export const authRepository = {
       .eq('id', user.id);
     mapDbError('authRepository.createProfile', error);
 
+    // Supabase's Users list shows the name from the account's own details, not from profiles —
+    // without this every Apple sign-in is just a privaterelay address there and in the console.
+    await supabase.auth
+      .updateUser({ data: { full_name: trimmedName, name: trimmedName, display_name: trimmedName } })
+      .catch(() => undefined);
+
     // Keep the owner's household_members.display_name in sync with the profile.
     // Local Playground/Photos URIs are not durable — only write avatar_symbol when
     // it is already emoji/initials/https; cloud upload happens in updateMemberAvatar.
