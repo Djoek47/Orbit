@@ -42,8 +42,9 @@ export function layoutClass(windowWidth: number): LayoutClass {
 /** The column's width for this window: the window itself, or the cap if the window is wider. */
 export function columnWidth(windowWidth: number): number {
   if (!Number.isFinite(windowWidth) || windowWidth <= 0) return COLUMN_MAX;
-  const cap = windowWidth >= WIDE_WINDOW ? COLUMN_MAX_WIDE : COLUMN_MAX;
-  return Math.min(windowWidth, cap);
+  // The app fills the whole window on every device, iPad included. The capped, centred
+  // column left dead bands either side on iPad; screens size their own content instead.
+  return windowWidth;
 }
 
 /** True when the column is narrower than the window, i.e. there are margins to paint. */

@@ -33,21 +33,18 @@ assert.equal(layoutClass(393), 'phone');
 assert.equal(layoutClass(466), 'phone', 'the Duo folded is a phone');
 assert.equal(layoutClass(669), 'fold', 'the Duo open is the in-between class');
 
-// ── iPad: centred and capped ─────────────────────────────────────────────────
+// ── iPad: the app fills the whole window too (no dead bands either side) ─────
 for (const [name, w] of [
   ['iPad mini portrait', 744],
   ['iPad Air 11" portrait', 820],
   ['iPad Pro 13" portrait', 1032],
-] as const) {
-  assert.equal(columnWidth(w), COLUMN_MAX, `${name}: capped`);
-  assert.equal(isColumnInset(w), true, `${name}: margins either side`);
-}
-for (const [name, w] of [
   ['iPad Air 11" landscape', 1180],
   ['iPad Pro 13" landscape', 1376],
 ] as const) {
-  assert.equal(columnWidth(w), COLUMN_MAX_WIDE, `${name}: the wider cap`);
+  assert.equal(columnWidth(w), w, `${name}: full width`);
+  assert.equal(isColumnInset(w), false, `${name}: no margins`);
 }
+void COLUMN_MAX_WIDE;
 assert.equal(layoutClass(1032), 'tablet');
 assert.equal(layoutClass(1376), 'tablet');
 

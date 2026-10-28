@@ -50,7 +50,8 @@ export function AuthShell({
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
       <LinearGradient
-        colors={[`${primary}33`, `${secondary}14`, 'transparent']}
+        colors={[`${primary}33`, `${secondary}14`, `${secondary}00`]}
+        locations={[0, 0.35, 0.75]}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
         style={styles.ambient}
@@ -138,12 +139,14 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+  // The whole screen, fading out on its own. A fixed 380pt band ended mid-form on iPad and
+  // drew a hard colour line between the email and password fields.
   ambient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 380,
+    bottom: 0,
   },
   ambientFloor: {
     position: 'absolute',
@@ -156,6 +159,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 18,
     flexGrow: 1,
+    // Background spans the iPad; the form stays a readable width, centred.
+    alignSelf: 'center',
+    maxWidth: 640,
+    width: '100%',
   },
   backRow: {
     flexDirection: 'row',
