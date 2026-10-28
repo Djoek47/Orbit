@@ -12,9 +12,9 @@ Update this file every time we cut or burn a build.
 
 | Meter | Value | Notes |
 |-------|------:|-------|
-| **EAS iOS slots remaining** | **36** | 131 canceled before finish (agent cut early); next cut waits for user go |
-| **Next App Store buildNumber** | **132** | Remote autoIncrement (131 number used then canceled) |
-| **Latest shipped / in-flight** | **130** | make-v41 App Review finished; 131 canceled — hold for user go |
+| **EAS iOS slots remaining** | **35** | 132 cut + auto-submit (user go) |
+| **Next App Store buildNumber** | **133** | After 132 |
+| **Latest shipped / in-flight** | **132** | make-v41 full tip (shared devices + OpenAI + receipts + Health) |
 
 ### How to update after a cut
 
@@ -31,6 +31,7 @@ If Expo says quota exhausted, set remaining to **0** and stop cutting until topp
 
 | When (UTC) | buildNumber | Branch | EAS build | Result | Slots after |
 |------------|------------:|--------|-----------|--------|------------:|
+| 2026-10-28 | **132** | `cursor/make-v41-c30d` | [8a803498…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/8a803498-df65-4797-b889-f43a0f937de9) | queued + ASC submit [5f2ec7db…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/5f2ec7db-aa50-44c2-a598-0cb4e4098192) | **35** |
 | 2026-10-28 | **131** | `cursor/make-v41-c30d` | [4d17c6b3…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/4d17c6b3-3fe5-4420-ae6e-d265ba69fd26) | **CANCELED** (cut before user go) | **36** |
 | 2026-10-28 | **130** | `cursor/make-v41-c30d` | [a07537fa…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/a07537fa-628e-4363-be7b-71cfc08548f3) | queued + ASC submit [c5268f15…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/c5268f15-f1e3-472b-acfd-0b4f3b04c299) | **37** |
 | 2026-10-20 | **129** | `cursor/make-v40-c30d` | [928156c2…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/928156c2-83a1-452a-ba98-688f005e374c) | finished + ASC submit [066831c0…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/066831c0-57e9-4f63-9ed1-a2d5001a6719) | **38** |
