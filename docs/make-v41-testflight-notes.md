@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** make-v40 / TF **129**; TF **130** = App Review only (finished)  
-**Status:** **1.3.0 (132)** built and uploaded to App Store Connect (Apple processing → TestFlight). Includes shared devices 0008–0009, OpenAI Settings switch 0004, receipts/tokens 0005, Household Health 0001. TF **131** was canceled earlier.
+**Status:** **1.3.0 (132)** on TestFlight / ASC. Tip also has **Poppins counter 0002** (chip shows real spendable remaining, incl. bought packs) — **not in 132**; wait for user go on next TF.
 
 ## What's in this build
 
@@ -36,6 +36,10 @@
 - Past-day jobs count as expired even if status still says Pending
 - `isOpenTask` = finishable now across Health / kid Home / Poppins / daily insight
 - Completion score = last 7 days done ÷ (done + missed)
+
+### Poppins counter 0002 (on tip, after TF 132)
+- Chip / orb meter uses `aiSummary.tokensRemaining` (month allowance ∩ day cap + bought packs), not `TOKENS_PER_DAY − personal month-to-date`
+- Buying a pack no longer still reads “300 LEFT”
 
 ### Staging
 - `ai_consent` + `login_devices` + `auth_names_from_profiles` applied
