@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** make-v40 / TF **1.3.0 (129)**  
-**Status:** App Review fixes — cutting **1.3.0 (130)**.
+**Status:** **1.3.0 (130)** build queued + ASC auto-submit scheduled.
 
 ---
 
