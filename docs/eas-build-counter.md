@@ -31,7 +31,7 @@ If Expo says quota exhausted, set remaining to **0** and stop cutting until topp
 
 | When (UTC) | buildNumber | Branch | EAS build | Result | Slots after |
 |------------|------------:|--------|-----------|--------|------------:|
-| 2026-10-28 | **131** | `cursor/make-v41-c30d` | (fill after EAS) | cutting (0002–0007 fold) | **36** |
+| 2026-10-28 | **131** | `cursor/make-v41-c30d` | [4d17c6b3…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/4d17c6b3-3fe5-4420-ae6e-d265ba69fd26) | queued + ASC submit [960043de…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/960043de-ab79-4696-b1e6-5e94b0b0adf9) | **36** |
 | 2026-10-28 | **130** | `cursor/make-v41-c30d` | [a07537fa…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/a07537fa-628e-4363-be7b-71cfc08548f3) | queued + ASC submit [c5268f15…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/c5268f15-f1e3-472b-acfd-0b4f3b04c299) | **37** |
 | 2026-10-20 | **129** | `cursor/make-v40-c30d` | [928156c2…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/928156c2-83a1-452a-ba98-688f005e374c) | finished + ASC submit [066831c0…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/066831c0-57e9-4f63-9ed1-a2d5001a6719) | **38** |
 | 2026-10-18 | **128** | `cursor/make-v39-c30d` | [c6897bbd…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/c6897bbd-d436-4697-87e6-e506760e54ab) | finished + ASC submit [14dd395d…](https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/14dd395d-e749-4382-8cbb-34f0cb30cac1) | **39** |

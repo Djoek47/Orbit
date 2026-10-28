@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** make-v40 / TF **129**; TF **130** = App Review only (in flight or finished)  
-**Status:** Full fold — cutting **1.3.0 (131)**.
+**Status:** **1.3.0 (131)** build queued + ASC auto-submit scheduled.
 
 ## What's in this build
 
