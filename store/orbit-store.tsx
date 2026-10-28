@@ -136,6 +136,7 @@ import {
   listSidekickSessions,
   removeSidekickSessionFor,
   saveSidekickSession,
+  saveSidekickSessionFor,
   type SidekickSession,
   markSidekickSignedOut,
   clearSidekickSignedOut,
@@ -570,8 +571,22 @@ type OrbitContextValue = {
     memberName: string;
     startedAt: number;
     secondsLeft: number;
+    /** Set for an admin change rather than a removal: what to say instead of "removed". */
+    title?: string;
+    body?: string;
+    /** Sign the whole device out (a shared device that was removed or dropped below two). */
+    closeDevice?: boolean;
   } | null;
-  beginMemberRemovalKick: (input: { memberId: string; memberName: string }) => void;
+  beginMemberRemovalKick: (input: {
+    memberId: string;
+    memberName: string;
+    title?: string;
+    body?: string;
+    closeDevice?: boolean;
+  }) => void;
+  /** Short animated notice on a shared device whose people the admin just changed. */
+  deviceNotice: { title: string; body: string; at: number } | null;
+  dismissDeviceNotice: () => void;
   finishMemberRemovalKick: () => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ needsConfirmation: boolean; email: string }>;
   suggestedPoppinsQuestions: readonly string[];
@@ -895,7 +910,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     memberName: string;
     startedAt: number;
     secondsLeft: number;
+    /** Set for an admin change rather than a removal: what to say instead of "removed". */
+    title?: string;
+    body?: string;
+    /** Sign the whole device out (a shared device that was removed or dropped below two). */
+    closeDevice?: boolean;
   } | null>(null);
+  const [deviceNotice, setDeviceNotice] = useState<{ title: string; body: string; at: number } | null>(null);
   const memberRemovalKickRef = useRef(memberRemovalKick);
   memberRemovalKickRef.current = memberRemovalKick;
   const memberRemovalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1371,7 +1392,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         setTimeout(resolve, MEMBER_REMOVAL_MODAL_SETTLE_MS);
       });
       try {
-        if (kick?.memberId) {
+        if (kick?.closeDevice) {
+          // The shared device itself is gone or can't be shared any more: every face leaves.
+          for (const item of await listSidekickSessions()) {
+            await removeSidekickSessionFor(item.memberId);
+          }
+          await clearSidekickSession();
+          const { clearDeviceSession } = await import('@/lib/device/device-session');
+          await clearDeviceSession();
+        } else if (kick?.memberId) {
           await removeSidekickSessionFor(kick.memberId);
           const { removeHostedProfile, loadDeviceSession, clearDeviceSession } = await import(
             '@/lib/device/device-session'
@@ -1426,7 +1455,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   }, []);
 
   const beginMemberRemovalKick = useCallback(
-    (input: { memberId: string; memberName: string }) => {
+    (input: { memberId: string; memberName: string; title?: string; body?: string; closeDevice?: boolean }) => {
       if (memberRemovalKickRef.current?.memberId === input.memberId) return;
       if (memberRemovalTimerRef.current) {
         clearTimeout(memberRemovalTimerRef.current);
@@ -1437,10 +1466,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         memberName: input.memberName,
         startedAt,
         secondsLeft: MEMBER_REMOVAL_GRACE_SECONDS,
+        title: input.title,
+        body: input.body,
+        closeDevice: input.closeDevice,
       });
       void presentLocalBanner(
-        'Removed from household',
-        `${input.memberName} was removed. Signing out in ${MEMBER_REMOVAL_GRACE_SECONDS}s.`,
+        input.title ?? 'Removed from household',
+        input.body ?? `${input.memberName} was removed. Signing out in ${MEMBER_REMOVAL_GRACE_SECONDS}s.`,
         { kind: 'member_removed', memberId: input.memberId }
       ).catch(() => undefined);
       memberRemovalTimerRef.current = setTimeout(() => {
@@ -1448,6 +1480,88 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       }, MEMBER_REMOVAL_GRACE_SECONDS * 1000);
     },
     [finishMemberRemovalKick]
+  );
+
+  const dismissDeviceNotice = useCallback(() => setDeviceNotice(null), []);
+
+  /**
+   * After every sync on a Sidekick's phone or a shared device: follow what the admin changed.
+   *   phone, kid now on a shared device  → sign this phone out, saying where to go
+   *   shared device removed / under two  → sign the whole device out, saying why
+   *   shared device, people changed      → update the faces and show a short notice
+   * Rules and words: lib/household/shared-device-rules.
+   */
+  const applyDeviceTransition = useCallback(
+    async (snapshot: HouseholdSnapshot, session: SidekickSession) => {
+      const { deviceTransition } = await import('@/lib/household/shared-device-rules');
+      const { loadDeviceSession, saveDeviceSession } = await import('@/lib/device/device-session');
+      const device = await loadDeviceSession();
+      const isTablet = device.hostKind === 'shared-tablet' || Boolean(device.sharedDeviceId);
+      if (!isTablet) {
+        const t = deviceTransition({ kind: 'personal', memberId: session.memberId }, snapshot.members);
+        if (t.kind === 'moved-to-shared') {
+          beginMemberRemovalKick({
+            memberId: session.memberId,
+            memberName: session.displayName,
+            title: t.message.title,
+            body: t.message.body,
+          });
+        }
+        return;
+      }
+      const deviceId = device.sharedDeviceId;
+      if (!deviceId) return; // an older tablet that never stored its device: leave it be
+      const t = deviceTransition(
+        { kind: 'shared', deviceId, localPeople: device.profileMemberIds },
+        snapshot.members
+      );
+      if (t.kind === 'device-closed') {
+        beginMemberRemovalKick({
+          memberId: session.memberId,
+          memberName: session.displayName,
+          title: t.message.title,
+          body: t.message.body,
+          closeDevice: true,
+        });
+        return;
+      }
+      if (t.kind !== 'roster-changed') return;
+      // New faces need their own sessions (their profile codes come with the sync); faces taken
+      // off the device lose theirs. Their XP and streaks stay on their member record.
+      const keep = new Set(t.people);
+      for (const id of device.profileMemberIds) {
+        if (!keep.has(id)) await removeSidekickSessionFor(id).catch(() => undefined);
+      }
+      const hosted = new Set((await listSidekickSessions()).map((item) => item.memberId));
+      for (const id of t.people) {
+        if (hosted.has(id)) continue;
+        const person = snapshot.members.find((m) => m.id === id);
+        const code = person?.profileInviteCode?.trim();
+        if (!person || !code) continue;
+        await saveSidekickSessionFor(id, {
+          memberId: id,
+          householdId: session.householdId,
+          profileInviteCode: normalizeInviteCode(code),
+          displayName: person.name,
+          avatar: person.avatar,
+          householdName: session.householdName,
+        });
+      }
+      const activeGone = Boolean(device.activeMemberId && !keep.has(device.activeMemberId));
+      await saveDeviceSession({
+        ...device,
+        profileMemberIds: t.people,
+        activeMemberId: activeGone ? null : device.activeMemberId,
+        needsProfilePick: activeGone ? true : device.needsProfilePick,
+      });
+      setDeviceNotice({ title: t.message.title, body: t.message.body, at: Date.now() });
+      void presentLocalBanner(t.message.title, t.message.body, { kind: 'device_updated' }).catch(() => undefined);
+      if (activeGone) {
+        const { router } = await import('expo-router');
+        router.replace('/select-profile' as never);
+      }
+    },
+    [beginMemberRemovalKick]
   );
 
   const reloadSidekickDomains = useCallback(async () => {
@@ -1469,8 +1583,14 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       });
       return null;
     }
-    return applySidekickSyncPayload(result.sync, { announceNewTasks: true });
-  }, [applySidekickSyncPayload, beginMemberRemovalKick]);
+    const merged = await applySidekickSyncPayload(result.sync, { announceNewTasks: true });
+    if (merged) {
+      await applyDeviceTransition(merged, session).catch((error) =>
+        console.warn('applyDeviceTransition', error)
+      );
+    }
+    return merged;
+  }, [applySidekickSyncPayload, applyDeviceTransition, beginMemberRemovalKick]);
 
   const reloadHouseholdDomains = useCallback(async () => {
     // Never treat a leftover Sidekick session as active when the signed-in member is admin/co-admin.
@@ -1823,6 +1943,33 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       unsubscribe?.();
     };
   }, [household.id, reloadHouseholdDomains]);
+
+  // Sidekick phones and shared devices sign in with a profile code, so they can't receive the
+  // database's live updates the admin's phone gets. They check in every few seconds instead (and
+  // straight away when the app comes back), so an admin's change — a kid moved onto the tablet,
+  // someone taken off it — shows up on their screen within seconds.
+  useEffect(() => {
+    if (dataMode !== 'supabase' || !household.id) return;
+    if (!isSidekickRole(currentMember?.role)) return;
+    let busy = false;
+    const tick = () => {
+      if (busy || AppState.currentState !== 'active' || memberRemovalKickRef.current) return;
+      busy = true;
+      void reloadSidekickDomains()
+        .catch(() => undefined)
+        .finally(() => {
+          busy = false;
+        });
+    };
+    const id = setInterval(tick, 8_000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') tick();
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
+  }, [currentMember?.role, household.id, reloadSidekickDomains]);
 
   useEffect(() => {
     void refreshStoreRecommendations();
@@ -8036,6 +8183,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       hydrateFromSession,
       signOut,
       memberRemovalKick,
+      deviceNotice,
+      dismissDeviceNotice,
       beginMemberRemovalKick,
       finishMemberRemovalKick,
       signUp,
@@ -8215,6 +8364,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       updateSidekickGroceryAdd,
       updateSidekickPoppinsAi,
       memberRemovalKick,
+      deviceNotice,
+      dismissDeviceNotice,
       beginMemberRemovalKick,
       finishMemberRemovalKick,
     ]

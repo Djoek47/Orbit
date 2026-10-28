@@ -1,4 +1,5 @@
 import { useFonts } from 'expo-font';
+import { DeviceUpdatedNotice } from '@/components/orbit/device-updated-notice';
 import { AiConsentSheet } from '@/components/orbit/ai-consent-sheet';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -66,6 +67,8 @@ export default function RootLayout() {
               <DeepLinkBridge />
               <OrbitChromeBridge />
               <MemberRemovedCountdown />
+              {/* Shared device: "Your admin updated this device" after a live change. */}
+              <DeviceUpdatedNotice />
               <GlobalSigningOutCover />
               <LegalLinksSheetHost />
               <TourChapterSheetHost />

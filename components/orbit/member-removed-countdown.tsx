@@ -16,6 +16,9 @@ type Kick = {
   memberName: string;
   startedAt: number;
   secondsLeft: number;
+  title?: string;
+  body?: string;
+  closeDevice?: boolean;
 };
 
 /**
@@ -52,7 +55,12 @@ export function MemberRemovedCountdown() {
 
   if (!displayKick || !orbit) return null;
 
-  const copy = removalKickCopy(displayKick.memberName);
+  // An admin change (moved to / off a shared device) says what happened, not "removed".
+  const base = removalKickCopy(displayKick.memberName);
+  const moved = Boolean(displayKick.title);
+  const copy = moved
+    ? { ...base, title: displayKick.title!, body: displayKick.body ?? base.body, leaveLabel: 'Got it' }
+    : base;
   const primary = orbit.accentTheme.primary;
 
   const requestLeave = () => {
@@ -83,7 +91,7 @@ export function MemberRemovedCountdown() {
             },
           ]}>
           <View style={[styles.iconWrap, { backgroundColor: `${primary}28` }]}>
-            <MaterialIcons name="person-off" size={26} color={primary} />
+            <MaterialIcons name={moved ? 'swap-horiz' : 'person-off'} size={26} color={primary} />
           </View>
           <Text style={[typography.title2, styles.title, { color: isDark ? '#F7F2EC' : c.text }]}>
             {copy.title}
