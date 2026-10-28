@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** make-v40 / TF **129**; TF **130** = App Review only (finished)  
-**Status:** Patches **0002–0009** + OpenAI **0004** + receipts/tokens **0005** on tip. **HOLD TestFlight** until user says go for the next build. TF **131** was cut then canceled — do not ship until explicit go.
+**Status:** Patches **0002–0009** + OpenAI **0004** + receipts **0005** + Household Health **0001** on tip. **HOLD TestFlight** until user says go for the next build. TF **131** was cut then canceled — do not ship until explicit go.
 
 ## What's on tip (ready for next TF when allowed)
 
@@ -31,6 +31,11 @@
 - Credit + subscribe receipts / confirmations use **Apple’s localized price** (`priceLabel` / `storePrices.display`), not the built-in USD catalog
 - Pack cards + out-of-tokens sheet say **tokens** (not “actions”)
 - `createProfile` also writes `full_name` / `name` / `display_name` into auth user metadata; staging backfill migration `auth_names_from_profiles`
+
+### Household Health 0001
+- `taskState`: past-day jobs are **expired** even if status still says Pending
+- `isOpenTask` = finishable now (expired ≠ open) — Health, kid Home, Poppins, daily insight
+- Completion score = last 7 days done ÷ (done + missed); popover: Score / Done / Missed / Open now
 
 ### Staging
 - `ai_consent` + `login_devices` migrations applied
