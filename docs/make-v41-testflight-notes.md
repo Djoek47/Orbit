@@ -42,7 +42,7 @@
 - `auth_names_from_profiles` applied (Users list shows profile names)
 - Edge: `login-alert` v1, `dispatch-member-push` v10, Poppins suite redeployed (shared-device + consent)
 
-## Matrix (0008–0009 + OpenAI 0004 + receipts 0005)
+## Matrix (shared devices + OpenAI + receipts + Household Health)
 | Check | Result |
 |-------|--------|
 | `git am` 0008 + 0009 on tip | OK (`c9c1595`, `2237501`) |
@@ -66,6 +66,10 @@
 | topup-receipt (+ CA$ priceLabel) / IAP | PASS |
 | Spot: pack UI “tokens”; buy paths pass `priceLabel` | OK |
 | Staging `auth_names_from_profiles` | Applied |
+| `git am` Household Health 0001 | OK (`2b003fb`) |
+| `git apply --reverse --check` Health 0001 | OK |
+| week-completion / task-state / cancel / series-edit / health-dashboard | PASS |
+| Spot: expired-by-date not open; week score done÷(done+missed); popover lines | OK |
 | TestFlight | **HOLD** — wait for user |
 
 ## Prior canceled cut (do not reuse)
