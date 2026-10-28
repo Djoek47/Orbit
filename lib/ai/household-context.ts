@@ -1,4 +1,5 @@
 import { resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
+import { isOpenTask } from '@/lib/tasks/cancel';
 import { formatMemoryHint, getActiveHouseMemory } from '@/lib/poppins/house-memory';
 import type { HouseholdSnapshot, OrbitMetrics, PoppinsRecommendation } from '@/types/orbit';
 
@@ -36,7 +37,7 @@ export function buildPoppinsDeskBrief(
   const today = dayKey(now);
   const horizon = dayKey(addDays(now, 2));
 
-  const openTasks = household.tasks.filter((t) => t.status !== 'Completed' && t.status !== 'Cancelled');
+  const openTasks = household.tasks.filter((t) => isOpenTask(t));
   const overdue = openTasks.filter(isOverdueTask);
   const activeMembers = household.members.filter(
     (m) => m.status === 'active' && m.role !== 'guest' && m.role !== 'shared-device'

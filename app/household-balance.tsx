@@ -271,17 +271,13 @@ export default function HouseholdBalanceScreen() {
   const openCompletionDetail = () => {
     setSheetDetail({
       title: 'Completion',
-      subtitle: 'Share of household tasks finished',
+      subtitle: 'Jobs done in the last 7 days, out of those that came due',
       accent: '#34D399',
       lines: [
         { label: 'Score', meta: `${metrics.taskCompletionRate}%` },
+        { label: 'Done this week', meta: String(metrics.weekDone ?? 0) },
+        { label: 'Missed this week', meta: String(metrics.weekMissed ?? 0) },
         { label: 'Open now', meta: String(openTasks) },
-        {
-          label: 'Finished',
-          meta: String(
-            household.tasks.filter((task) => task.status === 'Completed').length
-          ),
-        },
       ],
     });
   };

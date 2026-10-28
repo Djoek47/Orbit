@@ -48,6 +48,14 @@ export type TaskStateView = {
 
 const TERMINAL: TaskState[] = ['done', 'done-late', 'expired', 'skipped'];
 
+/** YYYY-MM-DD on this device's calendar — comparable as strings. */
+function localDayKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /** The one reading. Everything on screen comes from this. */
 export function taskState(task: HouseholdTask, now = new Date()): TaskState {
   if (task.status === 'Completed') {
@@ -57,8 +65,16 @@ export function taskState(task: HouseholdTask, now = new Date()): TaskState {
   // 'Missed' is the old name for the same thing.
   if (task.status === 'Expired' || task.status === 'Missed') return 'expired';
 
-  // Still open. The clock decides between upcoming, due and overdue — never "late" beside
-  // another state.
+  // Still open on paper. If its day has already closed, it's expired whatever the stored status
+  // says: the closing pass doesn't always reach the server, and a job from three days ago is
+  // not "open" — counting those made Household Health say 49 open when most were long gone.
+  if (task.dueAt) {
+    const due = new Date(task.dueAt);
+    if (!Number.isNaN(due.getTime()) && localDayKey(due) < localDayKey(now)) return 'expired';
+  }
+  if (task.occurrenceDate && task.occurrenceDate < localDayKey(now)) return 'expired';
+
+  // The clock decides between upcoming, due and overdue — never "late" beside another state.
   if (task.status === 'Overdue') return 'overdue';
   if (task.dueAt) {
     const due = new Date(task.dueAt).getTime();

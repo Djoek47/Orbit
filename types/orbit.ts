@@ -488,7 +488,11 @@ export type OrbitMetrics = {
   groceryReadiness: number;
   calendarCoverage: number;
   momentum: number;
+  /** Jobs that can still be finished right now (not expired, not done, not skipped). */
   openTasks: number;
+  /** Last 7 days: finished, and missed (day closed without being done). */
+  weekDone?: number;
+  weekMissed?: number;
   missingGroceries: number;
   purchasedGroceries: number;
   upcomingEvents: number;

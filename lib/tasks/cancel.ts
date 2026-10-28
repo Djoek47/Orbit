@@ -1,9 +1,15 @@
 import type { CancelTaskScope, HouseholdTask } from '@/types/orbit';
+import { canFinishTask } from '@/lib/tasks/task-state';
 import { seriesDefinitionId } from '@/lib/tasks/recurring';
 
 /** Open work still needs doing — excludes completed and cancelled. */
-export function isOpenTask(task: Pick<HouseholdTask, 'status'>) {
-  return task.status !== 'Completed' && task.status !== 'Cancelled';
+/**
+ * Open = can still be finished: not done, not skipped, and its day hasn't closed. An expired job
+ * (by status or by date) is not open — it's missed.
+ */
+export function isOpenTask(task: Pick<HouseholdTask, 'status'> & Partial<HouseholdTask>, now = new Date()) {
+  if (task.status === 'Completed' || task.status === 'Cancelled') return false;
+  return canFinishTask(task as HouseholdTask, now);
 }
 
 /** Match other occurrences in the same recurring series (stable id, not the current repeat). */

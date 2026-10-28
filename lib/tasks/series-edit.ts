@@ -3,7 +3,6 @@
  * Repeat/assignee/title are the household rule, not a frozen assign-time snapshot.
  */
 
-import { isOpenTask } from '@/lib/tasks/cancel';
 import { isExpiredStatus, seriesDefinitionId } from '@/lib/tasks/recurring';
 import type { HouseholdTask } from '@/types/orbit';
 
@@ -96,7 +95,8 @@ export function applySeriesPatch(
     if (occurrenceSortKey(task) < originKey) return stamped;
 
     if (stopping) {
-      if (isFrozenHistory(task) || !isOpenTask(task)) return stamped;
+      // Stopping a series cancels every copy not done or skipped, whatever its date.
+      if (isFrozenHistory(task) || task.status === 'Completed' || task.status === 'Cancelled') return stamped;
       return {
         ...stamped,
         repeat: 'None',

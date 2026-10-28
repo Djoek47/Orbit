@@ -1,4 +1,5 @@
 import { AppState } from 'react-native';
+import { weekCompletion } from '@/lib/household/week-completion';
 import { halloweenPalette, useSeasonal } from '@/lib/theme/seasonal';
 import { sendHouseholdEmail } from '@/lib/billing/send-household-email';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8488,9 +8489,9 @@ export function useOrbit() {
 }
 
 function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
-  const completedTasks = household.tasks.filter((task) => task.status === 'Completed').length;
-  const taskCompletionRate =
-    household.tasks.length > 0 ? Math.round((completedTasks / household.tasks.length) * 100) : 100;
+  // This week's jobs that came due: done ÷ (done + missed). See lib/household/week-completion.
+  const week = weekCompletion(household.tasks);
+  const taskCompletionRate = week.score ?? 100;
 
   const readyGroceries = household.groceries.filter(
     (item) => item.status === 'Available' || item.status === 'Purchased'
@@ -8527,7 +8528,9 @@ function calculateMetrics(household: HouseholdSnapshot): OrbitMetrics {
     groceryReadiness,
     calendarCoverage,
     momentum: Math.round(taskCompletionRate * 0.45 + groceryReadiness * 0.35 + calendarCoverage * 0.2),
-    openTasks: household.tasks.filter((task) => isOpenTask(task)).length,
+    openTasks: week.open,
+    weekDone: week.done,
+    weekMissed: week.missed,
     missingGroceries: household.groceries.filter((item) => item.status === 'Missing').length,
     purchasedGroceries: household.groceries.filter((item) => item.status === 'Purchased').length,
     upcomingEvents: countUpcomingSoon(household.events),

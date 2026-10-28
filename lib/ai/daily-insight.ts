@@ -4,6 +4,7 @@
  * Copy is factual; Luna may rewrite the sentence but must not invent stores or prices.
  */
 
+import { isOpenTask } from '@/lib/tasks/cancel';
 import { isClothingCategory } from '@/lib/grocery/classify';
 import type { CatalogProduct } from '@/lib/grocery/catalog';
 import { searchCatalog } from '@/lib/grocery/search-index';
@@ -144,9 +145,8 @@ export function matchListToCatalog(
 }
 
 function openTasks(tasks: HouseholdTask[]): HouseholdTask[] {
-  return tasks.filter(
-    (t) => t.status === 'Pending' || t.status === 'In Progress' || t.status === 'Overdue'
-  );
+  // Finishable now only: a Pending job from days ago is missed, not open.
+  return tasks.filter((t) => isOpenTask(t));
 }
 
 function isOverdueTask(task: HouseholdTask, now: Date): boolean {

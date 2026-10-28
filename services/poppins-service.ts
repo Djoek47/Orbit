@@ -1,4 +1,5 @@
 import { isTodayTask } from '@/lib/tasks/today';
+import { isOpenTask } from '@/lib/tasks/cancel';
 import { runMonitorPass } from '@/services/poppins-monitor';
 import type {
   HouseholdMember,
@@ -145,7 +146,7 @@ export const poppinsService = {
     const normalizedQuestion = question.toLowerCase();
     const missingGroceries = household.groceries.filter((item) => item.status === 'Missing');
     const overdueTasks = household.tasks.filter((task) => task.status === 'Overdue');
-    const openTasks = household.tasks.filter((task) => task.status !== 'Completed');
+    const openTasks = household.tasks.filter((task) => isOpenTask(task));
     const busiestAssignee = getBusiestAssignee(openTasks);
 
     if (normalizedQuestion.includes('attention')) {

@@ -1,4 +1,5 @@
 import { nextXpMilestone } from '@/lib/game-levels';
+import { isOpenTask } from '@/lib/tasks/cancel';
 import { isSharedDeviceRole } from '@/lib/household/shared-device';
 import type { HouseholdMember, HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
 
@@ -77,9 +78,7 @@ export function buildHomeHealthMetrics(opts: {
   if (role === 'kid') {
     const myOpen = household.tasks.filter(
       (t) =>
-        (t.assignee === name || t.assignees?.includes(name ?? '')) &&
-        t.status !== 'Completed' &&
-        t.status !== 'Cancelled',
+        (t.assignee === name || t.assignees?.includes(name ?? '')) && isOpenTask(t),
     ).length;
     const xp = currentMember?.xp ?? 0;
     const next = nextXpMilestone(xp);
