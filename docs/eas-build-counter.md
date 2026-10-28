@@ -12,9 +12,9 @@ Update this file every time we cut or burn a build.
 
 | Meter | Value | Notes |
 |-------|------:|-------|
-| **EAS iOS slots remaining** | **38** | Started 45 → … + **129** (make-v40 cutting) |
-| **Next App Store buildNumber** | **130** | Remote autoIncrement |
-| **Latest shipped / in-flight** | **129** | make-v40 — finished |
+| **EAS iOS slots remaining** | **37** | Started 45 → … + **130** (make-v41 App Review cutting) |
+| **Next App Store buildNumber** | **131** | Remote autoIncrement |
+| **Latest shipped / in-flight** | **130** | make-v41 App Review — cutting |
 
 ### How to update after a cut
 
