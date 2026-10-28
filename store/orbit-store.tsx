@@ -796,7 +796,10 @@ const OrbitContext = createContext<OrbitContextValue | null>(null);
 
 export function OrbitProvider({ children }: PropsWithChildren) {
   const [currentUser, setCurrentUser] = useState<OrbitUser | null>(null);
-  const [household, setHousehold] = useState<HouseholdSnapshot>(mockHousehold);
+  // Real accounts start empty, never with the demo household (its people leaked onto shared devices).
+  const [household, setHousehold] = useState<HouseholdSnapshot>(() =>
+    dataMode === 'mock' ? mockHousehold : createEmptyHousehold({ id: '', email: '', name: '', avatar: '', profileComplete: false })
+  );
   const householdRef = useRef(household);
   householdRef.current = household;
   const presenceSnapshotRef = useRef<Record<string, PresencePhase>>({});
@@ -2495,7 +2498,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
         const active = await loadActiveMockHousehold();
         return (
           active ?? {
-            ...mockHousehold,
+            ...(dataMode === 'mock' ? mockHousehold : createEmptyHousehold({ id: '', email: '', name: '', avatar: '', profileComplete: false })),
             id: session.householdId,
             householdName: session.householdName ?? 'Household',
             greetingName: session.displayName,
@@ -2596,7 +2599,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
           const active = await loadActiveMockHousehold();
           return (
             active ?? {
-              ...mockHousehold,
+              ...(dataMode === 'mock' ? mockHousehold : createEmptyHousehold({ id: '', email: '', name: '', avatar: '', profileComplete: false })),
               id: result.householdId,
               householdName: result.householdName,
               members: [result.member],
@@ -2844,7 +2847,9 @@ export function OrbitProvider({ children }: PropsWithChildren) {
             avatar: '',
             profileComplete: false,
           })
-        : mockHousehold
+        : dataMode === 'mock'
+          ? mockHousehold
+          : createEmptyHousehold({ id: '', email: '', name: '', avatar: '', profileComplete: false })
     );
     setPendingRedemptions([]);
     setRedemptions([]);

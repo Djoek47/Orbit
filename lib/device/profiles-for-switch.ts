@@ -2,6 +2,7 @@
  * Faces for Switch / Who's using this device?
  * Same source as Settings → Shared tablets → On this device.
  */
+import { dataMode } from '@/config/data-mode';
 import type { DeviceSession } from '@/lib/device/device-session';
 import {
   findSharedDeviceForMember,
@@ -57,6 +58,25 @@ export function resolveSwitchDeviceShell(
  * extra profiles hosted only in the local device session.
  */
 export function profilesForSharedDeviceSwitch(
+  session: DeviceSession | null,
+  members: HouseholdMember[]
+): HouseholdMember[] {
+  return realMembersOnly(profilesForSwitchUnfiltered(session, members));
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * On a real account every member has a database id (a UUID). Demo people ('m3' Emma,
+ * 'm8' Jack…) left on a phone from demo mode must never appear on its "Who's using this
+ * device?" — they did, after a failed load fell back to the saved demo household.
+ */
+export function realMembersOnly(people: HouseholdMember[], mode: string = dataMode): HouseholdMember[] {
+  if (mode === 'mock') return people;
+  return people.filter((person) => UUID.test(person.id));
+}
+
+function profilesForSwitchUnfiltered(
   session: DeviceSession | null,
   members: HouseholdMember[]
 ): HouseholdMember[] {
