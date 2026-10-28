@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** make-v40 / TF **129**; TF **130** = App Review only (finished)  
-**Status:** **1.3.0 (132)** cut + ASC auto-submit in flight. Includes shared devices 0008–0009, OpenAI Settings switch 0004, receipts/tokens 0005, Household Health 0001. TF **131** was canceled earlier.
+**Status:** **1.3.0 (132)** built and uploaded to App Store Connect (Apple processing → TestFlight). Includes shared devices 0008–0009, OpenAI Settings switch 0004, receipts/tokens 0005, Household Health 0001. TF **131** was canceled earlier.
 
 ## What's in this build
 
