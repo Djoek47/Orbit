@@ -130,6 +130,18 @@ async function logPushSent(
   }
 }
 
+const HOUR = 60 * 60 * 1000;
+/** Mirrors entitlementFromHousehold: trial 0, cancelled 48h, renewing 16 days (billing retry). */
+function householdCovered(
+  hh: { premium_expires_at?: string | null; premium_in_trial?: boolean | null; premium_will_renew?: boolean | null } | null
+): boolean {
+  if (!hh?.premium_expires_at) return false;
+  const expires = new Date(hh.premium_expires_at).getTime();
+  if (Number.isNaN(expires)) return false;
+  const grace = hh.premium_in_trial ? 0 : hh.premium_will_renew === false ? 48 * HOUR : 16 * 24 * HOUR;
+  return expires + grace > Date.now();
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
@@ -210,9 +222,30 @@ Deno.serve(async (req) => {
     if (householdId) {
       const { data: hh } = await admin
         .from('households')
-        .select('notification_prefs')
+        .select('notification_prefs, premium_expires_at, premium_in_trial, premium_will_renew')
         .eq('id', householdId)
         .maybeSingle();
+
+      // No subscription, no notifications: once the trial or subscription has run out the app is
+      // locked, so its pushes stop too (billing notices excepted — they're how people get back).
+      // Same grace as the app's gate (lib/billing/household-entitlement.ts).
+      if (category !== 'billing' && !householdCovered(hh)) {
+        if (notificationId) {
+          await logPushSent(admin, {
+            householdId,
+            notificationId,
+            title,
+            body: pushBody,
+            category,
+            memberIds,
+            detail: { devices: 0, reason: 'subscription_lapsed' },
+          });
+        }
+        return new Response(
+          JSON.stringify({ ok: true, sent: 0, reason: 'subscription_lapsed', category }),
+          { headers: { ...cors, 'Content-Type': 'application/json' } }
+        );
+      }
       const prefs = (hh?.notification_prefs ?? null) as Record<string, unknown> | null;
       if (!prefsAllow(prefs, category, data)) {
         if (notificationId) {

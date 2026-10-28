@@ -143,6 +143,15 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   }, [canPurchase, entitlement, household.premium, now]);
   const ready = !GATE_ENABLED || local !== null;
 
+  // Locked (trial or subscription over): nothing the phone scheduled for itself goes off either.
+  // The server already stops pushes for a lapsed household (dispatch-member-push).
+  useEffect(() => {
+    if (!ready || !view.appLocked) return;
+    void import('expo-notifications')
+      .then((Notifications) => Notifications.cancelAllScheduledNotificationsAsync())
+      .catch(() => undefined);
+  }, [ready, view.appLocked]);
+
   // The allowance follows the access level. Only once known — before that, keep the paid
   // default so a paying household never sees "0 actions" flash on launch.
   useEffect(() => {
