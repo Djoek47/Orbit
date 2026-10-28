@@ -1,57 +1,33 @@
-# make-v41 TestFlight — release notes (build 132)
+# make-v41 TestFlight — release notes (build 133)
 
 **Branch tip:** `cursor/make-v41-c30d`  
-**Base:** make-v40 / TF **129**; TF **130** = App Review only (finished)  
-**Status:** **1.3.0 (132)** on TestFlight / ASC. Tip also has **Poppins counter 0002** (chip shows real spendable remaining, incl. bought packs) — **not in 132**; wait for user go on next TF.
+**Base:** TF **132** (1.3.0) on ASC  
+**Status:** **1.3.0 (133)** cut + ASC auto-submit. Adds Poppins counter **0002** + tokens wording **0003** (+ leftover copy fix).
 
-## What's in this build
+## What's new since 132
+- **0002** Poppins chip/orb use `tokensRemaining` (month ∩ day + bought packs) — pack buys no longer show “300 LEFT”
+- **0003** One word: **tokens** (not actions) on paywall, paused line, settings panel, tour, premium top-up, Android channel, meter “NO TOKENS USED”
+- Cross-check fix: paused Speak copy + out-of-tokens sheet “tokens available”
 
-### Already shipped (TF 130)
-- App Review 2.5.4: no unused background modes
-- App Review 5.1.2(i): Poppins OpenAI consent sheet + `ai_consent_at`
+## Still in from 132
+- Shared devices 0008–0009, OpenAI Settings switch 0004, receipts 0005, Household Health 0001, App Review TF 130
 
-### Patches 0002–0007
-- iPad: tour Exit in card, square QR scanner, square category tiles, house rules no overlap
-- No Itineraries / Smart Trips / Poppins for Sidekicks or shared devices (server refuses shared too)
-- iPad: full-bleed width; sign-in glow no longer cuts the form
-- Sign-in: show/hide password, input checks, new-device security emails (`login-alert` + `login_devices`)
-- Shared devices: demo people (Emma/Jack) never appear on a real account
-- No pushes / local reminders once trial or subscription has ended (billing notices still go)
-
-### Patches 0008–0009 (shared devices final)
-- **0008** Invited Sidekicks can join a tablet; device needs **two+** people to run; **one device per person**; shared copy/rules in `lib/household/shared-device-rules.ts`
-- **0009** Go-live: Sidekick phones + shared tablets check in every **8s** (and on app resume); phone signs out with “You’re on … now”; device under two / removed signs out with reason; roster change shows `DeviceUpdatedNotice`
-
-### OpenAI permission 0004 (Settings switch)
-- Settings **Poppins uses OpenAI** is an on/off `SettingsToggleRow`
-- Consent sheet is one sentence + Privacy policy link
-- `CHOREMAXX_LEGAL` privacy/terms ignore env URLs not on `choremaxx.app`
-
-### Receipts / tokens 0005
-- Credit + subscribe receipts use **Apple’s localized price**
-- Pack cards + out-of-tokens sheet say **tokens**
-- `createProfile` writes auth user metadata names; staging `auth_names_from_profiles`
-
-### Household Health 0001
-- Past-day jobs count as expired even if status still says Pending
-- `isOpenTask` = finishable now across Health / kid Home / Poppins / daily insight
-- Completion score = last 7 days done ÷ (done + missed)
-
-### Poppins counter 0002 (on tip, after TF 132)
-- Chip / orb meter uses `aiSummary.tokensRemaining` (month allowance ∩ day cap + bought packs), not `TOKENS_PER_DAY − personal month-to-date`
-- Buying a pack no longer still reads “300 LEFT”
-
-### Staging
-- `ai_consent` + `login_devices` + `auth_names_from_profiles` applied
-- Edge: `login-alert` v1, `dispatch-member-push` v10, Poppins suite redeployed
+## Matrix (0002 + 0003 → TF 133)
+| Check | Result |
+|-------|--------|
+| 0002 already on tip (reverse-check) | OK (`f41a0d1`) |
+| `git am` 0003 | OK (`bbe2cfb`) |
+| Cross-check leftover “actions” UI | Fixed paused copy + out-of-tokens label (`7350b70`) |
+| `tsc` | OK |
+| access-gate / act-events / allowance / topup-receipt / IAP / week-completion / shared-device-rules / legal | PASS |
+| testflight:preflight | PASS (HaveIBeenPwned warn unchanged) |
 
 ## Cut
 | | |
 |--|--|
-| Version | **1.3.0 (132)** |
+| Version | **1.3.0 (133)** |
 | Branch | `cursor/make-v41-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/129 |
-| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/8a803498-df65-4797-b889-f43a0f937de9 |
-| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/5f2ec7db-aa50-44c2-a598-0cb4e4098192 |
-| Prior canceled (131) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/4d17c6b3-3fe5-4420-ae6e-d265ba69fd26 |
-| Prior (130) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/a07537fa-628e-4363-be7b-71cfc08548f3 |
+| Build | _(filled after EAS)_ |
+| Submit | _(filled after EAS)_ |
+| Prior (132) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/8a803498-df65-4797-b889-f43a0f937de9 |
