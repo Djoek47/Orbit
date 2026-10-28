@@ -188,7 +188,7 @@ export default function PremiumScreen() {
     setStatusMessage(null);
     try {
       const grant = await purchaseTokens(pack, household.id);
-      setStatusMessage(`Added ${grant.tokens} actions`);
+      setStatusMessage(`Added ${grant.tokens} tokens`);
       setShowTopUp(false);
       await refreshUsage();
     } catch (error) {
@@ -198,7 +198,7 @@ export default function PremiumScreen() {
         const { formatUnknownError } = await import('@/lib/errors/unknown-error');
         const { friendlyErrorMessage } = await import('@/lib/errors/friendly-error');
         const { recordAppError } = await import('@/lib/errors/error-log');
-        const raw = formatUnknownError(error, 'Could not buy more actions.');
+        const raw = formatUnknownError(error, 'Could not buy more tokens.');
         void recordAppError({
           title: "That didn't go through",
           message: raw,

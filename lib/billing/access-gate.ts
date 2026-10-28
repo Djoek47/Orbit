@@ -140,8 +140,8 @@ export function poppinsLockCopy(view: AccessView, monthlyAllowanceWhenPaid: numb
   }
   return {
     title: 'Poppins comes with your subscription',
-    body: `Your trial covers chores, XP and rewards. Poppins runs on actions — subscribe for ${monthlyAllowanceWhenPaid} every month, or buy a pack to try it now.`,
+    body: `Your trial covers chores, XP and rewards. Poppins runs on tokens — subscribe for ${monthlyAllowanceWhenPaid} every month, or buy a pack to try it now.`,
     primary: 'Subscribe',
-    secondary: 'Buy actions',
+    secondary: 'Buy tokens',
   };
 }

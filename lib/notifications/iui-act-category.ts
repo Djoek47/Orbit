@@ -33,7 +33,7 @@ export async function registerIuiActNotificationCategory(): Promise<void> {
   if (Platform.OS === 'android') {
     try {
       await Notifications.setNotificationChannelAsync('orbit-iui-acts', {
-        name: 'Poppins actions',
+        name: 'Poppins tokens',
         importance: Notifications.AndroidImportance.HIGH,
       });
     } catch {

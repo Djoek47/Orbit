@@ -339,7 +339,7 @@ const ADMIN_POPPINS: TourChapter = {
     step({
       id: 'poppins.meter',
       targetId: 'poppins.meter',
-      title: 'Your actions',
+      title: 'Your tokens',
       body: 'Each save uses a token. Base uses 1, Max uses more. Top up in Settings.',
       route: '/(tabs)/poppins',
     }),

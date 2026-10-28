@@ -89,7 +89,7 @@ export function PoppinsSettingsPanel({
             <Text style={[styles.heroCaption, { color: tone }]}>
               {usage.paused
                 ? 'out of tokens — typing still works'
-                : `action${left === 1 ? '' : 's'} left${resetLabel ? ` · resets ${resetLabel}` : ''}`}
+                : `token${left === 1 ? '' : 's'} left${resetLabel ? ` · resets ${resetLabel}` : ''}`}
             </Text>
             <Text style={[styles.heroSub, { color: c.textMuted }]}>
               {usage.topUp > 0

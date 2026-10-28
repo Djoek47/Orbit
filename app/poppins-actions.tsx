@@ -96,7 +96,7 @@ function PoppinsActionsScreenInner() {
               <Text style={[styles.linkSub, { color: c.textMuted }]}>
                 {topUpBalance > 0
                   ? `${topUpBalance} banked · never expire`
-                  : 'Buy actions that never expire'}
+                  : 'Buy tokens that never expire'}
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />

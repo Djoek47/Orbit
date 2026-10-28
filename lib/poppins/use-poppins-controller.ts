@@ -1858,7 +1858,7 @@ export function usePoppinsController() {
     topUpBalance: aiSummary.topUpBalance,
     meterLabel:
       drive.live && (liveScene === 'coach_steps' || liveScene === 'navigate_coach')
-        ? 'NO ACTIONS USED'
+        ? 'NO TOKENS USED'
         : `${dailyLeft} LEFT`,
     // caption
     caption: {

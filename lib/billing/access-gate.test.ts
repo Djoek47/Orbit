@@ -94,7 +94,7 @@ assert.ok(UNPAID_SETTINGS_KEYS.includes('subscription'), 'and the way to start p
 // ── Lock copy ─────────────────────────────────────────────────────────────────
 const trialCopy = poppinsLockCopy(trial, 300);
 assert.match(trialCopy.body, /300/, 'it names what subscribing gets you');
-assert.equal(trialCopy.secondary, 'Buy actions', 'a trial can still try Poppins by the pack');
+assert.equal(trialCopy.secondary, 'Buy tokens', 'a trial can still try Poppins by the pack');
 
 const lockedCopy = poppinsLockCopy(locked, 300);
 assert.equal(lockedCopy.secondary, null, 'a locked household subscribes or does nothing');

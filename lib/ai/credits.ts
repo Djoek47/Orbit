@@ -312,7 +312,7 @@ export function meterCaption(
     return isAdmin
       ? currentMonthlyAllowance() > 0
         ? `Paused · ${summary.tokensUsedThisPeriod} of ${currentMonthlyAllowance()}`
-        : 'Paused · buy actions to keep going'
+        : 'Paused · buy tokens to keep going'
       : 'Speak paused · type still works';
   }
   if (isAdmin) {
