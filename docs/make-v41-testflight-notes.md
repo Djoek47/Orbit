@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** make-v40 / TF **129**; TF **130** = App Review only (finished)  
-**Status:** Patches **0002–0009** on tip. **HOLD TestFlight** until user says go for the next build. TF **131** was cut then canceled — do not ship until explicit go.
+**Status:** Patches **0002–0009** + OpenAI permission **0004** (Settings switch) on tip. **HOLD TestFlight** until user says go for the next build. TF **131** was cut then canceled — do not ship until explicit go.
 
 ## What's on tip (ready for next TF when allowed)
 
@@ -22,23 +22,34 @@
 - **0008** Invited Sidekicks can join a tablet; device needs **two+** people to run; **one device per person**; shared copy/rules in `lib/household/shared-device-rules.ts` (setup wizard, manage card, People nesting)
 - **0009** Go-live: Sidekick phones + shared tablets check in every **8s** (and on app resume); phone signs out with “You’re on … now”; device under two / removed signs out with reason; roster change shows `DeviceUpdatedNotice` (“Your admin updated this device”); XP/streaks stay on the member
 
+### OpenAI permission 0004 (Settings switch)
+- Settings **Poppins uses OpenAI** is an on/off `SettingsToggleRow` (no sheet-over-Settings that left a tap blocker)
+- Consent sheet is one sentence + Privacy policy link (still opens via `requestAiConsent` when needed)
+- `CHOREMAXX_LEGAL` privacy/terms ignore env URLs not on `choremaxx.app` (blocks stale Vercel preview)
+
 ### Staging
 - `ai_consent` + `login_devices` migrations applied
 - Edge: `login-alert` v1, `dispatch-member-push` v10, Poppins suite redeployed (shared-device + consent)
 
-## Matrix (0008–0009 audit)
+## Matrix (0008–0009 + OpenAI 0004)
 | Check | Result |
 |-------|--------|
 | `git am` 0008 + 0009 on tip | OK (`c9c1595`, `2237501`) |
 | `git apply --reverse --check` 0008 + 0009 | OK (fully applied) |
+| `git am` OpenAI permission 0004 | OK (`8eaecb2`) |
+| `git apply --reverse --check` 0004 | OK |
 | `tsc --noEmit` | OK |
 | `shared-device-rules` / readiness / member-card-status / switch / welcome / one-flow | PASS |
 | settings-signout multipass (15) | PASS |
 | billing IAP (11) | PASS |
+| `open-choremaxx-url` legal defaults | PASS |
 | Spot: min 2 people, invited OK, one device/person | OK (rules + setup + manage card + store links) |
 | Spot: 8s check-in + AppState resume → `applyDeviceTransition` | OK (`store/orbit-store.tsx`) |
 | Spot: go-live notice copy | OK (`deviceTransition` → `deviceNotice` → `DeviceUpdatedNotice`) |
 | Spot: `closeDevice` wipe on device-closed | OK |
+| Spot: Settings OpenAI toggle (no sheet-over-Settings) | OK |
+| Spot: consent sheet one-line + privacy link | OK |
+| Spot: non-choremaxx.app legal env rejected | OK |
 | TestFlight | **HOLD** — wait for user |
 
 ## Prior canceled cut (do not reuse)
