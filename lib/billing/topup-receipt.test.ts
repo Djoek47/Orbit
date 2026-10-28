@@ -83,6 +83,11 @@ assert.match(body, /never expire/);
 assert.match(body, /TEST — no charge/, 'it never pretends money moved');
 assert.match(receiptLine(receipt), /700 tokens · \$4\.99 · CMX-/);
 
+// Apple's charged price (buyer currency) wins over the built-in USD catalog price.
+const cad = { ...receipt, priceLabel: 'CA$12.99' };
+assert.match(receiptBody(cad), /Item   700 tokens · CA\$12\.99/);
+assert.match(receiptLine(cad), /700 tokens · CA\$12\.99 · CMX-/);
+
 // An empty household name still reads as a sentence.
 assert.match(
   receiptBody(buildTopUpReceipt({ packKey: 'tokensSmall', to: 'a@b.c', householdName: '  ', seed: 4 })),

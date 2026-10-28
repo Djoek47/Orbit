@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** make-v40 / TF **129**; TF **130** = App Review only (finished)  
-**Status:** Patches **0002–0009** + OpenAI permission **0004** (Settings switch) on tip. **HOLD TestFlight** until user says go for the next build. TF **131** was cut then canceled — do not ship until explicit go.
+**Status:** Patches **0002–0009** + OpenAI **0004** + receipts/tokens **0005** on tip. **HOLD TestFlight** until user says go for the next build. TF **131** was cut then canceled — do not ship until explicit go.
 
 ## What's on tip (ready for next TF when allowed)
 
@@ -27,11 +27,17 @@
 - Consent sheet is one sentence + Privacy policy link (still opens via `requestAiConsent` when needed)
 - `CHOREMAXX_LEGAL` privacy/terms ignore env URLs not on `choremaxx.app` (blocks stale Vercel preview)
 
+### Receipts / tokens 0005
+- Credit + subscribe receipts / confirmations use **Apple’s localized price** (`priceLabel` / `storePrices.display`), not the built-in USD catalog
+- Pack cards + out-of-tokens sheet say **tokens** (not “actions”)
+- `createProfile` also writes `full_name` / `name` / `display_name` into auth user metadata; staging backfill migration `auth_names_from_profiles`
+
 ### Staging
 - `ai_consent` + `login_devices` migrations applied
+- `auth_names_from_profiles` applied (Users list shows profile names)
 - Edge: `login-alert` v1, `dispatch-member-push` v10, Poppins suite redeployed (shared-device + consent)
 
-## Matrix (0008–0009 + OpenAI 0004)
+## Matrix (0008–0009 + OpenAI 0004 + receipts 0005)
 | Check | Result |
 |-------|--------|
 | `git am` 0008 + 0009 on tip | OK (`c9c1595`, `2237501`) |
@@ -50,6 +56,11 @@
 | Spot: Settings OpenAI toggle (no sheet-over-Settings) | OK |
 | Spot: consent sheet one-line + privacy link | OK |
 | Spot: non-choremaxx.app legal env rejected | OK |
+| `git am` receipts/tokens 0005 | OK (`0c8fca9`) |
+| `git apply --reverse --check` 0005 | OK |
+| topup-receipt (+ CA$ priceLabel) / IAP | PASS |
+| Spot: pack UI “tokens”; buy paths pass `priceLabel` | OK |
+| Staging `auth_names_from_profiles` | Applied |
 | TestFlight | **HOLD** — wait for user |
 
 ## Prior canceled cut (do not reuse)
