@@ -30,11 +30,16 @@ function member(partial: Partial<HouseholdMember> & Pick<HouseholdMember, 'id' |
     name: 'Shared device',
     role: 'shared-device',
     status: 'active',
-    sharedWithMemberIds: ['c1'],
+    sharedWithMemberIds: ['c1', 'c2'],
   });
   const child = member({ id: 'c1', name: 'Maya', role: 'child', status: 'active', lastSeenAt: new Date().toISOString() });
-  const status = memberCardStatus(child, [device, child]);
+  const sibling = member({ id: 'c2', name: 'Noah', role: 'child', status: 'invited' });
+  // A shared device is in use with two people (an invited one counts).
+  const status = memberCardStatus(child, [device, child, sibling]);
   assert.match(status.line, /On Shared device/);
+  // With only one person it waits, and that person is still on their own phone.
+  const alone = memberCardStatus(child, [{ ...device, sharedWithMemberIds: ['c1'] }, child]);
+  assert.doesNotMatch(alone.line, /On Shared device/);
   assert.equal(status.actionLabel, null);
 }
 

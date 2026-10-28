@@ -5,6 +5,7 @@
  * Pager: Name · Who · Faces (tutorial) · Hand over (QR).
  * DEV simulates the tablet connect locally without a second device.
  */
+import { canShareDevice, SHARED_DEVICE_MIN_PEOPLE } from '@/lib/household/shared-device-rules';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -134,7 +135,8 @@ export default function SetupKidDeviceScreen() {
   const sidekicks = useMemo(
     () =>
       household.members.filter(
-        (member) => member.status === 'active' && member.role === 'child'
+        // Signed in yet or not: an invited Sidekick can start on the tablet.
+        (member) => canShareDevice(member) && member.role === 'child'
       ),
     [household.members]
   );
@@ -275,8 +277,10 @@ export default function SetupKidDeviceScreen() {
   };
 
   const prepareInvite = async (): Promise<string> => {
-    if (hostedMembers.length === 0) {
-      throw new Error('Pick at least one person.');
+    if (hostedMembers.length < SHARED_DEVICE_MIN_PEOPLE) {
+      throw new Error(
+        'Pick at least two people. A shared device is for two or more Sidekicks taking turns on one tablet.'
+      );
     }
     if (hostedMembers.length > SHARED_DEVICE_MAX_PEOPLE) {
       throw new Error(
@@ -373,8 +377,12 @@ export default function SetupKidDeviceScreen() {
       setError(readiness.body);
       return;
     }
-    if (step === 2 && selectedIds.length === 0) {
-      setError('Pick at least one person.');
+    if (step === 2 && selectedIds.length < SHARED_DEVICE_MIN_PEOPLE) {
+      setError(
+        selectedIds.length === 0
+          ? 'Pick the Sidekicks who share this tablet — at least two.'
+          : 'Pick one more. A shared device is for two or more people taking turns; with one person, their own profile works on its own.'
+      );
       return;
     }
     if (step < STEP_COUNT) {
@@ -1081,7 +1089,7 @@ export default function SetupKidDeviceScreen() {
                 goNextStep();
               }}
               disabled={
-                busy || (step === 2 && (readiness.blocked || selectedIds.length === 0))
+                busy || (step === 2 && (readiness.blocked || selectedIds.length < SHARED_DEVICE_MIN_PEOPLE))
               }
               style={styles.navNext}>
               {nextLabel}

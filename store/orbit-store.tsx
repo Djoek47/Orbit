@@ -7223,12 +7223,30 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!device || device.role !== 'shared-device') {
       throw new Error('Could not find this shared device. Close setup and try again.');
     }
-    const updated = await householdRepository.updateSharedDeviceLinks(device, memberIds);
+    // One shared device per person: anyone being put here comes off any other device first.
+    const moving = new Set(memberIds);
+    const others = household.members.filter(
+      (item) =>
+        item.role === 'shared-device' &&
+        item.id !== deviceId &&
+        (item.sharedWithMemberIds ?? []).some((id) => moving.has(id))
+    );
+    const otherUpdates: HouseholdMember[] = [];
+    for (const other of others) {
+      otherUpdates.push(
+        await householdRepository.updateSharedDeviceLinks(
+          other,
+          (other.sharedWithMemberIds ?? []).filter((id) => !moving.has(id))
+        )
+      );
+    }
+    const updated = await householdRepository.updateSharedDeviceLinks(device, [...new Set(memberIds)]);
+    const changed = new Map([...otherUpdates, updated].map((item) => [item.id, item]));
     setHousehold((current) => ({
       ...current,
       members: current.members.some((item) => item.id === deviceId)
-        ? current.members.map((item) => (item.id === deviceId ? updated : item))
-        : [...current.members, updated],
+        ? current.members.map((item) => changed.get(item.id) ?? item)
+        : [...current.members.map((item) => changed.get(item.id) ?? item), updated],
     }));
     await trackAnalytics(
       'member.shared_device_links_updated',

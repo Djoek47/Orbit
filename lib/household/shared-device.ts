@@ -1,3 +1,4 @@
+import { canShareDevice, isDeviceLive } from '@/lib/household/shared-device-rules';
 import type { HouseholdMember } from '@/types/orbit';
 
 /** Default display name for a new shared device profile (user-facing copy). */
@@ -19,10 +20,9 @@ export function isSharedDeviceMember(member: HouseholdMember | undefined | null)
  * tablet roster. Sidekicks (and non-admin adults) do.
  */
 export function isSharedDeviceEligiblePerson(member: HouseholdMember | undefined | null): boolean {
-  if (!member || member.status !== 'active') return false;
-  if (isSharedDeviceRole(member.role) || member.role === 'guest') return false;
-  if (member.role === 'owner' || member.role === 'admin') return false;
-  return true;
+  // Signed in yet or not: an invited Sidekick can be put on a tablet before they ever connect
+  // (this used to require `active`, which forced every kid to sign in on a phone first).
+  return canShareDevice(member);
 }
 
 /** Real people who share this device (excludes the device profile and household admins). */
@@ -40,10 +40,14 @@ export function listSharedDevices(members: HouseholdMember[]): HouseholdMember[]
   return members.filter((member) => member.status === 'active' && isSharedDeviceRole(member.role));
 }
 
-/** Ids of people nested under any shared device (switchable accounts). */
+/**
+ * Ids of people nested under a shared device that is in use (two or more people). A device
+ * waiting for its second person nests nobody: that person is still an ordinary Sidekick.
+ */
 export function nestedSharedAccountIds(members: HouseholdMember[]): Set<string> {
   const ids = new Set<string>();
   for (const device of listSharedDevices(members)) {
+    if (!isDeviceLive(device, members)) continue;
     for (const personId of device.sharedWithMemberIds ?? []) {
       ids.add(personId);
     }
@@ -57,8 +61,9 @@ export function findSharedDeviceForMember(
   members: HouseholdMember[]
 ): HouseholdMember | undefined {
   if (!memberId) return undefined;
-  return listSharedDevices(members).find((device) =>
-    (device.sharedWithMemberIds ?? []).includes(memberId)
+  // Only a device in use: with fewer than two people a shared device can't be used.
+  return listSharedDevices(members).find(
+    (device) => (device.sharedWithMemberIds ?? []).includes(memberId) && isDeviceLive(device, members)
   );
 }
 

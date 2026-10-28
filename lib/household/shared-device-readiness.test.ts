@@ -22,45 +22,34 @@ assert.equal(empty.state, 'no-sidekicks');
 assert.equal(empty.blocked, true);
 assert.equal(empty.action, 'invite');
 
-// ── Invited, never signed in — the case that looked broken ────────────────────
-// Emma is invited; the grid would be empty under "Tap each Sidekick who shares it".
-const invitedOnly = sharedDeviceReadiness([admin, member('e', 'Emma', 'invited')]);
-assert.equal(invitedOnly.state, 'none-connected');
-assert.equal(invitedOnly.blocked, true, 'Next must not advance into a dead end');
-assert.equal(invitedOnly.action, 'wait');
-assert.match(invitedOnly.body, /Emma/, 'it names who we are waiting on');
-assert.match(invitedOnly.body, /hasn't signed in/, 'singular reads correctly');
-
+// ── Invited, never signed in: no longer a wall ───────────────────────────────
+// Signing in first is not required any more. Two invited Sidekicks are enough.
 const twoInvited = sharedDeviceReadiness([
   admin,
   member('e', 'Emma', 'invited'),
   member('j', 'Jack', 'pending'),
 ]);
-assert.equal(twoInvited.state, 'none-connected');
-assert.match(twoInvited.body, /Emma and Jack/);
-assert.match(twoInvited.body, /haven't signed in/, 'plural reads correctly');
+assert.equal(twoInvited.state, 'ready', 'invited Sidekicks can share a device');
+assert.equal(twoInvited.blocked, false);
+assert.equal(twoInvited.connected.length, 2);
 
-// ── One connected — allowed, but say it plainly ───────────────────────────────
-// This is the screenshot: Jack signed in, Emma still invited.
-const jackOnly = sharedDeviceReadiness([
-  admin,
-  member('j', 'Jack', 'active'),
-  member('e', 'Emma', 'invited'),
-]);
-assert.equal(jackOnly.state, 'single');
-assert.equal(jackOnly.blocked, false, 'one person may still set it up');
-assert.match(jackOnly.title, /Jack/);
-assert.match(jackOnly.body, /two or more/, 'it says what the feature is actually for');
-assert.match(jackOnly.body, /Emma/, 'and who would make it worthwhile');
-assert.equal(jackOnly.connected.length, 1);
-assert.equal(jackOnly.waiting.length, 1);
+// ── One person: blocked, and it says why ─────────────────────────────────────
+const invitedOnly = sharedDeviceReadiness([admin, member('e', 'Emma', 'invited')]);
+assert.equal(invitedOnly.state, 'single');
+assert.equal(invitedOnly.blocked, true, 'a shared device needs two people');
+assert.match(invitedOnly.body, /two or more/);
+assert.match(invitedOnly.body, /Emma keeps their own profile/);
+assert.equal(invitedOnly.action, 'invite');
 
-// One connected and nobody else invited — different advice, still allowed.
 const alone = sharedDeviceReadiness([admin, member('j', 'Jack', 'active')]);
 assert.equal(alone.state, 'single');
-assert.equal(alone.blocked, false);
-assert.match(alone.body, /their own phone works better/);
-assert.equal(alone.action, 'invite');
+assert.equal(alone.blocked, true);
+
+// One signed in, one invited: that's two — ready.
+assert.equal(
+  sharedDeviceReadiness([admin, member('j', 'Jack', 'active'), member('e', 'Emma', 'invited')]).state,
+  'ready'
+);
 
 // ── Two or more — nothing to say ──────────────────────────────────────────────
 const ready = sharedDeviceReadiness([

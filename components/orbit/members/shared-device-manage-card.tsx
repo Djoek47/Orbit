@@ -4,6 +4,7 @@
  * Admins / owners never appear here (they run the house from their own phone). Sidekicks
  * tap on/off. The old mute pills looked dead; this card leads with faces and a clear edit.
  */
+import { deviceStatusLine, planAdd, planRemove } from '@/lib/household/shared-device-rules';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -96,9 +97,19 @@ export function SharedDeviceManageCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device.id, linkedIds.join('|'), members.map((m) => `${m.id}:${m.role}`).join('|')]);
 
+  // Every add and remove says what happened and why (lib/household/shared-device-rules).
+  const tell = (notes: { title: string; body: string }[]) => {
+    if (!notes.length) return;
+    const last = notes[notes.length - 1]!;
+    const before = notes.slice(0, -1).map((n) => n.body).join('\n\n');
+    orbitAlert(last.title, before ? `${before}\n\n${last.body}` : last.body, undefined, { record: false });
+  };
+
   const toggle = (personId: string) => {
     if (linkedIds.includes(personId)) {
-      onLinksChange(linkedIds.filter((id) => id !== personId));
+      const plan = planRemove(personId, device.id, members);
+      onLinksChange(plan.links[device.id] ?? linkedIds.filter((id) => id !== personId));
+      tell(plan.notes);
       return;
     }
     if (atCap) {
@@ -107,7 +118,14 @@ export function SharedDeviceManageCard({
       });
       return;
     }
-    onLinksChange([...linkedIds, personId]);
+    const plan = planAdd(personId, device.id, members);
+    if ('blocked' in plan) {
+      orbitAlert(plan.blocked.title, plan.blocked.body, undefined, { record: false });
+      return;
+    }
+    // The store takes them off any other device (one device per person).
+    onLinksChange(plan.links[device.id] ?? [...linkedIds, personId]);
+    tell(plan.notes);
   };
 
   return (
@@ -136,8 +154,8 @@ export function SharedDeviceManageCard({
             {deviceName}
           </Text>
           <Text style={[styles.subtitle, { color: c.textMuted }]}>
-            {onDevice.length === 0
-              ? 'No one on this device yet'
+            {onDevice.length < 2
+              ? deviceStatusLine(device, members)
               : onDevice.some((p) => memberIsLive(p))
                 ? `${onDevice.length} people · someone connected`
                 : (() => {
@@ -195,7 +213,7 @@ export function SharedDeviceManageCard({
                   </Text>
                 )}
               </View>
-              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <View style={{ flexShrink: 1, minWidth: 40, gap: 2 }}>
                 <Text style={[styles.faceName, { color: c.text }]} numberOfLines={1}>
                   {person.name}
                 </Text>

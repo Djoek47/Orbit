@@ -112,12 +112,14 @@ export function HouseholdMembersRoster({
     topLevel.find((m) => m.role === 'owner' || m.role === 'admin') ??
     null;
 
-  // Nested shared-device Sidekicks must still appear (audit WO14 P1).
+  // People on a shared device in use (two or more) move under that tablet in Shared tablets;
+  // they come back here the moment they're taken off it, or the device drops to one person.
   const sidekicks = household.members.filter(
     (m) =>
       m.role === 'child' &&
       m.status === 'active' &&
-      m.id !== signedIn?.id
+      m.id !== signedIn?.id &&
+      !nestedAccountIds.has(m.id)
   );
   const pending = topLevel.filter(
     (m) =>

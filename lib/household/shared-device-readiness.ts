@@ -69,50 +69,34 @@ function isSidekickProfile(member: HouseholdMember): boolean {
 export function sharedDeviceReadiness(members: HouseholdMember[]): SharedDeviceReadiness {
   const profiles = members.filter(isSidekickProfile);
   // Exactly who the wizard's grid will render — see isSidekickProfile.
-  const connected = profiles.filter((member) => member.status === 'active');
+  // Signed in or not, every Sidekick can go on a shared device now (the old rule made each kid
+  // sign in on a phone first). `waiting` is kept for callers that still show who hasn't
+  // signed in, but it no longer blocks anything.
+  const connected = profiles;
   const waiting = profiles.filter((member) => member.status !== 'active');
 
-  if (connected.length === 0 && waiting.length === 0) {
+  if (connected.length === 0) {
     return {
       state: 'no-sidekicks',
       connected,
       waiting,
       blocked: true,
-      title: 'Nobody to share it with yet',
-      body: 'Add a Sidekick first. Once they sign in on their own phone, you can put them on a shared device.',
+      title: 'Add your Sidekicks first',
+      body: 'A shared device is a tablet two or more Sidekicks take turns on. Add them in People — they don’t need to sign in anywhere first — then come back here.',
       action: 'invite',
-    };
-  }
-
-  if (connected.length === 0) {
-    const who = listNames(waiting);
-    return {
-      state: 'none-connected',
-      connected,
-      waiting,
-      blocked: true,
-      title: 'Nobody has signed in yet',
-      body:
-        waiting.length === 1
-          ? `${who} has been invited but hasn't signed in yet. Once they open Choremaxx with their code, they can go on this device.`
-          : `${who} have been invited but haven't signed in yet. Once they open Choremaxx with their codes, they can go on this device.`,
-      action: 'wait',
     };
   }
 
   if (connected.length === 1) {
     const who = firstName(connected[0]!);
-    const alsoWaiting = waiting.length > 0;
     return {
       state: 'single',
       connected,
       waiting,
-      blocked: false,
+      blocked: true,
       title: `Only ${who} so far`,
-      body: alsoWaiting
-        ? `A shared device is for two or more people taking turns. ${listNames(waiting)} still need to sign in — you can wait, or set it up for ${who} alone and add them later.`
-        : `A shared device is for two or more people taking turns. With just ${who}, their own phone works better — but you can set this up anyway and add people later.`,
-      action: alsoWaiting ? 'wait' : 'invite',
+      body: `A shared device is for two or more people taking turns on one tablet — with just ${who} there’s nobody to share it with, so ${who} keeps their own profile. Add another Sidekick in People, then set this up for both.`,
+      action: 'invite',
     };
   }
 
