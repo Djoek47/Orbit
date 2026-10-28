@@ -1,4 +1,6 @@
 import { dataMode } from '@/config/data-mode';
+import { reportSignIn } from '@/lib/auth/login-alert';
+import { checkEmail, checkPassword } from '@/lib/auth/credential-input';
 import {
   AuthRateLimitError,
   EmailNotConfirmedError,
@@ -103,9 +105,16 @@ export const authRepository = {
       return { user };
     }
 
+    // Defence in depth (Supabase already binds these as parameters): refuse input no real
+    // email or password contains before it leaves the phone.
+    const emailCheck = checkEmail(input.email);
+    if (!emailCheck.ok) throwAuthIssue('generic', { message: emailCheck.message });
+    const passwordCheck = checkPassword(input.password);
+    if (!passwordCheck.ok) throwAuthIssue('generic', { message: passwordCheck.message });
+
     const supabase = getConfiguredSupabase('authRepository.signIn');
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: input.email.trim(),
+      email: emailCheck.ok ? emailCheck.email : input.email.trim(),
       password: input.password,
     });
     if (error) {
@@ -128,6 +137,8 @@ export const authRepository = {
     }
 
     const user = await loadProfileUser(supabase, data.user.id, data.user.email ?? input.email.trim());
+    // New device? The server emails the person (and their household admins).
+    reportSignIn();
     return { user };
   },
 
@@ -147,6 +158,11 @@ export const authRepository = {
       clearPendingSignup();
       return { status: 'ready', session: { user } };
     }
+
+    const emailCheck = checkEmail(email);
+    if (!emailCheck.ok) throwAuthIssue('generic', { message: emailCheck.message });
+    const passwordCheck = checkPassword(input.password);
+    if (!passwordCheck.ok) throwAuthIssue('generic', { message: passwordCheck.message });
 
     const supabase = getConfiguredSupabase('authRepository.signUp');
     const { data, error } = await supabase.auth.signUp({

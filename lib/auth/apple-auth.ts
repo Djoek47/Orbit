@@ -1,4 +1,5 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { reportSignIn } from '@/lib/auth/login-alert';
 import { Platform } from 'react-native';
 
 import { isProfileNameComplete } from '@/lib/auth/display-name';
@@ -66,6 +67,8 @@ export async function signInWithApple(): Promise<AuthSession> {
   }
 
   const email = data.user.email ?? credential.email ?? '';
+  // New device? The server emails the person (and their household admins).
+  reportSignIn();
 
   // Apple only returns fullName on first authorization — overwrite the
   // trigger-seeded relay local-part whenever we get a real name.
