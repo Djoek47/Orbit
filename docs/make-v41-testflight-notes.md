@@ -1,16 +1,16 @@
-# make-v41 TestFlight — release notes (build 131)
+# make-v41 TestFlight — release notes (next cut after hold)
 
 **Branch tip:** `cursor/make-v41-c30d`  
-**Base:** make-v40 / TF **129**; TF **130** = App Review only (in flight or finished)  
-**Status:** Patches 0002–0007 on tip. **TF 131 canceled** — hold until user says push TestFlight. TF **130** (App Review) finished.
+**Base:** make-v40 / TF **129**; TF **130** = App Review only (finished)  
+**Status:** Patches **0002–0009** on tip. **HOLD TestFlight** until user says go for the next build. TF **131** was cut then canceled — do not ship until explicit go.
 
-## What's in this build
+## What's on tip (ready for next TF when allowed)
 
-### Already on tip (TF 130)
+### Already shipped (TF 130)
 - App Review 2.5.4: no unused background modes
 - App Review 5.1.2(i): Poppins OpenAI consent sheet + `ai_consent_at`
 
-### Patches 0002–0007 (this cut)
+### Patches 0002–0007
 - iPad: tour Exit in card, square QR scanner, square category tiles, house rules no overlap
 - No Itineraries / Smart Trips / Poppins for Sidekicks or shared devices (server refuses shared too)
 - iPad: full-bleed width; sign-in glow no longer cuts the form
@@ -18,22 +18,33 @@
 - Shared devices: demo people (Emma/Jack) never appear on a real account
 - No pushes / local reminders once trial or subscription has ended (billing notices still go)
 
+### Patches 0008–0009 (shared devices final)
+- **0008** Invited Sidekicks can join a tablet; device needs **two+** people to run; **one device per person**; shared copy/rules in `lib/household/shared-device-rules.ts` (setup wizard, manage card, People nesting)
+- **0009** Go-live: Sidekick phones + shared tablets check in every **8s** (and on app resume); phone signs out with “You’re on … now”; device under two / removed signs out with reason; roster change shows `DeviceUpdatedNotice` (“Your admin updated this device”); XP/streaks stay on the member
+
 ### Staging
 - `ai_consent` + `login_devices` migrations applied
 - Edge: `login-alert` v1, `dispatch-member-push` v10, Poppins suite redeployed (shared-device + consent)
 
-## Matrix
+## Matrix (0008–0009 audit)
 | Check | Result |
 |-------|--------|
-| `git am` 0002–0007 (0001 already on tip) | OK |
+| `git am` 0008 + 0009 on tip | OK (`c9c1595`, `2237501`) |
+| `git apply --reverse --check` 0008 + 0009 | OK (fully applied) |
 | `tsc --noEmit` | OK |
-| credential-input, real-members-only, layout-metrics | PASS |
-| testflight:preflight | PASS (HaveIBeenPwned warn unchanged) |
+| `shared-device-rules` / readiness / member-card-status / switch / welcome / one-flow | PASS |
+| settings-signout multipass (15) | PASS |
+| billing IAP (11) | PASS |
+| Spot: min 2 people, invited OK, one device/person | OK (rules + setup + manage card + store links) |
+| Spot: 8s check-in + AppState resume → `applyDeviceTransition` | OK (`store/orbit-store.tsx`) |
+| Spot: go-live notice copy | OK (`deviceTransition` → `deviceNotice` → `DeviceUpdatedNotice`) |
+| Spot: `closeDevice` wipe on device-closed | OK |
+| TestFlight | **HOLD** — wait for user |
 
-## Cut
+## Prior canceled cut (do not reuse)
 | | |
 |--|--|
-| Version | **1.3.0 (131)** |
+| Version | **1.3.0 (131)** — canceled |
 | Branch | `cursor/make-v41-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/129 |
 | Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/4d17c6b3-3fe5-4420-ae6e-d265ba69fd26 |
