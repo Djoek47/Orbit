@@ -35,7 +35,6 @@ import { POPPINS_PAUSED_COPY } from '@/lib/ai/credits';
 import {
   buildActEvent,
   notifyActUndone,
-  personalActTokens,
   summarizeActUsage,
 } from '@/lib/ai/act-events';
 import { getMajordomoProfile, resolveMajordomoProfileId } from '@/lib/ai/majordomo-profiles';
@@ -1752,9 +1751,13 @@ export function usePoppinsController() {
   const captionTextColor = isDark ? 'rgba(255,255,255,0.9)' : c.text;
 
   const primaryConnected = liveConnected || quietListening || baseOn;
-  const personalUsed = personalActTokens(aiSummary, currentMember?.id);
-  const dailyLeft = Math.max(0, TOKENS_PER_DAY - personalUsed);
-  const dailyFill = TOKENS_PER_DAY > 0 ? dailyLeft / TOKENS_PER_DAY : 0;
+  // What this household can still spend: whichever of the month's allowance and the day's cap
+  // is lower, plus any bought packs. The chip used to be TOKENS_PER_DAY minus this person's
+  // month-to-date — a daily cap measured against a monthly total, blind to bought tokens, so
+  // buying 2,000 still read "300 LEFT".
+  const tokensLeft = aiSummary.tokensRemaining;
+  const dailyLeft = tokensLeft;
+  const dailyFill = TOKENS_PER_DAY > 0 ? Math.min(1, tokensLeft / TOKENS_PER_DAY) : 0;
   // On a trial the allowance is zero; the glow then reflects bought actions rather than
   // dividing by zero and rendering nothing.
   const monthGlow = permissions.canManageHousehold

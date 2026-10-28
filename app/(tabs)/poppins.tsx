@@ -174,7 +174,7 @@ function PoppinsScreenInner() {
           <TourTarget id="poppins.meter">
             <Text
               style={[styles.kicker, { color: stageFaint(isDark) }]}
-              accessibilityLabel={`${p.dailyLeft} tokens left today`}>
+              accessibilityLabel={`${p.dailyLeft} Poppins tokens left`}>
               {p.meterLabel}
             </Text>
           </TourTarget>
