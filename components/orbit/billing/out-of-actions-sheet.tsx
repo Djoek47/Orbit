@@ -144,7 +144,7 @@ export function OutOfActionsSheet({ visible, balance, onClose, onTrial }: Props)
           </View>
 
           <Text style={[styles.count, { color: c.text }]}>{count.toLocaleString()}</Text>
-          <Text style={[styles.countLabel, { color: c.textMuted }]}>actions available</Text>
+          <Text style={[styles.countLabel, { color: c.textMuted }]}>tokens available</Text>
 
           {done ? (
             <Animated.View entering={ZoomIn.duration(320)} style={styles.copy}>

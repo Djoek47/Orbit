@@ -71,7 +71,7 @@ export type AiTokenUsage = {
 };
 
 export const POPPINS_PAUSED_COPY =
-  'Poppins Speak is paused — you’ve used this period’s actions. Type still works. Actions reset on your billing date, or buy a top-up.';
+  'Poppins Speak is paused — you’ve used this period’s tokens. Type still works. Tokens reset on your billing date, or buy a top-up.';
 
 export function tokenWeightForMode(mode: PoppinsActMode | undefined): number {
   switch (mode) {
