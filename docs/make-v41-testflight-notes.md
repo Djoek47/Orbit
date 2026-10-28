@@ -1,53 +1,40 @@
-# make-v41 TestFlight — release notes (build 130)
+# make-v41 TestFlight — release notes (build 131)
 
 **Branch tip:** `cursor/make-v41-c30d`  
-**Base:** make-v40 / TF **1.3.0 (129)**  
-**Status:** **1.3.0 (130)** build queued + ASC auto-submit scheduled.
+**Base:** make-v40 / TF **129**; TF **130** = App Review only (in flight or finished)  
+**Status:** Full fold — cutting **1.3.0 (131)**.
 
----
+## What's in this build
 
-## What's in this build (on top of 129)
+### Already on tip (TF 130)
+- App Review 2.5.4: no unused background modes
+- App Review 5.1.2(i): Poppins OpenAI consent sheet + `ai_consent_at`
 
-### App Review 2.5.4 — unused background modes
-- Removed `UIBackgroundModes: remote-notification` from `app.json`
-- `expo-audio`: `enableBackgroundPlayback` / `enableBackgroundRecording` **false**
-- Built Info.plist declares **no** background modes (app does not play audio in background or use silent pushes)
+### Patches 0002–0007 (this cut)
+- iPad: tour Exit in card, square QR scanner, square category tiles, house rules no overlap
+- No Itineraries / Smart Trips / Poppins for Sidekicks or shared devices (server refuses shared too)
+- iPad: full-bleed width; sign-in glow no longer cuts the form
+- Sign-in: show/hide password, input checks, new-device security emails (`login-alert` + `login_devices`)
+- Shared devices: demo people (Emma/Jack) never appear on a real account
+- No pushes / local reminders once trial or subscription has ended (billing notices still go)
 
-### App Review 5.1.2(i) — ask before OpenAI
-- **Poppins uses OpenAI** consent sheet: names provider, what is sent, Allow / Not now
-- Asked on first Poppins visit and whenever a cloud call needs it
-- `profiles.ai_consent_at`; every Poppins edge function checks it
-  - chat / voice / live voice **refuse** without consent
-  - notify / briefing / monitor use plain text and never call OpenAI
-- Settings → **Poppins & OpenAI** to see or withdraw
-- Without permission Poppins still works on-device
+### Staging
+- `ai_consent` + `login_devices` migrations applied
+- Edge: `login-alert` v1, `dispatch-member-push` v10, Poppins suite redeployed (shared-device + consent)
 
-### Staging this cut
-- Migration `20261027120000_ai_consent` applied
-- Redeployed: poppins-chat, voice, voice-tool, realtime-session, realtime-sdp, briefing, notify, monitor (consent-aware)
-
----
-
-## Matrix pass
-
+## Matrix
 | Check | Result |
 |-------|--------|
-| `git am` App Review patch | OK |
+| `git am` 0002–0007 (0001 already on tip) | OK |
 | `tsc --noEmit` | OK |
-| No `UIBackgroundModes` / associatedDomains | OK |
-| Staging `ai_consent_at` column | Applied |
-| Poppins edge redeploys | OK |
-| testflight:preflight | (run at cut) |
-
----
+| credential-input, real-members-only, layout-metrics | PASS |
+| testflight:preflight | (at cut) |
 
 ## Cut
-
 | | |
 |--|--|
-| Version | **1.3.0 (130)** |
+| Version | **1.3.0 (131)** |
 | Branch | `cursor/make-v41-c30d` |
-| PR | (fill) |
+| PR | https://github.com/Djoek47/Orbit/pull/129 |
 | Build | (fill) |
 | Submit | (fill) |
-| Prior (129) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/928156c2-83a1-452a-ba98-688f005e374c |
