@@ -28,6 +28,6 @@
 | Version | **1.3.0 (133)** |
 | Branch | `cursor/make-v41-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/129 |
-| Build | _(filled after EAS)_ |
-| Submit | _(filled after EAS)_ |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/67e525c3-d9dd-4b3f-869c-5a5782208955 |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/452e18b7-b087-4e70-9ea1-97a2cafeb32f |
 | Prior (132) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/8a803498-df65-4797-b889-f43a0f937de9 |
