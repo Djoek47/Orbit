@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** make-v40 / TF **129**; TF **130** = App Review only (in flight or finished)  
-**Status:** **1.3.0 (131)** build queued + ASC auto-submit scheduled.
+**Status:** Patches 0002–0007 on tip. **TF 131 canceled** — hold until user says push TestFlight. TF **130** (App Review) finished.
 
 ## What's in this build
 
@@ -28,7 +28,7 @@
 | `git am` 0002–0007 (0001 already on tip) | OK |
 | `tsc --noEmit` | OK |
 | credential-input, real-members-only, layout-metrics | PASS |
-| testflight:preflight | (at cut) |
+| testflight:preflight | PASS (HaveIBeenPwned warn unchanged) |
 
 ## Cut
 | | |
@@ -36,5 +36,6 @@
 | Version | **1.3.0 (131)** |
 | Branch | `cursor/make-v41-c30d` |
 | PR | https://github.com/Djoek47/Orbit/pull/129 |
-| Build | (fill) |
-| Submit | (fill) |
+| Build | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/4d17c6b3-3fe5-4420-ae6e-d265ba69fd26 |
+| Submit | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/submissions/960043de-ab79-4696-b1e6-5e94b0b0adf9 |
+| Prior (130) | https://expo.dev/accounts/choremaxx-team/projects/choremaxx/builds/a07537fa-628e-4363-be7b-71cfc08548f3 |
