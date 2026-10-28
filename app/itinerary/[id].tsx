@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { tripsOnly } from '@/components/orbit/trips/trips-only-guard';
 import * as Haptics from 'expo-haptics';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -68,7 +69,7 @@ function mapsSpokenName(app: string): string {
   return 'Maps';
 }
 
-export default function ItineraryDetailScreen() {
+function ItineraryDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { c, glass, glassBorder, isDark } = useOrbitColors();
@@ -806,3 +807,6 @@ const styles = StyleSheet.create({
   upcomingPlace: { fontSize: 13 },
   reorderCol: { alignItems: 'center' },
 });
+
+// Not for Sidekicks or shared devices.
+export default tripsOnly(ItineraryDetailScreen);

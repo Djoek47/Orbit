@@ -3,6 +3,7 @@ import { router, usePathname } from 'expo-router';
 
 import { resolveMajordomoDisplayName } from '@/lib/ai/majordomo-name';
 import { useOrbitOptional } from '@/store/orbit-store';
+import { poppinsAllowedForRole } from '@/lib/sidekick/permissions';
 import { driveAiuic, hearAndDrive } from '@/lib/poppins/aiuic';
 import {
   rememberTurn,
@@ -25,6 +26,8 @@ type PoppinsLiveValue = {
   error: string;
   sheetOpen: boolean;
   nativeVoice: boolean;
+  /** False for Sidekicks and shared devices: hide every "Ask Poppins" entry. */
+  available: boolean;
   startInPlace: (pageContext?: string) => Promise<void>;
   sendText: (text: string) => Promise<void>;
   stop: () => Promise<void>;
@@ -50,6 +53,7 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   const household = orbit?.household;
   const appendPoppinsTurn = orbit?.appendPoppinsTurn;
   const kid = orbit?.currentMember?.role === 'child';
+  const available = poppinsAllowedForRole(orbit?.currentMember?.role);
   const selfName = orbit?.currentMember?.name;
   const memberNames = useMemo(
     () => household?.members.map((member) => member.name) ?? [],
@@ -103,9 +107,9 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
   const startInPlace = useCallback(async (_pageContext = 'in-place') => {
     setSheetOpen(false);
     setError('');
-    if (onPoppinsTab) return;
+    if (onPoppinsTab || !available) return;
     router.push('/(tabs)/poppins' as never);
-  }, [onPoppinsTab]);
+  }, [available, onPoppinsTab]);
 
   const sendText = useCallback(
     async (text: string) => {
@@ -170,13 +174,14 @@ export function PoppinsLiveProvider({ children }: { children: ReactNode }) {
       error,
       sheetOpen,
       nativeVoice,
+      available,
       startInPlace,
       sendText,
       stop,
       markThinking: () => setVisual('thinking'),
       markIdle: () => setVisual('idle'),
     }),
-    [caption, error, nativeVoice, sendText, sheetOpen, startInPlace, stop, visual]
+    [available, caption, error, nativeVoice, sendText, sheetOpen, startInPlace, stop, visual]
   );
 
   return <PoppinsLiveContext.Provider value={value}>{children}</PoppinsLiveContext.Provider>;

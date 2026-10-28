@@ -63,7 +63,15 @@ export function poppinsAiAllowedForSidekick(opts: {
   role: string | null | undefined;
   householdAllows?: boolean;
 }): boolean {
-  return !isSidekickRole(opts.role);
+  return poppinsAllowedForRole(opts.role);
+}
+
+/**
+ * The one rule for who gets Poppins: grown-ups only. Sidekicks and shared devices (the family
+ * tablet / kid device) never see it — no tab, no Ask button, no voice, no typing.
+ */
+export function poppinsAllowedForRole(role: string | null | undefined): boolean {
+  return !isSidekickRole(role) && role !== 'shared-device';
 }
 
 /** True when this member should see the Poppins tab / Speak entry. */
@@ -71,5 +79,5 @@ export function canShowPoppinsTab(opts: {
   role: string | null | undefined;
   sidekickPoppinsAi?: boolean;
 }): boolean {
-  return !isSidekickRole(opts.role);
+  return poppinsAllowedForRole(opts.role);
 }

@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { tripsOnly } from '@/components/orbit/trips/trips-only-guard';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -120,7 +121,7 @@ function tapHaptic() {
   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
 }
 
-export default function CreateItineraryScreen() {
+function CreateItineraryScreen() {
   const insets = useSafeAreaInsets();
   const { height: screenH } = useWindowDimensions();
   const { createItinerary, household, preferredStore, accentTheme, upsertSavedPlace } = useOrbit();
@@ -766,3 +767,6 @@ const styles = StyleSheet.create({
   cancel: { alignItems: 'center', paddingVertical: 10 },
   cancelText: { fontSize: 15, fontWeight: '600' },
 });
+
+// Not for Sidekicks or shared devices.
+export default tripsOnly(CreateItineraryScreen);

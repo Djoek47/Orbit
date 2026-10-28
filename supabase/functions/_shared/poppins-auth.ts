@@ -21,7 +21,8 @@ export function requireNonSidekick(
   role: string | null | undefined,
   options?: { allowed?: boolean }
 ) {
-  if (isSidekickRole(role) && !options?.allowed) {
+  // Sidekicks and shared devices never get Poppins.
+  if ((isSidekickRole(role) || role === 'shared-device') && !options?.allowed) {
     return jsonResponse({ error: 'Poppins is not available on this profile.' }, 403);
   }
   return null;

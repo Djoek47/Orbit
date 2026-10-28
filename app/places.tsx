@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { tripsOnly } from '@/components/orbit/trips/trips-only-guard';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, router } from 'expo-router';
@@ -153,7 +154,7 @@ function placeToEditor(place: SavedPlace, isNew = false): EditorState {
   };
 }
 
-export default function PlacesScreen() {
+function PlacesScreen() {
   const insets = useSafeAreaInsets();
   const {
     accentTheme,
@@ -1272,3 +1273,6 @@ const styles = StyleSheet.create({
   },
   summaryCtaText: { fontSize: 13, fontWeight: '700' },
 });
+
+// Not for Sidekicks or shared devices.
+export default tripsOnly(PlacesScreen);

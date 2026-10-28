@@ -199,6 +199,10 @@ export default function PlanScreen() {
   const caps = resolveMemberCapabilities(household);
   const isAdmin = permissions.canManageHousehold;
   const isSidekick = isSidekickRole(currentMember?.role);
+  // Itineraries (Smart Trips, My Places) are for adults running the house. Sidekicks and
+  // shared devices never see them — not the switch, not the screen, not via tour or link.
+  const tripsAllowed = !isSidekick && !sharedKidMode;
+  const viewTab: PlanSubTab = tripsAllowed ? subTab : 'calendar';
 
   const planItems = useMemo(() => {
     const built = buildPlanItems(visibleEvents, visibleTasks);
@@ -285,6 +289,7 @@ export default function PlanScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={accentTheme.primary} />
       }>
+      {tripsAllowed ? (
       <TourTarget id="plan.viewSegment">
       <View style={[styles.subNav, { backgroundColor: glass(0.06) }]}>
         {(
@@ -293,7 +298,7 @@ export default function PlanScreen() {
             { id: 'itinerary' as const, label: 'Itineraries', icon: 'map' as const },
           ] as const
         ).map((item) => {
-          const active = subTab === item.id;
+          const active = viewTab === item.id;
           if (item.id === 'itinerary') {
             return (
               <TourTarget id="plan.itinerariesTab" key={item.id} style={{ flex: 1 }}>
@@ -332,8 +337,9 @@ export default function PlanScreen() {
         })}
       </View>
       </TourTarget>
+      ) : null}
 
-      {subTab === 'calendar' ? (
+      {viewTab === 'calendar' ? (
         <>
           <View style={[styles.calHeader, { paddingRight: canOpenPlanAdd ? 0 : undefined }]}>
             <View style={{ flex: 1 }}>

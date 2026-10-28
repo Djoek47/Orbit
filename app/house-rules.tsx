@@ -358,14 +358,15 @@ export default function HouseRulesScreen() {
               <MaterialIcons name="mic" size={22} color={accent} />
             </Pressable>
           </View>
-        ) : (
+        ) : live?.available ? (
+          // No Poppins for Sidekicks or shared devices.
           <Pressable
             onPress={() => void live?.startInPlace('house-rules')}
             style={[styles.askRow, { borderColor: glassBorder(0.1), backgroundColor: glassFill(isDark) }]}>
             <MaterialIcons name="mic" size={20} color={accent} />
             <Text style={{ color: c.text, fontWeight: '600' }}>Ask {majordomoName}</Text>
           </Pressable>
-        )}
+        ) : null}
       </PersistentScrollView>
       <DeadlinePickerSheet
         visible={deadlineOpen}
