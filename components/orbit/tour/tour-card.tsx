@@ -30,6 +30,10 @@ type Props = {
   onSkipStep: () => void;
   onLayoutHeight?: (height: number) => void;
   maxHeight?: number;
+  /** Wide screens (iPad): Exit lives in the card, beside the step label, instead of a top pill
+   *  that landed on the header's bell and Settings buttons. */
+  onExit?: () => void;
+  exitLabel?: string;
 };
 
 /**
@@ -56,6 +60,8 @@ export function TourCard({
   onSkipStep,
   onLayoutHeight,
   maxHeight,
+  onExit,
+  exitLabel,
 }: Props) {
   const { c, isDark } = useOrbitColors();
   const orbit = useOrbitOptional();
@@ -125,10 +131,24 @@ export function TourCard({
               </View>
             </View>
           ) : (
-            <Text style={[typography.footnote, styles.eyebrow, { color: c.textMuted }]}>
-              {chapterName}
-              {stepLabel ? ` · ${stepLabel}` : ''}
-            </Text>
+            <View style={styles.eyebrowRow}>
+              <Text style={[typography.footnote, styles.eyebrow, { color: c.textMuted, flex: 1 }]}>
+                {chapterName}
+                {stepLabel ? ` · ${stepLabel}` : ''}
+              </Text>
+              {onExit ? (
+                <Pressable
+                  onPress={onExit}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={exitLabel ?? 'Exit tour'}
+                  style={({ pressed }) => [styles.exitInCard, { opacity: pressed ? 0.6 : 1 }]}>
+                  <Text style={[typography.footnote, styles.exitInCardText, { color: c.textSoft }]}>
+                    {exitLabel ?? 'Exit tour'}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           )}
           <Text style={[typography.title3, { color: c.text }]}>{title}</Text>
           <ScrollView
@@ -250,6 +270,9 @@ export function TourCard({
 }
 
 const styles = StyleSheet.create({
+  eyebrowRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  exitInCard: { justifyContent: 'center', minHeight: 32, paddingHorizontal: 4 },
+  exitInCardText: { fontWeight: '700' },
   wrap: {
     maxWidth: 340,
     width: '100%',

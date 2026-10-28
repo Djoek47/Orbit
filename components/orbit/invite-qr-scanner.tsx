@@ -133,10 +133,14 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderRadius: radius.cardLarge,
     borderWidth: 1,
-    flex: 1,
+    // A QR code is square, so the camera is too: full width on a phone, capped and centred
+    // on iPad (it used to stretch into a wide rectangle).
+    alignSelf: 'center',
+    aspectRatio: 1,
     marginBottom: space.md,
-    minHeight: 360,
+    maxWidth: 520,
     overflow: 'hidden',
+    width: '100%',
   },
   centered: {
     flex: 1,
@@ -160,11 +164,12 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderRadius: radius.card,
     borderWidth: 2,
-    bottom: '22%',
-    left: '12%',
+    // Same inset on every side of a square shell = a square guide.
+    bottom: '16%',
+    left: '16%',
     position: 'absolute',
-    right: '12%',
-    top: '22%',
+    right: '16%',
+    top: '16%',
   },
   header: {
     alignItems: 'flex-start',

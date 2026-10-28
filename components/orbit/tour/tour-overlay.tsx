@@ -108,6 +108,9 @@ function TourOverlayBody({
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [reduceMotion, setReduceMotion] = useState(false);
   const [cardHeight, setCardHeight] = useState(0);
+  // iPad / wide screens: Exit goes inside the card. The top pill only knew to dodge the
+  // highlighted item, and on iPad it sat on the header's bell and Settings buttons.
+  const exitInCard = screenW >= 700;
   const exitPlacement = placeExitPill({
     target,
     screen: { w: screenW, h: screenH },
@@ -390,6 +393,8 @@ function TourOverlayBody({
           onBack={onBack}
           onSkipChapter={onSkipChapter}
           onSkipStep={onSkipStep}
+          onExit={exitInCard ? onClose : undefined}
+          exitLabel={closeLabel}
           onLayoutHeight={(h) => {
             if (h > 0 && Math.abs(h - cardHeight) > 1) setCardHeight(h);
           }}
@@ -408,6 +413,7 @@ function TourOverlayBody({
 
       {/* Exit last + highest zIndex so the card never steals its taps. It also moves out of the
           way of whatever is highlighted — it used to sit on top of the Settings button. */}
+      {exitInCard ? null : (
       <View
         pointerEvents="box-none"
         style={[
@@ -433,6 +439,7 @@ function TourOverlayBody({
           </Text>
         </Pressable>
       </View>
+      )}
     </View>
   );
 }

@@ -15,7 +15,6 @@ import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
-  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -57,9 +56,9 @@ export function RuleCard({ index, color, moji, headline, body, visual, visualPro
   const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 180}deg` }] }));
 
   return (
-    <Animated.View
-      entering={FadeInDown.delay(90 + index * 45).duration(280)}
-      layout={LinearTransition.springify().damping(20)}>
+    // No layout transition: on iPad the sliding cards could stop part-way and stack on top of
+    // each other when one opened. Cards now reflow instantly; the opened content fades in.
+    <Animated.View entering={FadeInDown.delay(90 + index * 45).duration(280)}>
       <Pressable
         onPress={() => setOpen((v) => !v)}
         onPressIn={() => press.set(withSpring(0.985, { damping: 26, stiffness: 320 }))}

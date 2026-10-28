@@ -190,6 +190,7 @@ export default function AssignTaskScreen() {
 
   const [assigneeId, setAssigneeId] = useState<string | null>(initialId);
   const [search, setSearch] = useState('');
+  const [gridW, setGridW] = useState(0);
   const [domainSheet, setDomainSheet] = useState<TaskDomain | null>(null);
   const [selected, setSelected] = useState<Selected[]>([]);
   const [busy, setBusy] = useState(false);
@@ -391,6 +392,14 @@ export default function AssignTaskScreen() {
   const assignReady = selected.length > 0 && Boolean(assignee) && canAssign && !busy;
   const PROOF_ACCENT = '#4FA3FF';
 
+  // Category tiles: exact squares from the grid's measured width, 4 per row, so they stay
+  // square on iPad and the icon and label scale with them, centred.
+  const TILE_COLS = 4;
+  const TILE_GAP = 10;
+  const tile = gridW ? Math.floor((gridW - TILE_GAP * (TILE_COLS - 1)) / TILE_COLS) : 0;
+  const tileIcon = tile ? Math.max(26, Math.min(64, Math.round(tile * 0.32))) : 26;
+  const tileFont = tile ? Math.max(11, Math.min(17, Math.round(tile * 0.085))) : 11;
+
   return (
     <TourTarget id="assign.form" style={{ flex: 1 }}>
     <View style={[styles.shell, { paddingTop: insets.top, backgroundColor: c.background }]}>
@@ -501,7 +510,12 @@ export default function AssignTaskScreen() {
             <Text style={[styles.sectionLabel, { color: c.textMuted, marginTop: space.sm }]}>
               Category
             </Text>
-            <View style={styles.grid}>
+            <View
+              style={styles.grid}
+              onLayout={(e) => {
+                const w = Math.round(e.nativeEvent.layout.width);
+                if (w > 0 && w !== gridW) setGridW(w);
+              }}>
               {domains.map((d) => {
                 const count = selectedCountByDomain.get(d.id) ?? 0;
                 return (
@@ -512,13 +526,17 @@ export default function AssignTaskScreen() {
                     accessibilityLabel={d.shortName ?? d.name}
                     style={[
                       styles.tile,
+                      tile ? { width: tile, height: tile, maxWidth: undefined, minWidth: undefined, flexGrow: 0 } : null,
                       {
                         backgroundColor: count ? `${accentTheme.primary}18` : glass(0.06),
                         borderColor: count ? accentTheme.primary : glassBorder(0.1),
                       },
                     ]}>
-                    <Icon name={domainIconName(d.id)} size={26} />
-                    <Text style={[styles.tileLabel, { color: c.text }]} numberOfLines={1}>
+                    <Icon name={domainIconName(d.id)} size={tileIcon} />
+                    <Text
+                      style={[styles.tileLabel, { color: c.text, fontSize: tileFont }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit>
                       {d.shortName ?? d.name}
                     </Text>
                     {count > 0 ? (
