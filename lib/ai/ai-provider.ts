@@ -1,4 +1,5 @@
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
+import { hasAiConsent, requestAiConsent } from '@/lib/ai/ai-consent';
 import { dataMode } from '@/config/data-mode';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -39,6 +40,11 @@ async function invokePoppinsFunction<T>(
 ): Promise<T> {
   const supabase = getSupabaseClient();
   if (!supabase || !useLivePoppinsAi) {
+    return fallback();
+  }
+  // App Review 5.1.2(i): no OpenAI without permission — answer on the phone instead.
+  if (!hasAiConsent()) {
+    if (functionName === 'poppins-chat') requestAiConsent();
     return fallback();
   }
 

@@ -5,6 +5,7 @@ import {
   corsHeaders,
   jsonResponse,
   requireActiveMember,
+  aiConsentRequired,
 } from '../_shared/poppins-auth.ts';
 import {
   getOpenAIInputTranscribeModel,
@@ -132,6 +133,8 @@ Deno.serve(async (req) => {
     if (auth.error) {
       return auth.error;
     }
+    // App Review 5.1.2(i): never send this person's words to OpenAI without their permission.
+    if (!auth.aiConsent) return aiConsentRequired();
 
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiKey) {

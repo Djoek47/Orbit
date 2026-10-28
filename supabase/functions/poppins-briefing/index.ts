@@ -24,7 +24,8 @@ Deno.serve(async (req) => {
       return auth.error;
     }
 
-    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    // No permission to use OpenAI (App Review 5.1.2(i)): the plain briefing, no AI call.
+    const openaiKey = auth.aiConsent ? Deno.env.get('OPENAI_API_KEY') : undefined;
     const context = buildCompactHouseholdContext(household);
     let result: Record<string, unknown>;
 

@@ -28,9 +28,6 @@
         "NSPhotoLibraryUsageDescription": "Choremaxx uses your photos for profile pictures and task proof attachments.",
         "NSPhotoLibraryAddUsageDescription": "Choremaxx can save task proof photos to your library when you choose.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": [
-          "remote-notification"
-        ],
         "UISupportedInterfaceOrientations~ipad": [
           "UIInterfaceOrientationPortrait",
           "UIInterfaceOrientationPortraitUpsideDown",
@@ -131,7 +128,9 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins."
+          "microphonePermission": "Choremaxx uses the microphone so you can talk to Poppins.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
         }
       ],
       [

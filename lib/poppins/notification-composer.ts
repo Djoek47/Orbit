@@ -3,6 +3,7 @@
  * If the edge is down, the policy card stays — never a spinner.
  */
 
+import { hasAiConsent } from '@/lib/ai/ai-consent';
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { parseComposerJson, type ComposeDecision, type HouseholdFact } from '@/lib/poppins/notification-policy';
@@ -24,7 +25,8 @@ export async function composeWithLuna(
   fallback: ComposeDecision,
   context: { householdId: string; role?: string; unreadCount?: number }
 ): Promise<ComposeDecision> {
-  if (!useLivePoppinsAi || !context.householdId) return fallback;
+  // No permission to use OpenAI (App Review 5.1.2(i)): plain wording, no AI call.
+  if (!useLivePoppinsAi || !context.householdId || !hasAiConsent()) return fallback;
   const supabase = getSupabaseClient();
   if (!supabase) return fallback;
 

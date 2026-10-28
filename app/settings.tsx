@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { aiConsentState, requestAiConsent, setAiConsent, subscribeAiConsent } from '@/lib/ai/ai-consent';
 import { SeasonalThemes } from '@/components/orbit/settings/seasonal-themes';
 import { YouProfileCard } from '@/components/orbit/settings/you-profile-card';
 import * as Clipboard from 'expo-clipboard';
@@ -304,6 +305,8 @@ export default function SettingsScreen() {
   const [houseDangerOpen, setHouseDangerOpen] = useState(() => params.section === 'house');
   const [avatarGallery, setAvatarGallery] = useState<AvatarLibraryEntry[]>([]);
   const [settingsToggleBusy, setSettingsToggleBusy] = useState(false);
+  const [aiConsent, setAiConsentView] = useState(aiConsentState());
+  useEffect(() => subscribeAiConsent(setAiConsentView), []);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [poppinsPrefs, setPoppinsPrefs] = useState<PoppinsInteractionPrefs>(
     DEFAULT_POPPINS_INTERACTION_PREFS
@@ -934,6 +937,38 @@ export default function SettingsScreen() {
                     : subscriptionDatesSubtitle(entitlement)
                 }
                 onPress={() => setSection('premium')}
+              />
+              <SettingsNavRow
+                icon="auto-awesome"
+                iconColor="#A78BFA"
+                label="Poppins & OpenAI"
+                value={aiConsent === 'granted' ? 'Allowed' : 'Off'}
+                subtitle="What you say to Poppins is sent to OpenAI to answer you"
+                onPress={() => {
+                  if (aiConsent === 'granted') {
+                    orbitAlert(
+                      'Stop using OpenAI?',
+                      'Poppins will stop sending your requests to OpenAI. Simple requests still work on your phone.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Stop',
+                          style: 'destructive',
+                          onPress: () => {
+                            void setAiConsent(false).catch(() =>
+                              orbitAlert('Couldn’t save that', 'Check your connection and try again.')
+                            );
+                          },
+                        },
+                      ]
+                    );
+                    return;
+                  }
+                  // The permission sheet is a root Modal: close Settings first, like Privacy & legal.
+                  collapseSettingsOverlays();
+                  closeSettingsModal();
+                  setTimeout(requestAiConsent, 450);
+                }}
               />
               <SettingsNavRow
                 icon="shield"

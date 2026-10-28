@@ -1,4 +1,5 @@
 import { useFonts } from 'expo-font';
+import { AiConsentSheet } from '@/components/orbit/ai-consent-sheet';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, type ReactNode } from 'react';
@@ -320,6 +321,8 @@ export default function RootLayout() {
                 </OrbitAppColumn>
                 {/* One Done bar for every multi-line field in the app. */}
                 <KeyboardDoneAccessory />
+                {/* Asks before Poppins sends anything to OpenAI (App Review 5.1.2(i)). */}
+                <AiConsentSheet />
               </LayoutAnimationConfig>
             </OrbitNavTheme>
           </TourProvider>

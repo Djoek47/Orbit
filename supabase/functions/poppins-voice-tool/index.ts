@@ -5,6 +5,7 @@ import {
   corsHeaders,
   jsonResponse,
   requireActiveMember,
+  aiConsentRequired,
 } from '../_shared/poppins-auth.ts';
 import {
   effectsToClientActions,
@@ -29,6 +30,8 @@ Deno.serve(async (req) => {
     if (auth.error) {
       return auth.error;
     }
+    // App Review 5.1.2(i): never send this person's words to OpenAI without their permission.
+    if (!auth.aiConsent) return aiConsentRequired();
 
     // Batch: [{ name, arguments, call_id? }] or single { name, arguments }
     const rawCalls = Array.isArray(body.calls)

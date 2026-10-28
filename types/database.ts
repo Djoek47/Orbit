@@ -11,6 +11,10 @@ export type ProfileRow = {
   apple_sub: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
+  /** Permanent: first free trial for this person. Server-written. */
+  trial_used_at?: Timestamp | null;
+  /** When this person allowed Poppins to use OpenAI (App Review 5.1.2(i)). */
+  ai_consent_at?: Timestamp | null;
 };
 
 export type HouseholdRow = {

@@ -42,7 +42,8 @@ Deno.serve(async (req) => {
       return auth.error;
     }
 
-    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    // No permission to use OpenAI (App Review 5.1.2(i)): the plain fallback text, no AI call.
+    const openaiKey = auth.aiConsent ? Deno.env.get('OPENAI_API_KEY') : undefined;
     if (!openaiKey) {
       return jsonResponse({
         title: stripExample(String(fallback.title ?? 'Poppins')),

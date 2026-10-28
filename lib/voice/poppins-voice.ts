@@ -1,5 +1,6 @@
 import * as Speech from 'expo-speech';
 
+import { hasAiConsent, requestAiConsent } from '@/lib/ai/ai-consent';
 import { buildPoppinsHouseholdPayload } from '@/lib/ai/household-context';
 import { useLivePoppinsAi } from '@/config/poppins-ai-mode';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -177,6 +178,11 @@ export async function transcribeQuietAudio(
 ): Promise<string | null> {
   if (!useLivePoppinsAi) {
     throw new VoiceFailureError('ai_off');
+  }
+  // App Review 5.1.2(i): the recording goes to OpenAI — only with permission.
+  if (!hasAiConsent()) {
+    requestAiConsent();
+    throw new VoiceFailureError('ai_consent');
   }
   if (!audioUri) {
     throw new VoiceFailureError('whisper_failed', 'no_audio_uri');

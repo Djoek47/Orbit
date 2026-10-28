@@ -281,14 +281,31 @@ Deno.serve(async (req) => {
     const householdId = body.householdId as string | undefined;
     const metrics = (body.metrics ?? {}) as Record<string, unknown>;
     const household = (body.household ?? {}) as Snapshot;
-    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    let openaiKey = Deno.env.get('OPENAI_API_KEY');
 
     const cron = isServiceRole(req);
     if (!cron) {
       const auth = await requireActiveMember(req.headers.get('Authorization'), householdId);
       if (auth.error) return auth.error;
+      // App Review 5.1.2(i): rules still run; the AI summary only with permission.
+      if (!auth.aiConsent) openaiKey = undefined;
     } else if (!householdId) {
       return jsonResponse({ error: 'householdId required for cron invoke' }, 400);
+    } else if (openaiKey) {
+      // Scheduled run, no person attached: use the AI summary only if an admin of this
+      // household has allowed Poppins to use OpenAI.
+      const admin = serviceClient();
+      const { data: admins } = await admin
+        .from('household_members')
+        .select('user_id')
+        .eq('household_id', householdId)
+        .eq('status', 'active')
+        .in('role', ['owner', 'admin']);
+      const ids = (admins ?? []).map((row: { user_id: string | null }) => row.user_id).filter(Boolean);
+      const { data: consented } = ids.length
+        ? await admin.from('profiles').select('id').in('id', ids).not('ai_consent_at', 'is', null).limit(1)
+        : { data: [] };
+      if (!consented?.length) openaiKey = undefined;
     }
 
     if (!householdId) {

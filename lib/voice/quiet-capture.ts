@@ -62,6 +62,7 @@ export const QUIET_FAILURE_MESSAGES: Record<string, string> = {
   transcribe_failed: "I couldn't reach the transcriber.",
   empty_transcript: "I didn't hear words. Hold while you speak, then let go.",
   ai_off: 'Poppins AI is off in this build.',
+  ai_consent: 'Allow Poppins to use OpenAI to hear you, or type instead.',
   signed_out: "You're signed out — sign in to use Poppins.",
   whisper_failed: "I couldn't reach the transcriber.",
   budget_tripped: POPPINS_PAUSED_COPY,

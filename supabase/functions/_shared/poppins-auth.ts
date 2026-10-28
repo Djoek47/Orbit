@@ -71,7 +71,23 @@ export async function requireActiveMember(
     return { error: sidekickBlock };
   }
 
-  return { user, membership, userClient };
+  // App Review 5.1.2(i): nothing goes to OpenAI for a person who has not allowed it.
+  const { data: profile } = await userClient
+    .from('profiles')
+    .select('ai_consent_at')
+    .eq('id', user.id)
+    .maybeSingle();
+  const aiConsent = Boolean((profile as { ai_consent_at?: string | null } | null)?.ai_consent_at);
+
+  return { user, membership, userClient, aiConsent };
+}
+
+/** The reply when a person has not allowed Poppins to use OpenAI. The app shows its consent sheet. */
+export function aiConsentRequired() {
+  return jsonResponse(
+    { error: 'ai_consent_required', message: 'Allow Poppins to use OpenAI in the app first.' },
+    403
+  );
 }
 
 export function buildCompactHouseholdContext(household: Record<string, unknown> | null | undefined) {

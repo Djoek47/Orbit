@@ -36,6 +36,7 @@ import {
   waitForPendingVoiceNativeSettle,
 } from '@/lib/voice/voice-lifecycle';
 import type { HouseholdSnapshot, OrbitMetrics } from '@/types/orbit';
+import { hasAiConsent, requestAiConsent } from '@/lib/ai/ai-consent';
 
 export {
   beginVoiceAudioEpoch,
@@ -417,6 +418,12 @@ export class PoppinsVoiceSession {
       memoryHint?: string | null;
     }
   ): Promise<boolean> {
+    // App Review 5.1.2(i): live voice goes to OpenAI — only with the person's permission.
+    if (!hasAiConsent()) {
+      requestAiConsent();
+      this.callbacks.onError?.('Allow Poppins to use OpenAI to talk live.');
+      return false;
+    }
     const webrtc = loadReactNativeWebRtc();
     if (!webrtc) {
       this.callbacks.onError?.('Voice needs the TestFlight build (WebRTC).');
@@ -1018,7 +1025,7 @@ export class PoppinsVoiceSession {
     const headers = await authHeaders();
     const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const household = this.liveHousehold();
-    if (!headers || !baseUrl || !household || !this.metrics) {
+    if (!headers || !baseUrl || !household || !this.metrics || !hasAiConsent()) {
       return calls.map(() => ({ error: 'unavailable' }));
     }
 

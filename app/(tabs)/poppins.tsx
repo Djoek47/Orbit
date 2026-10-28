@@ -13,6 +13,7 @@
  * with faces) grew past the body and drew under the dock, which sat on top of it and ate
  * every tap. It now scrolls inside the body and can never reach the dock.
  */
+import { aiConsentLoaded, aiConsentState, loadAiConsent, requestAiConsent } from '@/lib/ai/ai-consent';
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -98,6 +99,16 @@ function PoppinsScreenInner() {
     useCallback(() => {
       void checkRefill();
     }, [checkRefill])
+  );
+  // First visit: ask before anything can reach OpenAI (App Review 5.1.2(i)). Asked once;
+  // after "Not now" it comes back only when the person tries something that needs it.
+  useFocusEffect(
+    useCallback(() => {
+      void (async () => {
+        if (!aiConsentLoaded()) await loadAiConsent();
+        if (aiConsentState() === 'unknown') requestAiConsent();
+      })();
+    }, [])
   );
   const shownForTripRef = useRef(false);
   useEffect(() => {

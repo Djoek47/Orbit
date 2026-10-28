@@ -10,12 +10,14 @@ const LAST_ERROR_KEY = 'orbit.lastError.v1';
 
 export type VoiceFailureCause =
   | 'ai_off'
+  | 'ai_consent'
   | 'signed_out'
   | 'whisper_failed'
   | 'budget_tripped';
 
 export const VOICE_FAILURE_MESSAGES: Record<VoiceFailureCause, string> = {
   ai_off: 'Poppins AI is off in this build.',
+  ai_consent: 'Allow Poppins to use OpenAI to hear you, or type instead.',
   signed_out: "You're signed out — sign in to use Poppins.",
   whisper_failed: "I couldn't reach the transcriber.",
   /** Prefer POPPINS_PAUSED_COPY at call sites when monthly vs daily is known. */
@@ -27,6 +29,7 @@ export function classifyVoiceFailure(detail: string | undefined | null): VoiceFa
   const raw = (detail ?? '').trim().toLowerCase();
   // Empty / unknown → whisper, never ai_off (audit §3 P2).
   if (!raw) return 'whisper_failed';
+  if (raw === 'ai_consent' || raw.includes('ai_consent_required')) return 'ai_consent';
   if (raw.includes('voice ai unavailable') || raw.includes('ai unavailable') || raw === 'ai_off') {
     return 'ai_off';
   }
