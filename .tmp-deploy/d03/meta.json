@@ -1,1 +1,0 @@
-{"project_id":"dejrbyufotcvcillnneo","name":"poppins-realtime-session","entrypoint_path":"poppins-realtime-session/index.ts","verify_jwt":false,"files":["poppins-realtime-session/index.ts","_shared/poppins-auth.ts","_shared/openai-models.ts","_shared/poppins-tools.ts","_shared/majordomo-profiles.ts","_shared/ai-usage.ts","_shared/openai-rates.ts"]}

@@ -49,3 +49,8 @@ site/
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Agent deploy scratch
+.tmp-deploy/
+.tmp-*-deploy.json
+.tmp-deploy-args.json

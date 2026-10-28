@@ -1,1 +1,0 @@
-{"project_id":"dejrbyufotcvcillnneo","name":"poppins-voice-tool","entrypoint_path":"poppins-voice-tool/index.ts","verify_jwt":true,"files":["poppins-voice-tool/index.ts","_shared/poppins-auth.ts","_shared/execute-poppins-tool.ts","_shared/poppins-tools.ts","_shared/majordomo-profiles.ts","_shared/tool-task-match.ts"]}
