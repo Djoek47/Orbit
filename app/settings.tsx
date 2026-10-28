@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { aiConsentState, requestAiConsent, setAiConsent, subscribeAiConsent } from '@/lib/ai/ai-consent';
+import { aiConsentState, setAiConsent, subscribeAiConsent } from '@/lib/ai/ai-consent';
 import { SeasonalThemes } from '@/components/orbit/settings/seasonal-themes';
 import { YouProfileCard } from '@/components/orbit/settings/you-profile-card';
 import * as Clipboard from 'expo-clipboard';
@@ -125,7 +125,7 @@ import { RewardsXpPanel } from '@/components/orbit/settings/rewards-xp-panel';
 import { SidekickPermissionsPanel } from '@/components/orbit/settings/sidekick-permissions-panel';
 import { useMembersLiveRefresh } from '@/lib/refresh/use-members-live-refresh';
 import { AddMemberSheet } from '@/components/orbit/members/add-member-sheet';
-import { SettingsGroup, SettingsNavRow } from '@/components/orbit/settings/grouped';
+import { SettingsGroup, SettingsNavRow, SettingsToggleRow } from '@/components/orbit/settings/grouped';
 import { TourTarget } from '@/components/orbit/tour/tour-target';
 import { useTourControls } from '@/components/orbit/tour/tour-provider';
 import { isTourEnabledSync } from '@/lib/tour/tour-enabled';
@@ -306,6 +306,7 @@ export default function SettingsScreen() {
   const [avatarGallery, setAvatarGallery] = useState<AvatarLibraryEntry[]>([]);
   const [settingsToggleBusy, setSettingsToggleBusy] = useState(false);
   const [aiConsent, setAiConsentView] = useState(aiConsentState());
+  const [aiConsentBusy, setAiConsentBusy] = useState(false);
   useEffect(() => subscribeAiConsent(setAiConsentView), []);
   const [osNotifStatus, setOsNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [poppinsPrefs, setPoppinsPrefs] = useState<PoppinsInteractionPrefs>(
@@ -938,36 +939,18 @@ export default function SettingsScreen() {
                 }
                 onPress={() => setSection('premium')}
               />
-              <SettingsNavRow
-                icon="auto-awesome"
-                iconColor="#A78BFA"
-                label="Poppins & OpenAI"
-                value={aiConsent === 'granted' ? 'Allowed' : 'Off'}
-                subtitle="What you say to Poppins is sent to OpenAI to answer you"
-                onPress={() => {
-                  if (aiConsent === 'granted') {
-                    orbitAlert(
-                      'Stop using OpenAI?',
-                      'Poppins will stop sending your requests to OpenAI. Simple requests still work on your phone.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Stop',
-                          style: 'destructive',
-                          onPress: () => {
-                            void setAiConsent(false).catch(() =>
-                              orbitAlert('Couldn’t save that', 'Check your connection and try again.')
-                            );
-                          },
-                        },
-                      ]
-                    );
-                    return;
-                  }
-                  // The permission sheet is a root Modal: close Settings first, like Privacy & legal.
-                  collapseSettingsOverlays();
-                  closeSettingsModal();
-                  setTimeout(requestAiConsent, 450);
+              {/* A plain switch: no pop-up over Settings (a sheet opened while Settings closed left
+                  an invisible layer that blocked every tap). Turning it on is the permission. */}
+              <SettingsToggleRow
+                label="Poppins uses OpenAI"
+                subtitle="Sends what you say to Poppins to OpenAI to answer you"
+                value={aiConsent === 'granted'}
+                disabled={aiConsentBusy}
+                onValueChange={(next) => {
+                  setAiConsentBusy(true);
+                  void setAiConsent(next)
+                    .catch(() => orbitAlert('Couldn’t save that', 'Check your connection and try again.'))
+                    .finally(() => setAiConsentBusy(false));
                 }}
               />
               <SettingsNavRow

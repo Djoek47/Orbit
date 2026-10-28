@@ -33,12 +33,27 @@ export const CHOREMAXX_COPYRIGHT_YEAR = 2026;
 const DEFAULT_PRIVACY_URL = 'https://www.choremaxx.app/privacy';
 const DEFAULT_TERMS_URL = 'https://www.choremaxx.app/terms';
 
+/**
+ * A legal link from the build environment is only used if it is on choremaxx.app. An old EAS
+ * variable pointed at a Vercel preview, so Privacy opened a stale page; that can't happen now.
+ */
+function ownSite(value: string | undefined, fallback: string): string {
+  const v = value?.trim();
+  if (!v) return fallback;
+  try {
+    const host = new URL(v).hostname;
+    return host === 'choremaxx.app' || host.endsWith('.choremaxx.app') ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export const CHOREMAXX_LEGAL = {
   copyright: `© ${CHOREMAXX_COPYRIGHT_YEAR} Choremaxx. All rights reserved.`,
   shortCopyright: `Choremaxx © ${CHOREMAXX_COPYRIGHT_YEAR}`,
   /** Production site. Overridable via EAS/env for previews. */
-  privacyUrl: process.env.EXPO_PUBLIC_PRIVACY_URL?.trim() || DEFAULT_PRIVACY_URL,
-  termsUrl: process.env.EXPO_PUBLIC_TERMS_URL?.trim() || DEFAULT_TERMS_URL,
+  privacyUrl: ownSite(process.env.EXPO_PUBLIC_PRIVACY_URL, DEFAULT_PRIVACY_URL),
+  termsUrl: ownSite(process.env.EXPO_PUBLIC_TERMS_URL, DEFAULT_TERMS_URL),
   supportEmail: 'support@choremaxx.app',
   privacyEmail: 'privacy@choremaxx.app',
 } as const;

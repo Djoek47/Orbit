@@ -20,16 +20,12 @@ import {
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 
-const SENT = [
-  'What you say to Poppins (your voice) or type to it',
-  'The household details it needs to answer: names of tasks, groceries and events, and family members’ first names',
-];
 
 export function AiConsentSheet() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { c, glass, glassBorder } = useOrbitColors();
+  const { c, glassBorder } = useOrbitColors();
   const accent = useOrbitOptional()?.accentTheme.primary ?? '#D85A30';
   const insets = useSafeAreaInsets();
 
@@ -73,32 +69,13 @@ export function AiConsentSheet() {
               Poppins uses OpenAI
             </Text>
             <Text style={[styles.body, { color: c.textSoft }]}>
-              To understand you and answer, Poppins sends your request to OpenAI, an AI company. Nothing is
-              sent until you allow it.
-            </Text>
-
-            <View style={[styles.card, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}>
-              <Text style={[styles.cardTitle, { color: c.text }]}>What is sent</Text>
-              {SENT.map((line) => (
-                <View key={line} style={styles.row}>
-                  <MaterialIcons name="check" size={16} color={accent} style={{ marginTop: 2 }} />
-                  <Text style={[styles.rowText, { color: c.textSoft }]}>{line}</Text>
-                </View>
-              ))}
-              <Text style={[styles.note, { color: c.textMuted }]}>
-                OpenAI uses it only to answer you. It is not sold, and OpenAI does not train its models on it.
-              </Text>
-            </View>
-
-            <Text style={[styles.body, { color: c.textSoft }]}>
-              Without this, Poppins still handles simple requests on your phone. You can change your answer
-              any time in Settings › Privacy &amp; legal.
+              What you say or type to Poppins is sent to OpenAI so it can answer you.
             </Text>
             <Pressable
               onPress={() => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl)}
               accessibilityRole="link"
               hitSlop={8}>
-              <Text style={[styles.link, { color: accent }]}>Read the privacy policy</Text>
+              <Text style={[styles.link, { color: accent }]}>Privacy policy</Text>
             </Pressable>
             {error ? <Text style={[styles.error, { color: c.danger }]}>{error}</Text> : null}
           </ScrollView>
