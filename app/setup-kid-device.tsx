@@ -466,6 +466,9 @@ export default function SetupKidDeviceScreen() {
   };
 
   const labelPreview = deviceLabel.trim() || DEFAULT_SHARED_IPAD_NAME;
+  // The pager and the step pills can reach Hand over without going through Who, so this step
+  // checks for itself rather than trusting the Next button's gate.
+  const needsMorePeople = hostedMembers.length < SHARED_DEVICE_MIN_PEOPLE;
   const nextLabel =
     step === 1
       ? 'Next · who uses it'
@@ -477,7 +480,9 @@ export default function SetupKidDeviceScreen() {
             ? 'Creating…'
             : inviteReady
               ? 'Done'
-              : 'Create QR code';
+              : needsMorePeople
+                ? 'Needs two people'
+                : 'Create QR code';
 
   const cardStyle = [
     styles.stepCard,
@@ -682,8 +687,47 @@ export default function SetupKidDeviceScreen() {
         <Text style={[styles.stepSub, { color: c.textMuted }]}>
           {inviteReady
             ? `Scan this on ${labelPreview}. Your admin account stays signed in here.`
-            : `${hostedMembers.length} on ${labelPreview}. Create a QR code — the tablet scans it to join. You stay signed in.`}
+            : needsMorePeople
+              ? `A shared device is for two or more people taking turns on one tablet.`
+              : `${hostedMembers.length} on ${labelPreview}. Create a QR code — the tablet scans it to join. You stay signed in.`}
         </Text>
+
+        {/* Fewer than two: say so here and offer the way forward. The QR button used to stay
+            live, fail, and blame the invite ("Could not create this shared-device invite"). */}
+        {!inviteReady && needsMorePeople ? (
+          <View style={[styles.needTwo, { borderColor: `${c.warning}55`, backgroundColor: `${c.warning}12` }]}>
+            <View style={styles.needTwoHead}>
+              <MaterialIcons name="group-add" size={18} color={c.warning} />
+              <Text style={[styles.needTwoTitle, { color: c.text }]}>
+                {hostedMembers.length === 0
+                  ? 'Nobody on this device yet'
+                  : `Only ${hostedMembers[0]?.name.trim().split(/\s+/)[0] ?? 'one person'} so far`}
+              </Text>
+            </View>
+            <Text style={[styles.needTwoBody, { color: c.textMuted }]}>
+              {hostedMembers.length === 0
+                ? `Pick at least two Sidekicks for ${labelPreview}. They don't need to have signed in anywhere first.`
+                : `${labelPreview} needs one more person. With one, their own profile works on its own — no tablet to share.`}
+            </Text>
+            <Pressable
+              onPress={() => goToStep(2)}
+              accessibilityRole="button"
+              style={[styles.needTwoBtn, { borderColor: `${accent}66`, backgroundColor: `${accent}1A` }]}>
+              <MaterialIcons name="people-alt" size={16} color={accent} />
+              <Text style={[styles.needTwoBtnText, { color: accent }]}>Choose who uses it</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setFlowOpen(false);
+                router.replace('/settings?section=members&add=1' as never);
+              }}
+              accessibilityRole="button"
+              style={[styles.needTwoBtn, { borderColor: glassBorder(0.16) }]}>
+              <MaterialIcons name="person-add-alt" size={16} color={c.textSoft} />
+              <Text style={[styles.needTwoBtnText, { color: c.textSoft }]}>Add another Sidekick</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {inviteReady && inviteLink ? (
           <View style={styles.qrBlock}>
@@ -704,7 +748,7 @@ export default function SetupKidDeviceScreen() {
               <Text style={[styles.copyLabel, { color: c.textSubtle }]}>Copy invite link</Text>
             </Pressable>
           </View>
-        ) : (
+        ) : needsMorePeople ? null : (
           <View style={styles.faceGrid}>
             {hostedMembers.map((person) => (
               <View key={person.id} style={styles.faceTile}>
@@ -1089,7 +1133,9 @@ export default function SetupKidDeviceScreen() {
                 goNextStep();
               }}
               disabled={
-                busy || (step === 2 && (readiness.blocked || selectedIds.length < SHARED_DEVICE_MIN_PEOPLE))
+                busy ||
+                (step === 2 && (readiness.blocked || selectedIds.length < SHARED_DEVICE_MIN_PEOPLE)) ||
+                (step === 4 && !inviteReady && needsMorePeople)
               }
               style={styles.navNext}>
               {nextLabel}
@@ -1201,6 +1247,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   hint: { fontSize: 13, lineHeight: 18 },
+  needTwo: {
+    borderCurve: 'continuous',
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    marginTop: 4,
+    padding: 16,
+  },
+  needTwoHead: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  needTwoTitle: { flex: 1, fontSize: 16, fontWeight: '800' },
+  needTwoBody: { fontSize: 14, lineHeight: 20 },
+  needTwoBtn: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 46,
+    paddingHorizontal: 14,
+  },
+  needTwoBtnText: { fontSize: 15, fontWeight: '700' },
   faceGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
