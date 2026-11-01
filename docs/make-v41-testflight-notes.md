@@ -2,7 +2,7 @@
 
 **Branch tip:** `cursor/make-v41-c30d`  
 **Base:** TF **132** (1.3.0) on ASC  
-**Status:** **1.3.0 (133)** built and uploaded to App Store Connect (Apple processing → TestFlight). Adds Poppins counter **0002** + tokens wording **0003** (+ leftover copy fix).
+**Status:** **1.3.0 (133)** on ASC/TestFlight. Tip also has **shared-device Hand over 0001** (Needs two people gate) — **HOLD next TF** until user sends more / says go.
 
 ## What's new since 132
 - **0002** Poppins chip/orb use `tokensRemaining` (month ∩ day + bought packs) — pack buys no longer show “300 LEFT”
