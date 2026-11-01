@@ -12,6 +12,9 @@
 ## Still in from 132
 - Shared devices 0008–0009, OpenAI Settings switch 0004, receipts 0005, Household Health 0001, App Review TF 130
 
+## On tip after 133 (HOLD next TF)
+- **Hand over 0001** (`ab7f6a2`): Hand over self-checks ≥2 people; button **Needs two people** (disabled) instead of failed invite; paths to Who / add Sidekick. `tsc` + shared-device tests PASS.
+
 ## Matrix (0002 + 0003 → TF 133)
 | Check | Result |
 |-------|--------|
