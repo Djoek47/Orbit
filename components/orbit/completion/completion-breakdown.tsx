@@ -1,0 +1,752 @@
+/**
+ * The completion breakdown — one dashboard, used by the Completed tab's "Full breakdown"
+ * and by Household Health, so the two never drift apart.
+ *
+ *   [ D | W | M | 6M | Y ]
+ *   [ Tasks · Time saved ]           metric
+ *   AVERAGE                           (or the tapped bar's date)
+ *   4.3 tasks a day                   big number
+ *   Sep 20 – 26, 2026
+ *   bars, stacked by kind of chore, tap one to read it
+ *   Tasks 30 · Time saved 3h 20m · By Sidekicks 18
+ *
+ * Numbers: lib/tasks/completion-stats (tested). History: the task repository, paged, so a
+ * year of daily chores isn't cut at Supabase's 1,000-row default.
+ */
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Svg, { Line, Rect } from 'react-native-svg';
+
+import { AppText as Text } from '@/components/orbit/app-text';
+import {
+  GlassDetailPopover,
+  type GlassDetailLine,
+} from '@/components/orbit/health/glass-detail-popover';
+import { MemberGlyph } from '@/components/orbit/member-glyph';
+import { Moji } from '@/components/orbit/moji/moji';
+import type { MojiName } from '@/components/orbit/moji/art';
+import { space, typography } from '@/constants/orbit-theme';
+import {
+  BREAKDOWN_RANGES,
+  completionEvents,
+  computeBreakdown,
+  FAMILY_META,
+  FAMILY_ORDER,
+  formatMinutes,
+  niceMax,
+  type BreakdownRange,
+  type Bucket,
+} from '@/lib/tasks/completion-stats';
+import { computeLiveMemberLoad, healthLoadMembers } from '@/lib/household/health-dashboard';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
+import { taskRepository } from '@/repositories/task-repository';
+import { useOrbit } from '@/store/orbit-store';
+import type { HouseholdMember, HouseholdTask } from '@/types/orbit';
+
+export type BreakdownTipDetail = {
+  title: string;
+  subtitle?: string;
+  accent: string;
+  lines: GlassDetailLine[];
+  emptyLabel?: string;
+};
+
+type Metric = 'tasks' | 'time';
+
+const RANGE_LABEL: Record<BreakdownRange, string> = { D: 'D', W: 'W', M: 'M', '6M': '6M', Y: 'Y' };
+/** Days of history each range needs (fetch from the earliest). */
+const CHART_HEIGHT = 220;
+const X_LABEL_W = 44;
+
+type Props = {
+  /** Where the chart starts. */
+  initialRange?: BreakdownRange;
+  /** Extra room under the last card (a screen passes its safe-area inset). */
+  bottomInset?: number;
+  /**
+   * When true, render as a block inside a parent ScrollView (Home Household Health)
+   * instead of owning the vertical scroll.
+   */
+  embedded?: boolean;
+  /**
+   * When set (Household Health sheet), tip UI is hosted by the parent so the glass
+   * overlay can cover the full modal — not just the breakdown block.
+   */
+  onOpenDetail?: (detail: BreakdownTipDetail) => void;
+};
+
+export function CompletionBreakdown({
+  initialRange,
+  bottomInset = 24,
+  embedded = false,
+  onOpenDetail,
+}: Props) {
+  const { c, glass, glassBorder, isDark } = useOrbitColors();
+  const { household, currentMember, permissions } = useOrbit();
+  const [range, setRange] = useState<BreakdownRange>(initialRange ?? 'W');
+  const [metric, setMetric] = useState<Metric>('tasks');
+  const [selected, setSelected] = useState<number | null>(null);
+  const [who, setWho] = useState<string | null>(null);
+  const [history, setHistory] = useState<HouseholdTask[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tip, setTip] = useState<BreakdownTipDetail | null>(null);
+
+  const isAdult = permissions.canManageHousehold;
+  const now = useMemo(() => new Date(), []);
+  const memberLoad = useMemo(
+    () => computeLiveMemberLoad(household.members, household.tasks),
+    [household.members, household.tasks]
+  );
+
+  // History for the widest range, once — ranges then switch instantly.
+  useEffect(() => {
+    let cancelled = false;
+    const since = computeBreakdown([], 'Y', now).since.toISOString();
+    void (async () => {
+      try {
+        const { usesProfileCodeAuth } = await import('@/lib/sidekick/task-action');
+        // A Sidekick signed in by profile code reads through sync, not the table: use what's loaded.
+        if (await usesProfileCodeAuth()) return;
+        const rows = await taskRepository.listCompletedSince(household.id, since);
+        if (!cancelled) setHistory(rows);
+      } catch (error) {
+        console.warn('completed-breakdown history', error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [household.id, now]);
+
+  // Fetched history + anything finished in this session that the fetch hasn't seen.
+  const tasks = useMemo(() => {
+    const byId = new Map<string, HouseholdTask>();
+    for (const task of history ?? []) byId.set(task.id, task);
+    for (const task of household.tasks) byId.set(task.id, task);
+    return [...byId.values()];
+  }, [history, household.tasks]);
+
+  const events = useMemo(() => {
+    const all = completionEvents(tasks, household.members);
+    // A Sidekick sees their own; an adult sees everyone, or one person.
+    const scope = isAdult ? who : currentMember?.name ?? null;
+    return scope ? all.filter((event) => event.by === scope) : all;
+  }, [tasks, household.members, isAdult, who, currentMember?.name]);
+
+  const breakdown = useMemo(() => computeBreakdown(events, range, now), [events, range, now]);
+
+  const valueOf = (bucket: Bucket) => (metric === 'tasks' ? bucket.tasks : bucket.minutesSaved);
+  const peak = Math.max(0, ...breakdown.buckets.map(valueOf));
+  const top = metric === 'tasks' ? niceMax(peak) : niceMax(Math.max(peak, 30));
+
+  const sel = selected != null ? breakdown.buckets[selected] : null;
+  const headLabel = sel ? sel.title.toUpperCase() : breakdown.headline.kind === 'average' ? 'AVERAGE' : 'TOTAL';
+  const headNumber = sel
+    ? metric === 'tasks'
+      ? String(sel.tasks)
+      : formatMinutes(sel.minutesSaved)
+    : metric === 'tasks'
+      ? breakdown.headline.kind === 'average'
+        ? breakdown.headline.tasks >= 10
+          ? String(Math.round(breakdown.headline.tasks))
+          : breakdown.headline.tasks.toFixed(1)
+        : String(breakdown.headline.tasks)
+      : formatMinutes(breakdown.headline.minutesSaved);
+  const headUnit =
+    metric === 'tasks'
+      ? `task${(sel ? sel.tasks : breakdown.headline.tasks) === 1 ? '' : 's'}${!sel && breakdown.headline.kind === 'average' ? ' a day' : ''}`
+      : `saved${!sel && breakdown.headline.kind === 'average' ? ' a day' : ''}`;
+
+  const people = healthLoadMembers(household.members);
+  const barColor = metric === 'tasks' ? undefined : c.success;
+
+  const showMetricTip = (m: Metric) => {
+    const accent = m === 'tasks' ? c.primary : c.success;
+    const topFamilies = breakdown.byFamily.slice(0, 4).map((row) => ({
+      label: FAMILY_META[row.family].label,
+      meta:
+        m === 'tasks'
+          ? `${row.tasks} task${row.tasks === 1 ? '' : 's'}`
+          : formatMinutes(row.minutesSaved),
+    }));
+    const lines: GlassDetailLine[] =
+      m === 'tasks'
+        ? [
+            { label: 'Completed in range', meta: String(breakdown.totals.tasks) },
+            {
+              label: breakdown.headline.kind === 'average' ? 'Average per day' : 'Total',
+              meta:
+                breakdown.headline.kind === 'average'
+                  ? breakdown.headline.tasks.toFixed(1)
+                  : String(breakdown.headline.tasks),
+            },
+            { label: 'By Sidekicks', meta: String(breakdown.totals.bySidekicks) },
+            { label: 'Time saved', meta: formatMinutes(breakdown.totals.minutesSaved) },
+            ...topFamilies,
+          ]
+        : [
+            { label: 'Time saved in range', meta: formatMinutes(breakdown.totals.minutesSaved) },
+            {
+              label: breakdown.headline.kind === 'average' ? 'Average saved / day' : 'Total saved',
+              meta: formatMinutes(breakdown.headline.minutesSaved),
+            },
+            { label: 'Tasks behind it', meta: String(breakdown.totals.tasks) },
+            { label: 'By Sidekicks', meta: String(breakdown.totals.bySidekicks) },
+            ...topFamilies,
+          ];
+    const detail: BreakdownTipDetail = {
+      title: m === 'tasks' ? 'Tasks' : 'Time saved',
+      subtitle: breakdown.span,
+      accent,
+      lines,
+      emptyLabel: 'Nothing finished in this range yet.',
+    };
+    if (onOpenDetail) onOpenDetail(detail);
+    else setTip(detail);
+  };
+
+  const showWhoTip = (member: HouseholdMember | null) => {
+    if (!member) {
+      const lines: GlassDetailLine[] = [
+        { label: 'People in view', meta: String(people.length) },
+        { label: 'Tasks completed', meta: String(breakdown.totals.tasks) },
+        { label: 'Time saved', meta: formatMinutes(breakdown.totals.minutesSaved) },
+        { label: 'By Sidekicks', meta: String(breakdown.totals.bySidekicks) },
+        ...memberLoad.slice(0, 6).map((row) => ({
+          label: row.member.name.split(' ')[0]!,
+          meta: row.openCount > 0 ? `${row.openCount} open · ${row.loadShare}%` : `${row.loadShare}% load`,
+        })),
+      ];
+      const detail: BreakdownTipDetail = {
+        title: 'Everyone',
+        subtitle: breakdown.span,
+        accent: c.primary,
+        lines,
+      };
+      if (onOpenDetail) onOpenDetail(detail);
+      else setTip(detail);
+      return;
+    }
+    const load = memberLoad.find((row) => row.member.id === member.id);
+    const personEvents = completionEvents(tasks, household.members).filter(
+      (event) => event.by === member.name
+    );
+    const personBreakdown = computeBreakdown(personEvents, range, now);
+    const lines: GlassDetailLine[] = [
+      {
+        label: member.role === 'child' ? 'Sidekick' : member.role === 'adult' ? 'Adult' : 'Admin',
+        meta: `${member.xp} XP`,
+      },
+      { label: 'This week', meta: `${member.weekXp ?? 0} XP` },
+      { label: 'Streak', meta: `${member.streak ?? 0} day${(member.streak ?? 0) === 1 ? '' : 's'}` },
+      {
+        label: 'Open chores now',
+        meta: String(load?.openCount ?? 0),
+      },
+      {
+        label: 'Load share',
+        meta: `${load?.loadShare ?? 0}%`,
+      },
+      {
+        label: `Done · ${RANGE_LABEL[range]}`,
+        meta: String(personBreakdown.totals.tasks),
+      },
+      {
+        label: `Saved · ${RANGE_LABEL[range]}`,
+        meta: formatMinutes(personBreakdown.totals.minutesSaved),
+      },
+    ];
+    const detail: BreakdownTipDetail = {
+      title: member.name.split(' ')[0]!,
+      subtitle: breakdown.span,
+      accent: c.primary,
+      lines,
+    };
+    if (onOpenDetail) onOpenDetail(detail);
+    else setTip(detail);
+  };
+
+  const body = (
+    <>
+        {/* D W M 6M Y */}
+        <View style={[styles.rangeBar, { backgroundColor: glass(0.08) }]}>
+          {BREAKDOWN_RANGES.map((r) => {
+            const on = r === range;
+            return (
+              <Pressable
+                key={r}
+                onPress={() => {
+                  setSelected(null);
+                  setRange(r);
+                }}
+                style={[styles.rangeBtn, on && { backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(15,28,42,0.12)' }]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={{ D: 'Day', W: 'Week', M: 'Month', '6M': 'Six months', Y: 'Year' }[r]}>
+                <Text style={[styles.rangeText, { color: on ? c.text : c.textMuted }]}>{RANGE_LABEL[r]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Tasks · Time saved — tap selects; tap again / long-press shows glass tip */}
+        <View style={styles.metricRow}>
+          {(['tasks', 'time'] as const).map((m) => {
+            const on = m === metric;
+            const accent = m === 'tasks' ? c.primary : c.success;
+            return (
+              <Pressable
+                key={m}
+                onPress={() => {
+                  if (on) {
+                    showMetricTip(m);
+                    return;
+                  }
+                  setMetric(m);
+                }}
+                onLongPress={() => showMetricTip(m)}
+                delayLongPress={280}
+                style={[
+                  styles.metricChip,
+                  {
+                    backgroundColor: on ? `${accent}22` : glass(0.05),
+                    borderColor: on ? `${accent}66` : glassBorder(0.1),
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityHint="Double-tap when selected, or long-press, for a short summary">
+                <MaterialIcons
+                  name={m === 'tasks' ? 'task-alt' : 'schedule'}
+                  size={15}
+                  color={on ? accent : c.textMuted}
+                />
+                <Text style={[typography.footnote, { color: on ? c.text : c.textMuted, fontWeight: '700' }]}>
+                  {m === 'tasks' ? 'Tasks' : 'Time saved'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Who (adults) — tap filters; long-press / re-tap selected shows tip */}
+        {isAdult ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.whoRow}>
+            <WhoChip
+              label="Everyone"
+              on={who == null}
+              onPress={() => {
+                if (who == null) {
+                  showWhoTip(null);
+                  return;
+                }
+                setSelected(null);
+                setWho(null);
+              }}
+              onLongPress={() => showWhoTip(null)}
+              c={c}
+              glass={glass}
+              glassBorder={glassBorder}
+            />
+            {people.map((m) => (
+              <WhoChip
+                key={m.id}
+                label={m.name.split(' ')[0]!}
+                on={who === m.name}
+                onPress={() => {
+                  if (who === m.name) {
+                    showWhoTip(m);
+                    return;
+                  }
+                  setSelected(null);
+                  setWho(m.name);
+                }}
+                onLongPress={() => showWhoTip(m)}
+                c={c}
+                glass={glass}
+                glassBorder={glassBorder}
+                icon={<MemberGlyph member={m} size={13} />}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {/* Headline */}
+        <View style={styles.headline}>
+          <Text style={[styles.headLabel, { color: c.textMuted }]}>{headLabel}</Text>
+          <View style={styles.headNumberRow}>
+            <Text style={[styles.headNumber, { color: c.text }]}>{headNumber}</Text>
+            <Text style={[styles.headUnit, { color: c.textMuted }]}>{headUnit}</Text>
+          </View>
+          <Text style={[styles.headSpan, { color: c.textMuted }]}>{breakdown.span}</Text>
+        </View>
+
+        {/* Chart */}
+        <BarChart
+          buckets={breakdown.buckets}
+          metric={metric}
+          top={top}
+          selected={selected}
+          onSelect={(i) => setSelected(selected === i ? null : i)}
+          grid={isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,28,42,0.12)'}
+          text={c.textMuted}
+          single={barColor}
+        />
+        {loading && !history ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={c.textMuted} />
+            <Text style={[typography.caption1, { color: c.textMuted }]}>Loading history…</Text>
+          </View>
+        ) : null}
+
+        {/* Totals for the range */}
+        <View style={styles.kpis}>
+          <Kpi label="Tasks completed" value={String(breakdown.totals.tasks)} color={c.primary} c={c} glass={glass} glassBorder={glassBorder} />
+          <Kpi label="Time saved" value={formatMinutes(breakdown.totals.minutesSaved)} color={c.success} c={c} glass={glass} glassBorder={glassBorder} />
+          <Kpi label="By Sidekicks" value={String(breakdown.totals.bySidekicks)} color={c.planPurple} c={c} glass={glass} glassBorder={glassBorder} />
+        </View>
+
+        {/* Categories */}
+        <View style={{ gap: 10 }}>
+          <Text style={[typography.eyebrow, { color: c.textSubtle }]}>
+            {sel ? `By kind · ${sel.title}` : 'By kind of task'}
+          </Text>
+          {(sel
+            ? FAMILY_ORDER.filter((f) => sel.byFamily[f]).map((f) => ({ family: f, ...sel.byFamily[f]! }))
+            : breakdown.byFamily
+          ).map((row) => {
+            const meta = FAMILY_META[row.family];
+            const total = sel ? sel.tasks : breakdown.totals.tasks;
+            const pct = total ? row.tasks / total : 0;
+            return (
+              <View
+                key={row.family}
+                style={[
+                  styles.familyCard,
+                  {
+                    backgroundColor: glass(0.05),
+                    borderColor: glassBorder(0.1),
+                  },
+                ]}>
+                <View style={[styles.familyIcon, { backgroundColor: `${meta.color}22` }]}>
+                  <Moji name={meta.moji as MojiName} size={22} />
+                </View>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <View style={styles.familyTop}>
+                    <Text style={[typography.headline, { color: c.text }]}>{meta.label}</Text>
+                    <Text style={[typography.caption1, { color: c.textMuted }]}>
+                      {row.tasks} · {formatMinutes(row.effortMinutes)}
+                      {row.minutesSaved > 0 ? ` · ${formatMinutes(row.minutesSaved)} saved` : ''}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.familyBar,
+                      { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,28,42,0.08)' },
+                    ]}>
+                    <View
+                      style={[
+                        styles.familyFill,
+                        {
+                          width: `${Math.max(3, Math.round(pct * 100))}%`,
+                          backgroundColor: meta.color,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+          {breakdown.totals.tasks === 0 ? (
+            <Text style={[typography.footnote, { color: c.textMuted }]}>Nothing finished in this range yet.</Text>
+          ) : null}
+        </View>
+
+        {embedded ? (
+          <Text style={[styles.footnote, { color: c.textSubtle }]}>
+            Time saved is the work a Sidekick did instead of a grown-up.
+          </Text>
+        ) : (
+          <Text style={[styles.footnote, { color: c.textSubtle }]}>
+            Each row shows the time that work takes, from the chore&apos;s own name where we know it
+            (unloading the dishwasher ≈ 10 min, mowing ≈ 45 min) and its category otherwise.
+            &ldquo;Saved&rdquo; is the part a Sidekick did instead of a grown-up — homework and a
+            child&apos;s own routine still show their time, but aren&apos;t counted as saved.
+          </Text>
+        )}
+    </>
+  );
+
+  const tipLayer =
+    onOpenDetail == null ? (
+      <GlassDetailPopover
+        visible={tip != null}
+        title={tip?.title ?? ''}
+        subtitle={tip?.subtitle}
+        accent={tip?.accent ?? c.primary}
+        lines={tip?.lines ?? []}
+        emptyLabel={tip?.emptyLabel}
+        onClose={() => setTip(null)}
+      />
+    ) : null;
+
+  if (embedded) {
+    return <View style={[styles.content, styles.embeddedContent, { paddingBottom: 0 }]}>{body}</View>;
+  }
+
+  return (
+    <View style={styles.root}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomInset + 32 }]}>
+        {body}
+      </ScrollView>
+      {tipLayer}
+    </View>
+  );
+}
+
+function BarChart({
+  buckets,
+  metric,
+  top,
+  selected,
+  onSelect,
+  grid,
+  text,
+  single,
+}: {
+  buckets: Bucket[];
+  metric: Metric;
+  top: number;
+  selected: number | null;
+  onSelect: (index: number) => void;
+  grid: string;
+  text: string;
+  single?: string;
+}) {
+  const [width, setWidth] = useState(0);
+  const axisW = 44;
+  const plotW = Math.max(0, width - axisW);
+  const slot = buckets.length ? plotW / buckets.length : 0;
+  const barW = Math.max(2, Math.min(28, slot * 0.62));
+  const h = CHART_HEIGHT;
+  const ticks = [0, top / 2, top];
+  const label = (v: number) =>
+    metric === 'tasks' ? (Number.isInteger(v) ? String(v) : v.toFixed(1)) : formatMinutes(v);
+
+  return (
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ marginTop: 8 }}>
+      <View style={{ height: h }}>
+        {width > 0 ? (
+          <Svg width={width} height={h}>
+            {ticks.map((t) => {
+              const y = h - (t / top) * (h - 8) - 0.5;
+              return <Line key={t} x1={0} x2={plotW} y1={y} y2={y} stroke={grid} strokeWidth={1} strokeDasharray={t === 0 ? undefined : '3 4'} />;
+            })}
+            {buckets.map((bucket, i) => {
+              const x = i * slot + (slot - barW) / 2;
+              let y = h;
+              const dim = selected != null && selected !== i;
+              const parts = single
+                ? [{ key: 'all', v: metric === 'tasks' ? bucket.tasks : bucket.minutesSaved, color: single }]
+                : FAMILY_ORDER.filter((f) => bucket.byFamily[f]).map((f) => ({
+                    key: f,
+                    v: metric === 'tasks' ? bucket.byFamily[f]!.tasks : bucket.byFamily[f]!.minutesSaved,
+                    color: FAMILY_META[f].color,
+                  }));
+              return parts.map((part) => {
+                const ph = (part.v / top) * (h - 8);
+                y -= ph;
+                return ph > 0 ? (
+                  <Rect key={`${i}-${part.key}`} x={x} y={y} width={barW} height={ph} rx={Math.min(4, barW / 3)} fill={part.color} opacity={dim ? 0.35 : 1} />
+                ) : null;
+              });
+            })}
+          </Svg>
+        ) : null}
+        {/* Axis values, right side — like Health */}
+        {ticks.map((t) => (
+          <Text
+            key={`t${t}`}
+            style={[
+              styles.tick,
+              { color: text, top: h - (t / top) * (h - 8) - 8, left: plotW + 6 },
+            ]}>
+            {label(t)}
+          </Text>
+        ))}
+        {/* Tap targets */}
+        <View style={[StyleSheet.absoluteFill, { flexDirection: 'row', width: plotW }]}>
+          {buckets.map((bucket, i) => (
+            <Pressable
+              key={i}
+              style={{ flex: 1 }}
+              onPress={() => onSelect(i)}
+              accessibilityRole="button"
+              accessibilityLabel={`${bucket.title}: ${bucket.tasks} tasks, ${formatMinutes(bucket.minutesSaved)} saved`}
+            />
+          ))}
+        </View>
+      </View>
+      {/* Labels sit under their bar but may run wider than it ("12 AM" over a 24-bar day). */}
+      <View style={[styles.xLabels, { width: plotW }]}>
+        {buckets.map((bucket, i) =>
+          bucket.label ? (
+            <Text
+              key={i}
+              numberOfLines={1}
+              style={[
+                styles.xLabel,
+                {
+                  color: text,
+                  left: Math.min(Math.max(0, i * slot + slot / 2 - X_LABEL_W / 2), Math.max(0, plotW - X_LABEL_W)),
+                },
+              ]}>
+              {bucket.label}
+            </Text>
+          ) : null
+        )}
+      </View>
+    </View>
+  );
+}
+
+function WhoChip({
+  label,
+  on,
+  onPress,
+  onLongPress,
+  c,
+  glass,
+  glassBorder,
+  icon,
+}: {
+  label: string;
+  on: boolean;
+  onPress: () => void;
+  onLongPress?: () => void;
+  c: ReturnType<typeof useOrbitColors>['c'];
+  glass: (a?: number) => string;
+  glassBorder: (a?: number) => string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={280}
+      style={[
+        styles.whoChip,
+        { backgroundColor: on ? `${c.primary}22` : glass(0.05), borderColor: on ? `${c.primary}66` : glassBorder(0.1) },
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      accessibilityHint="Long-press for a short summary">
+      {icon}
+      <Text style={[typography.caption1, { color: on ? c.text : c.textMuted, fontWeight: '700' }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  color,
+  c,
+  glass,
+  glassBorder,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  c: ReturnType<typeof useOrbitColors>['c'];
+  glass: (a?: number) => string;
+  glassBorder: (a?: number) => string;
+}) {
+  return (
+    <View style={[styles.kpi, { backgroundColor: glass(0.05), borderColor: glassBorder(0.1) }]}>
+      <View style={[styles.kpiDot, { backgroundColor: color }]} />
+      <Text style={[typography.caption2, { color: c.textMuted }]}>{label}</Text>
+      <Text style={[typography.metricSmall, { color: c.text, fontSize: 20 }]}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.md,
+    paddingBottom: space.sm,
+  },
+  content: { paddingHorizontal: space.md, gap: space.md },
+  embeddedContent: { gap: 10 },
+  rangeBar: { flexDirection: 'row', borderRadius: 999, padding: 4 },
+  rangeBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
+  rangeText: { fontSize: 15, fontWeight: '700' },
+  metricRow: { flexDirection: 'row', gap: 8 },
+  metricChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  whoRow: { gap: 8 },
+  whoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  headline: { gap: 2 },
+  headLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.4 },
+  headNumberRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  headNumber: { fontSize: 44, fontWeight: '700', letterSpacing: -1 },
+  headUnit: { fontSize: 18, fontWeight: '600' },
+  headSpan: { fontSize: 15, fontWeight: '600' },
+  tick: { position: 'absolute', fontSize: 11, fontWeight: '600' },
+  xLabels: { height: 16, marginTop: 6 },
+  xLabel: { position: 'absolute', width: X_LABEL_W, fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' },
+  kpis: { flexDirection: 'row', gap: 8 },
+  kpi: {
+    flex: 1,
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 4,
+  },
+  kpiDot: { width: 8, height: 8, borderRadius: 4 },
+  familyCard: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+  },
+  familyIcon: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  familyTop: { gap: 2 },
+  familyBar: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  familyFill: { height: 6, borderRadius: 3 },
+  footnote: { fontSize: 12, lineHeight: 17 },
+});
