@@ -183,10 +183,9 @@ export function HouseholdMembersRoster({
   const [removeTarget, setRemoveTarget] = useState<HouseholdMember | null>(null);
 
   const handleRemoveMember = (member: HouseholdMember) => {
-    if (member.role === 'owner') {
-      orbitAlert('Cannot remove', 'The household owner cannot be removed.');
-      return;
-    }
+    // The owner has no remove button; a long-press on their card does nothing rather than raise
+    // a system alert, which can land behind Settings' modal and block touches.
+    if (member.role === 'owner') return;
     setRemoveTarget(member);
   };
 
