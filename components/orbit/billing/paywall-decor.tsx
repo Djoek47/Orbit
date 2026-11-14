@@ -19,6 +19,9 @@ import Animated, {
 
 import { ChoremaxxIcon, ChoremaxxLogo } from '@/components/orbit/choremaxx-logo';
 import { Moji } from '@/components/orbit/moji/moji';
+import type { MojiName } from '@/components/orbit/moji/art';
+import { LeafFall, Snowfall } from '@/components/orbit/seasonal/season-decor';
+import type { SeasonId } from '@/lib/theme/seasonal';
 import { useOrbit } from '@/store/orbit-store';
 
 /** Four small stars that twinkle and drift — life without illustrations. */
@@ -97,8 +100,10 @@ const baseStyles = {
 /**
  * The page's moving background. Classic: soft blobs of the household colour drifting slowly.
  * Halloween: a night sky with a glowing moon, twinkling stars and a cobweb.
+ * Thanksgiving: a warm harvest dusk with leaves drifting. Christmas: a winter night with snow.
  */
-export function LivingBackground({ color, secondary, halloween }: { color: string; secondary: string; halloween: boolean }) {
+export function LivingBackground({ color, secondary, season }: { color: string; secondary: string; season: SeasonId | null }) {
+  const halloween = season === 'halloween';
   const reduce = useReducedMotion();
   const a = useSharedValue(0);
   const b = useSharedValue(0);
@@ -120,6 +125,26 @@ export function LivingBackground({ color, secondary, halloween }: { color: strin
         <View style={styles.moon}>
           <View style={styles.moonBite} />
         </View>
+        <Animated.View style={[styles.blob, { backgroundColor: color, top: '62%', left: -90, opacity: 0.14 }, blobA]} />
+      </View>
+    );
+  }
+  if (season === 'christmas') {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <LinearGradient colors={['#14513A', '#0D2A1F', '#06130E']} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+        <Sparkles color="#F5C451" />
+        <Snowfall count={18} />
+        <Animated.View style={[styles.blob, { backgroundColor: color, top: '62%', left: -90, opacity: 0.14 }, blobA]} />
+      </View>
+    );
+  }
+  if (season === 'thanksgiving') {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <LinearGradient colors={['#7A3A16', '#3A1F10', '#140C07']} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+        <Animated.View style={[styles.harvestSun, glow]} />
+        <LeafFall count={8} />
         <Animated.View style={[styles.blob, { backgroundColor: color, top: '62%', left: -90, opacity: 0.14 }, blobA]} />
       </View>
     );
@@ -174,20 +199,24 @@ export function BrandTile({ size = 104, pop = 0 }: { size?: number; pop?: number
 }
 
 /** A one-shot burst of little shapes from a point — sparkles, or bats and candy on Halloween. */
-export function Burst({ trigger, halloween, color }: { trigger: number; halloween: boolean; color: string }) {
+export function Burst({ trigger, season, color }: { trigger: number; season: SeasonId | null; color: string }) {
   if (!trigger) return null;
   return (
     <View pointerEvents="none" style={styles.burst} key={trigger}>
       {Array.from({ length: 12 }, (_, i) => (
-        <BurstBit key={i} index={i} halloween={halloween} color={color} />
+        <BurstBit key={i} index={i} season={season} color={color} />
       ))}
     </View>
   );
 }
 
-const BURST_MOJI = ['bat', 'candyCorn', 'pumpkin', 'ghost'] as const;
+const BURST_MOJI: Record<SeasonId, readonly MojiName[]> = {
+  halloween: ['bat', 'candyCorn', 'pumpkin', 'ghost'],
+  thanksgiving: ['mapleLeaf', 'turkey', 'corn', 'apple'],
+  christmas: ['star', 'gift', 'bell', 'xmasTree'],
+};
 
-function BurstBit({ index, halloween, color }: { index: number; halloween: boolean; color: string }) {
+function BurstBit({ index, season, color }: { index: number; season: SeasonId | null; color: string }) {
   const k = useSharedValue(0);
   const angle = (index / 12) * Math.PI * 2 + (index % 2) * 0.3;
   const dist = 70 + (index % 3) * 30;
@@ -205,8 +234,8 @@ function BurstBit({ index, halloween, color }: { index: number; halloween: boole
   }));
   return (
     <Animated.View style={[styles.bit, style]}>
-      {halloween ? (
-        <Moji name={BURST_MOJI[index % BURST_MOJI.length]!} size={20} />
+      {season ? (
+        <Moji name={BURST_MOJI[season][index % BURST_MOJI[season].length]!} size={20} />
       ) : (
         <Animated.Text style={{ color: index % 3 ? color : '#FAC775', fontSize: 18 }}>✦</Animated.Text>
       )}
@@ -219,6 +248,7 @@ const styles = StyleSheet.create({
   blob: { borderRadius: 999, height: 280, opacity: 0.3, position: 'absolute', width: 280 },
   moon: { backgroundColor: '#FFE7A8', borderRadius: 30, height: 56, overflow: 'hidden', position: 'absolute', right: 34, top: 96, width: 56 },
   moonBite: { backgroundColor: '#2E1C58', borderRadius: 30, height: 56, left: 14, position: 'absolute', top: -8, width: 56 },
+  harvestSun: { backgroundColor: '#F2A33A', borderRadius: 90, height: 180, opacity: 0.3, position: 'absolute', right: -40, top: 60, width: 180 },
   moonGlow: { backgroundColor: '#FFE7A8', borderRadius: 60, height: 120, opacity: 0.25, position: 'absolute', right: 2, top: 64, width: 120 },
   burst: { alignItems: 'center', height: 0, justifyContent: 'center', left: '50%', position: 'absolute', top: 0, width: 0 },
   bit: { position: 'absolute' },

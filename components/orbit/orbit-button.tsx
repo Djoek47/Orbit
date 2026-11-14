@@ -7,7 +7,7 @@ import { type OrbitHaptic, triggerOrbitHaptic } from '@/lib/ui/orbit-press-hapti
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbitOptional } from '@/store/orbit-store';
 import { AppText as Text } from '@/components/orbit/app-text';
-import { ButtonSpookies } from '@/components/orbit/seasonal/halloween-decor';
+import { SeasonButtonDecor } from '@/components/orbit/seasonal/season-decor';
 
 type OrbitButtonProps = PropsWithChildren<{
   disabled?: boolean;
@@ -90,7 +90,7 @@ export function OrbitButton({
             </Text>
           )}
         </LinearGradient>
-        <ButtonSpookies />
+        <SeasonButtonDecor />
       </Pressable>
     );
   }

@@ -1,6 +1,7 @@
 /**
- * "Halloween is here" — the seasonal card that turns the theme on. Shows on Home until it's
- * answered, and stays in Activity for the whole season as the on/off button.
+ * "Halloween / Thanksgiving / Christmas is here" — the seasonal card that turns the theme on.
+ * Shows on Home until it's answered, and stays in Activity for the whole season as the on/off
+ * button. Renders nothing out of season.
  */
 import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -9,63 +10,112 @@ import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
 import { HalloweenKitten } from '@/components/orbit/seasonal/halloween-decor';
+import { Holly, MapleLeafShape } from '@/components/orbit/seasonal/season-decor';
 import {
-  daysUntilHalloween,
-  dismissHalloweenCard,
-  HALLOWEEN_MONSTER,
-  setHalloween,
+  daysUntil,
+  dismissSeasonCard,
+  SEASON_MASCOT,
+  SEASON_SURFACE,
+  setSeason,
   useSeasonal,
+  type SeasonId,
 } from '@/lib/theme/seasonal';
 import { useOrbitOptional } from '@/store/orbit-store';
 
-export function HalloweenCard({ placement }: { placement: 'home' | 'activity' }) {
-  const season = useSeasonal();
+const COPY: Record<
+  SeasonId,
+  { name: string; bigDay: string; on: (m: string) => string; off: (m: string) => string }
+> = {
+  halloween: {
+    name: 'Halloween',
+    bigDay: 'Tonight’s the night',
+    on: (m) => `Bats, cobwebs and a little ${m} all over the app. It leaves on its own on November 1.`,
+    off: (m) => `Try the spooky theme: bats, cobwebs and a little ${m} for your color. Turn it off any time.`,
+  },
+  thanksgiving: {
+    name: 'Thanksgiving',
+    bigDay: 'Happy Thanksgiving',
+    on: (m) =>
+      `Harvest colors, falling leaves and a ${m} all over the app. It leaves on its own the Monday after Thanksgiving.`,
+    off: (m) => `Try the harvest theme: warm colors, falling leaves and a ${m} for your color. Turn it off any time.`,
+  },
+  christmas: {
+    name: 'Christmas',
+    bigDay: 'Merry Christmas',
+    on: (m) => `Snow, twinkling lights and a ${m} all over the app. It leaves on its own on January 7.`,
+    off: (m) => `Try the winter theme: snow, twinkling lights and a ${m} for your color. Turn it off any time.`,
+  },
+};
+
+export function SeasonCard({ placement }: { placement: 'home' | 'activity' }) {
+  const state = useSeasonal();
   const orbit = useOrbitOptional();
-  if (!season.available) return null;
-  if (placement === 'home' && season.answered) return null;
+  const season = state.season;
+  if (!season) return null;
+  if (placement === 'home' && state.answered) return null;
 
   const palette = orbit?.accentTheme.id ?? 'coral';
-  const monster = HALLOWEEN_MONSTER[palette];
-  const days = daysUntilHalloween();
-  const accent = orbit?.accentTheme.primary ?? '#FF9A2E';
-  const on = season.halloween;
+  const mascot = SEASON_MASCOT[season][palette];
+  const copy = COPY[season];
+  const surface = SEASON_SURFACE[season];
+  const days = daysUntil(season);
+  const accent = orbit?.accentTheme.primary ?? surface.cardEdge;
+  const on = state.active === season;
+  const after = season === 'christmas' && new Date().getMonth() === 0;
 
   const turn = (next: boolean) => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-    void setHalloween(next);
+    void setSeason(season, next);
   };
 
   return (
-    <Animated.View entering={FadeInDown.springify()} style={styles.card}>
-      <View style={styles.kitten}>
-        <HalloweenKitten size={72} />
+    <Animated.View entering={FadeInDown.springify()} style={[styles.card, { backgroundColor: surface.card }]}>
+      <View style={styles.corner}>
+        {season === 'halloween' ? (
+          <HalloweenKitten size={72} />
+        ) : season === 'christmas' ? (
+          <Holly size={56} />
+        ) : (
+          <View style={{ transform: [{ rotate: '-18deg' }] }}>
+            <MapleLeafShape size={52} color="#E8703F" />
+          </View>
+        )}
       </View>
       <View style={styles.head}>
         <Animated.View entering={ZoomIn.delay(150).springify()}>
-          <Moji name={monster.moji} size={34} />
+          <Moji name={mascot.moji} size={34} />
         </Animated.View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{on ? 'Halloween is on' : 'Halloween is here'}</Text>
-          <Text style={styles.sub}>
-            {days === 0 ? 'Tonight’s the night' : days === 1 ? '1 day to go' : `${days} days to go`}
+          <Text style={[styles.title, { color: surface.text }]}>
+            {on ? `${copy.name} is on` : `${copy.name} is here`}
+          </Text>
+          <Text style={[styles.sub, { color: surface.cardSub }]}>
+            {after
+              ? 'Happy New Year'
+              : days === 0
+                ? copy.bigDay
+                : days === 1
+                  ? '1 day to go'
+                  : `${days} days to go`}
           </Text>
         </View>
       </View>
-      <Text style={styles.body}>
-        {on
-          ? `Bats, cobwebs and a little ${monster.name} all over the app. It leaves on its own on November 1.`
-          : `Try the spooky theme: bats, cobwebs and a little ${monster.name} for your color. Turn it off any time.`}
+      <Text style={[styles.body, { color: surface.cardBody }]}>
+        {on ? copy.on(mascot.name) : copy.off(mascot.name)}
       </Text>
       <View style={styles.row}>
         <Pressable
           onPress={() => turn(!on)}
           accessibilityRole="button"
-          style={({ pressed }) => [styles.pill, { backgroundColor: on ? 'rgba(255,255,255,0.14)' : accent, transform: [{ scale: pressed ? 0.95 : 1 }] }]}>
+          style={({ pressed }) => [
+            styles.pill,
+            { backgroundColor: on ? 'rgba(255,255,255,0.14)' : accent, transform: [{ scale: pressed ? 0.95 : 1 }] },
+          ]}>
           <Text style={styles.pillText}>{on ? 'Turn it off' : 'Turn it on'}</Text>
         </Pressable>
         {!on && placement === 'home' ? (
           <Pressable
-            onPress={() => void dismissHalloweenCard()}
+            onPress={() => void dismissSeasonCard(season)}
             accessibilityRole="button"
             style={({ pressed }) => [styles.pill, styles.alt, { transform: [{ scale: pressed ? 0.95 : 1 }] }]}>
             <Text style={styles.pillText}>Not now</Text>
@@ -76,20 +126,22 @@ export function HalloweenCard({ placement }: { placement: 'home' | 'activity' })
   );
 }
 
+/** @deprecated The card now covers every season. */
+export const HalloweenCard = SeasonCard;
+
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#3A2470',
     borderCurve: 'continuous',
     borderRadius: 22,
     gap: 10,
     overflow: 'hidden',
     padding: 16,
   },
-  kitten: { bottom: -6, position: 'absolute', right: -2 },
+  corner: { bottom: -6, position: 'absolute', right: -2 },
   head: { alignItems: 'center', flexDirection: 'row', gap: 10 },
-  title: { color: '#F5EEFF', fontSize: 20, fontWeight: '700' },
-  sub: { color: '#D6CBEF', fontSize: 13 },
-  body: { color: '#E4DAF8', fontSize: 15, lineHeight: 20, paddingRight: 56 },
+  title: { fontSize: 20, fontWeight: '700' },
+  sub: { fontSize: 13 },
+  body: { fontSize: 15, lineHeight: 20, paddingRight: 56 },
   row: { flexDirection: 'row', gap: 8 },
   pill: { borderRadius: 999, minHeight: 40, justifyContent: 'center', paddingHorizontal: 16 },
   alt: { backgroundColor: 'rgba(255,255,255,0.14)' },

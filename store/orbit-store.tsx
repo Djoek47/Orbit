@@ -1,6 +1,6 @@
 import { AppState } from 'react-native';
 import { weekCompletion } from '@/lib/household/week-completion';
-import { halloweenPalette, useSeasonal } from '@/lib/theme/seasonal';
+import { seasonPalette, useSeasonal } from '@/lib/theme/seasonal';
 import { sendHouseholdEmail } from '@/lib/billing/send-household-email';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -5798,9 +5798,12 @@ export function OrbitProvider({ children }: PropsWithChildren) {
   const seasonal = useSeasonal();
   const accentTheme = useMemo(() => {
     const base = getAccentTheme(resolvedPaletteId);
-    if (!seasonal.halloween) return base;
-    return { ...base, primary: halloweenPalette(resolveTheme('dark', resolvedPaletteId), resolvedPaletteId).primary };
-  }, [resolvedPaletteId, seasonal.halloween]);
+    if (!seasonal.active) return base;
+    return {
+      ...base,
+      primary: seasonPalette(resolveTheme('dark', resolvedPaletteId), resolvedPaletteId, seasonal.active).primary,
+    };
+  }, [resolvedPaletteId, seasonal.active]);
 
   // Home-screen icon follows the season: witch hat while Halloween is on, back after.
   useEffect(() => {
@@ -5872,8 +5875,8 @@ export function OrbitProvider({ children }: PropsWithChildren) {
 
   const orbitPalette = useMemo(() => {
     const base = resolveTheme(appearanceMode, resolvedPaletteId);
-    return seasonal.halloween ? halloweenPalette(base, resolvedPaletteId) : base;
-  }, [appearanceMode, resolvedPaletteId, seasonal.halloween]);
+    return seasonal.active ? seasonPalette(base, resolvedPaletteId, seasonal.active) : base;
+  }, [appearanceMode, resolvedPaletteId, seasonal.active]);
 
   const persistSavedPlaces = async (
     householdId: string | null | undefined,

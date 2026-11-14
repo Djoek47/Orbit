@@ -91,11 +91,15 @@ type IconProps = {
 export function ChoremaxxIcon({ width = 34, height = 30, colors }: IconProps) {
   const live = useBrandLockup();
   const c = colors ?? live;
-  // Halloween: same mark, plus a witch hat on the roof and a sleepy face. Off = untouched.
-  const halloween = useSeasonal().halloween;
+  // Seasons: same mark, plus a hat on the roof — witch hat (Halloween), Santa hat (Christmas)
+  // or a maple leaf (Thanksgiving). Off = untouched.
+  const { active } = useSeasonal();
+  const halloween = active === 'halloween';
+  const christmas = active === 'christmas';
+  const thanksgiving = active === 'thanksgiving';
 
   return (
-    <Svg width={width} height={height} viewBox={halloween ? '0 -5 56 53' : '0 0 56 48'} fill="none">
+    <Svg width={width} height={height} viewBox={halloween || christmas || thanksgiving ? '0 -5 56 53' : '0 0 56 48'} fill="none">
       {/* Sparkle */}
       <Path d="M14 3.5 L15.1 7.2 L14 10.9 L12.9 7.2 Z" fill={c.sparkle} />
       <Path d="M10.2 7.2 L14 8.3 L17.8 7.2 L14 6.1 Z" fill={c.sparkle} />
@@ -128,6 +132,20 @@ export function ChoremaxxIcon({ width = 34, height = 30, colors }: IconProps) {
           <Path d="M24.6 33.2 a1.1 1.3 0 1 0 0.01 0 Z M31.4 33.2 a1.1 1.3 0 1 0 0.01 0 Z" fill="#2A1747" />
           <Path d="M26.4 36.6 Q28 37.8 29.6 36.6" stroke="#2A1747" strokeWidth={0.9} strokeLinecap="round" fill="none" />
         </>
+      ) : null}
+      {christmas ? (
+        <>
+          {/* Santa hat: red cone flopping right, white brim, pompom. */}
+          <Path d="M21 6.2 C22 -1.5 30 -4.5 35.5 -1 C37.6 0.4 38.6 2.4 38.8 4.6 L35.6 4.2 C35 2.2 33.6 1.2 32 1.4 L34.6 6.2 Z" fill="#E5484D" />
+          <Path d="M19.5 6.6 C24 4.4 32 4.4 36.5 6.6 C36.6 8.2 36 8.6 34.8 8.6 C30 7.4 26 7.4 21.2 8.6 C20 8.6 19.4 8.2 19.5 6.6 Z" fill="#FFFFFF" />
+          <Path d="M39 4.4 a2 2 0 1 0 0.01 0 Z" fill="#FFFFFF" />
+        </>
+      ) : null}
+      {thanksgiving ? (
+        <Path
+          d="M28 7 L28 4 L27.3 4.4 L24.7 3.7 L25.2 2.7 L22.9 0.8 L24 0.4 L23.5 -1.4 L25.2 -0.9 L25.5 -1.8 L26.8 -0.2 L26.4 -2.8 L27.3 -2.4 L28 -4.2 L28.7 -2.4 L29.6 -2.8 L29.2 -0.2 L30.5 -1.8 L30.8 -0.9 L32.5 -1.4 L32 0.4 L33.1 0.8 L30.8 2.7 L31.3 3.7 L28.7 4.4 L28 4 Z"
+          fill="#E8703F"
+        />
       ) : null}
     </Svg>
   );

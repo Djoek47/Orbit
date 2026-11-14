@@ -1,14 +1,14 @@
 /**
- * Seasonal themes in Settings → Your look. Lists every season that's on right now (Halloween in
- * October; Thanksgiving or Christmas once they exist). Out of season it shows nothing.
+ * Seasonal themes in Settings → Your look. Lists the season in the air right now (Halloween in
+ * October, Thanksgiving in November, Christmas through early January). Out of season: nothing.
  */
 import { StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { Moji } from '@/components/orbit/moji/moji';
-import { SeasonMonster } from '@/components/orbit/seasonal/halloween-decor';
-import { SEASONAL_THEMES, setHalloween, useSeasonal } from '@/lib/theme/seasonal';
+import { SeasonMascot } from '@/components/orbit/seasonal/season-decor';
+import { SEASON_SURFACE, SEASONAL_THEMES, setSeason, useSeasonal } from '@/lib/theme/seasonal';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 export function SeasonalThemes() {
@@ -20,20 +20,21 @@ export function SeasonalThemes() {
     <Animated.View entering={FadeInDown.springify()} style={styles.wrap}>
       <Text style={[styles.eyebrow, { color: c.textSubtle }]}>SEASONAL THEME</Text>
       {live.map((t) => {
-        const on = t.id === 'halloween' ? season.halloween : false;
+        const on = season.active === t.id;
+        const sx = SEASON_SURFACE[t.id];
         return (
-          <View key={t.id} style={[styles.row, { backgroundColor: on ? '#3A2470' : glass(0.05), borderColor: on ? '#7B3FE4' : glassBorder(0.1) }]}>
-            {on ? <SeasonMonster size={34} /> : <Moji name={t.moji} size={34} />}
+          <View key={t.id} style={[styles.row, { backgroundColor: on ? sx.card : glass(0.05), borderColor: on ? sx.cardEdge : glassBorder(0.1) }]}>
+            {on ? <SeasonMascot size={34} season={t.id} /> : <Moji name={t.moji} size={34} />}
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[styles.name, { color: on ? '#F5EEFF' : c.text }]}>{t.name}</Text>
-              <Text style={[styles.blurb, { color: on ? '#D6CBEF' : c.textMuted }]}>
+              <Text style={[styles.name, { color: on ? sx.text : c.text }]}>{t.name}</Text>
+              <Text style={[styles.blurb, { color: on ? sx.cardSub : c.textMuted }]}>
                 {t.blurb} · {t.ends}
               </Text>
             </View>
             <Switch
               value={on}
               onValueChange={(v) => {
-                if (t.id === 'halloween') void setHalloween(v);
+                void setSeason(t.id, v);
               }}
               accessibilityLabel={`${t.name} theme`}
             />

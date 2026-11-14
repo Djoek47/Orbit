@@ -42,9 +42,9 @@ import {
   Cobweb,
   DanglingSpider,
   HalloweenKitten,
-  SeasonMonster,
 } from '@/components/orbit/seasonal/halloween-decor';
-import { useSeasonal } from '@/lib/theme/seasonal';
+import { Holly, SeasonMascot } from '@/components/orbit/seasonal/season-decor';
+import { SEASON_SURFACE, useSeasonal } from '@/lib/theme/seasonal';
 import * as Haptics from 'expo-haptics';
 
 export type PremiumUsagePanel = {
@@ -196,7 +196,10 @@ export function PremiumPaywall({
     ? `${BILLING_TRIAL_DAYS} days free, then ${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`
     : `${priceOf(selected)}/${period === 'yearly' ? 'year' : 'month'}`;
 
-  const halloween = useSeasonal().halloween;
+  const season = useSeasonal().active;
+  const halloween = season === 'halloween';
+  const seasonal = season !== null;
+  const sx = season ? SEASON_SURFACE[season] : null;
   const [burst, setBurst] = useState(0);
   const [pop, setPop] = useState(0);
   const savings = yearly.savingsLabel;
@@ -216,8 +219,8 @@ export function PremiumPaywall({
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: halloween ? '#120B24' : orbitPalette.background }]}>
-      <LivingBackground color={accentTheme.primary} secondary={accentTheme.secondary ?? accentTheme.primary} halloween={halloween} />
+    <View style={[styles.root, { backgroundColor: sx ? sx.shell : orbitPalette.background }]}>
+      <LivingBackground color={accentTheme.primary} secondary={accentTheme.secondary ?? accentTheme.primary} season={season} />
       {halloween ? (
         <>
           <Cobweb corner="tl" size={110} style={{ position: 'absolute', left: 0, top: 0 }} />
@@ -235,10 +238,10 @@ export function PremiumPaywall({
             accessibilityLabel="Account and settings: sign out, transfer or delete the household, delete account, help"
             style={({ pressed }) => [
               styles.accountChip,
-              { backgroundColor: glassFill(isDark || halloween), borderColor: `${accentTheme.primary}55`, opacity: pressed ? 0.7 : 1 },
+              { backgroundColor: glassFill(isDark || seasonal), borderColor: `${accentTheme.primary}55`, opacity: pressed ? 0.7 : 1 },
             ]}>
             <MaterialIcons name="settings" size={18} color={accentTheme.primary} />
-            <Text style={[styles.accountChipText, { color: halloween ? '#F5EEFF' : c.text }]}>Account</Text>
+            <Text style={[styles.accountChipText, { color: sx ? sx.text : c.text }]}>Account</Text>
           </Pressable>
         ) : dismissible ? (
           <Pressable
@@ -247,8 +250,8 @@ export function PremiumPaywall({
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={secondaryLabel}
-            style={[styles.closeBtn, { backgroundColor: glassFill(isDark || halloween) }]}>
-            <MaterialIcons name="close" size={22} color={halloween ? '#F5EEFF' : c.text} />
+            style={[styles.closeBtn, { backgroundColor: glassFill(isDark || seasonal) }]}>
+            <MaterialIcons name="close" size={22} color={sx ? sx.text : c.text} />
           </Pressable>
         ) : (
           <View />
@@ -259,7 +262,7 @@ export function PremiumPaywall({
         <Animated.View entering={FadeInUp.delay(40).duration(520)} style={styles.heroInner}>
           <View>
             <BrandTile size={104} pop={pop} />
-            {halloween ? <SeasonMonster size={52} style={styles.monster} /> : null}
+            {seasonal ? <SeasonMascot size={52} style={styles.monster} /> : null}
           </View>
           {copy && !alreadyPremium && copy.offersTrial ? (
             <>
@@ -271,7 +274,7 @@ export function PremiumPaywall({
             </>
           ) : (
             <>
-              <Text style={[styles.headline, { color: halloween ? '#F5EEFF' : c.text }]}>
+              <Text style={[styles.headline, { color: sx ? sx.text : c.text }]}>
                 {copy && !alreadyPremium ? copy.title : 'ChoreMaxx'}
               </Text>
               {copy && !alreadyPremium ? (
@@ -280,7 +283,7 @@ export function PremiumPaywall({
             </>
           )}
           <Animated.View style={[styles.priceCrossfade, priceStyle]}>
-            <Text style={[styles.support, { color: halloween ? '#C7B9E6' : c.textMuted }]}>
+            <Text style={[styles.support, { color: sx ? sx.textSoft : c.textMuted }]}>
               {alreadyPremium && usage
                 ? `${usage.tokensUsedThisPeriod} of ${usage.tokensPerMonth} tokens used this period`
                 : offerLine}
@@ -305,8 +308,8 @@ export function PremiumPaywall({
                 badge={opt.value === 'yearly' ? savings : null}
                 selected={period === opt.value}
                 accent={accentTheme.primary}
-                accent2={halloween ? '#A58BFF' : (accentTheme.secondary ?? accentTheme.primary)}
-                dark={isDark || halloween}
+                accent2={sx ? sx.cardEdge : (accentTheme.secondary ?? accentTheme.primary)}
+                dark={isDark || seasonal}
                 disabled={busy}
                 onPress={() => pick(opt.value)}
               />
@@ -314,10 +317,10 @@ export function PremiumPaywall({
           </View>
         ) : null}
 
-        {statusMessage ? <PaywallMessage tone="success" message={statusMessage} dark={isDark || halloween} /> : null}
-        {errorMessage ? <PaywallMessage tone="error" message={errorMessage} dark={isDark || halloween} /> : null}
-        {notice ? <PaywallMessage tone="info" message={notice} dark={isDark || halloween} /> : null}
-        <Text style={[styles.reassure, { color: halloween ? '#C7B9E6' : c.textMuted }]}>Cancel anytime, no penalties or fees</Text>
+        {statusMessage ? <PaywallMessage tone="success" message={statusMessage} dark={isDark || seasonal} /> : null}
+        {errorMessage ? <PaywallMessage tone="error" message={errorMessage} dark={isDark || seasonal} /> : null}
+        {notice ? <PaywallMessage tone="info" message={notice} dark={isDark || seasonal} /> : null}
+        <Text style={[styles.reassure, { color: sx ? sx.textSoft : c.textMuted }]}>Cancel anytime, no penalties or fees</Text>
 
         <View>
           <AnimatedPressable
@@ -348,8 +351,12 @@ export function PremiumPaywall({
             <View pointerEvents="none" style={styles.ctaSpider}>
               <DanglingSpider thread={14} size={14} />
             </View>
+          ) : season === 'christmas' ? (
+            <View pointerEvents="none" style={styles.ctaHolly}>
+              <Holly size={26} />
+            </View>
           ) : null}
-          <Burst trigger={burst} halloween={halloween} color={accentTheme.primary} />
+          <Burst trigger={burst} season={season} color={accentTheme.primary} />
         </View>
 
         {dismissible ? (
@@ -360,7 +367,7 @@ export function PremiumPaywall({
 
         {/* Required by Apple next to the button (3.1.2): price, period, auto-renewal, how to cancel. Kept to one line. */}
         {offerLine.trim() ? (
-          <Text style={[styles.legal, { color: halloween ? '#9D8FBF' : c.textSubtle }]}>
+          <Text style={[styles.legal, { color: sx ? sx.textMuted : c.textSubtle }]}>
             {offerLine}. Charged to your Apple ID {trialEligible ? 'when the trial ends' : 'when you confirm'}; renews automatically. Cancel anytime in Settings › Apple ID › Subscriptions.
           </Text>
         ) : null}
@@ -372,7 +379,7 @@ export function PremiumPaywall({
             hitSlop={12}
             accessibilityRole="link"
             accessibilityLabel="Terms of Use">
-            <Text style={[styles.link, { color: halloween ? '#C7B9E6' : c.textMuted }]}>Terms</Text>
+            <Text style={[styles.link, { color: sx ? sx.textSoft : c.textMuted }]}>Terms</Text>
           </Pressable>
           <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
           <Pressable
@@ -381,11 +388,11 @@ export function PremiumPaywall({
             hitSlop={12}
             accessibilityRole="link"
             accessibilityLabel="Privacy Policy">
-            <Text style={[styles.link, { color: halloween ? '#C7B9E6' : c.textMuted }]}>Privacy</Text>
+            <Text style={[styles.link, { color: sx ? sx.textSoft : c.textMuted }]}>Privacy</Text>
           </Pressable>
           <Text style={[styles.dot, { color: c.textSubtle }]}>·</Text>
           <Pressable onPress={onRestore} disabled={busy} hitSlop={12}>
-            <Text style={[styles.link, { color: halloween ? '#C7B9E6' : c.textMuted }]}>Restore</Text>
+            <Text style={[styles.link, { color: sx ? sx.textSoft : c.textMuted }]}>Restore</Text>
           </Pressable>
         </View>
       </Animated.View>
@@ -543,6 +550,7 @@ const styles = StyleSheet.create({
   badgeShine: { bottom: -4, left: 0, position: 'absolute', top: -4 },
   planBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textShadowColor: 'rgba(0,0,0,0.18)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1 },
   ctaLip: { backgroundColor: 'rgba(0,0,0,0.18)', bottom: 0, height: 4, left: 0, position: 'absolute', right: 0 },
+  ctaHolly: { left: 14, position: 'absolute', top: -10 },
   ctaSpider: { position: 'absolute', right: 26, top: -20 },
   secondary: { fontSize: 15, fontWeight: '700', letterSpacing: 0.4, paddingVertical: 4, textAlign: 'center' },
   topBar: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space.lg },
