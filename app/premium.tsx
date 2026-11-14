@@ -112,7 +112,7 @@ export default function PremiumScreen() {
   // subscribed while this household is not. Say so, instead of a Continue that goes nowhere.
   const notice: string | null =
     access.ready && access.view.appLocked && access.claimedElsewhere
-      ? "This Apple ID's subscription already covers another ChoreMaxx account. Press Continue to move it to this household, or subscribe with a different Apple ID."
+      ? "This Apple ID's subscription already covers another ChoreMaxx account. Tap the button below to move it to this household, or subscribe with a different Apple ID."
       : null;
   // From Poppins during a trial: sell the subscription, which is what brings the 300 a month.
   const upgradeFromTrial = params.source === 'poppins' && access.view.level === 'trial';
