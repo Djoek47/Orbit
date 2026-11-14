@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { HouseholdSwitcher } from '@/components/orbit/household-switcher';
+import { MemberEditSheet, MemberRemoveSheet } from '@/components/orbit/members/member-manage-sheets';
 import { MemberPresencePill } from '@/components/orbit/members/member-presence-pill';
 import { SharedDeviceManageCard } from '@/components/orbit/members/shared-device-manage-card';
 import { SharedIpadCard } from '@/components/orbit/members/shared-ipad-card';
@@ -176,53 +177,18 @@ export function HouseholdMembersRoster({
     });
   };
 
-  // Settings is itself a modal, and a system alert raised from inside it can land behind it, so
-  // the confirmation is drawn on the card instead of in an alert.
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  // Settings is itself a modal, so a system alert raised from inside it can land behind it.
+  // Edit and remove use sheets drawn inside the screen instead.
+  const [editTarget, setEditTarget] = useState<HouseholdMember | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<HouseholdMember | null>(null);
 
   const handleRemoveMember = (member: HouseholdMember) => {
     if (member.role === 'owner') {
       orbitAlert('Cannot remove', 'The household owner cannot be removed.');
       return;
     }
-    setConfirmRemoveId(member.id);
+    setRemoveTarget(member);
   };
-
-  const doRemoveMember = async (member: HouseholdMember) => {
-    setRemovingId(member.id);
-    try {
-      await removeMember(member.id);
-      setConfirmRemoveId(null);
-    } catch (error) {
-      setConfirmRemoveId(null);
-      orbitAlert('Couldn’t remove', error instanceof Error ? error.message : 'Try again in a moment.');
-    } finally {
-      setRemovingId(null);
-    }
-  };
-
-  const renderRemoveConfirm = (member: HouseholdMember) => (
-    <View style={styles.removeConfirm}>
-      <Text style={[styles.kidName, { color: c.text, flex: 1 }]} numberOfLines={2}>
-        Remove {member.name}?
-      </Text>
-      <Pressable
-        onPress={() => setConfirmRemoveId(null)}
-        disabled={removingId === member.id}
-        hitSlop={8}
-        accessibilityRole="button">
-        <Text style={[styles.kidMeta, { color: c.textMuted, fontWeight: '700' }]}>Cancel</Text>
-      </Pressable>
-      <Pressable
-        onPress={() => void doRemoveMember(member)}
-        disabled={removingId === member.id}
-        style={[styles.shareBtn, { backgroundColor: '#F87171' }]}
-        accessibilityRole="button">
-        <Text style={styles.shareLabel}>{removingId === member.id ? 'Removing…' : 'Remove'}</Text>
-      </Pressable>
-    </View>
-  );
 
   /** Shared tablets confirm on the card (Settings is already a modal). */
   const handleRemoveDevice = (device: HouseholdMember) => removeMember(device.id);
@@ -301,18 +267,6 @@ export function HouseholdMembersRoster({
           : age
             ? `${age} · ${progress.done} of ${progress.total} done today · ${presenceBit}`
             : `${progress.done} of ${progress.total} done today · ${presenceBit}`;
-        if (confirmRemoveId === member.id) {
-          return (
-            <View
-              key={member.id}
-              style={[
-                styles.kidCard,
-                { backgroundColor: glassFill(isDark), borderColor: '#F8717188' },
-              ]}>
-              {renderRemoveConfirm(member)}
-            </View>
-          );
-        }
         return (
           <Pressable
             key={member.id}
@@ -354,6 +308,15 @@ export function HouseholdMembersRoster({
                 />
               </View>
             </View>
+            {permissions.canManageHousehold ? (
+              <Pressable
+                onPress={() => setEditTarget(member)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${member.name}`}>
+                <MaterialIcons name="edit" size={20} color={accent} />
+              </Pressable>
+            ) : null}
             {permissions.canManageHousehold && member.role !== 'owner' ? (
               <Pressable
                 onPress={() => handleRemoveMember(member)}
@@ -398,12 +361,8 @@ export function HouseholdMembersRoster({
             styles.inviteCard,
             { borderColor: '#F59E0B88', backgroundColor: 'rgba(245,158,11,0.08)' },
           ]}>
-          {confirmRemoveId === member.id ? (
-            renderRemoveConfirm(member)
-          ) : (
-            <>
           <Pressable
-            onPress={() => router.push(`/member/${member.id}` as never)}
+            onPress={() => (permissions.canManageHousehold ? setEditTarget(member) : router.push(`/member/${member.id}` as never))}
             style={styles.invitedMain}
             accessibilityRole="button"
             accessibilityLabel={`Edit ${member.name}`}>
@@ -438,8 +397,6 @@ export function HouseholdMembersRoster({
               <MaterialIcons name="check" size={20} color={accent} />
             </Pressable>
           ) : null}
-            </>
-          )}
         </View>
       ))}
 
@@ -499,6 +456,8 @@ export function HouseholdMembersRoster({
       {variant === 'screen' && statusLine ? (
         <Text style={[styles.footerStatus, { color: c.textSubtle }]}>{statusLine}</Text>
       ) : null}
+      <MemberEditSheet member={editTarget} onDismiss={() => setEditTarget(null)} />
+      <MemberRemoveSheet member={removeTarget} onDismiss={() => setRemoveTarget(null)} />
     </View>
   );
 }
@@ -571,7 +530,6 @@ const styles = StyleSheet.create({
   barTrack: { borderRadius: 2, height: 4, overflow: 'hidden', width: '100%' },
   barFill: { borderRadius: 2, height: 4 },
   invitedMain: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 12 },
-  removeConfirm: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 14 },
   shareBtn: {
     borderRadius: 999,
     minHeight: 36,

@@ -2171,12 +2171,35 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     await createProfile({ name, avatar });
   };
 
+  /** Tell a person when an admin (not they themselves) changed their name or picture. */
+  const notifyProfileChangedByAdmin = async (
+    memberId: string,
+    notice: import('@/lib/household/member-profile-change').MemberProfileChangeNotice
+  ) => {
+    try {
+      if (!household.id) return;
+      const item = await notificationsRepository.create({
+        householdId: household.id,
+        title: notice.title,
+        body: notice.body,
+        category: notice.category,
+        priority: notice.priority,
+        data: notice.data,
+      });
+      setNotifications((current) => [item, ...current.filter((row) => row.id !== item.id)]);
+      if (dataMode === 'supabase') dispatchMemberPush(item.id);
+    } catch (error) {
+      console.warn('notifyProfileChangedByAdmin', memberId, error);
+    }
+  };
+
   const updateMemberDisplayName = async (memberId: string, name: string) => {
     if (!permissions.canManageHousehold && currentMember?.id !== memberId) {
       return;
     }
     const trimmed = name.trim();
     if (!trimmed) return;
+    const nameBefore = household.members.find((member) => member.id === memberId)?.name ?? '';
     const updated = await householdRepository.updateMemberDisplayName(
       memberId,
       trimmed,
@@ -2205,6 +2228,18 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     });
     if (currentMember?.id === memberId && currentUser) {
       await createProfile({ name: trimmed, avatar: currentUser.avatar });
+    }
+    if (permissions.canManageHousehold && currentMember?.id !== memberId && nameBefore && nameBefore !== trimmed) {
+      const { memberNameChangedNotice } = await import('@/lib/household/member-profile-change');
+      await notifyProfileChangedByAdmin(
+        memberId,
+        memberNameChangedNotice({
+          memberId,
+          adminName: currentMember?.name,
+          previousName: nameBefore,
+          newName: trimmed,
+        })
+      );
     }
   };
 
@@ -6007,6 +6042,10 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     if (!member) {
       return;
     }
+    // Only an admin, or the person themselves, may change a picture.
+    if (currentMember && !permissions.canManageHousehold && currentMember.id !== memberId) {
+      return;
+    }
     let durable = avatar;
     if (household.id) {
       try {
@@ -6026,6 +6065,13 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       members: current.members.map((item) => (item.id === memberId ? updated : item)),
     }));
     void saveMemberAvatarOverride(household.id, memberId, durable);
+    if (permissions.canManageHousehold && currentMember?.id !== memberId) {
+      const { memberAvatarChangedNotice } = await import('@/lib/household/member-profile-change');
+      void notifyProfileChangedByAdmin(
+        memberId,
+        memberAvatarChangedNotice({ memberId, adminName: currentMember?.name })
+      );
+    }
     // Keep Playground / photo faces in the on-device gallery so Activity + You
     // still resolve them after sign-out / sign-in (prefer durable https).
     if (currentUser?.id) {
