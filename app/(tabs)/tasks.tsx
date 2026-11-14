@@ -73,6 +73,7 @@ import {
   isCompletedTask,
   isExpiredTask,
   isExpiredVisibleInTab,
+  isSlackingTask,
 } from '@/lib/tasks/expired-tab';
 import { isExpiredStatus } from '@/lib/tasks/recurring';
 import { homeworkSubjectMeta, resolveHomeworkSubject } from '@/lib/tasks/homework-subject';
@@ -969,6 +970,23 @@ export default function TasksScreen() {
     () => countExpiredHistory(household.tasks),
     [household.tasks]
   );
+  // Same scope as the Expired count, narrowed to tasks expired over 3 days ago: they light
+  // the small dot on the Expired tab.
+  const slackingCount = useMemo(() => {
+    const now = new Date();
+    return household.tasks.filter((task) => {
+      if (!isExpiredVisibleInTab(task, now) || !isSlackingTask(task, now)) return false;
+      const homework = isHomework(task);
+      if (domainTab === 'homework' ? !homework : homework) return false;
+      if (sharedKidMode) {
+        return taskMatchesAssignee(task, focusMember ?? currentMember?.name);
+      }
+      if (focusMember && !taskMatchesAssignee(task, focusMember)) return false;
+      if (filter === 'mine' && !taskMatchesAssignee(task, currentMember?.name)) return false;
+      return true;
+    }).length;
+  }, [currentMember?.name, domainTab, filter, focusMember, household.tasks, sharedKidMode]);
+
   const expiredCount = useMemo(() => {
     return household.tasks.filter((task) => {
       if (!isExpiredVisibleInTab(task)) return false;
@@ -1242,6 +1260,11 @@ export default function TasksScreen() {
           {
             value: 'expired',
             label: expiredCount > 0 ? `Expired · ${expiredCount}` : 'Expired',
+            light: slackingCount > 0 ? c.danger : null,
+            lightLabel:
+              slackingCount === 1
+                ? '1 task expired more than 3 days ago'
+                : `${slackingCount} tasks expired more than 3 days ago`,
           },
         ]}
         value={statusTab}

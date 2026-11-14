@@ -201,6 +201,7 @@ import { getPermissionsForRole, type HouseholdPermissions } from '@/lib/permissi
 import { getV2Permissions } from '@/lib/permissions-v2';
 import { persistHouseholdScore } from '@/lib/momentum/score-writer';
 import { subscribeHouseholdRealtime } from '@/lib/realtime/household-realtime';
+import { createCoalescedReload } from '@/lib/refresh/coalesced-reload';
 import {
   DEFAULT_REWARD_MODEL,
   capabilitiesFor,
@@ -1690,6 +1691,15 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     return withExpiry;
   }, [beginMemberRemovalKick, reloadSidekickDomains]);
 
+  // Every reload goes through one queue: bursts of live changes merge into one fetch, and two
+  // fetches never race to overwrite each other (lib/refresh/coalesced-reload.ts).
+  const reloadFnRef = useRef(reloadHouseholdDomains);
+  reloadFnRef.current = reloadHouseholdDomains;
+  const coalescedReloadRef = useRef(
+    createCoalescedReload<HouseholdSnapshot>(() => reloadFnRef.current(), { debounceMs: 250 })
+  );
+  const refreshHouseholdNow = useCallback(() => coalescedReloadRef.current.now(), []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -1933,7 +1943,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       if (cancelled || sidekickActive) return;
 
       unsubscribe = subscribeHouseholdRealtime(household.id!, () => {
-        reloadHouseholdDomains().catch((error) => {
+        coalescedReloadRef.current.request().catch((error) => {
           console.warn('Failed to reload after realtime change', error);
         });
       });
@@ -8298,7 +8308,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       refreshStoreRecommendations,
       refreshInviteLinks,
       refreshSmartHome,
-      refreshHousehold: reloadHouseholdDomains,
+      refreshHousehold: refreshHouseholdNow,
       restoreSidekickSession,
       sendTaskReminder,
     }),

@@ -104,3 +104,14 @@ export function groupExpiredByDay(
       tasks: group,
     }));
 }
+
+/** A task expired more than this long ago and still undone counts as slacking. */
+export const SLACKING_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** Expired more than 3 days ago. Drives the small light on the Expired tab. */
+export function isSlackingTask(task: HouseholdTask, now = new Date()): boolean {
+  if (!isExpiredTask(task)) return false;
+  const stamp = expiredStamp(task);
+  if (!stamp) return false;
+  return now.getTime() - stamp.getTime() > SLACKING_AFTER_MS;
+}
