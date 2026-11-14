@@ -64,8 +64,9 @@ function twoArrows(): Arrow[] {
   const half = 0.22;
   const y = 0.3;
   return [
-    { shaft: `M -0.72 ${-y} L ${0.72 - len * 0.8} ${-y}`, head: head({ x: 0.74, y: -y }, { x: 1, y: 0 }, len, half) },
-    { shaft: `M 0.72 ${y} L ${-0.72 + len * 0.8} ${y}`, head: head({ x: -0.74, y }, { x: -1, y: 0 }, len, half) },
+    // Point-symmetric: the bottom arrow is the top one turned 180° about the centre.
+    { shaft: `M -0.74 ${-y} L ${0.74 - len * 0.8} ${-y}`, head: head({ x: 0.74, y: -y }, { x: 1, y: 0 }, len, half) },
+    { shaft: `M 0.74 ${y} L ${-0.74 + len * 0.8} ${y}`, head: head({ x: -0.74, y }, { x: -1, y: 0 }, len, half) },
   ];
 }
 
@@ -75,7 +76,7 @@ function polygonLoop(n: number): Arrow[] {
   const startDeg = -90; // a corner at the top: triangle points up, square becomes a lozenge
   const verts: Pt[] = Array.from({ length: n }, (_, i) => {
     const a = ((startDeg + (360 / n) * i) * Math.PI) / 180;
-    return { x: R * Math.cos(a), y: R * Math.sin(a) + (n === 3 ? 0.12 : 0) };
+    return { x: R * Math.cos(a), y: R * Math.sin(a) }; // centred on the middle, so the spin doesn't wobble
   });
   const gap = n === 3 ? 0.2 : 0.17; // fraction of the edge left open at each corner
   const bow = n === 3 ? 0.16 : 0.13;
