@@ -402,13 +402,22 @@ export function HouseholdMembersRoster({
             renderRemoveConfirm(member)
           ) : (
             <>
-          <View style={[styles.mono, { backgroundColor: 'rgba(245,158,11,0.2)' }]}>
-            <Text style={[styles.monoText, { color: '#F59E0B' }]}>{monogram(member.name)}</Text>
-          </View>
-          <View style={styles.kidBody}>
-            <Text style={[styles.kidName, { color: c.text }]}>{member.name}</Text>
-            <Text style={[styles.kidMeta, { color: '#F59E0B' }]}>Invited · share to finish</Text>
-          </View>
+          <Pressable
+            onPress={() => router.push(`/member/${member.id}` as never)}
+            style={styles.invitedMain}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${member.name}`}>
+            <View style={[styles.mono, { backgroundColor: 'rgba(245,158,11,0.2)' }]}>
+              <Text style={[styles.monoText, { color: '#F59E0B' }]}>{monogram(member.name)}</Text>
+            </View>
+            <View style={styles.kidBody}>
+              <Text style={[styles.kidName, { color: c.text }]}>{member.name}</Text>
+              <Text style={[styles.kidMeta, { color: '#F59E0B' }]}>Invited · tap to edit</Text>
+            </View>
+            {permissions.canManageHousehold ? (
+              <MaterialIcons name="edit" size={18} color="#F59E0B" />
+            ) : null}
+          </Pressable>
           <Pressable
             onPress={() => onShareInvite(member)}
             style={[styles.shareBtn, { backgroundColor: '#F59E0B' }]}
@@ -561,6 +570,7 @@ const styles = StyleSheet.create({
   kidMeta: { fontSize: 13 },
   barTrack: { borderRadius: 2, height: 4, overflow: 'hidden', width: '100%' },
   barFill: { borderRadius: 2, height: 4 },
+  invitedMain: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 12 },
   removeConfirm: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 14 },
   shareBtn: {
     borderRadius: 999,
