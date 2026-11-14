@@ -488,7 +488,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
           );
         })}
 
-        {/* Shared tablet fifth button — N double-arrows (not Poppins stars). */}
+        {/* Shared tablet fifth button — arrows round the people (spins in where Poppins was). */}
         {fifthSlot === 'switch' ? (
           <TourTarget id="tabbar.switch" style={[styles.tab, styles.poppinsTab]}>
             <Pressable
@@ -510,7 +510,7 @@ export function MakeTabBar({ state, descriptors, navigation }: BottomTabBarProps
                   styles.poppinsButtonActive,
                   { borderColor: `${accentPrimary}66`, shadowColor: accentPrimary },
                 ]}>
-              <SwitchPeopleIcon count={switchPeopleCount} size={22} color={ink} />
+              <SwitchPeopleIcon count={switchPeopleCount} size={22} color={ink} spin />
               </LinearGradient>
               {keyboardUp ? null : (
                 <Text

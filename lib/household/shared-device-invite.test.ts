@@ -96,8 +96,8 @@ for (const n of [5, 6]) {
 const bar = readFileSync('components/orbit/make-tab-bar.tsx', 'utf8');
 assert.match(bar, /SwitchPeopleIcon count=\{switchPeopleCount\}/, 'the tab draws the ring');
 const icon = readFileSync('components/orbit/switch-people-icon.tsx', 'utf8');
-assert.match(icon, /switchPeopleNodes/, 'people are drawn');
-assert.match(icon, /switchPeopleEdges/, 'and the hops between them');
+assert.match(icon, /switchArrows\(count\)/, 'the mark is arrows round the people');
+assert.match(icon, /useReducedMotion/, 'the spin respects reduced motion');
 
 const link = buildSharedDeviceInviteLink({
   label: 'Kitchen iPad',

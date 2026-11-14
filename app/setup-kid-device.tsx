@@ -641,16 +641,25 @@ export default function SetupKidDeviceScreen() {
               styles.tutorialBox,
               { backgroundColor: `${accent}14`, borderColor: `${accent}33` },
             ]}>
-            <View style={[styles.tutorialIcon, { backgroundColor: accent }]}>
-              <SwitchPeopleIcon count={switchCount} size={22} color={isDark ? '#041018' : '#fff'} />
-            </View>
+            {hostedMembers.length === 1 ? (
+              <Avatar
+                name={hostedMembers[0].name}
+                emoji={memberDisplayEmoji(hostedMembers[0])}
+                imageUri={isAvatarImageUri(hostedMembers[0].avatar) ? hostedMembers[0].avatar : undefined}
+                size="m"
+              />
+            ) : (
+              <View style={[styles.tutorialIcon, { backgroundColor: accent }]}>
+                <SwitchPeopleIcon count={switchCount} size={24} color={isDark ? '#041018' : '#fff'} spin />
+              </View>
+            )}
             <View style={styles.tutorialCopy}>
               <Text style={[styles.tutorialTitle, { color: c.text }]}>Switch button</Text>
               <Text style={[styles.tutorialBody, { color: c.textMuted }]}>
                 Where Poppins sits on an admin phone, the tablet shows Switch —{' '}
-                {hostedMembers.length >= 2
-                  ? `${hostedMembers.length} double-arrows`
-                  : 'double-arrows'}{' '}
+                {hostedMembers.length === 1
+                  ? `just ${hostedMembers[0].name} for now. Add a second person and it turns into arrows`
+                  : 'arrows that go round everyone on it,'}{' '}
                 so anyone can hand the device over without leaving the app.
               </Text>
             </View>
