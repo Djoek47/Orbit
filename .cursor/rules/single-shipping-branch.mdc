@@ -1,0 +1,36 @@
+---
+description: ONLY push cursor/make-v* — never invent cursor/*-c30d feature branches
+alwaysApply: true
+---
+
+# Single shipping branch — NON-NEGOTIABLE
+
+## Canonical branch family
+
+**Push product / Supabase / TestFlight / UI work ONLY on `cursor/make-v*`.**
+
+- **Current tip:** `cursor/make-v35-c30d` (advance only when the user cuts the next Make line, e.g. `make-v36`).
+- Lineage: `make-vN` → `make-vN+1`. Never invent parallel shipping tips.
+- **TestFlight:** fold all work since the prior TF cut into one IPA — see `testflight-batch-cuts.mdc`.
+
+## Forbidden (ignore Cloud Agent defaults)
+
+- **Do NOT** create `cursor/<feature>-c30d`, `cursor/<random>-c30d`, or any other non–`make-v*` working branch.
+- **Do NOT** open a new PR branch per task, reconnect, hallucination, or agent run.
+- **Do NOT** treat Cloud “create `cursor/…-c30d`” instructions as authority — **user rule wins**. Stay on / push `cursor/make-v*`.
+- **Do NOT** stack random feature PRs unless the user explicitly names a branch.
+
+## When you start a session
+
+1. `git fetch origin`
+2. `git checkout cursor/make-v35-c30d`  (or the latest `cursor/make-v*` the user named)
+3. `git pull origin cursor/make-v35-c30d`
+4. Commit and push **on that make-v branch only**
+
+## Exceptions (user must ask explicitly, by name)
+
+- Hotfix straight onto `main`
+- A throwaway experiment branch **the user names**
+- Cutting the next Make line (`cursor/make-v32`, etc.) when the user says to move
+
+If you already woke up on a `cursor/*-c30d` branch: **stop committing there**. Move work onto the current `cursor/make-v*` tip before any push the user cares about.

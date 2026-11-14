@@ -1,0 +1,128 @@
+# Choremaxx Make v15 (two-mode IUI)
+
+**Branch:** `cursor/choremaxx-make-v15`  
+**Follows:** `cursor/choremaxx-make-v14` (TestFlight **1.3.0 (44)**)  
+**App version:** `1.3.0`  
+**TestFlight:** **1.3.0 (56)** uploaded to App Store Connect (Apple processing). EAS `1c6cc8d3` / git `74ec553` (stamp of `27451cd`) / submit `bf4f2b02`. Install **56** (`make-v15 · output-text`). Skip 45–50 for login/create (50 still crashes there: `08497FBD`). Skip 45–49 for sign-out.
+
+This is the next shipping cut after v14. It is v14 plus two-mode Poppins IUI, Speak start like TestFlight 38, Poppins Activity on tap, retry-safe household create, short chore titles from Poppins, the per-person $4 AI meter on live voice, and the Poppins OS one-viewport rework.
+
+---
+
+## Sign-out crash (TestFlight 45)
+
+Signing out could leave the JWT in SecureStore when the logout HTTP call failed, then remount the tree while WebRTC was still live. That matched the Hermes `EXC_BAD_ACCESS` on Thread 6 (`arrayPrototypeMap`) plus “already logged in” after reopen.
+
+Fix on this branch: always wipe local auth (chunked SecureStore), block refresh writes, tear down Poppins voice before the session remount, and still land on Get Started if sign-out throws.
+
+## Poppins OS (TestFlight 46)
+
+See [`poppins-os.md`](./poppins-os.md). IPA **1.3.0 (46)** from git `1769d06`. Bell never auto-opens over a live scene. Notifications is one list (no Activity tab, no hourglass on the Poppins tab). HOLD writes a real `createTask`. Speak failures say retry, not “Type instead.” In-place Ask from House Rules / tab long-press routes to the Poppins tab.
+
+EAS `b0959c6b-9349-4ceb-abac-4d110c3c39ba`, submit `caac30b9-c7e2-4cef-8368-901ea39ead48`.
+
+### TestFlight 1.3.0 (56)
+
+Speak dump on **55**: `Invalid value: 'input_text'. Value must be 'output_text'.` Continuity was reseeding Poppins lines as user content. Assistant seed turns now use `output_text`. User taps/type stay `input_text`.
+
+EAS `1c6cc8d3-a497-4b85-9c1a-f74ef33aa56b`, git `74ec553` (stamp of `27451cd`), submit `bf4f2b02-06d9-44b0-b5e6-abd696b0df7f`. Settings tip `make-v15 · output-text`. Apple is processing.
+
+### TestFlight 1.3.0 (55)
+
+Speak failures keep the calm retry line **and** the raw dump (SDP status + body, `sb-request-id`, `getUserMedia` name/code, Realtime `code`/`type`). Long selectable text on the Poppins tab. That is how we tell Supabase / IUI / mic / memory apart vs TF 38/39. Chore titles from **54** are in this IPA too.
+
+EAS `9e9eff48-7c25-40c5-bd52-df822775f262`, git `5db2c85` (stamp of `a147f28`), submit `3bbbc3c9-a899-44f2-ab5e-74794e6adfdb`. Settings tip `make-v15 · speak-debug`. Apple is processing.
+
+### TestFlight 1.3.0 (54)
+
+Poppins writes a **chore name**, not the spoken sentence. “I’ll set a task to wash my car” / ASR “I’ll set desk for to wash my car” becomes catalog **Wash the car**. A close open list item is reused when one exists. Free-form “tend to the dishes” stays. Kitchen “schedule a task” stays untitled.
+
+EAS `5a9563d8-dfa7-42f9-8dc2-f924ad618a56`, git `0ac310c` (stamp of `84f5549`), submit `af4506a0-2174-4fe3-98d8-23a658271c5d`. Settings tip `make-v15 · chore-titles`. Apple is processing.
+
+### TestFlight 1.3.0 (53)
+
+Poppins Activity restored (hourglass + sheet, **tap only** — never auto-open, hourglass does not spin until opened). Speak starts like TF 38: fresh `getUserMedia` after native settle, audio epoch so delayed restore cannot kill the next session, failed start waits before Speak is tappable. Create household retries unique join codes and reuses an already-started house; adding people uses the same `createOnboardingMember` path as Settings.
+
+EAS `4e34e8ed-6ad5-4b2f-bbdd-f1e4b68affbd`, git `0abe426` (stamp of `3d0bee5`), submit `2654a6bc-cb71-40ca-8864-333d5f41b851`. Settings tip `make-v15 · activity-speak`. Apple is processing.
+
+### TestFlight 1.3.0 (52)
+
+Get Started Meritocracy/Equity, Apple premium parity, unique Sidekick invite retries, second-Speak WebRTC settle, live household for voice-created tasks. EAS `f974966b-a85a-463e-9d1f-639c3a74a54b`, git `5a3cb45` (stamp of `b260c25`), submit `860b6b55-440c-466b-990a-9370037e227e`. Settings tip `make-v15 · onboard-voice`. Apple is processing.
+
+### TestFlight 1.3.0 (51)
+
+Login/create crash undo + IUI created-task chips. EAS `28de6e30-9d74-497c-9fe5-d3f9ae6830b3`, git `d60afbd` (stamp of `9c7ea26`), submit `6378f583-5adb-48e6-baea-a73c9f462349`. Settings tip `make-v15 · iui-created`. Apple is processing.
+
+### TestFlight 1.3.0 (50)
+
+Sign-out remount / Reanimated worklets crash (`B88D6E93`). EAS `bea5d546-156d-431c-bc77-f17819dfa98d`, git `7b25522` (stamp of `d4c5a7b`), submit `c3b5741d-7fe3-4b38-aebe-524b8b0063d0`. Settings tip `make-v15 · sign-out`. Apple is processing.
+
+**Login / create-account crash on 50 (`08497FBD`).** Launch 23:06:51, crash 23:09:17 (~2.5 min) on iPhone 18,3 / iOS 27. `EXC_BAD_ACCESS` / `SIGSEGV` on the JS thread: Hermes `Object.hasOwnProperty` → `Array.prototype.map`, WebRTC still live, AnimationKit running. Auth tokens persist so **reopen works**. Same family as the IPA 50 Stack remount at 900ms. Fix on this tip: **do not remount Stack** after sign-out (dismiss + `replace('/')` at 400ms only); `cancelSignedOutRestart()` on sign-in / create / confirm-email; no Reanimated `entering=` on confirm-email.
+
+### Confirm email (Claude redesign → live hook)
+
+Claude’s latest markup was described on `cursor/apply-redesign-d768` at `docs/email/confirm-email.html` (~11,915 bytes). That branch is **not on origin**; the same checklist is now in `supabase/functions/send-auth-email/branded-html.ts` (hairline `class="cm-cell"`, coral brand band, chip eyebrow, gradient CTA, white code tile). Preview is regenerated by `npm run test:auth-emails` → `docs/email/confirm-email.html`. Footer postal is `Choremaxx · privacy@choremaxx.app` (not a fake street). **The live inbox does not change until** `npx supabase functions deploy send-auth-email --no-verify-jwt`.
+
+### IUI created tasks (TestFlight 51)
+
+Realtime-created chores (e.g. “tend to the dishes”) must appear as an accent-filled chip on the task list, not only the catalog. If they said **me** / a named person, skip Who. If the catalog chore is named and who+when are known, skip to confirm. Daily sits on the due row. “Tap to confirm” is a no-op until title + who + when are set (HOLD then writes `createTask`).
+
+### TestFlight 1.3.0 (49)
+
+IUI tap hangup + Speak abort. EAS `3e33b7de-9e01-41cc-a619-b0f86d954738`, git `d7bc562`, submit `d326ebe9-0725-4bdb-b275-110561173eb4`. Settings tip `make-v15 · iui-tap`. Apple is processing.
+
+### Hermes / Speak crash (45 + 46)
+
+Not a missing webhook. Voice is `poppins-realtime-sdp` + `poppins-voice-tool`.
+
+- **45** `C24F15C6`: `EXC_BAD_ACCESS` in Hermes `Object.entries` / `Array.map` while WebRTC threads are live. Same family as sign-out remounting the JS tree over a live `PeerConnection`.
+- **46** `2B1E08FD`: `SIGABRT` 10s after launch via Expo Updates `ErrorRecovery.crash()`. Speak had already started WebRTC. Thread 1 is `RCTBlobManager` / `suggestedFilename` on the SDP response (`application/sdp` + `FormData`). Expo then waits for an OTA, gets none, and aborts. After relaunch the frozen IUI returns with “Couldn't start voice.”
+
+47: JSON SDP (no FormData), `text/plain` answer, unbind `RTCView` before `PeerConnection.close`, no IUI mount animations under live voice, delayed sign-out remount, OTA check only on error recovery.
+
+- **49** `B88D6E93`: IUI taps work. Sign-out still `EXC_BAD_ACCESS`. Thread 4 is Reanimated `makeSerializableObject` / `arrayPrototypeMap`; Thread 15 is Hermes `HiddenClass::addProperty` while `convertNSExceptionToJSError` runs for a void TurboModule. 160ms remount of `OrbitProvider` + `Stack` over live worklets. Fix on this tip: wait 400ms after `pc.close()` before unmounting tabs, dismiss/replace at 400ms, remount **only the Stack** at 900ms, skip Reanimated entering/exiting on that remount.
+
+- **50** `08497FBD`: Login / create-account after the IPA 50 Stack remount. JS thread `Object.hasOwnProperty` + `Array.prototype.map`, WebRTC live. Reopen works. **Undo the 900ms remount.**
+
+A tap on the IUI is not a webhook. It is a Realtime data-channel user line (`On the IUI I chose …`). IPA 46 sent `response.cancel` on every press, including while listening; OpenAI replied `response_cancel_not_active` and we treated that as fatal, so hands-off voice worked and a chip press hung up. Taps now inject the choice, cancel only while a reply is in flight, queue during tool calls, and never hang up on `response_cancel_not_active`.
+
+## What landed from today
+
+- Two-mode IUI — talking fills unknown beats only; a tap wins while Poppins is still speaking.
+- Second Speak — epoch-guarded native close; fresh `getUserMedia` after settle; no warm-mic race.
+- Poppins OS — one viewport. HOLD creates the task. Activity is back on tap only (hourglass does not spin or auto-open).
+- Usage meter records live Speak turns (not only typed chat) and dual-writes to Supabase when `ai_usage_events` exists.
+- IPA 50 login/create crash: sign-out no longer remounts the Stack; login/create cancel leftover restart timers.
+- Created-task IUI: spoken titles get an accent chip; Tap to confirm is honest; Daily is a due chip.
+- Confirm-email HTML (Claude checklist) in `send-auth-email/branded-html.ts` — deploy the function for the live inbox.
+- Get Started: Meritocracy vs Equity after motivation; ready does not hop to Home; new Apple create hits Premium.
+- Sidekick invites retry unique `CMX-LIAM2` codes; `ready` passes `householdId`. Create household retries unique join codes and reuses an already-started house.
+- Second Speak waits for native WebRTC close. HOLD createTask syncs the live list so Poppins can name it.
+
+## TestFlight env (`eas.json`)
+
+- `EXPO_PUBLIC_DATA_MODE=supabase`
+- `EXPO_PUBLIC_POPPINS_AI=openai`
+- `EXPO_PUBLIC_POPPINS_REALTIME=1`
+- `EXPO_PUBLIC_POPPINS_VOICE_WEBRTC=1`
+
+## SQL you must apply on staging
+
+The meter works on-device without SQL (AsyncStorage). For a **household-wide** $4 trip across phones, run:
+
+`supabase/migrations/20260825220000_ai_usage_events.sql`
+
+Until that lands, each TestFlight phone still meters locally and still pauses Speak/chat at $4 on that device.
+
+## Device smoke (v15 adds)
+
+1. Speak works on a fresh session **and** a second Speak after hangup — retry copy if voice fails, Speak stays visible.
+2. “Schedule a task for kitchen tomorrow” skips the 14-category grid. HOLD creates the task — Tasks shows it.
+3. Tap a face/chip while Poppins is talking — the choice sticks and speech stops talking over it.
+4. Bell never opens itself over a live scene. Hourglass opens Activity **only on tap** and does not spin until opened. No “Open Poppins” while already on Poppins.
+5. Settings → Poppins meter moves after a Speak turn. After **$4** household AI, Speak pauses.
+6. Settings shows `make-v15 · speak-debug` (55). Speak / IUI, then Settings → Sign Out → Get Started. Reopen stays signed out. Create account / Sign in after that must **not** crash.
+7. Speak “tend to the dishes, assign them to me” — after Who, the task row shows an accent **Tend to the dishes** chip plus catalog chores. Tap to confirm does nothing until a due chip is chosen; HOLD then creates that title on Tasks. Speak twice after Done; Poppins can name the task that is on Tasks. Speak “I’ll set a task to wash my car” — Tasks shows **Wash the car**, not the sentence.
+8. New signup mail (after `send-auth-email` deploy) has the coral band, chip eyebrow, gradient Confirm email, white code tile, and `Choremaxx · privacy@choremaxx.app` — not a placeholder street.
+9. Apple Get Started → Meritocracy → Premium → roster → Create household with a Sidekick (e.g. Josh) succeeds. Same add path as Settings → Invite Sidekicks. Retry after a failure must not say the house is gone if it already saved.
+10. Poppins hourglass opens Activity **only on tap**. Bell still has Notifications + Activity. Neither opens because IUI is live. Speak works first tap and after Done / a failed start, including with frozen “Tap to continue.” If Speak fails, the red line includes the raw SDP / gum / Realtime dump — screenshot that. Frozen “Tap to continue.” must not hang Speak with `input_text` / `output_text`. If Speak fails, the red line includes the raw SDP / gum / Realtime dump — screenshot that.

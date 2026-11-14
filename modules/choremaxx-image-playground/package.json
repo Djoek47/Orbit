@@ -1,0 +1,7 @@
+{
+  "name": "choremaxx-image-playground",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Apple Image Playground for Choremaxx avatars. Links on the app's own minimum iOS and checks for iOS 18.2 at runtime.",
+  "main": "index.ts"
+}

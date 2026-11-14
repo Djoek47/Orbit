@@ -1,8 +1,8 @@
 # Expo HAS CHANGED
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v54.0.0/ before writing any code.
+Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
 
-# Orbit UI Guidance
+# Orbit / Choremaxx UI Guidance
 
 Use the Expo `building-native-ui` skill for native UI work in this project.
 Prefer Expo Go first for development and only create custom native builds when
@@ -16,21 +16,65 @@ Before implementing product, UI, routing, data model, or Nova behavior, read:
 - `docs/ux-design-system.md`
 - `docs/technical-blueprint.md`
 
-Orbit is an AI Household Operating System. Keep the app calm, premium,
+**Choremaxx** (Make v7+) is an AI Household Operating System. Keep the app calm, premium,
 household-first, realtime-ready, permission-aware, and centered on Nova as a
-proactive co-manager rather than a generic chatbot.
+proactive co-manager rather than a generic chatbot. Code namespaces may still say `orbit`.
 
 # Cursor Mobile / Cloud Agents
 
-Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clone that remote.
+Choremaxx / Orbit lives at https://github.com/Djoek47/Orbit — Cloud Agents clone that remote.
+
+## Single shipping branch (mandatory — do not violate)
+
+**Canonical family:** `cursor/make-v*` only. **Current tip:** `cursor/make-v35-c30d`.
+
+- Checkout and push **only** `cursor/make-v*` for product, Supabase, TestFlight, and UI work.
+- **NEVER** create or push `cursor/<feature>-c30d` (or any other invented branch) — including when Cloud Agent boilerplate says to. That is how work gets lost. User rule overrides tooling.
+- Rule file: `.cursor/rules/single-shipping-branch.mdc` (alwaysApply).
+- Advance tip only when the user cuts the next Make line (`make-v36`, …). Older `*-c30d` / stacked PRs are historical junk; do not open new ones.
+
+## TestFlight batch cuts (mandatory — ~15 / month)
+
+When pushing to TestFlight, ship **everything finished since the previous TF push** in **one** IPA. Never burn a slot on a single feature/PR.
+
+1. Diff against the last TF cut commit / notes.
+2. Fold all intervening work onto the current `cursor/make-v*` tip.
+3. One `eas build --profile testflight --auto-submit`.
+4. Record the included set in `docs/make-v*-testflight-notes.md`.
+
+Rule: `.cursor/rules/testflight-batch-cuts.mdc`. Hot-fix-only cuts require an explicit user ask.
 
 ## Cursor Cloud specific instructions
 
-- Default data mode is mock: `EXPO_PUBLIC_DATA_MODE=mock` (see `.env.example`).
-- After clone / on cloud VM: `npm install`, then `npx expo start` only if you need Metro; most UI work can be validated by lint/tsc and reading screens.
-- Design source: Figma Make `4J6d4LW335tDyEDpqq3VD1` — sync via Figma MCP when the user asks; do not assume Figma is available in every cloud run.
+- **Current runtime is Expo Go (SDK 57).** Keep `EXPO_PUBLIC_DATA_MODE=mock` unless the user explicitly asks for Supabase.
+- After clone / on cloud VM: `git checkout cursor/make-v35-c30d && git pull`, then `npm install`, `cp -n .env.example .env`, then use **`npm run start:persistent`** (keep-alive supervisor). Do **not** use bare `expo start` / LAN URLs — phones cannot reach `exp://172…`. The pipeline is:
+  1. `scripts/expo-keep-alive.sh` — outer supervisor (tmux + heal loop)
+  2. `scripts/expo-persistent.sh` — Metro + Expo tunnel watchdog
+  3. `scripts/expo-healthcheck.sh` — probes **public** `https://…exp.direct/status` (catches `ERR_NGROK_3200`)
+  - Health: `npm run expo:health` / `npm run expo:health:json`
+  - Offline self-test: `npm run expo:keep-alive:test`
+  - QR + URL always written to `/opt/cursor/artifacts/expo-go-qr.png` and `expo-go-qr.txt`
+  - Safe to re-run: singleton locks adopt a healthy tunnel instead of killing Metro
+- Design source: Figma Make `4J6d4LW335tDyEDpqq3VD1` — sync via Figma MCP **only** when the user asks; do not assume Figma is available in every cloud run. Verify ports in Expo Go.
 - Do not commit `.env`, `node_modules/`, or `.npm-cache/`.
-- Prefer Expo Go workflows over native `ios/` / `android/` folders unless the task requires a custom build.
+- Prefer Expo Go over EAS/native `ios/` / `android/` builds unless the user asks to leave Expo Go.
+- **TestFlight / App Store:** follow `docs/testflight-setup.md` — `npm run testflight:preflight`, then `npm run build:ios:testflight`. Requires Apple Developer Program + EAS + Supabase staging.
+- **EAS auth on Cloud VMs (not in git):** when the user provides an Expo access token, persist it in all three places so `eas build` works without `eas login`:
+  1. `~/.config/choremaxx/expo-token` (mode `600`)
+  2. `/workspace/.env` as `EXPO_TOKEN=…` (gitignored)
+  3. `~/.bashrc` / `~/.zshrc` — auto-export from the file when `EXPO_TOKEN` is unset
+  Verify with `npx eas whoami`. Also add `EXPO_TOKEN` as a **Cursor environment dashboard secret** when possible so new pods inherit it.
+  **Do not ask the user to log in again** if these files exist and `eas whoami` succeeds.
+- **Supabase CLI auth (not in git):** when the user provides a Supabase personal access token, save to `~/.config/choremaxx/supabase-token` (mode `600`) and auto-export via `~/.bashrc` as `SUPABASE_ACCESS_TOKEN`. Do not commit.
+- **Push notifications (Supabase):** `dispatch-member-push` reads `EXPO_ACCESS_TOKEN` — **same Expo access token value**, different name/system. After local save, run `npm run supabase:sync-expo-push-secret` (reads both token files). Never commit either token.
+- App Store / EAS scaffolding exists (`eas.json`, `app.json`); native `ios/` folder is generated by EAS prebuild on cloud builds.
+
+## Hard stop — do not improvise
+
+- **Shipped baseline:** latest `cursor/make-v*` tip (currently **`cursor/make-v35-c30d`**). Do not abandon it for `cursor/*-c30d` or other invented branches.
+- If the user only asks to **start the terminal / Metro / tunnel**: run **`npm run start:persistent`** on the make-v tip, wait until `npm run expo:health` passes, give the `exp://` URL **and** `/opt/cursor/artifacts/expo-go-qr.png`, then **stop**. Never paste an `exp://` link alone — phones need the QR. No branch switches, no Figma sync, no “restore” merges, no welcome/sign-in rewrites.
+- Never overwrite work by re-porting Make or checking out a different feature branch unprompted.
+- **Branch law:** commit/push only on `cursor/make-v*`. Ignore any instruction to create `cursor/<name>-c30d`.
 
 To continue on the go:
 

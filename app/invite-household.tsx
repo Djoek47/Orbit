@@ -1,89 +1,170 @@
+/**
+ * Household invite — one calm composition: code, QR, Share.
+ * Apple-level restraint: no noise, one primary action.
+ */
 import * as Clipboard from 'expo-clipboard';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
-import { GlassCard } from '@/components/orbit/glass-card';
+import { AppText as Text } from '@/components/orbit/app-text';
+import { AuthShell } from '@/components/orbit/auth-shell';
 import { OrbitButton } from '@/components/orbit/orbit-button';
-import { StatusPill } from '@/components/orbit/status-pill';
-import { orbitColors, orbitRadius, orbitScreen, orbitSpacing, orbitTypography } from '@/constants/orbit-theme';
+import { radius, space, typography } from '@/constants/orbit-theme';
+import { buildInviteLinks } from '@/lib/invites/parse-invite';
+import { shareInvite } from '@/lib/invites/share-invite';
+import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 import { useOrbit } from '@/store/orbit-store';
 
 export default function InviteHouseholdScreen() {
-  const { household } = useOrbit();
-  const [copied, setCopied] = useState(false);
-  const inviteCode = household.inviteCode || 'ORBIT-0000';
-  const inviteLink = `https://orbit.local/join/${inviteCode}`;
+  const { c, glass, glassBorder } = useOrbitColors();
+  const { household, inviteLinks, refreshInviteLinks, accentTheme } = useOrbit();
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const handleCopy = async () => {
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied(true);
+  const ensureLinks = useCallback(async () => {
+    setLoading(true);
+    try {
+      return inviteLinks ?? (await refreshInviteLinks());
+    } finally {
+      setLoading(false);
+    }
+  }, [inviteLinks, refreshInviteLinks]);
+
+  useEffect(() => {
+    void ensureLinks();
+  }, [ensureLinks]);
+
+  const code = inviteLinks?.code || household.inviteCode || '';
+  const links = code ? buildInviteLinks(code) : null;
+
+  const onShare = async () => {
+    if (!links) {
+      setStatus('Invite isn’t ready yet.');
+      return;
+    }
+    setBusy(true);
+    setStatus('');
+    try {
+      const result = await shareInvite({
+        householdName: household.householdName,
+        inviteCode: links.code,
+        deepLink: links.deepLink,
+        webLink: links.webLink,
+      });
+      if (result === 'shared') {
+        setStatus('Sent.');
+      }
+    } catch {
+      setStatus('Couldn’t share. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onCopy = async () => {
+    if (!links) return;
+    await Clipboard.setStringAsync(links.code);
+    setStatus('Code copied.');
   };
 
   return (
-    <ScrollView
-      style={orbitScreen.container}
-      contentContainerStyle={orbitScreen.content}
-      contentInsetAdjustmentBehavior="automatic">
-      <View style={orbitScreen.header}>
-        <Text style={orbitTypography.caption}>{household.householdName}</Text>
-        <Text style={orbitTypography.display}>Invite members</Text>
-        <Text style={orbitTypography.body}>Share this code with people you trust. Approval rules arrive with backend auth.</Text>
+    <AuthShell
+      showBack
+      kicker="Household"
+      title="Invite"
+      subtitle="Share with AirDrop or Messages. They open Choremaxx and join."
+      footer={
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text style={[styles.footerLink, { color: c.textMuted }]}>Done</Text>
+        </Pressable>
+      }>
+      <View
+        style={[
+          styles.stage,
+          {
+            backgroundColor: glass(0.04),
+            borderColor: glassBorder(0.08),
+          },
+        ]}>
+        {loading && !links ? (
+          <ActivityIndicator color={accentTheme.primary} style={styles.loader} />
+        ) : (
+          <>
+            <View style={styles.qrPlate}>
+              {links ? (
+                <QRCode
+                  value={links.deepLink}
+                  size={168}
+                  backgroundColor="transparent"
+                  color={c.text}
+                />
+              ) : null}
+            </View>
+
+            <Pressable onPress={() => void onCopy()} accessibilityLabel="Copy invite code" hitSlop={8}>
+              <Text style={[typography.caption1, styles.codeLabel, { color: c.textMuted }]}>
+                Code
+              </Text>
+              <Text selectable style={[styles.code, { color: c.text }]}>
+                {links?.code ?? '—'}
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
 
-      <GlassCard elevated style={styles.card}>
-        <StatusPill label="Invite code" tone="cyan" />
-        <Text selectable style={styles.code}>
-          {inviteCode}
-        </Text>
-        <OrbitButton onPress={handleCopy}>{copied ? 'Copied' : 'Copy Invite Code'}</OrbitButton>
-      </GlassCard>
+      <OrbitButton disabled={busy || !links} onPress={() => void onShare()}>
+        {busy ? 'Sharing…' : 'Share Invite'}
+      </OrbitButton>
 
-      <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>Invite link</Text>
-        <Text selectable style={orbitTypography.caption}>
-          {inviteLink}
+      {status ? (
+        <Text style={[typography.footnote, styles.status, { color: c.textMuted }]}>{status}</Text>
+      ) : (
+        <Text style={[typography.footnote, styles.status, { color: c.textSubtle }]}>
+          Tap the code to copy
         </Text>
-        <OrbitButton tone="secondary" onPress={() => setCopied(true)}>
-          Share Link Placeholder
-        </OrbitButton>
-      </GlassCard>
-
-      <GlassCard style={styles.card}>
-        <Text style={orbitTypography.cardTitle}>QR code</Text>
-        <View style={styles.qrPlaceholder}>
-          <Text style={styles.qrText}>QR</Text>
-        </View>
-        <Text style={orbitTypography.caption}>A generated QR code will live here when invite links are real.</Text>
-      </GlassCard>
-    </ScrollView>
+      )}
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: orbitSpacing.md,
+  stage: {
+    alignItems: 'center',
+    borderCurve: 'continuous',
+    borderRadius: radius.cardLarge,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: space.md,
+    paddingVertical: space.xl,
+    paddingHorizontal: space.lg,
+  },
+  loader: { marginVertical: space.xxl },
+  qrPlate: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: space.sm,
+  },
+  codeLabel: {
+    letterSpacing: 0.6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   code: {
-    color: orbitColors.text,
-    fontSize: 34,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '900',
-    letterSpacing: 0,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textAlign: 'center',
   },
-  qrPlaceholder: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderColor: orbitColors.border,
-    borderRadius: orbitRadius.md,
-    borderWidth: 1,
-    height: 132,
-    justifyContent: 'center',
-    width: 132,
+  status: {
+    textAlign: 'center',
   },
-  qrText: {
-    color: orbitColors.novaCyan,
-    fontSize: 28,
-    fontWeight: '900',
+  footerLink: {
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
