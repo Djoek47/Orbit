@@ -392,9 +392,11 @@ export default function AssignTaskScreen() {
   const assignReady = selected.length > 0 && Boolean(assignee) && canAssign && !busy;
   const PROOF_ACCENT = '#4FA3FF';
 
-  // Category tiles: exact squares from the grid's measured width, 4 per row, so they stay
+  // Category tiles: exact squares from the grid's measured width, 4–8 per row, so they stay
   // square on iPad and the icon and label scale with them, centred.
-  const TILE_COLS = 4;
+  // About 170pt per tile: 4 across on phones and an iPad mini, up to 8 on a 13" iPad in
+  // landscape (4 there made every tile ~300pt).
+  const TILE_COLS = gridW ? Math.max(4, Math.min(8, Math.round(gridW / 170))) : 4;
   const TILE_GAP = 10;
   const tile = gridW ? Math.floor((gridW - TILE_GAP * (TILE_COLS - 1)) / TILE_COLS) : 0;
   const tileIcon = tile ? Math.max(26, Math.min(64, Math.round(tile * 0.32))) : 26;
