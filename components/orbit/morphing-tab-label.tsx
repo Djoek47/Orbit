@@ -237,8 +237,12 @@ export function MorphingTabLabel({
     }));
   }, [from, generation, len, to]);
 
-  // Settled long label → one Text node (fixes Allowance "ll"/"lo" slot gaps).
-  if (from === to && to.length >= 8) {
+  // Settled → one plain Text node, always. The per-glyph slots exist only for the morph itself.
+  // Once the morph ends the slot count shrinks (Rewards 7 → Ranks 5), and React reuses slot 0 —
+  // which had animated to width 0 with overflow hidden — for the "R". Animated styles that stop
+  // returning a key can leave the last value behind, so "Ranks" settled as "anks". A plain Text
+  // has no animated state to go stale. (It also fixes Allowance "ll"/"lo" slot gaps.)
+  if (from === to) {
     return (
       <SettledLabel text={to} color={color} fontWeight={fontWeight} letterSpacing={letterSpacing} />
     );
