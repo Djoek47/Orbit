@@ -18,12 +18,14 @@ type Props = {
   onDismiss: () => void;
   /** Called after a member row is created — use to open their invite sheet. */
   onAdded?: (member: HouseholdMember) => void;
+  /** Opened from the shared-device flow: only Sidekicks can be added. */
+  sidekickOnly?: boolean;
 };
 
 /**
  * In-place add-member flow — no navigation away from Settings / Members.
  */
-export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
+export function AddMemberSheet({ visible, onDismiss, onAdded, sidekickOnly = false }: Props) {
   const { c } = useOrbitColors();
   const { accentTheme, household, addOnboardingMembers } = useOrbit();
 
@@ -43,7 +45,7 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
         const created = await addOnboardingMembers(householdId, [
           {
             name: draft.name.trim(),
-            role: draft.role === 'admin' ? 'admin' : 'member',
+            role: !sidekickOnly && draft.role === 'admin' ? 'admin' : 'member',
             avatar: draft.avatar,
             plannedTaskLibraryIds: draft.taskLibraryIds,
             plannedTaskFrequencies:
@@ -69,8 +71,8 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
   return (
     <BottomSheet visible={visible} onDismiss={onDismiss} heightRatio={0.92} accentColor={accentTheme.primary}>
       <View style={styles.header}>
-        <Text style={[typography.caption1, styles.kicker, { color: c.textSubtle }]}>NEW MEMBER</Text>
-        <Text style={[styles.title, { color: c.text }]}>Add to your household</Text>
+        <Text style={[typography.caption1, styles.kicker, { color: c.textSubtle }]}>{sidekickOnly ? 'NEW SIDEKICK' : 'NEW MEMBER'}</Text>
+        <Text style={[styles.title, { color: c.text }]}>{sidekickOnly ? 'Add a Sidekick' : 'Add to your household'}</Text>
         <Text style={[styles.subtitle, { color: c.textMuted }]}>
           Name, role, and look — share their personal invite when you&apos;re ready.
         </Text>
@@ -84,6 +86,7 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
             rewardModel={household.rewardModel ?? DEFAULT_REWARD_MODEL}
             rewardMode={household.rewardMode ?? 'weighted'}
             defaultRewardPackageId={DEFAULT_REWARD_PACKAGE_ID}
+            sidekickOnly={sidekickOnly}
             onCancel={onDismiss}
             onConfirm={handleConfirm}
           />

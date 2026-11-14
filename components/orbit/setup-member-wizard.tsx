@@ -48,6 +48,8 @@ type SetupMemberWizardProps = {
   /** Household reward bundle from Get Started — pre-fills Step C. */
   defaultRewardPackageId?: string | null;
   initial?: DraftMember | null;
+  /** Hide the role choice: the person being added is always a Sidekick (shared-device flow). */
+  sidekickOnly?: boolean;
   onCancel: () => void;
   onConfirm: (member: DraftMember) => void;
 };
@@ -73,6 +75,7 @@ export function SetupMemberWizard({
   rewardMode = 'weighted',
   defaultRewardPackageId = DEFAULT_REWARD_PACKAGE_ID,
   initial,
+  sidekickOnly = false,
   onCancel,
   onConfirm,
 }: SetupMemberWizardProps) {
@@ -215,7 +218,7 @@ export function SetupMemberWizard({
         {step === 'A' ? (
           <ScrollView
             style={styles.stepScroll}
-            contentContainerStyle={styles.stepScrollContent}
+            contentContainerStyle={[styles.stepScrollContent, styles.stepCentered]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             <Text style={[typography.title2, { color: c.text }]}>What&apos;s their name?</Text>
@@ -276,8 +279,8 @@ export function SetupMemberWizard({
                 />
               ))}
             </View>
-            <Text style={[typography.caption1, { color: c.textMuted }]}>Role</Text>
-            <View style={styles.roleRow}>
+            {sidekickOnly ? null : <Text style={[typography.caption1, { color: c.textMuted }]}>Role</Text>}
+            {sidekickOnly ? null : <View style={styles.roleRow}>
               {(['member', 'admin'] as const).map((role) => {
                 const active = member.role === role;
                 return (
@@ -297,7 +300,7 @@ export function SetupMemberWizard({
                   </Pressable>
                 );
               })}
-            </View>
+            </View>}
           </ScrollView>
         ) : null}
 
@@ -597,6 +600,7 @@ const styles = StyleSheet.create({
   stepBody: { flex: 1, minHeight: 0 },
   stepScroll: { flex: 1 },
   stepScrollContent: { gap: 16, paddingBottom: 12 },
+  stepCentered: { flexGrow: 1, justifyContent: 'center' },
   stepIntro: { gap: 6, paddingBottom: 4 },
   footer: {
     gap: 10,

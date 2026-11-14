@@ -301,6 +301,7 @@ export default function SettingsScreen() {
   >(null);
   const [householdSwitchOpen, setHouseholdSwitchOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [addSidekickOnly, setAddSidekickOnly] = useState(false);
   const [householdDefaultOpen, setHouseholdDefaultOpen] = useState(false);
   const [houseDangerOpen, setHouseDangerOpen] = useState(() => params.section === 'house');
   const [avatarGallery, setAvatarGallery] = useState<AvatarLibraryEntry[]>([]);
@@ -508,7 +509,8 @@ export default function SettingsScreen() {
     if (intentKey === ':' || handledIntent.current === intentKey) return;
     if (!household.members.length) return;
     handledIntent.current = intentKey;
-    if (params.add === '1') {
+    if (params.add === '1' || params.add === 'sidekick') {
+      setAddSidekickOnly(params.add === 'sidekick');
       setAddMemberOpen(true);
       return;
     }
@@ -1408,7 +1410,11 @@ export default function SettingsScreen() {
     />
     <AddMemberSheet
       visible={addMemberOpen}
-      onDismiss={() => setAddMemberOpen(false)}
+      sidekickOnly={addSidekickOnly}
+      onDismiss={() => {
+        setAddMemberOpen(false);
+        setAddSidekickOnly(false);
+      }}
       onAdded={(member) => {
         void refreshHousehold().finally(() => openMemberInvite(member));
       }}

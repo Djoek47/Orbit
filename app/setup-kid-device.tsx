@@ -728,7 +728,7 @@ export default function SetupKidDeviceScreen() {
             <Pressable
               onPress={() => {
                 setFlowOpen(false);
-                router.replace('/settings?section=members&add=1' as never);
+                router.replace('/settings?section=members&add=sidekick' as never);
               }}
               accessibilityRole="button"
               style={[styles.needTwoBtn, { borderColor: glassBorder(0.16) }]}>
