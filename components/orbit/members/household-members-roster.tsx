@@ -176,33 +176,53 @@ export function HouseholdMembersRoster({
     });
   };
 
+  // Settings is itself a modal, and a system alert raised from inside it can land behind it, so
+  // the confirmation is drawn on the card instead of in an alert.
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
   const handleRemoveMember = (member: HouseholdMember) => {
     if (member.role === 'owner') {
       orbitAlert('Cannot remove', 'The household owner cannot be removed.');
       return;
     }
-    orbitAlert(
-      `Remove ${member.name}?`,
-      member.status === 'invited'
-        ? 'Their invite code stops working.'
-        : 'They’ll get a notice, then their device signs out. The old invite code stops working.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            void removeMember(member.id).catch((error) => {
-              orbitAlert(
-                'Couldn’t remove',
-                error instanceof Error ? error.message : 'Try again in a moment.'
-              );
-            });
-          },
-        },
-      ]
-    );
+    setConfirmRemoveId(member.id);
   };
+
+  const doRemoveMember = async (member: HouseholdMember) => {
+    setRemovingId(member.id);
+    try {
+      await removeMember(member.id);
+      setConfirmRemoveId(null);
+    } catch (error) {
+      setConfirmRemoveId(null);
+      orbitAlert('Couldn’t remove', error instanceof Error ? error.message : 'Try again in a moment.');
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  const renderRemoveConfirm = (member: HouseholdMember) => (
+    <View style={styles.removeConfirm}>
+      <Text style={[styles.kidName, { color: c.text, flex: 1 }]} numberOfLines={2}>
+        Remove {member.name}?
+      </Text>
+      <Pressable
+        onPress={() => setConfirmRemoveId(null)}
+        disabled={removingId === member.id}
+        hitSlop={8}
+        accessibilityRole="button">
+        <Text style={[styles.kidMeta, { color: c.textMuted, fontWeight: '700' }]}>Cancel</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => void doRemoveMember(member)}
+        disabled={removingId === member.id}
+        style={[styles.shareBtn, { backgroundColor: '#F87171' }]}
+        accessibilityRole="button">
+        <Text style={styles.shareLabel}>{removingId === member.id ? 'Removing…' : 'Remove'}</Text>
+      </Pressable>
+    </View>
+  );
 
   /** Shared tablets confirm on the card (Settings is already a modal). */
   const handleRemoveDevice = (device: HouseholdMember) => removeMember(device.id);
@@ -281,6 +301,18 @@ export function HouseholdMembersRoster({
           : age
             ? `${age} · ${progress.done} of ${progress.total} done today · ${presenceBit}`
             : `${progress.done} of ${progress.total} done today · ${presenceBit}`;
+        if (confirmRemoveId === member.id) {
+          return (
+            <View
+              key={member.id}
+              style={[
+                styles.kidCard,
+                { backgroundColor: glassFill(isDark), borderColor: '#F8717188' },
+              ]}>
+              {renderRemoveConfirm(member)}
+            </View>
+          );
+        }
         return (
           <Pressable
             key={member.id}
@@ -366,6 +398,10 @@ export function HouseholdMembersRoster({
             styles.inviteCard,
             { borderColor: '#F59E0B88', backgroundColor: 'rgba(245,158,11,0.08)' },
           ]}>
+          {confirmRemoveId === member.id ? (
+            renderRemoveConfirm(member)
+          ) : (
+            <>
           <View style={[styles.mono, { backgroundColor: 'rgba(245,158,11,0.2)' }]}>
             <Text style={[styles.monoText, { color: '#F59E0B' }]}>{monogram(member.name)}</Text>
           </View>
@@ -393,6 +429,8 @@ export function HouseholdMembersRoster({
               <MaterialIcons name="check" size={20} color={accent} />
             </Pressable>
           ) : null}
+            </>
+          )}
         </View>
       ))}
 
@@ -523,6 +561,7 @@ const styles = StyleSheet.create({
   kidMeta: { fontSize: 13 },
   barTrack: { borderRadius: 2, height: 4, overflow: 'hidden', width: '100%' },
   barFill: { borderRadius: 2, height: 4 },
+  removeConfirm: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 14 },
   shareBtn: {
     borderRadius: 999,
     minHeight: 36,
