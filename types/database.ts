@@ -754,6 +754,14 @@ export type Database = {
         Args: { p_token: string };
         Returns: Json;
       };
+      register_push_token: {
+        Args: { p_token: string; p_platform: string };
+        Returns: undefined;
+      };
+      report_push_problem: {
+        Args: { p_reason: string; p_platform?: string | null; p_device_id?: string | null; p_app_version?: string | null };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

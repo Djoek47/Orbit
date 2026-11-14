@@ -3916,6 +3916,26 @@ export function OrbitProvider({ children }: PropsWithChildren) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep this phone's push token current: tokens change on reinstall/restore, and a token
+  // another account claimed on this phone must move to whoever is signed in now. At most
+  // once every 6 hours per session.
+  const pushRegisteredAtRef = useRef(0);
+  useEffect(() => {
+    const userId = currentUser?.id;
+    if (!userId) return;
+    const register = () => {
+      if (Date.now() - pushRegisteredAtRef.current < 6 * 60 * 60 * 1000) return;
+      pushRegisteredAtRef.current = Date.now();
+      registerForPushNotifications(userId).catch((error) => {
+        console.warn('Push registration skipped', error);
+      });
+    };
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') register();
+    });
+    return () => sub.remove();
+  }, [currentUser?.id]);
+
   useEffect(() => {
     const tickExpiry = () => {
       const live = householdRef.current;

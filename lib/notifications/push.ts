@@ -1,10 +1,11 @@
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { dataMode } from '@/config/data-mode';
 import { registerIuiActNotificationCategory } from '@/lib/notifications/iui-act-category';
 import { openSystemNotificationSettings } from '@/lib/notifications/open-settings-safe';
-import { getExpoPushToken, isGranted, requestNotificationPermission } from '@/lib/notifications/push-token';
+import { getExpoPushTokenDetailed, isGranted, requestNotificationPermission } from '@/lib/notifications/push-token';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 Notifications.setNotificationHandler({
@@ -17,30 +18,46 @@ Notifications.setNotificationHandler({
   }),
 });
 
+/**
+ * Save this phone's push token for the signed-in person. Runs on every sign-in and every time
+ * the app comes to the front, so a token that changed (reinstall, restore) is picked up.
+ * When the phone can't give a token, the reason is recorded server-side
+ * (push_registration_problems) instead of disappearing into a console warning.
+ */
 export async function registerForPushNotifications(userId?: string | null) {
   await registerIuiActNotificationCategory();
-  const token = await getExpoPushToken();
-  if (!token) return null;
+  const result = await getExpoPushTokenDetailed();
 
-  if (dataMode === 'supabase' && userId) {
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      const { error } = await supabase.from('push_tokens').upsert(
-        {
-          user_id: userId,
-          member_id: null,
-          token,
-          platform: Platform.OS,
-        },
-        { onConflict: 'token,member_id' }
-      );
-      if (error) {
-        console.warn('Failed to persist push token', error.message);
-      }
-    }
+  if (dataMode !== 'supabase' || !userId) return result.token;
+  const supabase = getSupabaseClient();
+  if (!supabase) return result.token;
+
+  if (!result.token) {
+    await supabase
+      .rpc('report_push_problem', {
+        p_reason: result.reason ?? 'unknown',
+        p_platform: Platform.OS,
+        p_app_version: Constants.expoConfig?.version ?? null,
+      })
+      .then(undefined, () => undefined);
+    return null;
   }
 
-  return token;
+  const { error } = await supabase.rpc('register_push_token', {
+    p_token: result.token,
+    p_platform: Platform.OS,
+  });
+  if (error) {
+    console.warn('Failed to persist push token', error.message);
+    await supabase
+      .rpc('report_push_problem', {
+        p_reason: `save_failed: ${error.message}`,
+        p_platform: Platform.OS,
+        p_app_version: Constants.expoConfig?.version ?? null,
+      })
+      .then(undefined, () => undefined);
+  }
+  return result.token;
 }
 
 export async function scheduleLocalReminder(title: string, body: string, secondsFromNow = 60) {

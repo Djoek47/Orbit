@@ -56,10 +56,12 @@ type ExpoPushResult = {
   httpStatus: number | null;
   ticketIds: string[];
   errors: string[];
+  /** Tokens Expo says no longer reach an install. */
+  deadTokens: string[];
 };
 
 async function sendExpoPush(messages: ExpoPushMessage[]): Promise<ExpoPushResult> {
-  const result: ExpoPushResult = { httpStatus: null, ticketIds: [], errors: [] };
+  const result: ExpoPushResult = { httpStatus: null, ticketIds: [], errors: [], deadTokens: [] };
   if (!messages.length) return result;
 
   const accessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
@@ -90,10 +92,15 @@ async function sendExpoPush(messages: ExpoPushMessage[]): Promise<ExpoPushResult
     const json = (await response.json()) as {
       data?: { status?: string; id?: string; message?: string }[];
     };
-    for (const ticket of json.data ?? []) {
+    (json.data ?? []).forEach((ticket, i) => {
       if (ticket.status === 'ok' && ticket.id) result.ticketIds.push(ticket.id);
-      else if (ticket.message) result.errors.push(ticket.message);
-    }
+      else {
+        if (ticket.message) result.errors.push(ticket.message);
+        const details = (ticket as { details?: { error?: string } }).details;
+        // Uninstalled app / revoked permission: the token is dead, stop sending to it.
+        if (details?.error === 'DeviceNotRegistered' && messages[i]) result.deadTokens.push(messages[i]!.to);
+      }
+    });
   } catch {
     // ignore
   }
@@ -309,6 +316,9 @@ Deno.serve(async (req) => {
     }));
 
     const push = await sendExpoPush(messages);
+    if (push.deadTokens.length) {
+      await admin.from('push_tokens').delete().in('token', push.deadTokens);
+    }
 
     if (notificationId && householdId) {
       await logPushSent(admin, {
@@ -323,6 +333,7 @@ Deno.serve(async (req) => {
           ticket_ids: push.ticketIds,
           errors: push.errors,
           http_status: push.httpStatus,
+          ...(push.deadTokens.length ? { dead_tokens_removed: push.deadTokens.length } : {}),
           ...(messages.length === 0 ? { reason: 'no_push_tokens' } : {}),
         },
       });
