@@ -112,7 +112,7 @@ export default function PremiumScreen() {
   // subscribed while this household is not. Say so, instead of a Continue that goes nowhere.
   const notice: string | null =
     access.ready && access.view.appLocked && access.claimedElsewhere
-      ? "This Apple ID's subscription already covers another ChoreMaxx account. Sign in to that account, or subscribe this household with a different Apple ID."
+      ? "This Apple ID's subscription already covers another ChoreMaxx account. Press Continue to move it to this household, or subscribe with a different Apple ID."
       : null;
   // From Poppins during a trial: sell the subscription, which is what brings the 300 a month.
   const upgradeFromTrial = params.source === 'poppins' && access.view.level === 'trial';
@@ -435,6 +435,23 @@ export default function PremiumScreen() {
     );
   }
 
+  const confirmMove = () =>
+    Alert.alert(
+      'Move your subscription here?',
+      'Your Apple ID pays for one household at a time. Moving it covers this household and ends cover for the other one.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Move it here',
+          onPress: () =>
+            void access.moveSubscriptionHere().then((ok) => {
+              if (ok) void leave('started');
+              else Alert.alert('Could not move it', 'Check your connection and try again.');
+            }),
+        },
+      ]
+    );
+  const moveOffered = access.ready && access.view.appLocked && access.claimedElsewhere;
   return (
     <PremiumPaywall
       copy={copy}
@@ -457,7 +474,7 @@ export default function PremiumScreen() {
       usage={usagePanel}
       // A failed renewal is fixed in Apple's payment settings, not by buying again.
       onStartTrial={(period) =>
-        void (!upgradeFromTrial && sub.mode === 'payment-issue' ? manage() : startTrial(period))
+        moveOffered ? confirmMove() : void (!upgradeFromTrial && sub.mode === 'payment-issue' ? manage() : startTrial(period))
       }
       onRestore={() => void restore()}
       onContinue={() => void leave('started')}

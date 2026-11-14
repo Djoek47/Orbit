@@ -55,6 +55,8 @@ type AccessContextValue = {
    * screens must follow `view`, never the raw device entitlement.
    */
   claimedElsewhere: boolean;
+  /** Moves this Apple ID's subscription from the other household to this one. Returns true on success. */
+  moveSubscriptionHere: () => Promise<boolean>;
 };
 
 const PAID_DEFAULT = accessView(
@@ -70,6 +72,7 @@ const AccessContext = createContext<AccessContextValue>({
   refresh: async () => {},
   deviceEntitlement: null,
   claimedElsewhere: false,
+  moveSubscriptionHere: async () => false,
 });
 
 /** How often to re-check while the app sits open — a trial can end mid-session. */
@@ -239,6 +242,16 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     })();
   }, [canPurchase, local, household.id]);
 
+  const moveSubscriptionHere = useCallback(async () => {
+    const purchase = latestStoreKitPurchase();
+    if (!household.id || !purchase) return false;
+    const result = await syncHouseholdEntitlement(household.id, purchase, { moveFromOther: true });
+    if (result !== 'synced') return false;
+    setClaimedElsewhere(false);
+    await refresh();
+    return true;
+  }, [household.id, refresh]);
+
   const value = useMemo(
     () => ({
       ready,
@@ -248,8 +261,9 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       refresh,
       deviceEntitlement: local,
       claimedElsewhere,
+      moveSubscriptionHere,
     }),
-    [ready, view, entitlement, canPurchase, refresh, local, claimedElsewhere]
+    [ready, view, entitlement, canPurchase, refresh, local, claimedElsewhere, moveSubscriptionHere]
   );
 
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;

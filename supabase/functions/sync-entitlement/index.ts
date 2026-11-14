@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const movingFrom = claimed && claimed.id !== householdId ? claimed : null;
 
-    if (movingFrom?.premium_purchased_by && movingFrom.premium_purchased_by !== user.id) {
+    if (movingFrom?.premium_purchased_by && movingFrom.premium_purchased_by !== user.id && body.moveFromOther !== true) {
       return json({ error: 'subscription_claimed' }, 409);
     }
 

@@ -399,7 +399,8 @@ export type HouseholdSyncResult = 'synced' | 'claimed-elsewhere' | 'skipped' | '
 
 export async function syncHouseholdEntitlement(
   householdId: string | null | undefined,
-  purchase: Record<string, unknown>
+  purchase: Record<string, unknown>,
+  options: { moveFromOther?: boolean } = {}
 ): Promise<HouseholdSyncResult> {
   if (!householdId) return 'skipped';
   const payload = syncPayloadFromPurchase(purchase, householdId);
@@ -408,7 +409,7 @@ export async function syncHouseholdEntitlement(
     const { getSupabaseClient } = await import('@/lib/supabase/client');
     const supabase = getSupabaseClient();
     if (!supabase) return 'skipped';
-    const { error } = await supabase.functions.invoke('sync-entitlement', { body: payload });
+    const { error } = await supabase.functions.invoke('sync-entitlement', { body: options.moveFromOther ? { ...payload, moveFromOther: true } : payload });
     if (!error) return 'synced';
     // 409: this Apple ID's subscription already pays for a household someone else bought it
     // for. Supabase surfaces the status on the error's context response.
