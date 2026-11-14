@@ -49,6 +49,12 @@ type AccessContextValue = {
   refresh: () => Promise<void>;
   /** What this phone's own Apple ID holds, before the household is merged in. */
   deviceEntitlement: EntitlementState | null;
+  /**
+   * True when the server said this Apple ID's subscription already pays for a different
+   * ChoreMaxx household. The device then looks subscribed while this household is not, so
+   * screens must follow `view`, never the raw device entitlement.
+   */
+  claimedElsewhere: boolean;
 };
 
 const PAID_DEFAULT = accessView(
@@ -63,6 +69,7 @@ const AccessContext = createContext<AccessContextValue>({
   canPurchase: false,
   refresh: async () => {},
   deviceEntitlement: null,
+  claimedElsewhere: false,
 });
 
 /** How often to re-check while the app sits open — a trial can end mid-session. */
@@ -233,8 +240,16 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   }, [canPurchase, local, household.id]);
 
   const value = useMemo(
-    () => ({ ready, view, entitlement, canPurchase, refresh, deviceEntitlement: local }),
-    [ready, view, entitlement, canPurchase, refresh, local]
+    () => ({
+      ready,
+      view,
+      entitlement,
+      canPurchase,
+      refresh,
+      deviceEntitlement: local,
+      claimedElsewhere,
+    }),
+    [ready, view, entitlement, canPurchase, refresh, local, claimedElsewhere]
   );
 
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;

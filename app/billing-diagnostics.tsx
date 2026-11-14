@@ -245,6 +245,11 @@ export default function BillingDiagnosticsScreen() {
             <Card title="What the app decided">
               <Row k="Access" v={access.view.level} good={access.view.level !== 'locked'} />
               <Row k="App locked" v={access.view.appLocked ? 'Yes' : 'No'} good={!access.view.appLocked} />
+              <Row
+                k="Apple ID pays for another account"
+                v={access.claimedElsewhere ? 'Yes — this house is not covered by it' : 'No'}
+                good={!access.claimedElsewhere}
+              />
               <Row k="Trial label" v={access.view.trialLabel || '—'} />
               <Row k="Monthly Poppins" v={String(access.view.monthlyAllowance)} />
               <Row k="Bought tokens left" v={String(snap.bought)} />

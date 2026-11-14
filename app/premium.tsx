@@ -108,7 +108,12 @@ export default function PremiumScreen() {
   // The mode's own headline says "trial ended" or "welcome back"; the only extra line is for a
   // house that has never recorded a subscription but has a second admin who may be paying.
   // The owner asked for no extra line here; the mode's own headline carries the message.
-  const notice: string | null = null;
+  // This Apple ID's subscription pays for another ChoreMaxx account, so this phone looks
+  // subscribed while this household is not. Say so, instead of a Continue that goes nowhere.
+  const notice: string | null =
+    access.ready && access.view.appLocked && access.claimedElsewhere
+      ? "This Apple ID's subscription already covers another ChoreMaxx account. Sign in to that account, or subscribe this household with a different Apple ID."
+      : null;
   // From Poppins during a trial: sell the subscription, which is what brings the 300 a month.
   const upgradeFromTrial = params.source === 'poppins' && access.view.level === 'trial';
   const copy = upgradeFromTrial
@@ -437,7 +442,16 @@ export default function PremiumScreen() {
       // Hold the button until the page knows which version it is — a returning subscriber must
       // never be offered a trial for the split second before "Welcome back" loads.
       busy={busy || !sub.ready}
-      alreadyPremium={entitlement ? isPremiumActive(entitlement) : false}
+      // Follow the same decision that locks or opens the app. The raw device entitlement said
+      // "subscribed" while the gate said "locked": Continue left the paywall, the gate sent
+      // you straight back, and nothing ever opened.
+      alreadyPremium={
+        access.ready
+          ? !access.view.appLocked && isPremiumActive(access.entitlement)
+          : entitlement
+            ? isPremiumActive(entitlement)
+            : false
+      }
       statusMessage={statusMessage}
       errorMessage={errorMessage}
       usage={usagePanel}
