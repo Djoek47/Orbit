@@ -15,6 +15,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import {
   buildDigest,
+  buildSlackingNudges,
+  SLACKING_UNTIL_DAYS,
+  type SlackingTask,
   localDay,
   localHour,
   slotForHour,
@@ -70,7 +73,7 @@ async function sendHouseholdDigest(
   const [{ data: members }, { data: tasks }] = await Promise.all([
     admin
       .from('household_members')
-      .select('id, display_name')
+      .select('id, display_name, role')
       .eq('household_id', household.id)
       .eq('status', 'active'),
     admin
@@ -122,10 +125,19 @@ async function sendHouseholdDigest(
     return { householdId: household.id, sent: 0, reason: 'insert_failed' };
   }
 
+  let sent = await pushAll(inserted ?? []);
+  if (slot === 'morning') {
+    sent += await sendSlackingNudges(admin, household.id, members ?? [], now);
+  }
+
+  return { householdId: household.id, sent };
+}
+
+async function pushAll(rows: Array<{ id: string }>): Promise<number> {
   const url = Deno.env.get('SUPABASE_URL')!;
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   let sent = 0;
-  for (const row of inserted ?? []) {
+  for (const row of rows) {
     try {
       const res = await fetch(`${url}/functions/v1/dispatch-member-push`, {
         method: 'POST',
@@ -138,8 +150,74 @@ async function sendHouseholdDigest(
       console.warn('daily-digest push threw', row.id, pushError);
     }
   }
+  return sent;
+}
 
-  return { householdId: household.id, sent };
+/**
+ * Tasks expired more than 3 days ago and still undone: nudge the assignee and the admins,
+ * once per task. Runs with the morning digest, so no extra schedule.
+ */
+async function sendSlackingNudges(
+  admin: ReturnType<typeof serviceClient>,
+  householdId: string,
+  members: Array<Record<string, unknown>>,
+  now: Date
+): Promise<number> {
+  const since = new Date(now.getTime() - SLACKING_UNTIL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const [{ data: tasks }, { data: nudged }] = await Promise.all([
+    admin
+      .from('tasks')
+      .select('id, title, status, expired_at, due_at, assignee_member_id')
+      .eq('household_id', householdId)
+      .in('status', ['expired', 'missed', 'overdue']),
+    admin
+      .from('notifications')
+      .select('data')
+      .eq('household_id', householdId)
+      .contains('data', { kind: 'slacking' })
+      .gte('created_at', since),
+  ]);
+
+  const alreadyNudged = new Set(
+    (nudged ?? [])
+      .map((row) => (row.data as Record<string, unknown> | null)?.taskId)
+      .filter((id): id is string => typeof id === 'string')
+  );
+  const people = members.map((m) => ({
+    memberId: m.id as string,
+    name: (m.display_name as string | null)?.trim() || 'Someone',
+    isAdmin: ['owner', 'admin'].includes(String(m.role)),
+  }));
+  const slackingTasks: SlackingTask[] = (tasks ?? []).map((t) => ({
+    id: t.id as string,
+    title: (t.title as string) ?? '',
+    status: (t.status as string) ?? '',
+    expiredAt: (t.expired_at as string | null) ?? null,
+    dueAt: (t.due_at as string | null) ?? null,
+    assigneeMemberId: (t.assignee_member_id as string | null) ?? null,
+  }));
+
+  const nudges = buildSlackingNudges({ tasks: slackingTasks, people, alreadyNudged, now });
+  if (nudges.length === 0) return 0;
+
+  const { data: inserted, error } = await admin
+    .from('notifications')
+    .insert(
+      nudges.map((n) => ({
+        household_id: householdId,
+        title: n.title,
+        body: n.body,
+        category: 'tasks',
+        priority: 'medium',
+        data: { kind: 'slacking', taskId: n.taskId, audienceMemberIds: n.memberIds },
+      }))
+    )
+    .select('id');
+  if (error) {
+    console.warn('slacking insert failed', householdId, error.message);
+    return 0;
+  }
+  return pushAll(inserted ?? []);
 }
 
 Deno.serve(async (req) => {

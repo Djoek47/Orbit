@@ -123,3 +123,44 @@ for (let d = 1; d <= 20; d += 1) {
 assert.ok(bodies.size > 1, 'wording varies across days');
 
 console.log('daily-digest ok');
+
+// ── Slacking ────────────────────────────────────────────────────────────────
+import { buildSlackingNudges, isSlacking, type SlackingTask } from '../../supabase/functions/_shared/daily-digest';
+{
+  const at = new Date('2026-11-12T13:00:00Z');
+  const ago = (days: number) => new Date(at.getTime() - days * 86_400_000).toISOString();
+  const st = (over: Partial<SlackingTask> & { id: string }): SlackingTask => ({
+    title: 'Dishes', status: 'expired', expiredAt: ago(4), dueAt: null, assigneeMemberId: 'm1', ...over,
+  });
+  // Over 3 days, under the 7-day purge.
+  assert.equal(isSlacking(st({ id: 'a', expiredAt: ago(2.9) }), at), false);
+  assert.equal(isSlacking(st({ id: 'a', expiredAt: ago(3.1) }), at), true);
+  assert.equal(isSlacking(st({ id: 'a', expiredAt: ago(6.5) }), at), true);
+  assert.equal(isSlacking(st({ id: 'a', expiredAt: ago(7.5) }), at), false);
+  assert.equal(isSlacking(st({ id: 'a', status: 'completed' }), at), false);
+  assert.equal(isSlacking(st({ id: 'a', status: 'overdue', expiredAt: null, dueAt: ago(5) }), at), true);
+  assert.equal(isSlacking(st({ id: 'a', expiredAt: null, dueAt: null }), at), false);
+
+  const team = [
+    { memberId: 'm1', name: 'Emma', isAdmin: false },
+    { memberId: 'p1', name: 'Mom', isAdmin: true },
+    { memberId: 'p2', name: 'Dad', isAdmin: true },
+  ];
+  const nudges = buildSlackingNudges({ tasks: [st({ id: 'a' })], people: team, alreadyNudged: new Set(), now: at });
+  assert.equal(nudges.length, 2, 'one to the assignee, one to the admins');
+  const toKid = nudges.find((n) => n.memberIds.includes('m1'))!;
+  assert.match(toKid.body, /Dishes expired 4 days ago/);
+  const toAdmins = nudges.find((n) => n.memberIds.includes('p1'))!;
+  assert.deepEqual(toAdmins.memberIds.sort(), ['p1', 'p2']);
+  assert.match(toAdmins.body, /Emma hasn't done Dishes/);
+  // Once per task.
+  assert.equal(buildSlackingNudges({ tasks: [st({ id: 'a' })], people: team, alreadyNudged: new Set(['a']), now: at }).length, 0);
+  // An admin's own task isn't reported to them twice.
+  const own = buildSlackingNudges({ tasks: [st({ id: 'b', assigneeMemberId: 'p1' })], people: team, alreadyNudged: new Set(), now: at });
+  assert.deepEqual(own.find((n) => n.title === 'Falling behind')!.memberIds, ['p2']);
+  // Unassigned: admins only.
+  const nobody = buildSlackingNudges({ tasks: [st({ id: 'c', assigneeMemberId: null })], people: team, alreadyNudged: new Set(), now: at });
+  assert.equal(nobody.length, 1);
+  assert.match(nobody[0]!.body, /nobody has done it/);
+  console.log('slacking ok');
+}

@@ -170,3 +170,91 @@ export function buildDigest(input: {
     return { memberId: person.memberId, title: 'Tonight', body, taskIds };
   });
 }
+
+// ── Slacking: a task expired more than 3 days ago and still not done ────────────────────────
+
+export const SLACKING_AFTER_DAYS = 3;
+/** Expired tasks are purged after 7 days; past that there's nothing left to nudge about. */
+export const SLACKING_UNTIL_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type SlackingTask = {
+  id: string;
+  title: string;
+  status: string;
+  expiredAt: string | null;
+  dueAt: string | null;
+  assigneeMemberId: string | null;
+};
+
+export type SlackingMessage = {
+  taskId: string;
+  /** Who it goes to. */
+  memberIds: string[];
+  title: string;
+  body: string;
+};
+
+const EXPIRED_STATUSES = new Set(['expired', 'missed', 'overdue']);
+
+/** Whole days since the task expired, or null when it has no date to go by. */
+export function daysExpired(task: SlackingTask, now: Date): number | null {
+  const stamp = task.expiredAt ?? task.dueAt;
+  if (!stamp) return null;
+  const at = new Date(stamp).getTime();
+  if (Number.isNaN(at)) return null;
+  return Math.floor((now.getTime() - at) / DAY_MS);
+}
+
+export function isSlacking(task: SlackingTask, now: Date): boolean {
+  if (!EXPIRED_STATUSES.has(task.status.toLowerCase())) return false;
+  const days = daysExpired(task, now);
+  if (days === null) return false;
+  const ms = now.getTime() - new Date((task.expiredAt ?? task.dueAt)!).getTime();
+  return ms > SLACKING_AFTER_DAYS * DAY_MS && days < SLACKING_UNTIL_DAYS;
+}
+
+/**
+ * One nudge per slacking task, sent once (the caller skips tasks already nudged): to the
+ * person it's assigned to, and to the household's admins so they can follow up. A task with
+ * no assignee goes to the admins only.
+ */
+export function buildSlackingNudges(input: {
+  tasks: SlackingTask[];
+  people: Array<DigestPerson & { isAdmin: boolean }>;
+  alreadyNudged: Set<string>;
+  now: Date;
+}): SlackingMessage[] {
+  const { tasks, people, alreadyNudged, now } = input;
+  const admins = people.filter((p) => p.isAdmin);
+  const byId = new Map(people.map((p) => [p.memberId, p]));
+  const out: SlackingMessage[] = [];
+
+  for (const task of tasks) {
+    if (alreadyNudged.has(task.id) || !isSlacking(task, now)) continue;
+    const days = daysExpired(task, now)!;
+    const title = task.title.trim() || 'A task';
+    const assignee = task.assigneeMemberId ? byId.get(task.assigneeMemberId) : undefined;
+
+    if (assignee) {
+      out.push({
+        taskId: task.id,
+        memberIds: [assignee.memberId],
+        title: 'Still waiting',
+        body: `${title} expired ${days} days ago and isn't done yet.`,
+      });
+    }
+    const adminIds = admins.map((a) => a.memberId).filter((id) => id !== assignee?.memberId);
+    if (adminIds.length) {
+      out.push({
+        taskId: task.id,
+        memberIds: adminIds,
+        title: 'Falling behind',
+        body: assignee
+          ? `${assignee.name} hasn't done ${title}. It expired ${days} days ago.`
+          : `${title} expired ${days} days ago and nobody has done it.`,
+      });
+    }
+  }
+  return out;
+}
