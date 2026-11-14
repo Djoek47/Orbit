@@ -1182,7 +1182,7 @@ export const householdRepository = {
       .from('household_members')
       .select('*')
       .eq('household_id', householdId)
-      .eq('status', 'active');
+      .in('status', ['active', 'invited']);
     mapDbError('householdRepository.createOnboardingMember.existing', existingError);
     const existingMatch = (existingRows ?? []).find(
       (row) =>

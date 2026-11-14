@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/components/orbit/bottom-sheet';
@@ -26,12 +27,17 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
   const { c } = useOrbitColors();
   const { accentTheme, household, addOnboardingMembers } = useOrbit();
 
+  // One creation at a time: a second tap while the first is still saving made a second person.
+  const savingRef = useRef(false);
+
   const handleConfirm = (draft: DraftMember) => {
+    if (savingRef.current) return;
     if (!household.id) {
       orbitAlert('Household not ready', 'Finish setup, then try again.');
       return;
     }
     const householdId = household.id;
+    savingRef.current = true;
     void (async () => {
       try {
         const created = await addOnboardingMembers(householdId, [
@@ -54,6 +60,8 @@ export function AddMemberSheet({ visible, onDismiss, onAdded }: Props) {
           'Could not add member',
           err instanceof Error ? err.message : 'Try again in a moment.'
         );
+      } finally {
+        savingRef.current = false;
       }
     })();
   };

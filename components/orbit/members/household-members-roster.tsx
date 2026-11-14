@@ -183,7 +183,9 @@ export function HouseholdMembersRoster({
     }
     orbitAlert(
       `Remove ${member.name}?`,
-      'They’ll get a notice, then their device signs out. The old invite code stops working.',
+      member.status === 'invited'
+        ? 'Their invite code stops working.'
+        : 'They’ll get a notice, then their device signs out. The old invite code stops working.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -320,6 +322,15 @@ export function HouseholdMembersRoster({
                 />
               </View>
             </View>
+            {permissions.canManageHousehold && member.role !== 'owner' ? (
+              <Pressable
+                onPress={() => handleRemoveMember(member)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${member.name}`}>
+                <MaterialIcons name="delete-outline" size={22} color="#F87171" />
+              </Pressable>
+            ) : null}
             <MaterialIcons name="chevron-right" size={18} color={c.textSubtle} />
           </Pressable>
         );
@@ -368,6 +379,15 @@ export function HouseholdMembersRoster({
             accessibilityRole="button">
             <Text style={styles.shareLabel}>Share</Text>
           </Pressable>
+          {permissions.canManageHousehold ? (
+            <Pressable
+              onPress={() => handleRemoveMember(member)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${member.name}`}>
+              <MaterialIcons name="delete-outline" size={22} color="#F87171" />
+            </Pressable>
+          ) : null}
           {member.status === 'pending' && permissions.canManageHousehold ? (
             <Pressable onPress={() => void approveMember(member.id)} hitSlop={8}>
               <MaterialIcons name="check" size={20} color={accent} />

@@ -7600,7 +7600,7 @@ export function OrbitProvider({ children }: PropsWithChildren) {
       const already = roster.find(
         (member) =>
           member.name.trim().toLowerCase() === name.toLowerCase() &&
-          member.status === 'active' &&
+          (member.status === 'active' || member.status === 'invited') &&
           member.role !== 'owner'
       );
       if (already) {
