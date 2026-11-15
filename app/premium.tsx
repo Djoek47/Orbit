@@ -108,12 +108,7 @@ export default function PremiumScreen() {
   // The mode's own headline says "trial ended" or "welcome back"; the only extra line is for a
   // house that has never recorded a subscription but has a second admin who may be paying.
   // The owner asked for no extra line here; the mode's own headline carries the message.
-  // This Apple ID's subscription pays for another ChoreMaxx account, so this phone looks
-  // subscribed while this household is not. Say so, instead of a Continue that goes nowhere.
-  const notice: string | null =
-    access.ready && access.view.appLocked && access.claimedElsewhere
-      ? "This Apple ID's subscription already covers another ChoreMaxx account. Tap the button below to move it to this household, or subscribe with a different Apple ID."
-      : null;
+  const notice: string | null = null;
   // From Poppins during a trial: sell the subscription, which is what brings the 300 a month.
   const upgradeFromTrial = params.source === 'poppins' && access.view.level === 'trial';
   const copy = upgradeFromTrial
@@ -438,7 +433,7 @@ export default function PremiumScreen() {
   const confirmMove = () =>
     Alert.alert(
       'Move your subscription here?',
-      'Your Apple ID pays for one household at a time. Moving it covers this household and ends cover for the other one.',
+      'Your subscription covers one household at a time. Moving it covers this household and ends cover for the other one.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
