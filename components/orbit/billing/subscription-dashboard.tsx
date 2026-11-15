@@ -44,7 +44,6 @@ import {
   subscriptionSummary,
   type HistoryEntry,
 } from '@/lib/billing/subscription-status';
-import { useShowBillingDiagnostics } from '@/lib/billing/store-environment';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Props = {
@@ -111,7 +110,6 @@ export function SubscriptionDashboard({
   onSubscribe,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const showDiagnostics = useShowBillingDiagnostics();
   const { c, glass, glassBorder } = useOrbitColors();
   const summary = subscriptionSummary(entitlement, renewal);
   const toneColor = summary.tone === 'warn' ? '#E9A23B' : summary.tone === 'good' ? '#3BB273' : c.textMuted;
@@ -208,17 +206,8 @@ export function SubscriptionDashboard({
             label="Poppins credits"
             subtitle="Your monthly tokens and extra packs"
             onPress={() => router.push('/poppins-credits' as never)}
-          />
-          {showDiagnostics ? (
-          <SettingsNavRow
-            icon="science"
-            iconColor="#8E8E93"
-            label="Purchase diagnostics"
-            subtitle="What StoreKit and the household say — for sandbox testing"
-            onPress={() => router.push('/billing-diagnostics' as never)}
             last
           />
-          ) : null}
         </SettingsGroup>
 
         <SettingsGroup header="History">

@@ -203,7 +203,12 @@ export default function SupportScreen() {
         indicatorColor={accent}>
         <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.header}>
           <Text style={[styles.eyebrow, { color: accent }]}>Help</Text>
-          <Text style={[styles.title, { color: isDark ? '#F7F2EC' : c.text }]}>Support</Text>
+          <Pressable
+            onLongPress={() => router.push('/billing-diagnostics' as never)}
+            delayLongPress={900}
+            accessibilityRole="header">
+            <Text style={[styles.title, { color: isDark ? '#F7F2EC' : c.text }]}>Support</Text>
+          </Pressable>
           <Text style={[styles.subtitle, { color: c.textMuted }]}>
             {focusErrorId
               ? 'This error is selected from the alert — add a note if you want, then send.'
@@ -508,6 +513,13 @@ export default function SupportScreen() {
             })}
           </View>
         )}
+        <Pressable
+          onPress={() => router.push('/billing-diagnostics' as never)}
+          hitSlop={8}
+          style={{ alignSelf: 'center', marginTop: 8 }}
+          accessibilityRole="button">
+          <Text style={{ color: c.textSubtle, fontSize: 12 }}>Payment problem? Open the purchase check</Text>
+        </Pressable>
       </PersistentScrollView>
       {busy ? (
         <View style={styles.busyOverlay} pointerEvents="none">

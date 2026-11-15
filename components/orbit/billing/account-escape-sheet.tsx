@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
 import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
-import { useShowBillingDiagnostics } from '@/lib/billing/store-environment';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Row = {
@@ -41,7 +40,6 @@ type Props = {
 export function AccountEscapeSheet({ visible, onClose, onRestore, onSignOut, isOwner }: Props) {
   const insets = useSafeAreaInsets();
   const { c, glass, glassBorder } = useOrbitColors();
-  const showDiagnostics = useShowBillingDiagnostics();
 
   // Navigate only after the RN Modal has fully dismissed (onDismiss on iOS), with a timer
   // fallback: pushing a router modal while this sheet is still presented opened the screen
@@ -70,17 +68,13 @@ export function AccountEscapeSheet({ visible, onClose, onRestore, onSignOut, isO
       },
     },
     { key: 'support', icon: 'support-agent', label: 'Get help', onPress: () => go('/support') },
-    ...(showDiagnostics
-      ? ([
-          {
-            key: 'diagnostics',
-            icon: 'science',
-            label: 'Purchase diagnostics',
-            hint: 'What StoreKit sees — TestFlight only',
-            onPress: () => go('/billing-diagnostics'),
-          },
-        ] as Row[])
-      : []),
+    {
+      key: 'diagnostics',
+      icon: 'science',
+      label: 'Purchase check',
+      hint: 'What this phone and your household say about your purchase',
+      onPress: () => go('/billing-diagnostics'),
+    },
     {
       key: 'terms',
       icon: 'description',

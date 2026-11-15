@@ -12,7 +12,7 @@
  *   Access      the decision the app made from both: paid / trial / locked, days left.
  *   Credits     bought tokens left, and this month's allowance.
  *
- * Owners and admins only. Reached from Settings → My Subscription → Purchase diagnostics.
+ * Owners and admins only. Reached from Support (long-press the title, or the link at the bottom) and the locked paywall's help sheet.
  */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
@@ -60,13 +60,13 @@ export default function BillingDiagnosticsScreen() {
   const { c, glass, glassBorder } = useOrbitColors();
   const { household, currentMember } = useOrbit();
   const access = useAccess();
-  const access_ = useBillingDiagnosticsAccess();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
   const allowedRole = !currentMember || currentMember.role === 'owner' || currentMember.role === 'admin';
-  const allowed = access_ === true && allowedRole;
+  // Any build: this is the payment-problem page, reached from Support or the locked paywall.
+  const allowed = allowedRole;
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -115,13 +115,13 @@ export default function BillingDiagnosticsScreen() {
   // invisible presentation over Home that blocked every touch).
   const leftRef = useRef(false);
   useEffect(() => {
-    if (access_ === null || allowed || leftRef.current) return;
+    if (allowed || leftRef.current) return;
     leftRef.current = true;
     try {
       if (router.canGoBack()) router.back();
       else router.dismiss();
     } catch {}
-  }, [access_, allowed]);
+  }, [allowed]);
 
   const run = async (label: string, fn: () => Promise<string>) => {
     setBusy(label);
@@ -145,11 +145,10 @@ export default function BillingDiagnosticsScreen() {
 
   if (!allowed) {
     return (
-      <SettingsModalChrome backLabel="Subscription" title="Purchase diagnostics">
+      <SettingsModalChrome backLabel="Back" title="Purchase check">
         <View style={styles.body}>
-          {access_ === null ? <ActivityIndicator color={c.primary} /> : null}
           <Text style={{ color: c.textMuted }}>
-            {access_ === null ? 'Checking install type…' : 'Not available on this install.'}
+            Only the household owner or an admin can open this.
           </Text>
         </View>
       </SettingsModalChrome>
@@ -190,7 +189,7 @@ export default function BillingDiagnosticsScreen() {
 
   return (
     <SettingsModalChrome
-      backLabel="Subscription"
+      backLabel="Back"
       title="Purchase diagnostics"
       purpose="What StoreKit, this phone and the household say — for sandbox testing.">
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]}>
