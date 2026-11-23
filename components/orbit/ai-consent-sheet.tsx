@@ -85,7 +85,7 @@ export function AiConsentSheet() {
             onPress={() => void answer(true)}
             accessibilityRole="button"
             style={({ pressed }) => [styles.primary, { backgroundColor: accent, opacity: pressed || busy ? 0.8 : 1 }]}>
-            <Text style={styles.primaryText}>Allow</Text>
+            <Text style={styles.primaryText}>Continue</Text>
           </Pressable>
           <Pressable
             disabled={busy}

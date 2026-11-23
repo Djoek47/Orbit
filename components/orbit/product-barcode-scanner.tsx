@@ -41,7 +41,7 @@ export function ProductBarcodeScanner({ onCode, onClose }: ProductBarcodeScanner
         <Text style={[typography.body, { color: c.text }]}>
           Camera access is needed to scan product barcodes.
         </Text>
-        <OrbitButton onPress={() => requestPermission()}>Allow camera</OrbitButton>
+        <OrbitButton onPress={() => requestPermission()}>Continue</OrbitButton>
         <OrbitButton tone="secondary" onPress={onClose}>
           Cancel
         </OrbitButton>
