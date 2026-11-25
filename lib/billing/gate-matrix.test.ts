@@ -12,7 +12,8 @@ const paid = billingPast({ history: [], householdPremium: { expiresAt: '2026-09-
 const cases: [string, Parameters<typeof paywallMode>[0], string, string, string, boolean][] = [
   ['new household, eligible', { appleTrialEligible: true, past: fresh }, 'trial', 'Try it free for 7 days', 'Start free trial', true],
   ['new household, eligibility unknown', { appleTrialEligible: undefined, past: fresh }, 'trial', 'Try it free for 7 days', 'Start free trial', true],
-  ['Apple ID used trial', { appleTrialEligible: false, past: fresh }, 'subscribe', 'Keep your home on track', 'Subscribe', false],
+  // The trial follows the account: a used Apple ID only means ours (no payment) instead of Apple's.
+  ['Apple ID used trial, new account', { appleTrialEligible: false, past: fresh }, 'trial', 'Try it free for 7 days', 'Start free trial', true],
   ['household trial ended', { appleTrialEligible: true, past: hadTrial }, 'trial-ended', 'Keep your house running', 'Subscribe to continue', false],
   ['lapsed returning', { appleTrialEligible: false, past: paid }, 'renew', 'Welcome back', 'Renew my subscription', false],
   ['billing issue', { appleTrialEligible: false, past: paid, billingIssue: true }, 'payment-issue', "Apple couldn't charge your card", 'Update payment', false],

@@ -12,11 +12,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useRef } from 'react';
-import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText as Text } from '@/components/orbit/app-text';
-import { CHOREMAXX_LEGAL } from '@/constants/choremaxx-brand';
 import { useOrbitColors } from '@/lib/theme/use-orbit-colors';
 
 type Row = {
@@ -68,25 +67,6 @@ export function AccountEscapeSheet({ visible, onClose, onRestore, onSignOut, isO
       },
     },
     { key: 'support', icon: 'support-agent', label: 'Get help', onPress: () => go('/support') },
-    {
-      key: 'diagnostics',
-      icon: 'science',
-      label: 'Purchase check',
-      hint: 'What this phone and your household say about your purchase',
-      onPress: () => go('/billing-diagnostics'),
-    },
-    {
-      key: 'terms',
-      icon: 'description',
-      label: 'Terms of Use',
-      onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.termsUrl),
-    },
-    {
-      key: 'privacy',
-      icon: 'privacy-tip',
-      label: 'Privacy Policy',
-      onPress: () => void Linking.openURL(CHOREMAXX_LEGAL.privacyUrl),
-    },
     ...(isOwner
       ? ([
           {

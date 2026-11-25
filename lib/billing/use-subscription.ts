@@ -32,6 +32,8 @@ export type SubscriptionInfo = {
   /** Apple's trial eligibility per plan. */
   eligible: { monthly?: boolean; yearly?: boolean };
   mode: PaywallMode;
+  /** The trial on offer is ours (no payment): this Apple ID already used Apple's. */
+  appTrial: boolean;
   lastEndedAt: string | null;
   refresh: () => Promise<void>;
 };
@@ -83,5 +85,6 @@ export function useSubscription(
       : Boolean(eligible.monthly || eligible.yearly);
   const mode = paywallMode({ appleTrialEligible, past, billingIssue: renewal.billingIssue });
 
-  return { ready, history, renewal, eligible, mode, lastEndedAt: past.lastEndedAt, refresh };
+  const appTrial = mode === 'trial' && appleTrialEligible === false;
+  return { ready, history, renewal, eligible, mode, appTrial, lastEndedAt: past.lastEndedAt, refresh };
 }

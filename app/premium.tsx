@@ -61,7 +61,7 @@ export default function PremiumScreen() {
   // After sign-up and once the gate is shut there is no "Not now" — only Settings may close it.
   const dismissible = !gated && !fromOnboarding;
   const insets = useSafeAreaInsets();
-  const { household, orbitPalette, accentTheme, currentMember, currentUser, signOut } = useOrbit();
+  const { household, orbitPalette, accentTheme, currentMember, currentUser, signOut, refreshHousehold } = useOrbit();
   const access = useAccess();
   const sub = useSubscription(household.premium, currentUser?.trialUsedAt);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -262,6 +262,33 @@ export default function PremiumScreen() {
     setBusy(true);
     setErrorMessage(null);
     setStatusMessage(null);
+    // This Apple ID already had Apple's trial, but this account never had one: ours, no payment.
+    if (sub.appTrial && household?.id) {
+      const { startAppTrial } = await import('@/lib/billing/start-app-trial');
+      const result = await startAppTrial(household.id);
+      if (result.ok) {
+        await refreshHousehold().catch(() => undefined);
+        await access.refresh();
+        void sub.refresh();
+        Alert.alert(
+          'Your free trial has started',
+          `Everything is open until ${formatRenewalDate(result.endsAt)}. Nothing is charged; subscribe any time to keep going after that.`
+        );
+        await setPremiumOnboardingGate('started');
+        setBusy(false);
+        await leave('started');
+      } else {
+        setBusy(false);
+        setErrorMessage(
+          result.reason === 'trial_used'
+            ? 'This account already had its free trial. Subscribe to continue.'
+            : result.reason === 'forbidden'
+              ? 'Only the household owner or an admin can start the trial.'
+              : 'Could not start the trial. Check your connection and try again.'
+        );
+      }
+      return;
+    }
     try {
       const next = await purchasePremium(product);
       setEntitlement(next);
@@ -476,7 +503,8 @@ export default function PremiumScreen() {
       onDismiss={() => void leave(fromOnboarding ? 'deferred' : 'skipped')}
       dismissible={dismissible}
       onAccount={() => setAccountOpen(true)}
-      trialEligibleByPeriod={eligible}
+      trialEligibleByPeriod={sub.appTrial ? { monthly: true, yearly: true } : eligible}
+      noCardTrial={sub.appTrial}
       storePrices={storePrices}
       notice={notice}
       footerSlot={

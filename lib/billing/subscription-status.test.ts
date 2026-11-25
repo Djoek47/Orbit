@@ -31,13 +31,11 @@ const paid: HistoryEntry = { id: 'p', productId: M, startedAt: iso(-60 * day), e
 const fresh = billingPast({ history: [] });
 assert.equal(paywallMode({ appleTrialEligible: true, past: fresh }), 'trial');
 assert.equal(paywallMode({ appleTrialEligible: undefined, past: fresh }), 'trial', 'unknown = eligible');
-assert.equal(paywallMode({ appleTrialEligible: false, past: fresh }), 'subscribe');
-
-// This phone's Apple ID had a trial: a new house is not "trial ended", but no second trial —
-// even if Apple's probe (or its failure) says yes.
+// The trial follows the Choremaxx account, not the phone's Apple ID: a new account on a phone
+// whose Apple ID used Apple's trial still gets one (ours, start_app_trial).
+assert.equal(paywallMode({ appleTrialEligible: false, past: fresh }), 'trial');
 const afterTrial = billingPast({ history: [trial] });
-assert.equal(paywallMode({ appleTrialEligible: true, past: afterTrial }), 'subscribe');
-assert.equal(paywallMode({ appleTrialEligible: undefined, past: afterTrial }), 'subscribe');
+assert.equal(paywallMode({ appleTrialEligible: false, past: afterTrial }), 'trial');
 // The person had a trial in some household (profiles.trial_used_at): never another.
 const personTrial = billingPast({ history: [], householdPremium: null, userTrialUsedAt: iso(-30 * day) });
 assert.equal(paywallMode({ appleTrialEligible: true, past: personTrial }), 'subscribe');
@@ -48,8 +46,6 @@ const wiped = billingPast({
 });
 assert.equal(paywallMode({ appleTrialEligible: true, past: wiped }), 'trial-ended');
 assert.equal(paywallMode({ appleTrialEligible: undefined, past: wiped }), 'trial-ended');
-// Apple says this Apple ID already used it: no trial, but not "ended" either.
-assert.equal(paywallMode({ appleTrialEligible: false, past: afterTrial }), 'subscribe');
 // The household row remembers it too (another admin's phone had the trial).
 const rowTrial = billingPast({
   history: [],

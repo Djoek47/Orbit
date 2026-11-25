@@ -72,8 +72,9 @@ export function billingPast(input: {
   const usedTrial =
     Boolean(householdPremium?.trialUsedAt) || (recorded && Boolean(householdPremium?.inTrial));
   const everPaid = recorded && !householdPremium?.inTrial;
-  const accountUsedTrial =
-    Boolean(input.userTrialUsedAt) || input.history.some((entry) => entry.kind === 'trial');
+  // The trial follows the Choremaxx account, not the phone or its Apple ID: a new account gets
+  // one even on a phone whose Apple ID already used Apple's (start_app_trial covers that case).
+  const accountUsedTrial = Boolean(input.userTrialUsedAt);
   const ends = [householdPremium?.expiresAt ?? null]
     .filter((v): v is string => Boolean(v))
     .map((v) => new Date(v).getTime())
@@ -99,7 +100,7 @@ export function paywallMode(input: {
   // This person or this Apple ID already had a trial (another house, or a record Apple's
   // eligibility probe missed): never a second one, whatever the probe says.
   if (past.accountUsedTrial) return 'subscribe';
-  if (input.appleTrialEligible === false) return 'subscribe';
+  // Apple saying no only changes who grants the trial (our own, no payment), not whether.
   return 'trial';
 }
 

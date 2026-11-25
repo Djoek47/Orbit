@@ -83,6 +83,8 @@ export type PremiumPaywallProps = {
    * Missing entries count as eligible — the purchase sheet Apple shows is the final word.
    */
   trialEligibleByPeriod?: Partial<Record<IapProductKey, boolean>>;
+  /** Our own free trial: no payment now, nothing renews on its own. */
+  noCardTrial?: boolean;
   /** One line above the price, e.g. "Your free trial has ended." */
   notice?: string | null;
   /** Rendered last, for sheets that belong to this screen. */
@@ -121,6 +123,7 @@ export function PremiumPaywall({
   dismissible = true,
   onAccount,
   trialEligibleByPeriod,
+  noCardTrial,
   notice = null,
   footerSlot = null,
   storePrices = {},
@@ -286,7 +289,12 @@ export function PremiumPaywall({
             <Text style={[styles.support, { color: sx ? sx.textSoft : c.textMuted }]}>
               {alreadyPremium && usage
                 ? `${usage.tokensUsedThisPeriod} of ${usage.tokensPerMonth} tokens used this period`
-                : offerLine}
+                : // The plan cards already show each price; under the title only the free trial is worth saying.
+                  trialEligible && !loading
+                  ? noCardTrial
+                    ? `${BILLING_TRIAL_DAYS} days free, no payment needed`
+                    : offerLine
+                  : ' '}
             </Text>
           </Animated.View>
         </Animated.View>
@@ -368,7 +376,9 @@ export function PremiumPaywall({
         {/* Required by Apple next to the button (3.1.2): price, period, auto-renewal, how to cancel. Kept to one line. */}
         {offerLine.trim() ? (
           <Text style={[styles.legal, { color: sx ? sx.textMuted : c.textSubtle }]}>
-            {offerLine}. Charged to your Apple ID {trialEligible ? 'when the trial ends' : 'when you confirm'}; renews automatically. Cancel anytime in Settings › Apple ID › Subscriptions.
+            {noCardTrial && trialEligible
+              ? `${BILLING_TRIAL_DAYS} days free, no payment needed. Nothing is charged unless you subscribe after.`
+              : `${offerLine}. Charged to your Apple ID ${trialEligible ? 'when the trial ends' : 'when you confirm'}; renews automatically. Cancel anytime in Settings › Apple ID › Subscriptions.`}
           </Text>
         ) : null}
 

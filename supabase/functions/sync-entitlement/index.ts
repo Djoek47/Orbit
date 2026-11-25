@@ -126,10 +126,12 @@ Deno.serve(async (req) => {
       .eq('id', householdId)
       .maybeSingle();
     const sameSubscription = current?.premium_original_transaction_id === originalTransactionId;
+    // Our own no-payment trial (start_app_trial) never stands in the way of a real subscription.
+    const appTrial = String(current?.premium_original_transaction_id ?? '').startsWith('app-trial:');
     const currentMs = current?.premium_expires_at
       ? new Date(current.premium_expires_at).getTime()
       : 0;
-    if (!sameSubscription && currentMs > expiresAtMs) {
+    if (!sameSubscription && !appTrial && currentMs > expiresAtMs) {
       return json({ ok: true, ignored: 'shorter_than_current' });
     }
 

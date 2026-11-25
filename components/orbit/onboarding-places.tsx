@@ -107,8 +107,7 @@ export function OnboardingPlaces({ places, onChange, onContinue, onSkip, accent 
     <View style={styles.wrap}>
       <Text style={[typography.title1, { color: c.text }]}>Where is home?</Text>
       <Text style={[typography.footnote, { color: c.textMuted, lineHeight: 20 }]}>
-        The map follows you. Poppins uses this GPS to find nearby grocery and clothing stores,
-        and to ask before redirecting you when a list item is on an in-store deal. You can skip.
+        Poppins AI assistance may need your location to optimize recommendations. Feel free to skip.
       </Text>
       <PlaceMap
         height={168}
