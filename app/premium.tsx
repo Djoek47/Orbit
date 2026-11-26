@@ -108,7 +108,11 @@ export default function PremiumScreen() {
   // The mode's own headline says "trial ended" or "welcome back"; the only extra line is for a
   // house that has never recorded a subscription but has a second admin who may be paying.
   // The owner asked for no extra line here; the mode's own headline carries the message.
-  const notice: string | null = null;
+  const notice: string | null = sub.appTrial
+    ? 'This Apple ID already used its free trial. You get one more with this account; after that, all free trials for this Apple ID are used.'
+    : sub.appleTrialsUsed
+      ? 'All free trials for this Apple ID have been used.'
+      : null;
   // From Poppins during a trial: sell the subscription, which is what brings the 300 a month.
   const upgradeFromTrial = params.source === 'poppins' && access.view.level === 'trial';
   const copy = upgradeFromTrial
@@ -265,7 +269,7 @@ export default function PremiumScreen() {
     // This Apple ID already had Apple's trial, but this account never had one: ours, no payment.
     if (sub.appTrial && household?.id) {
       const { startAppTrial } = await import('@/lib/billing/start-app-trial');
-      const result = await startAppTrial(household.id);
+      const result = await startAppTrial(household.id, sub.appleKey);
       if (result.ok) {
         await refreshHousehold().catch(() => undefined);
         await access.refresh();
@@ -280,7 +284,9 @@ export default function PremiumScreen() {
       } else {
         setBusy(false);
         setErrorMessage(
-          result.reason === 'trial_used'
+          result.reason === 'apple_trials_used'
+            ? 'All free trials for this Apple ID have been used. Subscribe to continue.'
+            : result.reason === 'trial_used'
             ? 'This account already had its free trial. Subscribe to continue.'
             : result.reason === 'forbidden'
               ? 'Only the household owner or an admin can start the trial.'

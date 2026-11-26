@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
+  fetchAppleIdKey,
   fetchRenewalState,
   fetchSubscriptionHistory,
   isTrialEligible,
@@ -34,6 +35,10 @@ export type SubscriptionInfo = {
   mode: PaywallMode;
   /** The trial on offer is ours (no payment): this Apple ID already used Apple's. */
   appTrial: boolean;
+  /** This Apple ID has used Apple's trial and the one extra we give: no more trials. */
+  appleTrialsUsed: boolean;
+  /** Key for this phone's Apple ID (see fetchAppleIdKey), passed to start_app_trial. */
+  appleKey: string | null;
   lastEndedAt: string | null;
   refresh: () => Promise<void>;
 };
@@ -55,6 +60,8 @@ export function useSubscription(
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [renewal, setRenewal] = useState<RenewalState>(NO_RENEWAL);
   const [eligible, setEligible] = useState<{ monthly?: boolean; yearly?: boolean }>({});
+  const [appleKey, setAppleKey] = useState<string | null>(null);
+  const [appleTrialsUsed, setAppleTrialsUsed] = useState(false);
 
   const refresh = useCallback(async () => {
     const [h, r, monthly, yearly] = await Promise.all([
@@ -63,9 +70,21 @@ export function useSubscription(
       isTrialEligible('monthly').catch(() => true),
       isTrialEligible('yearly').catch(() => true),
     ]);
+    // Apple says this Apple ID used its trial: has it also used the one extra we give?
+    let key: string | null = null;
+    let used = false;
+    if (monthly === false && yearly === false) {
+      key = await fetchAppleIdKey();
+      if (key) {
+        const { appTrialUsedFor } = await import('@/lib/billing/start-app-trial');
+        used = await appTrialUsedFor(key);
+      }
+    }
     setHistory(h);
     setRenewal(r);
     setEligible({ monthly, yearly });
+    setAppleKey(key);
+    setAppleTrialsUsed(used);
     setReady(true);
   }, []);
 
@@ -83,8 +102,9 @@ export function useSubscription(
     eligible.monthly === undefined && eligible.yearly === undefined
       ? undefined
       : Boolean(eligible.monthly || eligible.yearly);
-  const mode = paywallMode({ appleTrialEligible, past, billingIssue: renewal.billingIssue });
+  const rawMode = paywallMode({ appleTrialEligible, past, billingIssue: renewal.billingIssue });
+  const mode: PaywallMode = rawMode === 'trial' && appleTrialEligible === false && appleTrialsUsed ? 'subscribe' : rawMode;
 
   const appTrial = mode === 'trial' && appleTrialEligible === false;
-  return { ready, history, renewal, eligible, mode, appTrial, lastEndedAt: past.lastEndedAt, refresh };
+  return { ready, history, renewal, eligible, mode, appTrial, appleTrialsUsed: appleTrialsUsed && rawMode === 'trial', appleKey, lastEndedAt: past.lastEndedAt, refresh };
 }

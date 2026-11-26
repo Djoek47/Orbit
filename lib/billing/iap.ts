@@ -167,6 +167,30 @@ export async function fetchSubscriptionHistory(): Promise<HistoryEntry[]> {
   }
 }
 
+/**
+ * A stable key for this phone's Apple ID: the original transaction id of its Choremaxx
+ * subscription (the same for every renewal and plan change in the group). Null when this Apple
+ * ID never subscribed, or StoreKit is unavailable.
+ */
+export async function fetchAppleIdKey(): Promise<string | null> {
+  if (!isNativeIapAvailable()) return null;
+  try {
+    return await withNativeIap(async (iap) => {
+      await iap.initConnection();
+      const listed = await iap.getAvailablePurchases({ onlyIncludeActiveItemsIOS: false });
+      for (const raw of Array.isArray(listed) ? listed : []) {
+        const row = raw as unknown as Record<string, unknown>;
+        if (!SUBSCRIPTION_IDS.includes(String(row.productId ?? ''))) continue;
+        const id = row.originalTransactionIdentifierIOS ?? row.originalTransactionId;
+        if (id) return `otx:${String(id)}`;
+      }
+      return null;
+    });
+  } catch {
+    return null;
+  }
+}
+
 export type RenewalState = {
   /** False once the person turned auto-renew off in Apple's settings. Null when unknown. */
   willRenew: boolean | null;
