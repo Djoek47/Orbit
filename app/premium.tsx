@@ -64,6 +64,10 @@ export default function PremiumScreen() {
   const { household, orbitPalette, accentTheme, currentMember, currentUser, signOut, refreshHousehold } = useOrbit();
   const access = useAccess();
   const sub = useSubscription(household.premium, currentUser?.trialUsedAt);
+  // Our no-payment trial could not start (used up, or the server refused): never leave a dead
+  // button. The page falls back to a normal Apple subscription right away.
+  const [appTrialUnavailable, setAppTrialUnavailable] = useState(false);
+  const appTrial = sub.appTrial && !appTrialUnavailable;
   const [accountOpen, setAccountOpen] = useState(false);
   const [eligible, setEligible] = useState<Partial<Record<'monthly' | 'yearly', boolean>>>({});
   const [storePrices, setStorePrices] = useState<Record<string, StorePrice>>({});
@@ -108,7 +112,7 @@ export default function PremiumScreen() {
   // The mode's own headline says "trial ended" or "welcome back"; the only extra line is for a
   // house that has never recorded a subscription but has a second admin who may be paying.
   // The owner asked for no extra line here; the mode's own headline carries the message.
-  const notice: string | null = sub.appTrial
+  const notice: string | null = appTrial
     ? 'This Apple ID already used its free trial. You get one more with this account; after that, all free trials for this Apple ID are used.'
     : sub.appleTrialsUsed
       ? 'All free trials for this Apple ID have been used.'
@@ -267,7 +271,7 @@ export default function PremiumScreen() {
     setErrorMessage(null);
     setStatusMessage(null);
     // This Apple ID already had Apple's trial, but this account never had one: ours, no payment.
-    if (sub.appTrial && household?.id) {
+    if (appTrial && household?.id) {
       const { startAppTrial } = await import('@/lib/billing/start-app-trial');
       const result = await startAppTrial(household.id, sub.appleKey);
       if (result.ok) {
@@ -283,6 +287,8 @@ export default function PremiumScreen() {
         await leave('started');
       } else {
         setBusy(false);
+        setAppTrialUnavailable(true);
+        void sub.refresh();
         setErrorMessage(
           result.reason === 'apple_trials_used'
             ? 'All free trials for this Apple ID have been used. Subscribe to continue.'
@@ -290,7 +296,7 @@ export default function PremiumScreen() {
             ? 'This account already had its free trial. Subscribe to continue.'
             : result.reason === 'forbidden'
               ? 'Only the household owner or an admin can start the trial.'
-              : 'Could not start the trial. Check your connection and try again.'
+              : 'The free trial could not start. You can still subscribe below.'
         );
       }
       return;
@@ -509,8 +515,8 @@ export default function PremiumScreen() {
       onDismiss={() => void leave(fromOnboarding ? 'deferred' : 'skipped')}
       dismissible={dismissible}
       onAccount={() => setAccountOpen(true)}
-      trialEligibleByPeriod={sub.appTrial ? { monthly: true, yearly: true } : eligible}
-      noCardTrial={sub.appTrial}
+      trialEligibleByPeriod={appTrial ? { monthly: true, yearly: true } : eligible}
+      noCardTrial={appTrial}
       storePrices={storePrices}
       notice={notice}
       footerSlot={
